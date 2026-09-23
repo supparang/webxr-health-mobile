@@ -1,241 +1,571 @@
-(function(){
+(function () {
   "use strict";
-  var KEY="activa_ai_v01_state";
-  var session=null, activeView="dashboard", qrTimer=null;
 
-  function uid(prefix){return prefix+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);}
-  function nowISO(){return new Date().toISOString();}
-  function fmt(dt){if(!dt)return "-";return new Date(dt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"});}
-  function escapeHtml(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c];});}
-  function hashText(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16);}
-  function defaultState(){
-    var eventId="EVT-DEMO-001";
-    return {
-      users:[
-        {id:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",role:"ADMIN"},
-        {id:"ORG001",name:"ผู้จัดกิจกรรมตัวอย่าง",role:"ORGANIZER"},
-        {id:"STF001",name:"เจ้าหน้าที่ตรวจสอบตัวอย่าง",role:"STAFF"},
-        {id:"P001",name:"ผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT"},
-        {id:"P002",name:"ผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT"},
-        {id:"P003",name:"ผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT"}
-      ],
-      activities:[
-        {id:eventId,title:"อบรมการใช้ AI อย่างรับผิดชอบ",category:"พัฒนาบุคลากร",date:new Date().toISOString().slice(0,10),start:"09:00",end:"16:00",location:"ห้องประชุมคณะ",organizer:"ORG001",
-         policy:{qr:true,identity:true,checkin:true,checkout:true,duration:true,staff:true,signature:false,minDurationRatio:0.75},
-         qr:null}
-      ],
-      attendance:[],
-      reviews:[],
-      audit:[],
-      settings:{qrTtlSeconds:45}
-    };
-  }
-  function load(){try{var x=JSON.parse(localStorage.getItem(KEY)||"null");return x&&x.users?x:defaultState();}catch(e){return defaultState();}}
-  function save(){localStorage.setItem(KEY,JSON.stringify(state));}
-  function audit(action,entity,meta){
-    state.audit.unshift({id:uid("AUD"),at:nowISO(),actor:session?session.id:"SYSTEM",action:action,entity:entity,meta:meta||""});
-    state.audit=state.audit.slice(0,300);save();
-  }
-  var state=load();
+  const SESSION_KEY = "activa_ai_v022_session";
+  let session = readSession();
+  let activeView = "dashboard";
+  let qrTimer = null;
+  let qrState = null;
 
-  function app(){return document.getElementById("app");}
-  function setView(v){activeView=v;render();}
-  function roleLabel(r){return ({ADMIN:"ผู้ดูแลระบบ",ORGANIZER:"ผู้จัดกิจกรรม",STAFF:"เจ้าหน้าที่ตรวจสอบ",PARTICIPANT:"ผู้เข้าร่วม"})[r]||r;}
-  function getUser(id){return state.users.find(function(u){return u.id===id;});}
-  function getActivity(id){return state.activities.find(function(a){return a.id===id;});}
+  const app = () => document.getElementById("app");
+  const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[c]);
+  const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
+  const roleLabel = (r) => ({ADMIN:"ผู้ดูแลระบบ",ORGANIZER:"ผู้จัดกิจกรรม",STAFF:"เจ้าหน้าที่ตรวจสอบ",PARTICIPANT:"ผู้เข้าร่วม"})[r] || r;
+  const can = (...roles) => session && roles.includes(session.role);
 
-  function render(){
-    clearInterval(qrTimer);qrTimer=null;
-    if(!session){renderLogin();return;}
-    app().innerHTML='<div class="shell">'+sidebar()+ '<main class="main"><div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE V0.1</div><h1>'+viewTitle()+'</h1></div><div><span class="badge">'+escapeHtml(session.name)+' • '+roleLabel(session.role)+'</span></div></div><div id="view"></div></main></div>';
-    document.querySelectorAll("[data-view]").forEach(function(b){b.addEventListener("click",function(){setView(b.getAttribute("data-view"));});});
-    document.getElementById("logout").addEventListener("click",function(){audit("LOGOUT","SESSION","");session=null;render();});
-    var v=document.getElementById("view");
-    if(activeView==="dashboard") renderDashboard(v);
-    if(activeView==="activities") renderActivities(v);
-    if(activeView==="qr") renderQr(v);
-    if(activeView==="attendance") renderAttendance(v);
-    if(activeView==="evidence") renderEvidence(v);
-    if(activeView==="review") renderReview(v);
-    if(activeView==="audit") renderAudit(v);
-    if(activeView==="research") renderResearch(v);
+  function readSession() {
+    try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }
+    catch { return null; }
   }
 
-  function viewTitle(){return ({dashboard:"ภาพรวม",activities:"กิจกรรมและนโยบายหลักฐาน",qr:"Dynamic QR",attendance:"Check-in / Check-out",evidence:"Evidence Matrix",review:"Human Review",audit:"Audit Trail",research:"Research Export"})[activeView]||"ACTIVA-AI";}
-  function sidebar(){
-    var nav=[["dashboard","ภาพรวม"],["activities","กิจกรรม"],["qr","Dynamic QR"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"],["review","ตรวจสอบ"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]];
-    return '<aside class="sidebar"><div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div><div class="nav">'+nav.map(function(n){return '<button data-view="'+n[0]+'" class="'+(activeView===n[0]?'active':'')+'">'+n[1]+'</button>';}).join("")+'<button id="logout">ออกจากระบบ</button></div><div class="version">V0.1 • Rule-based research prototype</div></aside>';
+  function saveSession() {
+    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    else sessionStorage.removeItem(SESSION_KEY);
   }
 
-  function renderLogin(){
-    app().innerHTML='<div class="login-wrap"><div class="login-card"><div class="kicker">ACTIVA-AI</div><h1>เข้าสู่ระบบ</h1><p>ต้นแบบระบบตรวจสอบหลักฐานการเข้าร่วมกิจกรรมแบบหลายแหล่ง</p><div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div><div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div><div class="field" style="margin-top:10px"><label>รหัสผ่าน</label><input id="loginPw" type="password" value="demo"></div><div class="actions"><button class="btn primary" id="loginBtn">เข้าสู่ระบบ</button><button class="btn secondary" id="resetBtn">ล้างข้อมูลทดลอง</button></div><div id="loginMsg"></div></div></div>';
-    document.getElementById("loginBtn").onclick=function(){
-      var id=document.getElementById("loginId").value.trim().toUpperCase();
-      var u=getUser(id);
-      if(!u){document.getElementById("loginMsg").innerHTML='<div class="alert bad">ไม่พบรหัสบุคลากรตัวอย่าง</div>';return;}
-      session=u;activeView="dashboard";audit("LOGIN","SESSION","demo-login");render();
-    };
-    document.getElementById("resetBtn").onclick=function(){localStorage.removeItem(KEY);state=defaultState();document.getElementById("loginMsg").innerHTML='<div class="alert ok">ล้างข้อมูลทดลองแล้ว</div>';};
-  }
+  async function api(path, options = {}, actorOverride = null) {
+    const headers = new Headers(options.headers || {});
+    headers.set("Accept", "application/json");
+    if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const actor = actorOverride || session?.employeeId;
+    if (actor) headers.set("x-activa-user-id", actor);
 
-  function summary(){
-    var att=state.attendance;
-    return {
-      activities:state.activities.length,
-      records:att.length,
-      verified:att.filter(function(r){return r.finalStatus==="VERIFIED";}).length,
-      review:att.filter(function(r){return evidenceStatus(r).status==="REVIEW_REQUIRED";}).length,
-      incomplete:att.filter(function(r){return evidenceStatus(r).status==="INCOMPLETE";}).length
-    };
-  }
-  function renderDashboard(v){
-    var s=summary();
-    v.innerHTML='<div class="grid cards">'+
-      card("กิจกรรม",s.activities)+card("รายการเข้าร่วม",s.records)+card("รับรองแล้ว",s.verified)+card("ต้องตรวจสอบ",s.review)+card("หลักฐานไม่ครบ",s.incomplete)+
-      '</div><div class="panel"><h2>เส้นทางการตรวจสอบ</h2><div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div><p class="muted">V0.1 ใช้กฎตรวจสอบและข้อมูลใน localStorage เพื่อการสาธิต ยังไม่ใช่ระบบผลิตจริงและยังไม่ใช้โมเดล AI ในการให้คะแนนความเสี่ยง</p></div>';
-  }
-  function card(label,n){return '<div class="card"><div class="label">'+label+'</div><div class="n">'+n+'</div></div>';}
-
-  function renderActivities(v){
-    v.innerHTML='<div class="panel"><h2>สร้างกิจกรรม</h2><div class="form-grid">'+
-      fld("ชื่อกิจกรรม","aTitle","เช่น อบรมการใช้ AI")+
-      '<div class="field"><label>ประเภทกิจกรรม</label><select id="aCat"><option>พัฒนาบุคลากร</option><option>ประชุม</option><option>บริการวิชาการ</option><option>วิจัย</option><option>ประกันคุณภาพ</option></select></div>'+
-      fld("วันที่","aDate","", "date", new Date().toISOString().slice(0,10))+
-      fld("สถานที่","aLoc","ห้องประชุม")+
-      fld("เวลาเริ่ม","aStart","", "time","09:00")+
-      fld("เวลาสิ้นสุด","aEnd","", "time","16:00")+
-      '</div><h3>นโยบายหลักฐานของกิจกรรม</h3><div class="policy" id="policyBox">'+
-      check("pQr","QR กิจกรรม",true)+check("pId","ยืนยันตัวตน",true)+check("pIn","Check-in",true)+check("pOut","Check-out",true)+check("pDur","ระยะเวลา",true)+check("pStaff","เจ้าหน้าที่ยืนยัน",true)+check("pSig","ลายเซ็น",false)+
-      '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="pRatio" type="number" min="0" max="1" step=".05" value=".75"></div></div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'+
-      '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable()+'</div>';
-    document.getElementById("createAct").onclick=function(){
-      var title=document.getElementById("aTitle").value.trim();
-      if(!title){document.getElementById("actMsg").innerHTML='<div class="alert bad">กรุณาระบุชื่อกิจกรรม</div>';return;}
-      var a={id:uid("EVT"),title:title,category:document.getElementById("aCat").value,date:document.getElementById("aDate").value,start:document.getElementById("aStart").value,end:document.getElementById("aEnd").value,location:document.getElementById("aLoc").value,organizer:session.id,policy:{qr:ck("pQr"),identity:ck("pId"),checkin:ck("pIn"),checkout:ck("pOut"),duration:ck("pDur"),staff:ck("pStaff"),signature:ck("pSig"),minDurationRatio:Number(document.getElementById("pRatio").value||.75)},qr:null};
-      state.activities.unshift(a);audit("ACTIVITY_CREATED",a.id,a.title);renderActivities(v);
-    };
-  }
-  function fld(label,id,ph,type,val){return '<div class="field"><label>'+label+'</label><input id="'+id+'" type="'+(type||"text")+'" placeholder="'+(ph||"")+'" value="'+(val||"")+'"></div>';}
-  function check(id,label,on){return '<label class="check"><input type="checkbox" id="'+id+'" '+(on?'checked':'')+'> '+label+'</label>';}
-  function ck(id){return document.getElementById(id).checked;}
-  function activitiesTable(){
-    return '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>วัน/เวลา</th><th>สถานที่</th><th>นโยบายหลักฐาน</th></tr></thead><tbody>'+state.activities.map(function(a){
-      var req=Object.keys(a.policy).filter(function(k){return typeof a.policy[k]==="boolean"&&a.policy[k];}).join(", ");
-      return '<tr><td><b>'+escapeHtml(a.title)+'</b><br><span class="muted">'+escapeHtml(a.category)+' • '+a.id+'</span></td><td>'+escapeHtml(a.date)+' '+escapeHtml(a.start)+'–'+escapeHtml(a.end)+'</td><td>'+escapeHtml(a.location)+'</td><td>'+escapeHtml(req)+'</td></tr>';
-    }).join("")+'</tbody></table></div>';
-  }
-
-  function issueToken(activity){
-    var ttl=state.settings.qrTtlSeconds||45, issued=Date.now(), expires=issued+ttl*1000, nonce=Math.random().toString(36).slice(2,10);
-    var raw=[activity.id,issued,expires,nonce].join("|");
-    activity.qr={token:raw+"|"+hashText(raw+"|ACTIVA-DEMO"),issuedAt:new Date(issued).toISOString(),expiresAt:new Date(expires).toISOString(),nonce:nonce};
-    save();return activity.qr;
-  }
-  function renderQr(v){
-    var opts=state.activities.map(function(a){return '<option value="'+a.id+'">'+escapeHtml(a.title)+'</option>';}).join("");
-    v.innerHTML='<div class="panel"><h2>Dynamic Event QR</h2><div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+opts+'</select></div><div class="actions"><button class="btn primary" id="newQr">สร้าง/หมุน QR ใหม่</button></div><div id="qrArea"></div><div class="hint">QR รุ่นต้นแบบหมุนทุก '+state.settings.qrTtlSeconds+' วินาที และไม่บรรจุข้อมูลส่วนบุคคล ใช้ event_id + issued_at + expires_at + nonce + signature จำลอง</div></div>';
-    function show(){
-      var a=getActivity(document.getElementById("qrAct").value);if(!a)return;
-      if(!a.qr||new Date(a.qr.expiresAt).getTime()<=Date.now()) issueToken(a);
-      var remain=Math.max(0,Math.ceil((new Date(a.qr.expiresAt).getTime()-Date.now())/1000));
-      document.getElementById("qrArea").innerHTML='<div class="qrbox" style="margin-top:18px"><div id="qrcode" class="qr"></div><div><b>'+escapeHtml(a.title)+'</b><p>หมดอายุใน <b>'+remain+'</b> วินาที</p><div class="token">'+escapeHtml(a.qr.token)+'</div></div></div>';
-      if(window.QRCode){new QRCode(document.getElementById("qrcode"),{text:a.qr.token,width:166,height:166});}
-      if(remain===0){issueToken(a);}
+    const response = await fetch(path, { ...options, headers });
+    let data = {};
+    try { data = await response.json(); } catch {}
+    if (!response.ok) {
+      const err = new Error(data.error || ("HTTP_" + response.status));
+      err.status = response.status;
+      err.data = data;
+      throw err;
     }
-    document.getElementById("newQr").onclick=function(){var a=getActivity(document.getElementById("qrAct").value);issueToken(a);audit("QR_ROTATED",a.id,"manual");show();};
-    document.getElementById("qrAct").onchange=show;show();qrTimer=setInterval(show,1000);
+    return data;
   }
 
-  function renderAttendance(v){
-    var acts=state.activities.map(function(a){return '<option value="'+a.id+'">'+escapeHtml(a.title)+'</option>';}).join("");
-    var parts=state.users.filter(function(u){return u.role==="PARTICIPANT";}).map(function(u){return '<option value="'+u.id+'">'+escapeHtml(u.id+" • "+u.name)+'</option>';}).join("");
-    v.innerHTML='<div class="split"><div class="panel"><h2>Check-in</h2><div class="field"><label>กิจกรรม</label><select id="ciAct">'+acts+'</select></div><div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+parts+'</select></div><div class="field" style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จากหน้า Dynamic QR"></textarea></div><div class="actions"><button class="btn primary" id="ciBtn">ยืนยัน Check-in</button></div><div id="ciMsg"></div></div>'+
-      '<div class="panel"><h2>Check-out / Staff Verification</h2><div class="field"><label>รายการที่ Check-in แล้ว</label><select id="coRecord">'+recordOptions()+'</select></div><div class="actions"><button class="btn secondary" id="coBtn">Check-out</button><button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button></div><div id="coMsg"></div></div></div>'+
-      '<div class="panel"><h2>รายการเข้า–ออกล่าสุด</h2>'+attendanceTable()+'</div>';
-    document.getElementById("ciBtn").onclick=function(){
-      var a=getActivity(document.getElementById("ciAct").value), uidv=document.getElementById("ciUser").value, token=document.getElementById("ciToken").value.trim();
-      if(!a.qr){document.getElementById("ciMsg").innerHTML='<div class="alert warn">ยังไม่มี QR ของกิจกรรมนี้</div>';return;}
-      var valid=token===a.qr.token && new Date(a.qr.expiresAt).getTime()>Date.now();
-      if(!valid){document.getElementById("ciMsg").innerHTML='<div class="alert bad">QR ไม่ถูกต้องหรือหมดอายุ</div>';audit("CHECKIN_REJECTED",a.id,uidv);return;}
-      var existing=state.attendance.find(function(r){return r.activityId===a.id&&r.userId===uidv&&!r.checkoutAt;});
-      if(existing){document.getElementById("ciMsg").innerHTML='<div class="alert warn">มี Check-in ที่ยังไม่ Check-out อยู่แล้ว</div>';return;}
-      var r={id:uid("ATT"),activityId:a.id,userId:uidv,qrValid:true,identityVerified:true,checkinAt:nowISO(),checkoutAt:null,staffVerified:false,signatureVerified:false,scanAttempts:1,finalStatus:null,humanDecision:null,humanReason:""};
-      state.attendance.unshift(r);audit("CHECKIN",r.id,a.id+"|"+uidv);renderAttendance(v);
+  function setView(view) {
+    activeView = view;
+    render();
+  }
+
+  function viewTitle() {
+    return ({
+      dashboard:"ภาพรวม",
+      activities:"กิจกรรมและนโยบายหลักฐาน",
+      qr:"Dynamic QR",
+      attendance:"Check-in / Check-out",
+      evidence:"Evidence Matrix",
+      review:"Human Review",
+      groundtruth:"Ground Truth",
+      audit:"Audit Trail",
+      research:"Research Export"
+    })[activeView] || "ACTIVA-AI";
+  }
+
+  function navItems() {
+    const out = [["dashboard","ภาพรวม"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"]];
+    if (can("ADMIN","ORGANIZER")) out.splice(1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
+    if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"]);
+    if (can("ADMIN")) out.push(["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
+    return out;
+  }
+
+  function shell() {
+    const nav = navItems().map(([key,label]) =>
+      '<button data-view="'+key+'" class="'+(activeView===key?"active":"")+'">'+label+'</button>'
+    ).join("");
+
+    return '<div class="shell">'+
+      '<aside class="sidebar">'+
+        '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
+        '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
+        '<div class="version">V0.2.2 • PostgreSQL/API source of truth</div>'+
+      '</aside>'+
+      '<main class="main">'+
+        '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
+        '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+roleLabel(session.role)+'</span></div></div>'+
+        '<div id="view"></div>'+
+      '</main></div>';
+  }
+
+  function showLoading(v, text) {
+    v.innerHTML = '<div class="panel"><div class="loading">'+esc(text || "กำลังโหลดข้อมูล…")+'</div></div>';
+  }
+
+  function errorBox(error) {
+    return '<div class="alert bad"><b>เกิดข้อผิดพลาด:</b> '+esc(error?.message || error)+
+      '<br><span class="muted">ตรวจว่า PostgreSQL และ ACTIVA-AI server กำลังทำงานอยู่</span></div>';
+  }
+
+  async function render() {
+    clearInterval(qrTimer);
+    qrTimer = null;
+    if (!session) return renderLogin();
+
+    app().innerHTML = shell();
+    document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => setView(b.dataset.view));
+    document.getElementById("logout").onclick = () => { session = null; saveSession(); activeView = "dashboard"; render(); };
+
+    const conn = document.getElementById("conn");
+    api("/api/health", {}, session.employeeId)
+      .then((d) => { conn.textContent = d.database === "connected" ? "ฐานข้อมูลพร้อม" : "ฐานข้อมูลมีปัญหา"; conn.className = "badge"; })
+      .catch(() => { conn.textContent = "ออฟไลน์"; conn.className = "badge danger"; });
+
+    const v = document.getElementById("view");
+    try {
+      if (activeView === "dashboard") await renderDashboard(v);
+      else if (activeView === "activities") await renderActivities(v);
+      else if (activeView === "qr") await renderQr(v);
+      else if (activeView === "attendance") await renderAttendance(v);
+      else if (activeView === "evidence") await renderEvidence(v);
+      else if (activeView === "review") await renderReview(v);
+      else if (activeView === "groundtruth") await renderGroundTruth(v);
+      else if (activeView === "audit") await renderAudit(v);
+      else if (activeView === "research") await renderResearch(v);
+    } catch (error) {
+      v.innerHTML = '<div class="panel">'+errorBox(error)+'</div>';
+    }
+  }
+
+  function renderLogin() {
+    app().innerHTML =
+      '<div class="login-wrap"><div class="login-card">'+
+      '<div class="kicker">ACTIVA-AI V0.2.2</div><h1>เข้าสู่ระบบ</h1>'+
+      '<p>Prototype นี้ใช้ฐานข้อมูล PostgreSQL และ API เป็นแหล่งข้อมูลหลัก</p>'+
+      '<div class="demo-box"><b>บัญชีทดลองหลังรัน seed</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
+      '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
+      '<div class="field" style="margin-top:10px"><label>รหัสผ่าน</label><input id="loginPw" type="password" value="demo" disabled></div>'+
+      '<div class="actions"><button class="btn primary" id="loginBtn">เข้าสู่ระบบทดลอง</button></div>'+
+      '<div class="hint">V0.2.2 ตรวจผู้ใช้จากฐานข้อมูลแล้ว แต่ยังไม่ใช่ระบบรหัสผ่าน/SSO จริง ช่องรหัสผ่านจึงปิดไว้เพื่อไม่สร้างความเข้าใจผิด</div>'+
+      '<div id="loginMsg"></div></div></div>';
+
+    document.getElementById("loginBtn").onclick = async () => {
+      const id = document.getElementById("loginId").value.trim().toUpperCase();
+      const msg = document.getElementById("loginMsg");
+      if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
+      msg.innerHTML = '<div class="alert">กำลังตรวจสอบบัญชี…</div>';
+      try {
+        const data = await api("/api/me", {}, id);
+        session = data.user;
+        saveSession();
+        activeView = "dashboard";
+        render();
+      } catch (error) {
+        msg.innerHTML = errorBox(error);
+      }
     };
-    document.getElementById("coBtn").onclick=function(){var r=findSelectedRecord("coRecord");if(!r)return;r.checkoutAt=nowISO();audit("CHECKOUT",r.id,"");renderAttendance(v);};
-    document.getElementById("staffBtn").onclick=function(){var r=findSelectedRecord("coRecord");if(!r)return;r.staffVerified=true;r.staffVerifiedAt=nowISO();r.staffVerifiedBy=session.id;audit("STAFF_VERIFIED",r.id,session.id);renderAttendance(v);};
-  }
-  function recordOptions(){return state.attendance.map(function(r){var u=getUser(r.userId),a=getActivity(r.activityId);return '<option value="'+r.id+'">'+escapeHtml((u?u.id:r.userId)+" • "+(a?a.title:r.activityId))+'</option>';}).join("");}
-  function findSelectedRecord(id){var el=document.getElementById(id);return el?state.attendance.find(function(r){return r.id===el.value;}):null;}
-  function durationRatio(r){
-    var a=getActivity(r.activityId);if(!a||!r.checkinAt||!r.checkoutAt)return null;
-    var total=(new Date(a.date+"T"+a.end).getTime()-new Date(a.date+"T"+a.start).getTime())/60000;
-    var actual=(new Date(r.checkoutAt)-new Date(r.checkinAt))/60000;
-    return total>0?Math.max(0,Math.min(1,actual/total)):null;
-  }
-  function attendanceTable(){
-    return '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>เข้า</th><th>ออก</th><th>Staff</th><th>สถานะหลักฐาน</th></tr></thead><tbody>'+state.attendance.map(function(r){var u=getUser(r.userId),a=getActivity(r.activityId),e=evidenceStatus(r);return '<tr><td>'+escapeHtml(u?u.id+" • "+u.name:r.userId)+'</td><td>'+escapeHtml(a?a.title:r.activityId)+'</td><td>'+fmt(r.checkinAt)+'</td><td>'+fmt(r.checkoutAt)+'</td><td>'+(r.staffVerified?"✓":"—")+'</td><td>'+statusBadge(e.status)+'</td></tr>';}).join("")+'</tbody></table></div>';
   }
 
-  function evidenceStatus(r){
-    var a=getActivity(r.activityId);if(!a)return {status:"REVIEW_REQUIRED",missing:["activity"],reasons:["ไม่พบกิจกรรม"]};
-    var p=a.policy, missing=[], reasons=[];
-    if(p.qr&&!r.qrValid)missing.push("QR");
-    if(p.identity&&!r.identityVerified)missing.push("Identity");
-    if(p.checkin&&!r.checkinAt)missing.push("Check-in");
-    if(p.checkout&&!r.checkoutAt)missing.push("Check-out");
-    if(p.staff&&!r.staffVerified)missing.push("Staff Verification");
-    if(p.signature&&!r.signatureVerified)missing.push("Signature");
-    var ratio=durationRatio(r);
-    if(p.duration&&r.checkoutAt&&ratio!=null&&ratio<p.minDurationRatio)reasons.push("ระยะเวลาต่ำกว่าเกณฑ์ "+Math.round(p.minDurationRatio*100)+"%");
-    if(r.staffVerified&&!r.checkinAt)reasons.push("เจ้าหน้าที่ยืนยันแต่ไม่มี Check-in");
-    if(r.finalStatus==="VERIFIED")return {status:"VERIFIED",missing:missing,reasons:reasons,ratio:ratio};
-    if(missing.length)return {status:"INCOMPLETE",missing:missing,reasons:reasons,ratio:ratio};
-    if(reasons.length)return {status:"REVIEW_REQUIRED",missing:missing,reasons:reasons,ratio:ratio};
-    return {status:"COMPLETE",missing:[],reasons:[],ratio:ratio};
-  }
-  function statusBadge(s){var cls=s==="VERIFIED"||s==="COMPLETE"?"s-ok":s==="INCOMPLETE"?"s-warn":s==="REVIEW_REQUIRED"?"s-bad":"s-info";return '<span class="status '+cls+'">'+s+'</span>';}
-
-  function renderEvidence(v){
-    v.innerHTML='<div class="panel"><h2>Evidence Matrix</h2><p class="muted">แยก Attendance Status ออกจาก Evidence Status เพื่อไม่ให้ “มีรายการสแกน” เท่ากับ “ได้รับการรับรองแล้ว”</p><div class="table-wrap"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>Staff</th><th>Evidence Status</th></tr></thead><tbody>'+state.attendance.map(function(r){var u=getUser(r.userId),e=evidenceStatus(r),ratio=e.ratio==null?"—":Math.round(e.ratio*100)+"%";return '<tr><td>'+escapeHtml(u?u.id:u)+'</td><td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td><td>'+ratio+'</td><td>'+(r.staffVerified?"✓":"✕")+'</td><td>'+statusBadge(e.status)+'<br><span class="muted">'+escapeHtml([].concat(e.missing||[],e.reasons||[]).join(" • "))+'</span></td></tr>';}).join("")+'</tbody></table></div></div>';
+  function card(label, value) {
+    return '<div class="card"><div class="label">'+esc(label)+'</div><div class="n">'+esc(value)+'</div></div>';
   }
 
-  function renderReview(v){
-    var rows=state.attendance.map(function(r){var u=getUser(r.userId),a=getActivity(r.activityId),e=evidenceStatus(r);return '<tr><td>'+escapeHtml(u?u.id+" • "+u.name:r.userId)+'</td><td>'+escapeHtml(a?a.title:r.activityId)+'</td><td>'+statusBadge(e.status)+'</td><td>'+escapeHtml([].concat(e.missing||[],e.reasons||[]).join(" • ")||"ไม่มีข้อผิดปกติจากกฎ")+'</td><td><button class="btn secondary reviewBtn" data-id="'+r.id+'">เปิดตรวจสอบ</button></td></tr>';}).join("");
-    v.innerHTML='<div class="panel"><h2>Human Review Center</h2><div class="hint">ระบบช่วยชี้รายการที่ควรตรวจสอบ แต่การตัดสินใจสุดท้ายเป็นของผู้ตรวจสอบที่ได้รับมอบหมาย</div><div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>สถานะ</th><th>เหตุผลจากกฎ</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div></div><div id="reviewDetail"></div>';
-    document.querySelectorAll(".reviewBtn").forEach(function(b){b.onclick=function(){showReviewDetail(b.getAttribute("data-id"));};});
-  }
-  function showReviewDetail(id){
-    var r=state.attendance.find(function(x){return x.id===id;});if(!r)return;
-    var u=getUser(r.userId),a=getActivity(r.activityId),e=evidenceStatus(r);
-    var tl=[["QR / Identity",r.qrValid&&r.identityVerified?"ผ่าน":"ไม่ครบ"],["Check-in",fmt(r.checkinAt)],["Check-out",fmt(r.checkoutAt)],["Staff Verification",r.staffVerified?fmt(r.staffVerifiedAt):"ไม่มี"]];
-    document.getElementById("reviewDetail").innerHTML='<div class="panel"><h2>ตรวจสอบรายการ '+escapeHtml(id)+'</h2><p><b>'+escapeHtml(u?u.name:r.userId)+'</b> • '+escapeHtml(a?a.title:r.activityId)+'</p><div class="timeline">'+tl.map(function(x){return '<div><b>'+x[0]+'</b> — '+escapeHtml(x[1])+'</div>';}).join("")+'</div><p><b>เหตุผล:</b> '+escapeHtml([].concat(e.missing||[],e.reasons||[]).join(" • ")||"ไม่พบข้อผิดปกติจากกฎ")+'</p><div class="field"><label>เหตุผลการตัดสินใจของผู้ตรวจสอบ</label><textarea id="reviewReason">'+escapeHtml(r.humanReason||"")+'</textarea></div><div class="actions"><button class="btn ok" id="rvVerify">รับรอง</button><button class="btn warn" id="rvEvidence">ขอหลักฐานเพิ่ม</button><button class="btn bad" id="rvReject">ไม่รับรอง</button></div></div>';
-    function decide(dec,status){r.humanDecision=dec;r.humanReason=document.getElementById("reviewReason").value.trim();r.finalStatus=status;audit("HUMAN_REVIEW",r.id,dec+"|"+r.humanReason);renderReview(document.getElementById("view"));}
-    document.getElementById("rvVerify").onclick=function(){decide("VERIFY","VERIFIED");};
-    document.getElementById("rvEvidence").onclick=function(){decide("REQUEST_EVIDENCE","REVIEW_REQUIRED");};
-    document.getElementById("rvReject").onclick=function(){decide("REJECT","REJECTED");};
+  async function renderDashboard(v) {
+    showLoading(v);
+    const data = await api("/api/dashboard/summary");
+    const s = data.summary;
+    const scopeText = data.scope === "SELF" ? "ข้อมูลของฉัน" : "ภาพรวมหน่วยงาน";
+    v.innerHTML =
+      '<div class="grid cards">'+
+      card("กิจกรรม", s.activityCount)+
+      card("รายการเข้าร่วม", s.recordCount)+
+      card("รับรองแล้ว", s.verifiedCount)+
+      card("ต้องตรวจสอบ", s.reviewRequiredCount)+
+      card("หลักฐานไม่ครบ", s.incompleteCount)+
+      '</div>'+
+      '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
+      '<span class="status s-info">'+scopeText+'</span>'+
+      '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
+      '<p class="muted">ผลจาก Evidence Engine ในระยะนี้เป็นกฎตรวจสอบ (rule-based) ไม่ใช่ค่าความน่าจะเป็นจาก AI</p></div>';
   }
 
-  function renderAudit(v){
-    v.innerHTML='<div class="panel"><h2>Audit Trail</h2><div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้กระทำ</th><th>เหตุการณ์</th><th>Entity</th><th>รายละเอียด</th></tr></thead><tbody>'+state.audit.map(function(x){return '<tr><td>'+fmt(x.at)+'</td><td>'+escapeHtml(x.actor)+'</td><td>'+escapeHtml(x.action)+'</td><td>'+escapeHtml(x.entity)+'</td><td>'+escapeHtml(x.meta)+'</td></tr>';}).join("")+'</tbody></table></div></div>';
+  function field(label,id,placeholder,type,value) {
+    return '<div class="field"><label>'+esc(label)+'</label><input id="'+id+'" type="'+(type||"text")+'" placeholder="'+esc(placeholder||"")+'" value="'+esc(value||"")+'"></div>';
+  }
+  function check(id,label,on) {
+    return '<label class="check"><input type="checkbox" id="'+id+'" '+(on?"checked":"")+'> '+esc(label)+'</label>';
+  }
+  const checked = (id) => document.getElementById(id).checked;
+
+  async function loadActivities() {
+    return (await api("/api/activities")).activities || [];
   }
 
-  function researchRows(){
-    return state.attendance.map(function(r){var a=getActivity(r.activityId),e=evidenceStatus(r),ratio=e.ratio;return {
-      record_id:r.id,participant_hash:hashText(r.userId+"|research-salt-demo"),event_id:r.activityId,activity_type:a?a.category:"",
-      qr_valid:r.qrValid?1:0,identity_verified:r.identityVerified?1:0,checkin_time:r.checkinAt||"",checkout_time:r.checkoutAt||"",
-      duration_ratio:ratio==null?"":ratio.toFixed(4),staff_verified:r.staffVerified?1:0,signature_verified:r.signatureVerified?1:0,
-      missing_evidence_count:(e.missing||[]).length,evidence_mismatch_count:(e.reasons||[]).length,consistency_status:e.status,
-      human_decision:r.humanDecision||"",final_status:r.finalStatus||e.status
-    };});
+  function policyText(p) {
+    if (!p) return "ยังไม่กำหนด";
+    const labels = [
+      ["qrRequired","QR"],["identityRequired","ตัวตน"],["checkinRequired","เข้า"],
+      ["checkoutRequired","ออก"],["durationRequired","ระยะเวลา"],["staffRequired","เจ้าหน้าที่"],
+      ["signatureRequired","ลายเซ็น"]
+    ];
+    return labels.filter(([k]) => p[k]).map(([,l]) => l).join(", ");
   }
-  function renderResearch(v){
-    v.innerHTML='<div class="panel"><h2>Research Dataset Export</h2><p>ส่งออกข้อมูลแบบลดการระบุตัวบุคคลสำหรับการวิเคราะห์วิจัย โดยใช้ participant_hash แทนรหัสบุคลากรในชุดส่งออก</p><div class="actions"><button class="btn primary" id="csvBtn">ดาวน์โหลด CSV</button><button class="btn secondary" id="jsonBtn">ดาวน์โหลด JSON</button></div><div class="hint">V0.1 ยังไม่สร้าง ground truth หรือ AI prediction อัตโนมัติ ช่องดังกล่าวจะเพิ่มใน V0.2 หลังล็อก codebook และกระบวนการ adjudication</div></div>';
-    document.getElementById("csvBtn").onclick=function(){var rows=researchRows();download("activa-research.csv",toCsv(rows),"text/csv;charset=utf-8");audit("RESEARCH_EXPORT","CSV",rows.length+" rows");};
-    document.getElementById("jsonBtn").onclick=function(){var rows=researchRows();download("activa-research.json",JSON.stringify(rows,null,2),"application/json");audit("RESEARCH_EXPORT","JSON",rows.length+" rows");};
+
+  async function renderActivities(v) {
+    if (!can("ADMIN","ORGANIZER")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const activities = await loadActivities();
+    v.innerHTML =
+      '<div class="panel"><h2>สร้างกิจกรรม</h2><div class="form-grid">'+
+      field("ชื่อกิจกรรม","aTitle","เช่น อบรมการใช้ AI")+
+      '<div class="field"><label>ประเภทกิจกรรม</label><select id="aCat"><option>พัฒนาบุคลากร</option><option>ประชุม</option><option>บริการวิชาการ</option><option>วิจัย</option><option>ประกันคุณภาพ</option></select></div>'+
+      field("วันที่","aDate","","date",new Date().toISOString().slice(0,10))+
+      field("สถานที่","aLoc","ห้องประชุม")+
+      field("เวลาเริ่ม","aStart","","time","09:00")+
+      field("เวลาสิ้นสุด","aEnd","","time","16:00")+
+      '</div><h3>นโยบายหลักฐานของกิจกรรม</h3><div class="policy">'+
+      check("pQr","QR กิจกรรม",true)+check("pId","ยืนยันตัวตน",true)+
+      check("pIn","Check-in",true)+check("pOut","Check-out",true)+
+      check("pDur","ระยะเวลา",true)+check("pStaff","เจ้าหน้าที่ยืนยัน",true)+
+      check("pSig","ลายเซ็น",false)+
+      '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="pRatio" type="number" min="0" max="1" step=".05" value=".75"></div>'+
+      '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'+
+      '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable(activities)+'</div>';
+
+    document.getElementById("createAct").onclick = async () => {
+      const msg = document.getElementById("actMsg");
+      const title = document.getElementById("aTitle").value.trim();
+      if (!title) return msg.innerHTML = '<div class="alert bad">กรุณาระบุชื่อกิจกรรม</div>';
+      const date = document.getElementById("aDate").value;
+      const start = document.getElementById("aStart").value;
+      const end = document.getElementById("aEnd").value;
+      try {
+        await api("/api/activities", {
+          method:"POST",
+          body:JSON.stringify({
+            title,
+            category:document.getElementById("aCat").value,
+            location:document.getElementById("aLoc").value || "ไม่ระบุ",
+            startAt:new Date(date+"T"+start).toISOString(),
+            endAt:new Date(date+"T"+end).toISOString(),
+            policy:{
+              qrRequired:checked("pQr"),identityRequired:checked("pId"),checkinRequired:checked("pIn"),
+              checkoutRequired:checked("pOut"),durationRequired:checked("pDur"),staffRequired:checked("pStaff"),
+              signatureRequired:checked("pSig"),minDurationRatio:Number(document.getElementById("pRatio").value || .75)
+            }
+          })
+        });
+        msg.innerHTML = '<div class="alert ok">บันทึกกิจกรรมแล้ว</div>';
+        setTimeout(() => renderActivities(v), 300);
+      } catch (error) { msg.innerHTML = errorBox(error); }
+    };
   }
-  function toCsv(rows){if(!rows.length)return "";var h=Object.keys(rows[0]);return [h.join(",")].concat(rows.map(function(r){return h.map(function(k){var s=String(r[k]==null?"":r[k]).replace(/"/g,'""');return '"'+s+'"';}).join(",");})).join("\n");}
-  function download(name,content,type){var b=new Blob([content],{type:type}),u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(u);},500);}
+
+  function activitiesTable(items) {
+    if (!items.length) return '<div class="empty">ยังไม่มีกิจกรรม</div>';
+    return '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>วัน/เวลา</th><th>สถานที่</th><th>Evidence Policy</th></tr></thead><tbody>'+
+      items.map(a => '<tr><td><b>'+esc(a.title)+'</b><br><span class="muted">'+esc(a.category)+' • '+esc(a.id)+'</span></td>'+
+      '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'</td><td>'+esc(a.location)+'</td><td>'+esc(policyText(a.policy))+'</td></tr>').join("")+
+      '</tbody></table></div>';
+  }
+
+  async function renderQr(v) {
+    if (!can("ADMIN","ORGANIZER")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const activities = await loadActivities();
+    if (!activities.length) return v.innerHTML = '<div class="panel"><div class="empty">ยังไม่มีกิจกรรมสำหรับสร้าง QR</div></div>';
+
+    v.innerHTML =
+      '<div class="panel"><h2>Dynamic Event QR</h2>'+
+      '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div class="actions"><button class="btn primary" id="newQr">สร้าง/หมุน QR ใหม่</button></div>'+
+      '<div id="qrArea"></div>'+
+      '<div class="hint">Token ถูกลงลายมือชื่อที่ฝั่งเซิร์ฟเวอร์ด้วย HMAC-SHA256 มี nonce และวันหมดอายุ และไม่บรรจุข้อมูลส่วนบุคคลของผู้เข้าร่วม</div></div>';
+
+    async function issue() {
+      const activityId = document.getElementById("qrAct").value;
+      qrState = await api("/api/activities/"+encodeURIComponent(activityId)+"/qr", {method:"POST"});
+      draw();
+    }
+
+    function draw() {
+      if (!qrState) return;
+      const remain = Math.max(0, Math.ceil((new Date(qrState.expiresAt).getTime()-Date.now())/1000));
+      const area = document.getElementById("qrArea");
+      if (!area) return;
+      area.innerHTML =
+        '<div class="qrbox" style="margin-top:18px"><div id="qrcode" class="qr"></div><div>'+
+        '<p>หมดอายุใน <b>'+remain+'</b> วินาที</p><div class="token">'+esc(qrState.token)+'</div></div></div>';
+      if (window.QRCode) new QRCode(document.getElementById("qrcode"), {text:qrState.token,width:166,height:166});
+    }
+
+    document.getElementById("newQr").onclick = () => issue().catch((e) => {
+      document.getElementById("qrArea").innerHTML = errorBox(e);
+    });
+    document.getElementById("qrAct").onchange = () => { qrState = null; document.getElementById("qrArea").innerHTML = ""; };
+    await issue();
+    qrTimer = setInterval(async () => {
+      if (!qrState) return;
+      if (new Date(qrState.expiresAt).getTime() <= Date.now()) {
+        try { await issue(); } catch {}
+      } else draw();
+    }, 1000);
+  }
+
+  async function loadUsers() {
+    if (can("PARTICIPANT")) return [session];
+    const data = await api("/api/users");
+    return data.users || [];
+  }
+
+  async function loadAttendance() {
+    return (await api("/api/attendance")).attendance || [];
+  }
+
+  function statusBadge(status) {
+    const s = status || "NOT_EVALUATED";
+    const cls = ["VERIFIED","COMPLETE","CONSISTENT"].includes(s) ? "s-ok" :
+      ["INCOMPLETE"].includes(s) ? "s-warn" :
+      ["REVIEW_REQUIRED","REJECTED","INCONSISTENT"].includes(s) ? "s-bad" : "s-info";
+    return '<span class="status '+cls+'">'+esc(s)+'</span>';
+  }
+
+  function evidenceStatusOf(r) {
+    return r.finalEvidenceStatus || r.consistencyResult?.status || "NOT_EVALUATED";
+  }
+
+  function attendanceTable(rows, actionButtons) {
+    if (!rows.length) return '<div class="empty">ยังไม่มีรายการเข้าร่วม</div>';
+    return '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>เข้า</th><th>ออก</th><th>เวลา</th><th>Staff</th><th>Evidence</th>'+(actionButtons?'<th>คำสั่ง</th>':'')+'</tr></thead><tbody>'+
+      rows.map(r => {
+        const user = r.user || {};
+        const a = r.activity || {};
+        const buttons = actionButtons ? '<td><button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมิน</button></td>' : '';
+        return '<tr><td>'+esc((user.employeeId||"")+" • "+(user.name||""))+'</td><td>'+esc(a.title||r.activityId)+'</td>'+
+          '<td>'+fmt(r.checkinAt)+'</td><td>'+fmt(r.checkoutAt)+'</td><td>'+(r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%")+'</td>'+
+          '<td>'+(r.staffVerification?"✓":"—")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td>'+buttons+'</tr>';
+      }).join("")+'</tbody></table></div>';
+  }
+
+  async function renderAttendance(v) {
+    showLoading(v);
+    const [activities, users, rows] = await Promise.all([loadActivities(), loadUsers(), loadAttendance()]);
+    const participants = users.filter(u => u.role === "PARTICIPANT");
+    v.innerHTML =
+      '<div class="split"><div class="panel"><h2>Check-in</h2>'+
+      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select></div>'+
+      '<div class="field" style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="สแกนหรือวาง token จาก Dynamic QR"></textarea></div>'+
+      '<div class="actions"><button class="btn primary" id="ciBtn">ยืนยัน Check-in</button></div><div id="ciMsg"></div></div>'+
+      '<div class="panel"><h2>Check-out / Staff Verification</h2>'+
+      '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||"")+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
+      '<div class="actions"><button class="btn secondary" id="coBtn">Check-out</button>'+
+      (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
+      '</div><div id="coMsg"></div></div></div>'+
+      '<div class="panel"><h2>รายการเข้า–ออกล่าสุด</h2>'+attendanceTable(rows, can("ADMIN","ORGANIZER","STAFF"))+'</div>';
+
+    document.getElementById("ciBtn").onclick = async () => {
+      const msg = document.getElementById("ciMsg");
+      try {
+        const result = await api("/api/attendance/checkin", {
+          method:"POST",
+          body:JSON.stringify({
+            userId:document.getElementById("ciUser").value,
+            token:document.getElementById("ciToken").value.trim()
+          })
+        });
+        msg.innerHTML = '<div class="alert ok">Check-in สำเร็จ: '+esc(result.attendance.id)+'</div>';
+        setTimeout(() => renderAttendance(v), 350);
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+
+    document.getElementById("coBtn").onclick = async () => {
+      const id = document.getElementById("coRecord").value;
+      const msg = document.getElementById("coMsg");
+      if (!id) return msg.innerHTML = '<div class="alert warn">ยังไม่มีรายการสำหรับ Check-out</div>';
+      try {
+        await api("/api/attendance/"+encodeURIComponent(id)+"/checkout", {method:"POST"});
+        msg.innerHTML = '<div class="alert ok">Check-out สำเร็จ</div>';
+        setTimeout(() => renderAttendance(v), 350);
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+
+    const staffBtn = document.getElementById("staffBtn");
+    if (staffBtn) staffBtn.onclick = async () => {
+      const id = document.getElementById("coRecord").value;
+      const msg = document.getElementById("coMsg");
+      if (!id) return msg.innerHTML = '<div class="alert warn">ยังไม่มีรายการสำหรับยืนยัน</div>';
+      try {
+        await api("/api/attendance/"+encodeURIComponent(id)+"/staff-verify", {method:"POST"});
+        msg.innerHTML = '<div class="alert ok">บันทึกการยืนยันโดยเจ้าหน้าที่แล้ว</div>';
+        setTimeout(() => renderAttendance(v), 350);
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+
+    document.querySelectorAll(".evalBtn").forEach(btn => btn.onclick = async () => {
+      btn.disabled = true;
+      try { await api("/api/evidence/"+encodeURIComponent(btn.dataset.id)+"/evaluate", {method:"POST"}); await renderAttendance(v); }
+      catch (e) { btn.disabled = false; alert(e.message); }
+    });
+  }
+
+  async function renderEvidence(v) {
+    showLoading(v);
+    const rows = await loadAttendance();
+    v.innerHTML =
+      '<div class="panel"><div class="section-head"><div><h2>Evidence Matrix</h2><p class="muted">สถานะการเข้า–ออกและสถานะหลักฐานเป็นคนละเรื่องกัน</p></div>'+
+      (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn primary" id="evalAll">ประเมินหลักฐานทั้งหมดที่มองเห็น</button>':'')+
+      '</div>'+
+      '<div class="table-wrap"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>Staff</th><th>Evidence Status</th><th>เหตุผล</th></tr></thead><tbody>'+
+      rows.map(r => {
+        const c = r.consistencyResult;
+        const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
+        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+          '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
+          '<td>'+(c?.durationRatio==null?"—":Math.round(Number(c.durationRatio)*100)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
+          '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+esc(reasons.join(" • ") || "—")+'</td></tr>';
+      }).join("")+'</tbody></table></div></div>';
+
+    const evalAll = document.getElementById("evalAll");
+    if (evalAll) evalAll.onclick = async () => {
+      evalAll.disabled = true;
+      evalAll.textContent = "กำลังประเมิน…";
+      for (const r of rows) {
+        try { await api("/api/evidence/"+encodeURIComponent(r.id)+"/evaluate", {method:"POST"}); } catch {}
+      }
+      await renderEvidence(v);
+    };
+  }
+
+  async function renderReview(v) {
+    if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const rows = await loadAttendance();
+    v.innerHTML =
+      '<div class="panel"><h2>Human Review Center</h2><div class="hint">ระบบแสดงเหตุผลจากหลักฐานเพื่อสนับสนุนการตรวจสอบ แต่ผู้ตรวจสอบเป็นผู้ตัดสินใจสุดท้าย</div>'+
+      '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>Evidence</th><th>เหตุผล</th><th></th></tr></thead><tbody>'+
+      rows.map(r => {
+        const c = r.consistencyResult;
+        const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
+        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td><td>'+esc(r.activity?.title||"")+'</td>'+
+          '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+esc(reasons.join(" • ") || "—")+'</td>'+
+          '<td><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></td></tr>';
+      }).join("")+'</tbody></table></div></div><div id="reviewDetail"></div>';
+
+    document.querySelectorAll(".rvOpen").forEach(btn => btn.onclick = () => showReviewDetail(btn.dataset.id, rows));
+  }
+
+  function showReviewDetail(id, rows) {
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    const c = r.consistencyResult;
+    const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
+    const box = document.getElementById("reviewDetail");
+    const started = new Date().toISOString();
+    box.innerHTML =
+      '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
+      '<div class="timeline"><div><b>Check-in</b> — '+fmt(r.checkinAt)+'</div><div><b>Check-out</b> — '+fmt(r.checkoutAt)+'</div>'+
+      '<div><b>Staff Verification</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
+      '<div><b>Evidence Engine</b> — '+esc(reasons.join(" • ") || "ไม่พบข้อผิดปกติจากกฎ")+'</div></div>'+
+      '<div class="field" style="margin-top:14px"><label>เหตุผลการตัดสินใจ</label><textarea id="rvReason"></textarea></div>'+
+      '<div class="actions"><button class="btn ok" data-dec="VERIFY">รับรอง</button><button class="btn secondary" data-dec="CORRECT">แก้ไข/ส่งกลับ</button>'+
+      '<button class="btn warn" data-dec="REQUEST_EVIDENCE">ขอหลักฐานเพิ่ม</button><button class="btn bad" data-dec="REJECT">ไม่รับรอง</button></div><div id="rvMsg"></div></div>';
+
+    box.querySelectorAll("[data-dec]").forEach(btn => btn.onclick = async () => {
+      const seconds = Math.max(1, Math.round((Date.now() - new Date(started).getTime()) / 1000));
+      try {
+        await api("/api/reviews/"+encodeURIComponent(id), {
+          method:"POST",
+          body:JSON.stringify({
+            decision:btn.dataset.dec,
+            reason:document.getElementById("rvReason").value.trim(),
+            reviewStartedAt:started,
+            reviewDurationSeconds:seconds
+          })
+        });
+        document.getElementById("rvMsg").innerHTML = '<div class="alert ok">บันทึกผลการตรวจสอบแล้ว</div>';
+        setTimeout(() => renderReview(document.getElementById("view")), 350);
+      } catch (e) { document.getElementById("rvMsg").innerHTML = errorBox(e); }
+    });
+  }
+
+  async function renderGroundTruth(v) {
+    if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/ground-truth/queue");
+    const rows = data.records || [];
+    const reasonCodes = ["MISSING_QR","MISSING_IDENTITY","MISSING_CHECKOUT","MISSING_STAFF_VERIFICATION","SHORT_DURATION","DUPLICATE_SCAN","TEMPORAL_CONFLICT","STAFF_WITHOUT_CHECKIN","OTHER"];
+
+    v.innerHTML =
+      '<div class="panel"><h2>Ground Truth Workspace</h2>'+
+      '<div class="hint"><b>Blinded labeling:</b> หน้านี้ไม่ดึง AI prediction หรือ risk probability เพื่อป้องกัน automation bias และ label contamination</div>'+
+      (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||r.userId)+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
+      '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
+      '</div>';
+
+    if (!rows.length) return;
+    const renderForm = () => {
+      const r = rows.find(x => x.id === document.getElementById("gtRecord").value);
+      const mine = (r.groundTruthLabels || []).find(x => x.reviewerId === session.id);
+      document.getElementById("gtForm").innerHTML =
+        '<h3>การติดป้ายโดยผู้ประเมิน</h3>'+
+        '<div class="field"><label>Final Target</label><select id="gtTarget"><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
+        '<h3>Reason Codes (เลือกได้หลายข้อ)</h3><div class="policy">'+reasonCodes.map(code => '<label class="check"><input type="checkbox" class="gtReason" value="'+code+'"> '+code+'</label>').join("")+'</div>'+
+        '<div class="field" style="margin-top:12px"><label>หมายเหตุ</label><textarea id="gtNotes"></textarea></div>'+
+        '<div class="actions"><button class="btn primary" id="gtSave">บันทึก Ground Truth Label</button></div><div id="gtMsg"></div>';
+      if (mine) {
+        document.getElementById("gtTarget").value = mine.target;
+        document.getElementById("gtNotes").value = mine.notes || "";
+        document.querySelectorAll(".gtReason").forEach(ch => ch.checked = (mine.reasonCodes || []).includes(ch.value));
+      }
+      document.getElementById("gtSave").onclick = async () => {
+        const selected = [...document.querySelectorAll(".gtReason:checked")].map(x => x.value);
+        try {
+          await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/labels", {
+            method:"POST",
+            body:JSON.stringify({target:document.getElementById("gtTarget").value,reasonCodes:selected,notes:document.getElementById("gtNotes").value.trim()})
+          });
+          document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึกฉลากแล้ว</div>';
+        } catch (e) { document.getElementById("gtMsg").innerHTML = errorBox(e); }
+      };
+    };
+    document.getElementById("gtRecord").onchange = renderForm;
+    renderForm();
+  }
+
+  async function renderAudit(v) {
+    if (!can("ADMIN")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/audit");
+    const logs = data.logs || [];
+    v.innerHTML = '<div class="panel"><h2>Audit Trail</h2><div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้กระทำ</th><th>เหตุการณ์</th><th>Entity</th><th>รายละเอียด</th></tr></thead><tbody>'+
+      logs.map(x => '<tr><td>'+fmt(x.createdAt)+'</td><td>'+esc(x.actor ? x.actor.employeeId+" • "+x.actor.name : "SYSTEM")+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.entityType+" / "+x.entityId)+'</td><td><code>'+esc(JSON.stringify(x.metadata||{}))+'</code></td></tr>').join("")+
+      '</tbody></table></div></div>';
+  }
+
+  function toCsv(rows) {
+    if (!rows.length) return "";
+    const headers = Object.keys(rows[0]);
+    return [headers.join(",")].concat(rows.map(r => headers.map(k => {
+      const raw = Array.isArray(r[k]) || (r[k] && typeof r[k] === "object") ? JSON.stringify(r[k]) : String(r[k] ?? "");
+      return '"'+raw.replace(/"/g,'""')+'"';
+    }).join(","))).join("\n");
+  }
+
+  function download(name, content, type) {
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  }
+
+  async function renderResearch(v) {
+    if (!can("ADMIN")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/research/export");
+    const rows = data.records || [];
+    v.innerHTML =
+      '<div class="panel"><h2>Research Dataset Export</h2>'+
+      '<p>ชุดข้อมูลส่งออกลดการระบุตัวบุคคลด้วย participant_hash และแยกข้อมูลปฏิบัติการออกจากชุดวิเคราะห์วิจัย</p>'+
+      '<div class="grid cards">'+card("Records",rows.length)+card("De-identified",data.deidentified?"Yes":"No")+'</div>'+
+      '<div class="actions"><button class="btn primary" id="csvBtn">ดาวน์โหลด CSV</button><button class="btn secondary" id="jsonBtn">ดาวน์โหลด JSON</button></div>'+
+      '<div class="hint">ช่อง AI prediction/risk probability จะยังว่างจนกว่าจะล็อก Ground Truth, train/validation/test และผ่านการประเมินโมเดล</div></div>';
+
+    document.getElementById("csvBtn").onclick = () => download("activa-research-v022.csv", toCsv(rows), "text/csv;charset=utf-8");
+    document.getElementById("jsonBtn").onclick = () => download("activa-research-v022.json", JSON.stringify(rows,null,2), "application/json");
+  }
 
   render();
 })();

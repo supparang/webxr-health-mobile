@@ -56,6 +56,19 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api", attachActor);
 
+app.get("/api/me", (req, res) => {
+  res.json({
+    ok: true,
+    user: {
+      id: req.activaUser.id,
+      employeeId: req.activaUser.employeeId,
+      name: req.activaUser.name,
+      role: req.activaUser.role,
+      status: req.activaUser.status,
+    },
+  });
+});
+
 app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, res) => {
   const users = await prisma.user.findMany({
     select: {
@@ -71,17 +84,30 @@ app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, 
   res.json({ ok: true, users });
 });
 
-app.get("/api/dashboard/summary", async (_req, res) => {
+app.get("/api/dashboard/summary", async (req, res) => {
+  const isParticipant = req.activaUser.role === "PARTICIPANT";
+  const attendanceWhere = isParticipant ? { userId: req.activaUser.id } : {};
+  const consistencyWhere = isParticipant
+    ? { attendance: { userId: req.activaUser.id } }
+    : {};
+
   const [activityCount, recordCount, verifiedCount, reviewCount, incompleteCount] = await Promise.all([
     prisma.activity.count(),
-    prisma.attendanceRecord.count(),
-    prisma.attendanceRecord.count({ where: { finalEvidenceStatus: "VERIFIED" } }),
-    prisma.consistencyResult.count({ where: { status: "REVIEW_REQUIRED" } }),
-    prisma.consistencyResult.count({ where: { status: "INCOMPLETE" } }),
+    prisma.attendanceRecord.count({ where: attendanceWhere }),
+    prisma.attendanceRecord.count({
+      where: { ...attendanceWhere, finalEvidenceStatus: "VERIFIED" },
+    }),
+    prisma.consistencyResult.count({
+      where: { ...consistencyWhere, status: "REVIEW_REQUIRED" },
+    }),
+    prisma.consistencyResult.count({
+      where: { ...consistencyWhere, status: "INCOMPLETE" },
+    }),
   ]);
 
   res.json({
     ok: true,
+    scope: isParticipant ? "SELF" : "ORGANIZATION",
     summary: {
       activityCount,
       recordCount,
@@ -93,14 +119,30 @@ app.get("/api/dashboard/summary", async (_req, res) => {
 });
 
 app.get("/api/attendance", async (req, res) => {
-  const where = req.query.activityId ? { activityId: String(req.query.activityId) } : {};
+  const filters = [];
+  if (req.query.activityId) filters.push({ activityId: String(req.query.activityId) });
+  if (req.activaUser.role === "PARTICIPANT") {
+    filters.push({ userId: req.activaUser.id });
+  }
+  const where = filters.length === 0 ? {} : { AND: filters };
+
   const rows = await prisma.attendanceRecord.findMany({
     where,
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
-      activity: { select: { id: true, title: true, category: true, startAt: true, endAt: true } },
+      activity: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          startAt: true,
+          endAt: true,
+          policy: true,
+        },
+      },
       staffVerification: true,
       consistencyResult: true,
+      humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -234,6 +276,9 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     include: { activity: true },
   });
   if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (req.activaUser.role === "PARTICIPANT" && current.userId !== req.activaUser.id) {
+    return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
+  }
   if (!current.checkinAt) return res.status(409).json({ ok: false, error: "CHECKIN_REQUIRED" });
 
   const checkoutAt = new Date();
@@ -272,7 +317,7 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
   res.json({ ok: true, verification: row });
 });
 
-app.post("/api/evidence/:attendanceId/evaluate", async (req, res) => {
+app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (req, res) => {
   const attendance = await prisma.attendanceRecord.findUnique({
     where: { id: req.params.attendanceId },
     include: {
@@ -411,6 +456,19 @@ app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"
   res.status(201).json({ ok: true, label });
 });
 
+app.get("/api/audit", requireRoles("ADMIN"), async (_req, res) => {
+  const logs = await prisma.auditLog.findMany({
+    include: {
+      actor: {
+        select: { employeeId: true, name: true, role: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 300,
+  });
+  res.json({ ok: true, logs });
+});
+
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
@@ -465,7 +523,7 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 app.use(express.static(staticDir));
 
-app.get("/{*splat}", (_req, res) => {
+app.use((_req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
 });
 
@@ -475,5 +533,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.2 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.2.2 server running on http://localhost:" + port);
 });

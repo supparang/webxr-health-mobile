@@ -29,11 +29,11 @@ services:
       QR_SIGNING_SECRET: demo-only-change-before-real-use-123456789
       QR_TOKEN_TTL_SECONDS: "45"
       RESEARCH_HASH_SALT: demo-research-salt-change-before-real-use
-      RULE_VERSION: ACTIVA-RULES-0.2.1
+      RULE_VERSION: ACTIVA-RULES-0.2.2
       PORT: "3000"
     ports:
       - "3000:3000"
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && node prisma/seed.js && node server/index.js"
+    command: sh -c "npx prisma generate && npx prisma db push && node prisma/seed.js && node server/index.js"
 
 volumes:
   activa_pgdata:

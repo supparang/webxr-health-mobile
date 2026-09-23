@@ -72,3 +72,14 @@ V0.3:
 - Dashboard summary API
 - Attendance listing API
 - แก้ catch-all route ให้เข้ากับ Express 5
+
+
+## V0.2.2 — Frontend/API Integration
+- หน้าเว็บใช้ PostgreSQL/API เป็น source of truth แล้ว
+- เพิ่ม /api/me สำหรับตรวจ demo identity จากฐานข้อมูล
+- Dashboard และ Attendance ใช้ข้อมูล server-side
+- Dynamic QR มาจาก server-signed token
+- เพิ่ม Evidence Matrix, Human Review, Ground Truth, Audit และ Research Export ที่เชื่อม API
+- Participant ถูกจำกัดให้เห็นและจัดการ attendance ของตนเอง
+- Ground Truth workspace ไม่แสดง AI prediction
+- Docker bootstrap ใช้ prisma db push สำหรับ prototype
