@@ -58,6 +58,7 @@
       evidence:"Evidence Matrix",
       review:"Human Review",
       groundtruth:"Ground Truth",
+      readiness:"AI Readiness",
       audit:"Audit Trail",
       research:"Research Export"
     })[activeView] || "ACTIVA-AI";
@@ -67,7 +68,7 @@
     const out = [["dashboard","ภาพรวม"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"]];
     if (can("ADMIN","ORGANIZER")) out.splice(1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
     if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"]);
-    if (can("ADMIN")) out.push(["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
+    if (can("ADMIN")) out.push(["readiness","AI Readiness"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
     return out;
   }
 
@@ -80,7 +81,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.2.2 • PostgreSQL/API source of truth</div>'+
+        '<div class="version">V0.3.1 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -121,6 +122,7 @@
       else if (activeView === "evidence") await renderEvidence(v);
       else if (activeView === "review") await renderReview(v);
       else if (activeView === "groundtruth") await renderGroundTruth(v);
+      else if (activeView === "readiness") await renderReadiness(v);
       else if (activeView === "audit") await renderAudit(v);
       else if (activeView === "research") await renderResearch(v);
     } catch (error) {
@@ -131,7 +133,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.2.2</div><h1>เข้าสู่ระบบ</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.1</div><h1>เข้าสู่ระบบ</h1>'+
       '<p>Prototype นี้ใช้ฐานข้อมูล PostgreSQL และ API เป็นแหล่งข้อมูลหลัก</p>'+
       '<div class="demo-box"><b>บัญชีทดลองหลังรัน seed</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -487,41 +489,188 @@
     const rows = data.records || [];
     const reasonCodes = ["MISSING_QR","MISSING_IDENTITY","MISSING_CHECKOUT","MISSING_STAFF_VERIFICATION","SHORT_DURATION","DUPLICATE_SCAN","TEMPORAL_CONFLICT","STAFF_WITHOUT_CHECKIN","OTHER"];
 
+    const withTwo = rows.filter(r => (r.groundTruthLabels || []).length >= 2).length;
+    const disagreements = can("ADMIN") ? rows.filter(r => {
+      const targets = [...new Set((r.groundTruthLabels || []).map(x => x.target))];
+      return targets.length > 1;
+    }).length : "—";
+    const adjudicated = rows.filter(r => r.groundTruthCase?.status === "ADJUDICATED").length;
+    const locked = rows.filter(r => r.groundTruthCase?.status === "LOCKED").length;
+
     v.innerHTML =
+      '<div class="grid cards">'+
+      card("ระเบียน Ground Truth",rows.length)+
+      card("มี ≥2 labels",can("ADMIN")?withTwo:"ซ่อนเพื่อความอิสระ")+
+      card("ไม่ตรงกัน",disagreements)+
+      card("Adjudicated",adjudicated)+
+      card("Locked",locked)+
+      '</div>'+
       '<div class="panel"><h2>Ground Truth Workspace</h2>'+
-      '<div class="hint"><b>Blinded labeling:</b> หน้านี้ไม่ดึง AI prediction หรือ risk probability เพื่อป้องกัน automation bias และ label contamination</div>'+
+      '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div>'+
       (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||r.userId)+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
       '</div>';
 
     if (!rows.length) return;
+
     const renderForm = () => {
       const r = rows.find(x => x.id === document.getElementById("gtRecord").value);
-      const mine = (r.groundTruthLabels || []).find(x => x.reviewerId === session.id);
+      const labels = r.groundTruthLabels || [];
+      const mine = labels.find(x => x.reviewerId === session.id);
+      const gtCase = r.groundTruthCase || null;
+      const lockedCase = gtCase?.status === "LOCKED";
+
+      const rawEvidence =
+        '<div class="evidence-strip">'+
+          '<span>QR '+(r.qrValid?"✓":"✕")+'</span>'+
+          '<span>ตัวตน '+(r.identityVerified?"✓":"✕")+'</span>'+
+          '<span>เข้า '+(r.checkinAt?fmt(r.checkinAt):"—")+'</span>'+
+          '<span>ออก '+(r.checkoutAt?fmt(r.checkoutAt):"—")+'</span>'+
+          '<span>Staff '+(r.staffVerification?"✓":"✕")+'</span>'+
+          '<span>Scan '+esc(r.scanAttempts ?? 0)+' ครั้ง</span>'+
+        '</div>';
+
+      let adminPanel = "";
+      if (can("ADMIN")) {
+        const targetSet = [...new Set(labels.map(x => x.target))];
+        const agreement = labels.length < 2 ? "ยังมีผู้ประเมินไม่ครบ" : (targetSet.length === 1 ? "ผู้ประเมินสอดคล้องกัน" : "ผู้ประเมินไม่ตรงกัน ต้อง adjudicate");
+        const labelRows = labels.length ? labels.map((x,i) =>
+          '<tr><td>Reviewer '+(i+1)+'</td><td>'+esc(x.target)+'</td><td>'+esc((x.reasonCodes||[]).join(" • ")||"—")+'</td></tr>'
+        ).join("") : '<tr><td colspan="3">ยังไม่มีฉลาก</td></tr>';
+
+        adminPanel =
+          '<hr><h3>ส่วนผู้ตัดสินข้อขัดแย้ง (Admin Adjudication)</h3>'+
+          '<p>'+statusBadge(gtCase?.status || "OPEN")+' <span class="muted">'+esc(agreement)+'</span></p>'+
+          '<div class="table-wrap"><table><thead><tr><th>ฉลาก</th><th>Target</th><th>Reason Codes</th></tr></thead><tbody>'+labelRows+'</tbody></table></div>'+
+          '<div class="form-grid" style="margin-top:14px">'+
+            '<div class="field"><label>Final Target หลัง adjudication</label><select id="adjTarget"><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
+            '<div class="field"><label>Reason Codes สุดท้าย (คั่นด้วย comma)</label><input id="adjReasons" placeholder="เช่น SHORT_DURATION,MISSING_CHECKOUT"></div>'+
+            '<div class="field full"><label>บันทึกเหตุผลการ adjudication</label><textarea id="adjNotes" placeholder="จำเป็นเมื่อผู้ประเมินไม่ตรงกัน"></textarea></div>'+
+          '</div>'+
+          '<div class="actions">'+
+            '<button class="btn primary" id="adjBtn" '+(lockedCase?'disabled':'')+'>Adjudicate</button>'+
+            '<button class="btn ok" id="lockBtn" '+(gtCase?.status==="ADJUDICATED"?'':'disabled')+'>Lock Ground Truth</button>'+
+          '</div><div id="adjMsg"></div>';
+      }
+
       document.getElementById("gtForm").innerHTML =
+        '<h3>Raw Evidence สำหรับผู้ประเมิน</h3>'+rawEvidence+
+        '<p class="muted">ไม่แสดง Risk Probability, AI Recommendation หรือ Rule-Based Evidence Status ในพื้นที่นี้</p>'+
         '<h3>การติดป้ายโดยผู้ประเมิน</h3>'+
-        '<div class="field"><label>Final Target</label><select id="gtTarget"><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
-        '<h3>Reason Codes (เลือกได้หลายข้อ)</h3><div class="policy">'+reasonCodes.map(code => '<label class="check"><input type="checkbox" class="gtReason" value="'+code+'"> '+code+'</label>').join("")+'</div>'+
-        '<div class="field" style="margin-top:12px"><label>หมายเหตุ</label><textarea id="gtNotes"></textarea></div>'+
-        '<div class="actions"><button class="btn primary" id="gtSave">บันทึก Ground Truth Label</button></div><div id="gtMsg"></div>';
+        '<div class="field"><label>Final Target</label><select id="gtTarget" '+(lockedCase?'disabled':'')+'><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
+        '<h3>Reason Codes (เลือกได้หลายข้อ)</h3><div class="policy">'+reasonCodes.map(code => '<label class="check"><input type="checkbox" class="gtReason" value="'+code+'" '+(lockedCase?'disabled':'')+'> '+code+'</label>').join("")+'</div>'+
+        '<div class="field" style="margin-top:12px"><label>หมายเหตุ</label><textarea id="gtNotes" '+(lockedCase?'disabled':'')+'></textarea></div>'+
+        '<div class="actions"><button class="btn primary" id="gtSave" '+(lockedCase?'disabled':'')+'>บันทึก Independent Label</button></div><div id="gtMsg"></div>'+
+        (lockedCase?'<div class="alert ok">Ground Truth นี้ถูก LOCK แล้ว ไม่สามารถแก้ฉลากหรือ adjudicate ซ้ำได้</div>':'')+
+        adminPanel;
+
       if (mine) {
         document.getElementById("gtTarget").value = mine.target;
         document.getElementById("gtNotes").value = mine.notes || "";
         document.querySelectorAll(".gtReason").forEach(ch => ch.checked = (mine.reasonCodes || []).includes(ch.value));
       }
-      document.getElementById("gtSave").onclick = async () => {
+      if (gtCase?.finalTarget && document.getElementById("adjTarget")) {
+        document.getElementById("adjTarget").value = gtCase.finalTarget;
+        document.getElementById("adjReasons").value = (gtCase.reasonCodes || []).join(",");
+        document.getElementById("adjNotes").value = gtCase.notes || "";
+      }
+
+      const saveBtn = document.getElementById("gtSave");
+      if (saveBtn && !lockedCase) saveBtn.onclick = async () => {
         const selected = [...document.querySelectorAll(".gtReason:checked")].map(x => x.value);
         try {
           await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/labels", {
             method:"POST",
-            body:JSON.stringify({target:document.getElementById("gtTarget").value,reasonCodes:selected,notes:document.getElementById("gtNotes").value.trim()})
+            body:JSON.stringify({
+              target:document.getElementById("gtTarget").value,
+              reasonCodes:selected,
+              notes:document.getElementById("gtNotes").value.trim()
+            })
           });
-          document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึกฉลากแล้ว</div>';
+          document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึก independent label แล้ว</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
         } catch (e) { document.getElementById("gtMsg").innerHTML = errorBox(e); }
       };
+
+      const adjBtn = document.getElementById("adjBtn");
+      if (adjBtn && !lockedCase) adjBtn.onclick = async () => {
+        const codes = document.getElementById("adjReasons").value.split(",").map(x=>x.trim()).filter(Boolean);
+        try {
+          await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/adjudicate", {
+            method:"POST",
+            body:JSON.stringify({
+              finalTarget:document.getElementById("adjTarget").value,
+              reasonCodes:codes,
+              notes:document.getElementById("adjNotes").value.trim()
+            })
+          });
+          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">Adjudication สำเร็จ พร้อมสำหรับการ Lock</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
+        } catch (e) { document.getElementById("adjMsg").innerHTML = errorBox(e); }
+      };
+
+      const lockBtn = document.getElementById("lockBtn");
+      if (lockBtn) lockBtn.onclick = async () => {
+        if (!confirm("ยืนยัน Lock Ground Truth? หลัง Lock จะไม่แก้ label/adjudication ใน prototype นี้")) return;
+        try {
+          await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/lock", {method:"POST"});
+          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">LOCK Ground Truth แล้ว</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
+        } catch (e) { document.getElementById("adjMsg").innerHTML = errorBox(e); }
+      };
     };
+
     document.getElementById("gtRecord").onchange = renderForm;
     renderForm();
+  }
+
+  async function renderReadiness(v) {
+    if (!can("ADMIN")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/ml/readiness");
+    const c = data.counts || {};
+    const locked = Number(c.lockedCount || 0);
+    const positive = Number(c.reviewLocked || 0);
+    const negative = Number(c.noReviewLocked || 0);
+
+    v.innerHTML =
+      '<div class="grid cards">'+
+        card("Independent Labels",c.labelCount||0)+
+        card("Adjudicated",c.adjudicatedCount||0)+
+        card("Locked",locked)+
+        card("REVIEW_REQUIRED",positive)+
+        card("NO_REVIEW_REQUIRED",negative)+
+      '</div>'+
+      '<div class="panel"><h2>AI Readiness Gate</h2>'+
+        '<div class="research-gate">'+
+          gate("1","Independent Labels",Number(c.labelCount||0)>0)+
+          gate("2","Adjudication",Number(c.adjudicatedCount||0)>0)+
+          gate("3","Ground Truth Lock",locked>0)+
+          gate("4","มีข้อมูลทั้ง 2 classes",positive>0 && negative>0)+
+          gate("5","Offline ML Evaluation",false)+
+          gate("6","Deployment Review",false)+
+        '</div>'+
+        '<div class="hint"><b>AI ยังไม่เปิดใช้งานในระบบสด</b> หน้านี้เป็น readiness dashboard เท่านั้น จำนวน record ที่เพียงพอสำหรับงานวิจัยต้องกำหนดจาก protocol/sample planning ไม่ใช่จากตัวเลขคงที่ในระบบ</div>'+
+        '<div class="actions"><button class="btn primary" id="mlDownload" '+(locked? "":"disabled")+'>ดาวน์โหลด Locked ML Dataset (JSON)</button></div>'+
+        '<div id="mlMsg"></div>'+
+      '</div>'+
+      '<div class="panel"><h2>Model Evaluation Plan</h2>'+
+        '<p>เมื่อข้อมูลพร้อม จะเปรียบเทียบ Logistic Regression, Random Forest และ Gradient Boosting โดยเลือก model family จาก validation set และกัน final test set ออกจากการปรับโมเดล</p>'+
+        '<p class="muted">Metrics: Precision, Recall/Sensitivity, Specificity, F1, ROC-AUC, PR-AUC, Brier Score, Calibration และ 95% CI ตาม analysis protocol</p>'+
+      '</div>';
+
+    const btn = document.getElementById("mlDownload");
+    if (btn && locked) btn.onclick = async () => {
+      try {
+        const dataset = await api("/api/ml/dataset");
+        download("activa-locked-ml-dataset.json", JSON.stringify(dataset,null,2), "application/json");
+        document.getElementById("mlMsg").innerHTML = '<div class="alert ok">ดาวน์โหลดชุดข้อมูล LOCKED Ground Truth แล้ว</div>';
+      } catch (e) { document.getElementById("mlMsg").innerHTML = errorBox(e); }
+    };
+  }
+
+  function gate(number, label, passed) {
+    return '<div class="gate '+(passed?'pass':'pending')+'"><span>'+esc(number)+'</span><div><b>'+esc(label)+'</b><small>'+(passed?'ผ่านขั้นนี้แล้ว':'ยังไม่ผ่าน/ยังไม่ประเมิน')+'</small></div></div>';
   }
 
   async function renderAudit(v) {

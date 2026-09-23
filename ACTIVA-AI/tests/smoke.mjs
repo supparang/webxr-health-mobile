@@ -86,6 +86,56 @@ await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
   },
 });
 
+const staffMe = await req("/api/me", { actor: "STF001" });
+
+await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    target: "REVIEW_REQUIRED",
+    reasonCodes: ["SHORT_DURATION"],
+    notes: "Second independent CI label",
+  },
+});
+
+const staffQueueAfterTwoLabels = await req("/api/ground-truth/queue", { actor: "STF001" });
+const staffRecordAfterTwoLabels = staffQueueAfterTwoLabels.records.find((r) => r.id === attendanceId);
+assert(
+  (staffRecordAfterTwoLabels.groundTruthLabels || []).every((x) => x.reviewerId === staffMe.user.id),
+  "independent label privacy failed: STAFF can see peer labels"
+);
+assert(
+  !Object.prototype.hasOwnProperty.call(staffRecordAfterTwoLabels, "consistencyResult"),
+  "rule-result leakage into blinded ground-truth queue"
+);
+
+const adjudication = await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/adjudicate", {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    finalTarget: "REVIEW_REQUIRED",
+    reasonCodes: ["SHORT_DURATION"],
+    notes: "Two independent labels agree in CI",
+  },
+});
+assert(adjudication.groundTruthCase?.status === "ADJUDICATED", "ground-truth adjudication failed");
+
+const locked = await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/lock", {
+  actor: "ADM001",
+  method: "POST",
+});
+assert(locked.groundTruthCase?.status === "LOCKED", "ground-truth lock failed");
+
+const readiness = await req("/api/ml/readiness", { actor: "ADM001" });
+assert(readiness.counts?.lockedCount >= 1, "ML readiness does not count locked case");
+
+const mlDataset = await req("/api/ml/dataset", { actor: "ADM001" });
+const mlRecord = mlDataset.records.find((r) => r.record_id === attendanceId);
+assert(mlRecord, "locked ML dataset missing record");
+assert(mlRecord.participant_hash && mlRecord.participant_hash !== "P001", "ML dataset is not de-identified");
+assert(mlRecord.final_target === "REVIEW_REQUIRED", "ML final target mismatch");
+assert(!Object.prototype.hasOwnProperty.call(mlRecord, "risk_probability"), "AI output leaked into training dataset");
+
 await req("/api/reviews/" + encodeURIComponent(attendanceId), {
   actor: "STF001",
   method: "POST",
@@ -107,4 +157,4 @@ assert(exported.participant_hash && exported.participant_hash !== "P001", "resea
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
 
-console.log("ACTIVA-AI V0.2.3 smoke test passed");
+console.log("ACTIVA-AI V0.3.1 smoke test passed");

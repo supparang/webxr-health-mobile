@@ -106,3 +106,14 @@ V0.3:
 - รายงาน Precision, Recall, Specificity, F1, ROC-AUC, PR-AUC, Brier, calibration และ cluster-bootstrap 95% CI
 - เพิ่ม permutation importance สำหรับ predictive explainability
 - CI ใช้ synthetic dataset เฉพาะ software test และติดป้ายชัดว่าไม่ใช่ผลวิจัย
+
+
+## V0.3.1 — Ground Truth Adjudication + AI Readiness UI
+- STAFF reviewer เห็นเฉพาะ independent label ของตนเอง
+- Ground Truth Workspace แสดง raw evidence โดยไม่แสดง AI prediction หรือ rule consistency result
+- Admin เห็น peer labels เพื่อ adjudication หลังการติดป้าย
+- เพิ่ม Adjudicate → Lock workflow ในหน้าเว็บ
+- Ground Truth ที่ LOCK แล้วแก้ label/adjudication ซ้ำไม่ได้
+- เพิ่ม AI Readiness Dashboard
+- เพิ่มการดาวน์โหลด locked/de-identified ML dataset
+- Smoke test ครอบคลุม independent-label isolation, adjudication, lock, readiness และ ML export

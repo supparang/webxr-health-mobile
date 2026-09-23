@@ -417,12 +417,27 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (_req, 
 
   // Intentionally excludes aiPredictions and consistencyResult:
   // ground-truth reviewers see raw evidence, not AI/rule recommendations.
-  res.json({ ok: true, blinded: true, records: rows });
+  // STAFF reviewers only receive their own labels to preserve independent labeling.
+  const safeRows = rows.map((row) => ({
+    ...row,
+    groundTruthLabels:
+      req.activaUser.role === "ADMIN"
+        ? row.groundTruthLabels
+        : row.groundTruthLabels.filter((label) => label.reviewerId === req.activaUser.id),
+  }));
+  res.json({ ok: true, blinded: true, records: safeRows });
 });
 
 app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const reviewerId = actorId(req);
   if (!reviewerId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
+
+  const existingCase = await prisma.groundTruthCase.findUnique({
+    where: { attendanceId: req.params.attendanceId },
+  });
+  if (existingCase?.status === "LOCKED") {
+    return res.status(409).json({ ok: false, error: "GROUND_TRUTH_LOCKED_NO_MORE_LABEL_CHANGES" });
+  }
 
   const b = req.body || {};
   if (!["REVIEW_REQUIRED", "NO_REVIEW_REQUIRED"].includes(b.target)) {
@@ -473,6 +488,11 @@ app.get("/api/audit", requireRoles("ADMIN"), async (_req, res) => {
 
 app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), async (req, res) => {
   const attendanceId = req.params.attendanceId;
+  const existingCase = await prisma.groundTruthCase.findUnique({ where: { attendanceId } });
+  if (existingCase?.status === "LOCKED") {
+    return res.status(409).json({ ok: false, error: "GROUND_TRUTH_LOCKED_NO_READJUDICATION" });
+  }
+
   const b = req.body || {};
   const allowedTargets = ["REVIEW_REQUIRED", "NO_REVIEW_REQUIRED"];
   if (!allowedTargets.includes(b.finalTarget)) {
@@ -700,5 +720,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.2.2 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.3.1 server running on http://localhost:" + port);
 });
