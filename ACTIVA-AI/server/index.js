@@ -289,9 +289,18 @@ app.post("/api/attendance/checkin", async (req, res) => {
   }
 
   const existing = await prisma.attendanceRecord.findFirst({
-    where: { activityId, userId: user.id, checkoutAt: null },
+    where: { activityId, userId: user.id },
   });
-  if (existing) return res.status(409).json({ ok: false, error: "OPEN_ATTENDANCE_EXISTS", attendanceId: existing.id });
+  if (existing) {
+    return res.status(409).json({
+      ok: false,
+      error: existing.checkoutAt ? "ACTIVITY_ALREADY_COMPLETED" : "ALREADY_CHECKED_IN",
+      attendanceId: existing.id,
+      checkinAt: existing.checkinAt,
+      checkoutAt: existing.checkoutAt,
+      attendanceStatus: existing.attendanceStatus,
+    });
+  }
 
   const row = await prisma.attendanceRecord.create({
     data: {
@@ -319,6 +328,12 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
   }
   if (!current.checkinAt) return res.status(409).json({ ok: false, error: "CHECKIN_REQUIRED" });
+  if (current.checkoutAt) return res.status(409).json({
+    ok: false,
+    error: "ALREADY_CHECKED_OUT",
+    attendanceId: current.id,
+    checkoutAt: current.checkoutAt,
+  });
 
   const checkoutAt = new Date();
   const durationMinutes = Math.max(0, Math.round((checkoutAt.getTime() - current.checkinAt.getTime()) / 60000));

@@ -114,7 +114,7 @@
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
       missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.5",evaluatedAt:iso()
+      ruleVersion:"DEMO-RULES-0.3.6",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
@@ -143,7 +143,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.5-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.3.6-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -209,8 +209,21 @@
       }
       if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
-      const open = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id&&!r.checkoutAt);
-      if(open) err("OPEN_ATTENDANCE_EXISTS",409);
+      const existing = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id);
+      if(existing) {
+        const code = existing.checkoutAt ? "ACTIVITY_ALREADY_COMPLETED" : "ALREADY_CHECKED_IN";
+        const e = new Error(code);
+        e.status = 409;
+        e.data = {
+          ok:false,
+          error:code,
+          attendanceId:existing.id,
+          checkinAt:existing.checkinAt,
+          checkoutAt:existing.checkoutAt,
+          attendanceStatus:existing.attendanceStatus
+        };
+        throw e;
+      }
       const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,checkinAt:iso(),checkoutAt:null,
         attendanceStatus:"CHECKED_IN",qrValid:true,identityVerified:true,signatureVerified:false,
         scanAttempts:1,staffVerification:null,consistencyResult:null,finalEvidenceStatus:null};
@@ -222,6 +235,7 @@
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
       if(who.role==="PARTICIPANT"&&r.userId!==who.id) err("PARTICIPANT_CAN_ONLY_CHECKOUT_SELF",403);
+      if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
       r.checkoutAt=iso(); r.attendanceStatus="CHECKED_OUT"; save();
       audit(who.id,"CHECKOUT","AttendanceRecord",r.id,{demo:true});
       return {ok:true,attendance:hydrateAttendance(r)};

@@ -161,3 +161,12 @@ V0.3:
 - ยังมี "กรอก/วาง Token" เป็น fallback
 - Demo QR สามารถสแกนข้ามอุปกรณ์ได้ภายในอายุ token 45 วินาที โดยตรวจ event id + issued timestamp จาก token
 - กล้องต้องเปิดผ่าน HTTPS หรือ localhost และผู้ใช้ต้องอนุญาต Camera permission
+
+
+## V0.3.6 — Duplicate Check-in Prevention
+- 1 คนต่อ 1 กิจกรรมมี AttendanceRecord ได้เพียง 1 รายการ
+- ถ้า Check-in อยู่แล้ว ระบบตอบ ALREADY_CHECKED_IN และไม่สร้างแถวใหม่
+- ถ้า Check-in/Check-out ครบแล้ว ระบบตอบ ACTIVITY_ALREADY_COMPLETED และให้ไป Staff Verification/Evidence Review ต่อ
+- ป้องกัน Check-out ซ้ำด้วย ALREADY_CHECKED_OUT
+- เพิ่ม unique constraint activityId + userId สำหรับ PostgreSQL Server Mode
+- ปุ่ม Check-out บน UI ถูกปิดเมื่อรายการ Check-out แล้ว

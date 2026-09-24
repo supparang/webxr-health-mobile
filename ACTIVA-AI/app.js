@@ -95,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.5 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.6 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -157,7 +157,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.5</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.6</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -438,7 +438,13 @@
         await stopScanner();
         setTimeout(() => renderAttendance(v), 900);
       } catch (e) {
-        msg.innerHTML = errorBox(e);
+        if (e?.message === "ALREADY_CHECKED_IN") {
+          msg.innerHTML = '<div class="alert warn"><b>Check-in แล้ว</b><br>กิจกรรมนี้มีรายการ Check-in อยู่แล้ว จึงไม่สร้างรายการซ้ำ</div>';
+        } else if (e?.message === "ACTIVITY_ALREADY_COMPLETED") {
+          msg.innerHTML = '<div class="alert ok"><b>กิจกรรมนี้บันทึกเข้า–ออกแล้ว</b><br>ไม่ต้อง Check-in ซ้ำ ให้ดำเนินการ Staff Verification / Evidence Review ต่อ</div>';
+        } else {
+          msg.innerHTML = errorBox(e);
+        }
       }
     }
 
@@ -499,6 +505,22 @@
 
     document.getElementById("stopQrBtn").onclick = stopScanner;
 
+    function syncCheckoutButton() {
+      const select = document.getElementById("coRecord");
+      const button = document.getElementById("coBtn");
+      if (!select || !button) return;
+      const selected = rows.find(r => r.id === select.value);
+      if (selected?.checkoutAt) {
+        button.disabled = true;
+        button.textContent = "Check-out แล้ว";
+      } else {
+        button.disabled = !selected;
+        button.textContent = "Check-out";
+      }
+    }
+    document.getElementById("coRecord").onchange = syncCheckoutButton;
+    syncCheckoutButton();
+
     document.getElementById("coBtn").onclick = async () => {
       const id = document.getElementById("coRecord").value;
       const msg = document.getElementById("coMsg");
@@ -507,7 +529,14 @@
         await api("/api/attendance/"+encodeURIComponent(id)+"/checkout", {method:"POST"});
         msg.innerHTML = '<div class="alert ok">Check-out สำเร็จ</div>';
         setTimeout(() => renderAttendance(v), 350);
-      } catch (e) { msg.innerHTML = errorBox(e); }
+      } catch (e) {
+        if (e?.message === "ALREADY_CHECKED_OUT") {
+          msg.innerHTML = '<div class="alert ok">รายการนี้ Check-out ไปแล้ว ไม่ต้องทำซ้ำ</div>';
+          syncCheckoutButton();
+        } else {
+          msg.innerHTML = errorBox(e);
+        }
+      }
     };
 
     const staffBtn = document.getElementById("staffBtn");

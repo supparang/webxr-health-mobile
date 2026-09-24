@@ -165,6 +165,7 @@ model AttendanceRecord {
   updatedAt             DateTime              @updatedAt
 
   @@index([activityId, userId])
+  @@unique([activityId, userId])
 }
 
 model StaffVerification {
