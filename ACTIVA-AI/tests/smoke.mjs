@@ -119,7 +119,7 @@ assert(p1CreateAfter.status === 403, "P001 should not create activity after perm
 
 const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
-const activity = activities.activities[0];
+const activity = activities.activities.find((a) => a.organizer?.employeeId === "ORG001") || activities.activities[0];
 
 const qr = await req("/api/activities/" + encodeURIComponent(activity.id) + "/qr", {
   actor: "ORG001",
