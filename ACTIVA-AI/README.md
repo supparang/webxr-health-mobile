@@ -301,3 +301,13 @@ V0.3:
 - Participant scope (OPEN/ROSTER/GROUP), identity และ duplicate checks ยังทำงานร่วมกัน
 - เพิ่มช่วง Checkout Open/Close ในกิจกรรมเพื่อรองรับ policy ขั้นต่อไป
 - UI แสดงช่วง Check-in และข้อความภาษาไทยเมื่อยังไม่เปิด/ปิดแล้ว/QR หมดอายุ
+
+
+## V0.5.7 — Portable Demo QR Across Devices
+- แก้ปัญหา Demo Mode ที่สร้างกิจกรรมบนเครื่อง A แต่เครื่อง B ไม่มี activityId เดียวกัน จึงเคยถูกตีความเป็น QR หมดอายุ
+- Dynamic QR ใน Demo Mode ใช้ format ACTIVADEMO1 ที่บรรจุ activity snapshot ขั้นต่ำสำหรับตรวจ Check-in ข้ามอุปกรณ์
+- ฝั่งผู้สแกนสามารถ materialize กิจกรรมชั่วคราวจาก QR แล้วตรวจ Check-in Window, OPEN/ROSTER/GROUP, identity และ duplicate ต่อได้
+- QR Demo ยังมีอายุสูงสุด 45 วินาที
+- ขยาย QR เป็น 240×240 และใช้ error correction ระดับ L เพื่อให้อ่าน payload ที่ยาวขึ้นได้ง่ายขึ้น
+- แก้ข้อความ UI: Demo Mode ไม่อ้างว่าใช้ HMAC-SHA256; HMAC ใช้เฉพาะ Server Mode
+- ข้อจำกัดยังคงอยู่: localStorage ไม่ sync attendance ข้ามอุปกรณ์ ดังนั้น Check-in ที่เครื่องผู้เข้าร่วมจะไม่ไปปรากฏบนเครื่อง Staff/Admin จนกว่าจะใช้ shared backend

@@ -21,6 +21,109 @@
   const iso = (d = now()) => d.toISOString();
   const uid = (p) => p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
 
+  function encodeBase64UrlUtf8(value){
+    const bytes=new TextEncoder().encode(value);
+    let binary="";
+    for(const b of bytes) binary+=String.fromCharCode(b);
+    return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  }
+
+  function decodeBase64UrlUtf8(value){
+    let normalized=value.replace(/-/g,"+").replace(/_/g,"/");
+    while(normalized.length%4) normalized+="=";
+    const binary=atob(normalized);
+    const bytes=Uint8Array.from(binary,ch=>ch.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  function encodePortableDemoQr(activity, expiresAtMs){
+    const windows=activityTimeWindows(activity);
+    const p=activity.policy||{};
+    const participantEmployeeIds=(activity.participants||[])
+      .filter(x=>x.status!=="CANCELLED")
+      .map(x=>actor(x.userId)?.employeeId||x.userId)
+      .filter(Boolean);
+    const payload={
+      v:1,
+      id:activity.id,
+      t:activity.title,
+      c:activity.category||"",
+      l:activity.location||"",
+      s:activity.startAt,
+      e:activity.endAt,
+      io:windows.checkinOpenAt,
+      ic:windows.checkinCloseAt,
+      oo:windows.checkoutOpenAt,
+      oc:windows.checkoutCloseAt,
+      m:activity.participationMode||"OPEN",
+      d:Array.isArray(activity.allowedDepartmentCodes)?activity.allowedDepartmentCodes:[],
+      r:participantEmployeeIds,
+      p:{
+        q:p.qrRequired!==false,
+        i:p.identityRequired!==false,
+        ci:p.checkinRequired!==false,
+        co:p.checkoutRequired!==false,
+        du:p.durationRequired!==false,
+        st:p.staffRequired!==false,
+        sg:Boolean(p.signatureRequired),
+        mr:Number(p.minDurationRatio??0.75)
+      },
+      iat:Date.now(),
+      exp:expiresAtMs,
+      n:Math.random().toString(36).slice(2)
+    };
+    return "ACTIVADEMO1."+encodeBase64UrlUtf8(JSON.stringify(payload));
+  }
+
+  function decodePortableDemoQr(token){
+    if(typeof token!=="string"||!token.startsWith("ACTIVADEMO1.")) return null;
+    try{
+      const payload=JSON.parse(decodeBase64UrlUtf8(token.slice("ACTIVADEMO1.".length)));
+      if(payload?.v!==1||!payload.id||!payload.exp||!payload.iat) return null;
+      return payload;
+    }catch{return null;}
+  }
+
+  function materializePortableActivity(payload){
+    let a=activity(payload.id);
+    if(a) return a;
+    const participantIds=(payload.r||[]).map(ref=>actor(ref)?.id).filter(Boolean);
+    a={
+      id:payload.id,
+      title:payload.t||"กิจกรรมจาก Dynamic QR",
+      category:payload.c||"ไม่ระบุ",
+      description:"Imported from portable Demo QR",
+      location:payload.l||"ไม่ระบุ",
+      startAt:payload.s,
+      endAt:payload.e,
+      checkinOpenAt:payload.io,
+      checkinCloseAt:payload.ic,
+      checkoutOpenAt:payload.oo,
+      checkoutCloseAt:payload.oc,
+      organizerId:null,
+      participationMode:payload.m||"OPEN",
+      allowedDepartmentCodes:Array.isArray(payload.d)?payload.d:[],
+      roleAssignments:[],
+      participants:participantIds.map(userId=>({id:uid("DEMO-AP"),userId,status:"INVITED",addedById:null,createdAt:iso()})),
+      policy:{
+        qrRequired:payload.p?.q!==false,
+        identityRequired:payload.p?.i!==false,
+        checkinRequired:payload.p?.ci!==false,
+        checkoutRequired:payload.p?.co!==false,
+        durationRequired:payload.p?.du!==false,
+        staffRequired:payload.p?.st!==false,
+        signatureRequired:Boolean(payload.p?.sg),
+        minDurationRatio:Number(payload.p?.mr??0.75)
+      },
+      qr:null,
+      importedFromPortableQr:true,
+      assignmentsUpdatedAt:null
+    };
+    state.activities.push(a);
+    save();
+    return a;
+  }
+
   function todayAt(h, m) {
     const d = new Date();
     d.setHours(h, m, 0, 0);
@@ -403,7 +506,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.6-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.7-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -695,8 +798,14 @@
         throw e;
       }
       const exp = new Date(Math.min(Date.now()+45000,new Date(windowState.checkinCloseAt).getTime()));
-      a.qr = {token:"DEMO|"+a.id+"|"+Date.now()+"|"+Math.random().toString(36).slice(2),issuedAt:iso(),expiresAt:exp.toISOString()};
-      audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,expiresAt:a.qr.expiresAt}); save();
+      a.qr = {
+        token:encodePortableDemoQr(a,exp.getTime()),
+        issuedAt:iso(),
+        expiresAt:exp.toISOString(),
+        format:"ACTIVADEMO1",
+        portableAcrossDevices:true
+      };
+      audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,expiresAt:a.qr.expiresAt,format:"ACTIVADEMO1",portableAcrossDevices:true}); save();
       return {ok:true,...a.qr,demo:true,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
     }
 
@@ -712,6 +821,15 @@
       const u = actor(b.userId); if(!u) err("USER_NOT_FOUND",404);
       if (who.role==="PARTICIPANT" && who.id!==u.id) err("PARTICIPANT_CAN_ONLY_CHECKIN_SELF",403);
       let a = state.activities.find(x=>x.qr?.token===b.token);
+      const portable=decodePortableDemoQr(b.token);
+      if(portable){
+        const nowMs=Date.now();
+        if(nowMs>Number(portable.exp)) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+        if(nowMs<Number(portable.iat)-120000) err("INVALID_DEMO_QR_CLOCK",400);
+        a=materializePortableActivity(portable);
+        a.qr={token:b.token,issuedAt:new Date(Number(portable.iat)).toISOString(),expiresAt:new Date(Number(portable.exp)).toISOString(),format:"ACTIVADEMO1",portableAcrossDevices:true};
+        save();
+      }
       if (!a && typeof b.token === "string" && b.token.startsWith("DEMO|")) {
         const parts = b.token.split("|");
         const activityId = parts[1];

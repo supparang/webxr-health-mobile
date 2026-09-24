@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.6</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.7</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -915,7 +915,11 @@
       '<div id="qrWindowInfo"></div>'+
       '<div class="actions"><button class="btn primary" id="newQr">สร้าง/หมุน QR ใหม่</button></div>'+
       '<div id="qrArea"></div>'+
-      '<div class="hint">QR นี้ใช้สำหรับ Check-in • สร้างและสแกนได้เฉพาะ Check-in Window • Token มีอายุสูงสุด 45 วินาที มี nonce และไม่บรรจุข้อมูลส่วนบุคคล</div></div>';
+      '<div class="hint">'+
+        (appMode==="demo"
+          ? '<b>Demo Mode:</b> QR แบบ portable ใช้สแกนข้ามอุปกรณ์ได้ภายในอายุ token แต่เป็นข้อมูลสาธิตและไม่ได้ใช้ลายมือชื่อ HMAC จริง'
+          : '<b>Server Mode:</b> Token ลงลายมือชื่อฝั่งเซิร์ฟเวอร์ด้วย HMAC-SHA256 มี nonce และวันหมดอายุ')+
+        '<br>QR ใช้สำหรับ Check-in • สร้างและสแกนได้เฉพาะ Check-in Window • ไม่บรรจุข้อมูลส่วนบุคคลโดยตรง</div></div>';
 
     const selectedActivity=()=>activities.find(a=>a.id===document.getElementById("qrAct").value);
 
@@ -950,7 +954,12 @@
         '<p>หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
         '<p class="muted">Check-in ได้ถึง '+esc(fmt(qrState.checkinCloseAt))+'</p>'+
         '<div class="token">'+esc(qrState.token)+'</div></div></div>';
-      if (window.QRCode) new QRCode(document.getElementById("qrcode"), {text:qrState.token,width:166,height:166});
+      if (window.QRCode) new QRCode(document.getElementById("qrcode"), {
+        text:qrState.token,
+        width:240,
+        height:240,
+        correctLevel:QRCode.CorrectLevel.L
+      });
     }
 
     function qrError(e) {
@@ -1197,7 +1206,10 @@
           msg.innerHTML = '<div class="alert bad"><b>หมดเวลา Check-in แล้ว</b><br>หากมีเหตุจำเป็นให้ติดต่อผู้จัดกิจกรรม/เจ้าหน้าที่</div>';
           await stopScanner();
         } else if (e?.message === "INVALID_OR_EXPIRED_DEMO_QR" || e?.message === "TOKEN_EXPIRED") {
-          msg.innerHTML = '<div class="alert warn"><b>QR หมดอายุ</b><br>ให้สแกน Dynamic QR ใบล่าสุดอีกครั้ง</div>';
+          msg.innerHTML = '<div class="alert warn"><b>QR ใช้ไม่ได้หรือหมดอายุ</b><br>ให้สแกน Dynamic QR ใบล่าสุดอีกครั้ง</div>';
+          await stopScanner();
+        } else if (e?.message === "INVALID_DEMO_QR_CLOCK") {
+          msg.innerHTML = '<div class="alert warn"><b>เวลาในอุปกรณ์ไม่สอดคล้องกัน</b><br>ตรวจการตั้งวันที่/เวลาอัตโนมัติของมือถือทั้งสองเครื่อง แล้วสแกนใหม่</div>';
           await stopScanner();
         } else {
           msg.innerHTML = errorBox(e);
