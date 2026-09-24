@@ -43,13 +43,16 @@
   }
 
   function canManageActivities(user = session) {
-    return user?.role === "ADMIN" || activityPermissionKeys(user).length > 0;
+    return user?.role === "ADMIN" ||
+      activityPermissionKeys(user).length > 0 ||
+      (user?.activityAssignments || []).some(x=>x.role==="CO_ORGANIZER");
   }
 
   function canManageActivityClient(activity) {
     if (can("ADMIN") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES")) return true;
-    return activity?.organizerId === session?.id &&
-      (hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_CREATE_ACTIVITY"));
+    if (activity?.organizerId === session?.id &&
+      (hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_CREATE_ACTIVITY"))) return true;
+    return (activity?.roleAssignments || []).some(x=>x.role==="CO_ORGANIZER"&&x.userId===session?.id);
   }
 
   function readSession() {
@@ -193,7 +196,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.5.1 • Role/Permission Terminology</div>'+
+        '<div class="version">V0.5.2 • Role/Permission Terminology</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -279,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.1</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.2</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -341,7 +344,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.1 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.2 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -648,7 +651,12 @@
       : '<div class="panel"><div class="hint"><b>สิทธิ์ปัจจุบัน:</b> คุณจัดการกิจกรรมที่ได้รับสิทธิ์ได้ แต่ไม่มีสิทธิ์สร้างกิจกรรมใหม่</div></div>';
 
     v.innerHTML = createPanel+
-      '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable(activities)+'</div>';
+      '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable(activities)+'</div>'+
+      '<div id="activityManager"></div>';
+
+    document.querySelectorAll(".manageActivity").forEach(btn=>btn.onclick=()=>{
+      renderActivityManagement(document.getElementById("activityManager"),btn.dataset.id);
+    });
 
     const createBtn=document.getElementById("createAct");
     if(!createBtn) return;
@@ -677,18 +685,132 @@
             }
           })
         });
-        msg.innerHTML = '<div class="alert ok">บันทึกกิจกรรมแล้ว</div>';
+        msg.innerHTML = '<div class="alert ok">บันทึกกิจกรรมแล้ว • จากนั้นกด “จัดผู้รับผิดชอบ/ผู้เข้าร่วม” เพื่อเพิ่ม Co-organizer ผู้ตรวจสอบ และกำหนดผู้เข้าร่วม</div>';
         setTimeout(() => renderActivities(v), 300);
       } catch (error) { msg.innerHTML = errorBox(error); }
     };
   }
 
+  function participationModeLabel(mode) {
+    return ({OPEN:"บุคลากรทุกคน",ROSTER:"เฉพาะรายชื่อ",GROUP:"เฉพาะหน่วยงาน"})[mode] || mode || "บุคลากรทุกคน";
+  }
+
   function activitiesTable(items) {
     if (!items.length) return '<div class="empty">ยังไม่มีกิจกรรม</div>';
-    return '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>วัน/เวลา</th><th>สถานที่</th><th>Evidence Policy</th></tr></thead><tbody>'+
-      items.map(a => '<tr><td><b>'+esc(a.title)+'</b><br><span class="muted">'+esc(a.category)+' • '+esc(a.id)+'</span></td>'+
-      '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'</td><td>'+esc(a.location)+'</td><td>'+esc(policyText(a.policy))+'</td></tr>').join("")+
-      '</tbody></table></div>';
+    const row = (a) => {
+      const primary=a.organizer?.name || a.organizerId || "—";
+      const count=a._count?.participants ?? (a.participants||[]).length ?? 0;
+      const manage=canManageActivityClient(a)
+        ? '<button class="btn mini secondary manageActivity" data-id="'+esc(a.id)+'">จัดผู้รับผิดชอบ/ผู้เข้าร่วม</button>'
+        : '';
+      return '<tr><td><b>'+esc(a.title)+'</b><br><span class="muted">'+esc(a.category)+' • '+esc(a.id)+'</span></td>'+
+        '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'</td>'+
+        '<td>'+esc(a.location)+'</td>'+
+        '<td>'+esc(primary)+'</td>'+
+        '<td>'+esc(participationModeLabel(a.participationMode))+(a.participationMode==="ROSTER"?' • '+count+' คน':'')+'</td>'+
+        '<td>'+esc(policyText(a.policy))+'</td><td>'+manage+'</td></tr>';
+    };
+    const cards=items.map(a=>{
+      const primary=a.organizer?.name || a.organizerId || "—";
+      const count=a._count?.participants ?? (a.participants||[]).length ?? 0;
+      return '<article class="activity-card">'+
+        '<div class="activity-card-head"><div><b>'+esc(a.title)+'</b><small>'+esc(a.category)+'</small></div><span class="status s-info">'+esc(participationModeLabel(a.participationMode))+'</span></div>'+
+        '<div class="activity-meta"><span><b>วัน/เวลา</b>'+fmt(a.startAt)+'</span><span><b>สถานที่</b>'+esc(a.location)+'</span>'+
+        '<span><b>ผู้จัดกิจกรรมหลัก</b>'+esc(primary)+'</span><span><b>รายชื่อที่กำหนด</b>'+(a.participationMode==="ROSTER"?esc(count)+" คน":"—")+'</span></div>'+
+        '<div class="muted">'+esc(policyText(a.policy))+'</div>'+
+        (canManageActivityClient(a)?'<div class="actions"><button class="btn secondary manageActivity" data-id="'+esc(a.id)+'">จัดผู้รับผิดชอบ/ผู้เข้าร่วม</button></div>':'')+
+        '</article>';
+    }).join("");
+    return '<div class="table-wrap desktop-activities"><table><thead><tr><th>กิจกรรม</th><th>วัน/เวลา</th><th>สถานที่</th><th>ผู้จัดหลัก</th><th>ผู้เข้าร่วม</th><th>Evidence Policy</th><th></th></tr></thead><tbody>'+
+      items.map(row).join("")+'</tbody></table></div><div class="activity-cards">'+cards+'</div>';
+  }
+
+  function assignmentChecks(users, selectedIds, className, disabled) {
+    const selected=new Set(selectedIds||[]);
+    return '<div class="assignment-list">'+users.map(u=>
+      '<label class="assignment-person"><input type="checkbox" class="'+className+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
+      '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
+    ).join("")+'</div>';
+  }
+
+  async function renderActivityManagement(host, activityId) {
+    host.innerHTML='<div class="panel"><div class="loading">กำลังโหลดผู้รับผิดชอบและผู้เข้าร่วม…</div></div>';
+    try {
+      const [detail, users] = await Promise.all([
+        api("/api/activities/"+encodeURIComponent(activityId)+"/manage"),
+        loadUsers()
+      ]);
+      const a=detail.activity, caps=detail.capabilities||{};
+      const activeUsers=users.filter(u=>u.status==="ACTIVE");
+      const coIds=(a.roleAssignments||[]).filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId);
+      const verifierIds=(a.roleAssignments||[]).filter(x=>x.role==="VERIFIER").map(x=>x.userId);
+      const rosterIds=(a.participants||[]).filter(x=>x.status!=="CANCELLED").map(x=>x.userId);
+      const depts=[...new Map(activeUsers.filter(u=>u.department?.code).map(u=>[u.department.code,u.department])).values()];
+      const allowedDepts=new Set(Array.isArray(a.allowedDepartmentCodes)?a.allowedDepartmentCodes:[]);
+
+      host.innerHTML=
+        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b></p></div><button class="btn mini secondary" id="closeActivityManager">ปิด</button></div>'+
+        '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
+        '<div class="split">'+
+          '<div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">สิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ไม่ทำให้บุคคลเป็นผู้จัดกิจกรรมอื่น</p>'+
+            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo)+
+            (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">บันทึกผู้จัดร่วม</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
+          '</div>'+
+          '<div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เป็นการมอบหมายเฉพาะกิจกรรม ไม่ใช่การเปลี่ยนบทบาทระบบถาวร</p>'+
+            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier)+
+            (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
+          '</div>'+
+        '</div>'+
+        '<hr><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3>'+
+        '<div class="participation-modes">'+
+          '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
+        '</div>'+
+        '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants)+'</div>'+
+        '<div id="groupBox"><h4>เลือกหน่วยงาน</h4><div class="assignment-list">'+depts.map(d=>
+          '<label class="assignment-person"><input type="checkbox" class="groupDept" value="'+esc(d.code)+'" '+(allowedDepts.has(d.code)?"checked":"")+' '+(!caps.canManageParticipants?"disabled":"")+'>'+
+          '<span><b>'+esc(d.name)+'</b><small>'+esc(d.code)+'</small></span></label>'
+        ).join("")+'</div></div>'+
+        (caps.canManageParticipants?'<div class="actions"><button class="btn primary" id="saveParticipation">บันทึกผู้เข้าร่วม</button></div>':'')+
+        '<div id="activityManageMsg"></div></div>';
+
+      const updateMode=()=>{
+        const mode=host.querySelector('input[name="participationMode"]:checked')?.value||"OPEN";
+        document.getElementById("rosterBox").style.display=mode==="ROSTER"?"block":"none";
+        document.getElementById("groupBox").style.display=mode==="GROUP"?"block":"none";
+      };
+      host.querySelectorAll('input[name="participationMode"]').forEach(x=>x.onchange=updateMode);
+      updateMode();
+      document.getElementById("closeActivityManager").onclick=()=>{host.innerHTML="";};
+
+      const checkedValues=(selector)=>[...host.querySelectorAll(selector+":checked")].map(x=>x.value);
+      async function saveAssignments(payload,message){
+        const msg=document.getElementById("activityManageMsg");
+        try{
+          await api("/api/activities/"+encodeURIComponent(activityId)+"/assignments",{method:"PUT",body:JSON.stringify(payload)});
+          msg.innerHTML='<div class="alert ok">'+esc(message)+'</div>';
+          setTimeout(()=>renderActivityManagement(host,activityId),300);
+        }catch(e){msg.innerHTML=errorBox(e);}
+      }
+      if(document.getElementById("saveCo")) document.getElementById("saveCo").onclick=()=>saveAssignments({coOrganizerIds:checkedValues(".coAssign")},"บันทึกผู้จัดกิจกรรมร่วมแล้ว");
+      if(document.getElementById("saveVerifier")) document.getElementById("saveVerifier").onclick=()=>saveAssignments({verifierIds:checkedValues(".verifierAssign")},"บันทึกผู้ตรวจสอบหลักฐานแล้ว");
+      if(document.getElementById("saveParticipation")) document.getElementById("saveParticipation").onclick=async()=>{
+        const msg=document.getElementById("activityManageMsg");
+        const mode=host.querySelector('input[name="participationMode"]:checked')?.value||"OPEN";
+        try{
+          await api("/api/activities/"+encodeURIComponent(activityId)+"/participants",{method:"PUT",body:JSON.stringify({
+            mode,
+            userIds:checkedValues(".rosterPerson"),
+            departmentCodes:checkedValues(".groupDept")
+          })});
+          msg.innerHTML='<div class="alert ok">บันทึกเงื่อนไขผู้เข้าร่วมแล้ว</div>';
+          setTimeout(()=>renderActivityManagement(host,activityId),300);
+        }catch(e){msg.innerHTML=errorBox(e);}
+      };
+    } catch(error) {
+      host.innerHTML='<div class="panel">'+errorBox(error)+'</div>';
+    }
   }
 
   async function renderQr(v) {
@@ -735,7 +857,7 @@
   }
 
   async function loadUsers() {
-    if (can("PARTICIPANT")) return [session];
+    if (can("PARTICIPANT") && !canManageActivities()) return [session];
     const data = await api("/api/users");
     return data.users || [];
   }
@@ -1606,7 +1728,9 @@
       USER_IMPORT:"นำเข้าบุคลากรแบบชุด",
       ACTIVITY_PERMISSION_GRANTED:"เพิ่มสิทธิ์กิจกรรม",
       ACTIVITY_PERMISSION_UPDATED:"ปรับสิทธิ์กิจกรรม",
-      ACTIVITY_PERMISSION_REVOKED:"ถอนสิทธิ์กิจกรรม"
+      ACTIVITY_PERMISSION_REVOKED:"ถอนสิทธิ์กิจกรรม",
+      ACTIVITY_ASSIGNMENTS_UPDATED:"ปรับผู้รับผิดชอบกิจกรรม",
+      ACTIVITY_PARTICIPATION_UPDATED:"ปรับเงื่อนไขผู้เข้าร่วมกิจกรรม"
     };
     return map[code] || String(code || "ไม่ระบุ");
   }

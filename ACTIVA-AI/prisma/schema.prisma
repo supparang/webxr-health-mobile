@@ -23,6 +23,23 @@ enum ActivityPermissionKey {
   CAN_MANAGE_ALL_ACTIVITIES
 }
 
+enum ActivityAssignmentRole {
+  CO_ORGANIZER
+  VERIFIER
+}
+
+enum ParticipationMode {
+  OPEN
+  ROSTER
+  GROUP
+}
+
+enum ActivityParticipantStatus {
+  INVITED
+  REGISTERED
+  CANCELLED
+}
+
 enum AttendanceStatus {
   REGISTERED
   CHECKED_IN
@@ -91,6 +108,10 @@ model User {
   activityPermissionGrants UserActivityPermission[] @relation("ActivityPermissionGrantedBy")
   activityPermissionRevokes UserActivityPermission[] @relation("ActivityPermissionRevokedBy")
   organizedActivities Activity[]           @relation("ActivityOrganizer")
+  activityRoleAssignments ActivityRoleAssignment[] @relation("ActivityAssignedUser")
+  activityAssignmentsGranted ActivityRoleAssignment[] @relation("ActivityAssignmentAssignedBy")
+  activityParticipants ActivityParticipant[] @relation("ActivityParticipantUser")
+  activityParticipantsAdded ActivityParticipant[] @relation("ActivityParticipantAddedBy")
   attendanceRecords       AttendanceRecord[]
   voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
   staffVerifications StaffVerification[]   @relation("StaffVerifier")
@@ -138,11 +159,48 @@ model Activity {
   checkoutCloseAt  DateTime?
   organizerId      String?
   organizer        User?              @relation("ActivityOrganizer", fields: [organizerId], references: [id])
+  participationMode ParticipationMode @default(OPEN)
+  allowedDepartmentCodes Json?
+  roleAssignments  ActivityRoleAssignment[]
+  participants     ActivityParticipant[]
   policy           ActivityPolicy?
   qrTokens         QrToken[]
   attendanceRecords AttendanceRecord[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+}
+
+model ActivityRoleAssignment {
+  id           String                 @id @default(cuid())
+  activityId   String
+  activity     Activity               @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User                   @relation("ActivityAssignedUser", fields: [userId], references: [id], onDelete: Cascade)
+  role         ActivityAssignmentRole
+  assignedById String?
+  assignedBy   User?                  @relation("ActivityAssignmentAssignedBy", fields: [assignedById], references: [id])
+  assignedAt   DateTime               @default(now())
+
+  @@unique([activityId, userId, role])
+  @@index([activityId, role])
+  @@index([userId, role])
+}
+
+model ActivityParticipant {
+  id          String                    @id @default(cuid())
+  activityId  String
+  activity    Activity                  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                      @relation("ActivityParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+  status      ActivityParticipantStatus @default(INVITED)
+  addedById   String?
+  addedBy     User?                     @relation("ActivityParticipantAddedBy", fields: [addedById], references: [id])
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@unique([activityId, userId])
+  @@index([activityId, status])
+  @@index([userId, status])
 }
 
 model ActivityPolicy {

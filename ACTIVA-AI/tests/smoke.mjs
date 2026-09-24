@@ -121,11 +121,51 @@ const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
 const activity = activities.activities.find((a) => a.organizer?.employeeId === "ORG001") || activities.activities[0];
 
+// V0.5.2 per-activity assignments + participant scope
+const activityManage = await req("/api/activities/" + encodeURIComponent(activity.id) + "/manage", {
+  actor: "ORG001",
+});
+assert(activityManage.capabilities?.canAssignCo === true, "primary organizer should be able to assign co-organizer");
+assert(activityManage.capabilities?.canAssignVerifier === true, "primary organizer should be able to assign verifier");
+
+const assignments = await req("/api/activities/" + encodeURIComponent(activity.id) + "/assignments", {
+  actor: "ORG001",
+  method: "PUT",
+  body: {
+    coOrganizerIds: ["P002"],
+    verifierIds: ["STF001"],
+  },
+});
+assert(assignments.assignments.some(x => x.role === "CO_ORGANIZER" && x.user?.employeeId === "P002"), "co-organizer assignment missing");
+assert(assignments.assignments.some(x => x.role === "VERIFIER" && x.user?.employeeId === "STF001"), "verifier assignment missing");
+
+const coDirectory = await req("/api/users", { actor: "P002" });
+assert(coDirectory.users.some(u => u.employeeId === "P001"), "co-organizer should access personnel directory");
+
+const roster = await req("/api/activities/" + encodeURIComponent(activity.id) + "/participants", {
+  actor: "P002",
+  method: "PUT",
+  body: {
+    mode: "ROSTER",
+    userIds: ["P001"],
+    departmentCodes: [],
+  },
+});
+assert(roster.activity?.participationMode === "ROSTER", "roster participation mode not saved");
+
 const qr = await req("/api/activities/" + encodeURIComponent(activity.id) + "/qr", {
   actor: "ORG001",
   method: "POST",
 });
 assert(qr.token && qr.expiresAt, "signed QR issuance failed");
+
+const blockedNonRoster = await reqError("/api/attendance/checkin", {
+  actor: "P003",
+  method: "POST",
+  body: { userId: "P003", token: qr.token },
+});
+assert(blockedNonRoster.status === 403, "non-roster participant should be blocked");
+assert(blockedNonRoster.data?.error === "ACTIVITY_PARTICIPATION_NOT_ALLOWED", "wrong non-roster error");
 
 const checkin = await req("/api/attendance/checkin", {
   actor: "P001",

@@ -73,14 +73,58 @@ function requireActivityPermission(key) {
   };
 }
 
+async function activeActivityAssignment(userId, activityId, role) {
+  if (!userId || !activityId) return null;
+  return prisma.activityRoleAssignment.findFirst({
+    where: {
+      userId,
+      activityId,
+      ...(role ? { role } : {}),
+    },
+    select: { id: true, role: true },
+  });
+}
+
+async function canAccessPersonnelDirectory(user) {
+  if (!user) return false;
+  if (["ADMIN","STAFF","ORGANIZER"].includes(user.role)) return true;
+  if ((await effectiveActivityPermissionKeys(user.id)).length > 0) return true;
+  const assignment = await prisma.activityRoleAssignment.findFirst({
+    where: { userId: user.id, role: "CO_ORGANIZER" },
+    select: { id: true },
+  });
+  return Boolean(assignment);
+}
+
+async function personnelDirectoryGuard(req, res, next) {
+  try {
+    if (await canAccessPersonnelDirectory(req.activaUser)) return next();
+    return res.status(403).json({ ok:false, error:"PERSONNEL_DIRECTORY_FORBIDDEN" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function canAssignActivityRole(req, activity, permissionKey) {
+  if (req.activaUser?.role === "ADMIN") return true;
+  const isPrimary = activity?.organizerId === req.activaUser?.id;
+  const managesAll = await userHasActivityPermission(req.activaUser, "CAN_MANAGE_ALL_ACTIVITIES");
+  if (!isPrimary && !managesAll) return false;
+  return userHasActivityPermission(req.activaUser, permissionKey);
+}
+
 async function canManageActivity(req, activity) {
   if (req.activaUser?.role === "ADMIN") return true;
   if (await userHasActivityPermission(req.activaUser, "CAN_MANAGE_ALL_ACTIVITIES")) return true;
-  if (activity?.organizerId !== req.activaUser?.id) return false;
-  return (
-    await userHasActivityPermission(req.activaUser, "CAN_EDIT_OWN_ACTIVITY") ||
-    await userHasActivityPermission(req.activaUser, "CAN_CREATE_ACTIVITY")
-  );
+
+  if (activity?.organizerId === req.activaUser?.id) {
+    return (
+      await userHasActivityPermission(req.activaUser, "CAN_EDIT_OWN_ACTIVITY") ||
+      await userHasActivityPermission(req.activaUser, "CAN_CREATE_ACTIVITY")
+    );
+  }
+
+  return Boolean(await activeActivityAssignment(req.activaUser?.id, activity?.id, "CO_ORGANIZER"));
 }
 
 async function audit(req, action, entityType, entityId, metadata = {}) {
@@ -148,9 +192,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.5.1", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.5.2", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.5.1", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.5.2", database: "unavailable", error: error.message });
   }
 });
 
@@ -161,6 +205,11 @@ app.get("/api/me", async (req, res) => {
   const activityPermissions = req.activaUser.role === "ADMIN"
     ? [...ACTIVITY_PERMISSION_KEYS]
     : await effectiveActivityPermissionKeys(req.activaUser.id);
+  const activityAssignments = await prisma.activityRoleAssignment.findMany({
+    where: { userId: req.activaUser.id },
+    select: { activityId:true, role:true },
+    orderBy: { assignedAt:"desc" },
+  });
 
   res.json({
     ok: true,
@@ -171,11 +220,12 @@ app.get("/api/me", async (req, res) => {
       role: req.activaUser.role,
       status: req.activaUser.status,
       activityPermissions,
+      activityAssignments,
     },
   });
 });
 
-app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, res) => {
+app.get("/api/users", personnelDirectoryGuard, async (_req, res) => {
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -514,6 +564,11 @@ app.get("/api/activities", async (_req, res) => {
     include: {
       policy: true,
       organizer: { select: { id: true, employeeId: true, name: true } },
+      roleAssignments: {
+        include: { user: { select: { id:true, employeeId:true, name:true } } },
+        orderBy: { assignedAt:"asc" },
+      },
+      _count: { select: { participants:true } },
     },
     orderBy: { startAt: "desc" },
   });
@@ -552,6 +607,8 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
         checkoutOpenAt: b.checkoutOpenAt ? toIso(b.checkoutOpenAt) : null,
         checkoutCloseAt: b.checkoutCloseAt ? toIso(b.checkoutCloseAt) : null,
         organizerId: primaryOrganizer.id,
+        participationMode: "OPEN",
+        allowedDepartmentCodes: [],
         policy: {
           create: {
             qrRequired: b.policy?.qrRequired ?? true,
@@ -580,6 +637,194 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message });
   }
+});
+
+app.get("/api/activities/:activityId/manage", async (req, res) => {
+  const activity = await prisma.activity.findUnique({
+    where: { id:req.params.activityId },
+    include: {
+      policy:true,
+      organizer:{ select:{ id:true, employeeId:true, name:true } },
+      roleAssignments:{
+        include:{ user:{ select:{ id:true, employeeId:true, name:true, department:{select:{code:true,name:true}} } } },
+        orderBy:{ assignedAt:"asc" },
+      },
+      participants:{
+        include:{ user:{ select:{ id:true, employeeId:true, name:true, department:{select:{code:true,name:true}} } } },
+        orderBy:{ createdAt:"asc" },
+      },
+    },
+  });
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (!(await canManageActivity(req, activity))) {
+    return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
+  }
+
+  const canAssignCo = await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER");
+  const canAssignVerifier = await canAssignActivityRole(req, activity, "CAN_ASSIGN_VERIFIER");
+
+  res.json({
+    ok:true,
+    activity,
+    capabilities:{
+      canManage:true,
+      canManageParticipants:true,
+      canAssignCo,
+      canAssignVerifier,
+    },
+  });
+});
+
+app.put("/api/activities/:activityId/assignments", async (req, res) => {
+  const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+
+  const hasCoPayload = Array.isArray(req.body?.coOrganizerIds);
+  const hasVerifierPayload = Array.isArray(req.body?.verifierIds);
+  if (!hasCoPayload && !hasVerifierPayload) {
+    return res.status(400).json({ok:false,error:"ASSIGNMENT_LIST_REQUIRED"});
+  }
+
+  if (hasCoPayload && !(await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER"))) {
+    return res.status(403).json({ok:false,error:"CO_ORGANIZER_ASSIGNMENT_FORBIDDEN"});
+  }
+  if (hasVerifierPayload && !(await canAssignActivityRole(req, activity, "CAN_ASSIGN_VERIFIER"))) {
+    return res.status(403).json({ok:false,error:"VERIFIER_ASSIGNMENT_FORBIDDEN"});
+  }
+
+  async function resolveActiveIds(values) {
+    const refs=[...new Set(values.map(String).filter(Boolean))];
+    const users=[];
+    for (const ref of refs) {
+      const u=await resolveUserRef(ref);
+      if (!u || u.status!=="ACTIVE") {
+        const e=new Error("ASSIGNEE_NOT_FOUND_OR_INACTIVE:"+ref);
+        e.code="ASSIGNEE_NOT_FOUND_OR_INACTIVE";
+        throw e;
+      }
+      users.push(u);
+    }
+    return users;
+  }
+
+  try {
+    const before = await prisma.activityRoleAssignment.findMany({
+      where:{activityId:activity.id},
+      select:{userId:true,role:true},
+    });
+
+    const coUsers = hasCoPayload ? await resolveActiveIds(req.body.coOrganizerIds) : null;
+    const verifierUsers = hasVerifierPayload ? await resolveActiveIds(req.body.verifierIds) : null;
+
+    if (coUsers && coUsers.some(u=>u.id===activity.organizerId)) {
+      return res.status(409).json({ok:false,error:"PRIMARY_ORGANIZER_CANNOT_BE_CO_ORGANIZER"});
+    }
+
+    await prisma.$transaction(async (tx)=>{
+      if (coUsers) {
+        await tx.activityRoleAssignment.deleteMany({where:{activityId:activity.id,role:"CO_ORGANIZER"}});
+        if (coUsers.length) {
+          await tx.activityRoleAssignment.createMany({
+            data:coUsers.map(u=>({
+              activityId:activity.id,userId:u.id,role:"CO_ORGANIZER",assignedById:req.activaUser.id
+            })),
+            skipDuplicates:true,
+          });
+        }
+      }
+      if (verifierUsers) {
+        await tx.activityRoleAssignment.deleteMany({where:{activityId:activity.id,role:"VERIFIER"}});
+        if (verifierUsers.length) {
+          await tx.activityRoleAssignment.createMany({
+            data:verifierUsers.map(u=>({
+              activityId:activity.id,userId:u.id,role:"VERIFIER",assignedById:req.activaUser.id
+            })),
+            skipDuplicates:true,
+          });
+        }
+      }
+    });
+
+    const after = await prisma.activityRoleAssignment.findMany({
+      where:{activityId:activity.id},
+      include:{user:{select:{id:true,employeeId:true,name:true}}},
+      orderBy:{assignedAt:"asc"},
+    });
+
+    await audit(req,"ACTIVITY_ASSIGNMENTS_UPDATED","Activity",activity.id,{
+      before,
+      after:after.map(x=>({userId:x.userId,role:x.role,employeeId:x.user.employeeId})),
+    });
+
+    res.json({ok:true,assignments:after});
+  } catch(error) {
+    res.status(400).json({ok:false,error:error.code||error.message});
+  }
+});
+
+app.put("/api/activities/:activityId/participants", async (req, res) => {
+  const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (!(await canManageActivity(req, activity))) {
+    return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
+  }
+
+  const mode=String(req.body?.mode||"OPEN").toUpperCase();
+  if (!["OPEN","ROSTER","GROUP"].includes(mode)) {
+    return res.status(400).json({ok:false,error:"INVALID_PARTICIPATION_MODE"});
+  }
+
+  const userIds=[...new Set((Array.isArray(req.body?.userIds)?req.body.userIds:[]).map(String).filter(Boolean))];
+  const departmentCodes=[...new Set((Array.isArray(req.body?.departmentCodes)?req.body.departmentCodes:[]).map(x=>String(x).trim()).filter(Boolean))];
+
+  const rosterUsers=[];
+  if (mode==="ROSTER") {
+    if (!userIds.length) return res.status(400).json({ok:false,error:"ROSTER_REQUIRES_PARTICIPANTS"});
+    for (const ref of userIds) {
+      const u=await resolveUserRef(ref);
+      if (!u || u.status!=="ACTIVE") return res.status(400).json({ok:false,error:"PARTICIPANT_NOT_FOUND_OR_INACTIVE",ref});
+      rosterUsers.push(u);
+    }
+  }
+  if (mode==="GROUP" && !departmentCodes.length) {
+    return res.status(400).json({ok:false,error:"GROUP_REQUIRES_DEPARTMENT"});
+  }
+
+  await prisma.$transaction(async (tx)=>{
+    await tx.activity.update({
+      where:{id:activity.id},
+      data:{
+        participationMode:mode,
+        allowedDepartmentCodes:mode==="GROUP"?departmentCodes:[],
+      },
+    });
+    await tx.activityParticipant.deleteMany({where:{activityId:activity.id}});
+    if (mode==="ROSTER") {
+      await tx.activityParticipant.createMany({
+        data:rosterUsers.map(u=>({
+          activityId:activity.id,
+          userId:u.id,
+          status:"INVITED",
+          addedById:req.activaUser.id,
+        })),
+        skipDuplicates:true,
+      });
+    }
+  });
+
+  await audit(req,"ACTIVITY_PARTICIPATION_UPDATED","Activity",activity.id,{
+    mode,
+    participantCount:mode==="ROSTER"?rosterUsers.length:null,
+    departmentCodes:mode==="GROUP"?departmentCodes:[],
+  });
+
+  const updated=await prisma.activity.findUnique({
+    where:{id:activity.id},
+    include:{
+      participants:{include:{user:{select:{id:true,employeeId:true,name:true,department:{select:{code:true,name:true}}}}}},
+    },
+  });
+  res.json({ok:true,activity:updated});
 });
 
 app.post("/api/activities/:activityId/qr", async (req, res) => {
@@ -629,6 +874,27 @@ app.post("/api/attendance/checkin", async (req, res) => {
 
   const user = await resolveUserRef(b.userId);
   if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+
+  let participationAllowed = activity.participationMode === "OPEN";
+  if (activity.participationMode === "ROSTER") {
+    participationAllowed = Boolean(await prisma.activityParticipant.findUnique({
+      where:{activityId_userId:{activityId:activity.id,userId:user.id}},
+      select:{id:true,status:true},
+    }).then(x=>x && x.status!=="CANCELLED"));
+  } else if (activity.participationMode === "GROUP") {
+    const department = user.departmentId
+      ? await prisma.department.findUnique({where:{id:user.departmentId},select:{code:true}})
+      : null;
+    const allowed = Array.isArray(activity.allowedDepartmentCodes) ? activity.allowedDepartmentCodes : [];
+    participationAllowed = Boolean(department?.code && allowed.includes(department.code));
+  }
+  if (!participationAllowed) {
+    return res.status(403).json({
+      ok:false,
+      error:"ACTIVITY_PARTICIPATION_NOT_ALLOWED",
+      participationMode:activity.participationMode,
+    });
+  }
 
   if (req.activaUser.role === "PARTICIPANT" && req.activaUser.id !== user.id) {
     return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKIN_SELF" });

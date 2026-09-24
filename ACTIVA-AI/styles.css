@@ -239,3 +239,33 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 .demo-account-list span{line-height:1.35}
 .demo-note{margin-top:10px;padding-top:10px;border-top:1px dashed #cbd8ef;color:var(--muted);line-height:1.45}
 @media(max-width:420px){.demo-account-list>div{grid-template-columns:1fr;gap:1px}}
+
+
+/* ACTIVA-AI V0.5.2 — per-activity assignments + participant scope */
+.activity-cards{display:none}
+.activity-card{border:1px solid var(--line);border-radius:16px;padding:16px;background:#fff}
+.activity-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.activity-card-head b{display:block;font-size:17px}
+.activity-card-head small{display:block;color:var(--muted);margin-top:3px}
+.activity-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.activity-meta span{background:#f8fafc;border-radius:10px;padding:10px}
+.activity-meta b{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
+.activity-manager hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+.assignment-list{display:grid;gap:7px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fbfdff}
+.assignment-person{display:flex;gap:10px;align-items:flex-start;padding:9px;border-radius:9px}
+.assignment-person:hover{background:#f1f5fb}
+.assignment-person input{margin-top:4px}
+.assignment-person span{display:block}
+.assignment-person b,.assignment-person small{display:block}
+.assignment-person small{color:var(--muted);margin-top:2px}
+.participation-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 16px}
+.participation-modes label{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdff}
+.participation-modes label input{align-self:flex-start}
+.participation-modes small{color:var(--muted)}
+@media(max-width:760px){
+  .desktop-activities{display:none}
+  .activity-cards{display:grid;gap:12px}
+  .activity-meta{grid-template-columns:1fr 1fr}
+  .participation-modes{grid-template-columns:1fr}
+}
+@media(max-width:430px){.activity-meta{grid-template-columns:1fr}}

@@ -45,6 +45,11 @@
         location:"ห้องประชุมคณะ",
         startAt:todayAt(9,0),
         endAt:todayAt(16,0),
+        organizerId:"ORG001",
+        participationMode:"OPEN",
+        allowedDepartmentCodes:[],
+        roleAssignments:[],
+        participants:[],
         policy:{
           qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
           durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.75
@@ -94,6 +99,18 @@
         }
       }
       data.terminology051Migrated = true;
+    }
+
+    if (!data.activityManagement052Migrated) {
+      for (const a of (data.activities || [])) {
+        if (!a.organizerId) a.organizerId = "ORG001";
+        if (!a.participationMode) a.participationMode = "OPEN";
+        if (!Array.isArray(a.allowedDepartmentCodes)) a.allowedDepartmentCodes = [];
+        if (!Array.isArray(a.roleAssignments)) a.roleAssignments = [];
+        if (!Array.isArray(a.participants)) a.participants = [];
+      }
+      data.activityManagement052Migrated = true;
+      changed = true;
     }
 
     for (const r of data.attendance) {
@@ -168,7 +185,21 @@
   function canManageActivity(u,a){
     if(!u||!a) return false;
     if(u.role==="ADMIN"||hasActivityPermission(u,"CAN_MANAGE_ALL_ACTIVITIES")) return true;
-    return a.organizerId===u.id && (hasActivityPermission(u,"CAN_EDIT_OWN_ACTIVITY")||hasActivityPermission(u,"CAN_CREATE_ACTIVITY"));
+    if(a.organizerId===u.id && (hasActivityPermission(u,"CAN_EDIT_OWN_ACTIVITY")||hasActivityPermission(u,"CAN_CREATE_ACTIVITY"))) return true;
+    return isActivityAssignment(u,a,"CO_ORGANIZER");
+  }
+  function canAssignActivityRole(u,a,key){
+    if(!u||!a) return false;
+    if(u.role==="ADMIN") return true;
+    const ownerOrAll=a.organizerId===u.id||hasActivityPermission(u,"CAN_MANAGE_ALL_ACTIVITIES");
+    return ownerOrAll&&hasActivityPermission(u,key);
+  }
+  function canAccessPersonnelDirectory(u){
+    return Boolean(u&&(
+      ["ADMIN","STAFF","ORGANIZER"].includes(u.role)||
+      effectiveActivityPermissions(u).length||
+      state.activities.some(a=>isActivityAssignment(u,a,"CO_ORGANIZER"))
+    ));
   }
 
   function body(options) {
@@ -193,6 +224,20 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
+  function activityPublic(a) {
+    if(!a) return null;
+    const assignments=(a.roleAssignments||[]).map(x=>({...x,user:userPublic(actor(x.userId))}));
+    return {
+      ...a,
+      organizer:userPublic(actor(a.organizerId)),
+      roleAssignments:assignments,
+      _count:{participants:(a.participants||[]).length},
+    };
+  }
+  function isActivityAssignment(u,a,role){
+    return Boolean(u&&a&&(a.roleAssignments||[]).some(x=>x.userId===u.id&&(!role||x.role===role)));
+  }
+
   function attendance(id) { return state.attendance.find(r => r.id === id); }
   function userPublic(u) {
     return {
@@ -260,16 +305,17 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.2-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
       if (who.status !== "ACTIVE") err("INVALID_OR_INACTIVE_USER",401);
-      return {ok:true,user:{...userPublic(who),activityPermissions:effectiveActivityPermissions(who)}};
+      return {ok:true,user:{...userPublic(who),activityPermissions:effectiveActivityPermissions(who),activityAssignments:state.activities.flatMap(a=>(a.roleAssignments||[]).filter(x=>x.userId===who.id).map(x=>({activityId:a.id,role:x.role})))}};
     }
     if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
 
     if (p === "/api/users" && method === "GET") {
+      if(!canAccessPersonnelDirectory(who)) err("PERSONNEL_DIRECTORY_FORBIDDEN",403);
       return {ok:true,users:state.users.map(userPublic)};
     }
     if (p === "/api/users" && method === "POST") {
@@ -393,7 +439,7 @@
       }};
     }
     if (p === "/api/activities" && method === "GET") {
-      return {ok:true,activities:state.activities};
+      return {ok:true,activities:state.activities.map(activityPublic)};
     }
     if (p === "/api/activities" && method === "POST") {
       if(!hasActivityPermission(who,"CAN_CREATE_ACTIVITY")) err("ACTIVITY_PERMISSION_REQUIRED",403);
@@ -407,13 +453,76 @@
       const a = {
         id:uid("DEMO-EVT"),title:b.title,category:b.category,description:b.description||"",
         location:b.location,startAt:b.startAt,endAt:b.endAt,organizerId:primaryOrganizer.id,
+        participationMode:"OPEN",allowedDepartmentCodes:[],roleAssignments:[],participants:[],
         policy:b.policy||{},qr:null
       };
       state.activities.unshift(a); audit(who.id,"ACTIVITY_CREATED","Activity",a.id,{demo:true,primaryOrganizerId:primaryOrganizer.id,primaryOrganizerEmployeeId:primaryOrganizer.employeeId}); save();
-      return {ok:true,activity:a};
+      return {ok:true,activity:activityPublic(a)};
     }
 
-    let m = p.match(/^\/api\/activities\/([^/]+)\/qr$/);
+    let m = p.match(/^\/api\/activities\/([^/]+)\/manage$/);
+    if(m && method==="GET"){
+      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
+      return {ok:true,activity:{...activityPublic(a),participants:(a.participants||[]).map(x=>({...x,user:userPublic(actor(x.userId))))},capabilities:{
+        canManage:true,
+        canManageParticipants:true,
+        canAssignCo:canAssignActivityRole(who,a,"CAN_ASSIGN_CO_ORGANIZER"),
+        canAssignVerifier:canAssignActivityRole(who,a,"CAN_ASSIGN_VERIFIER")
+      }};
+    }
+
+    m = p.match(/^\/api\/activities\/([^/]+)\/assignments$/);
+    if(m && method==="PUT"){
+      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      const hasCo=Array.isArray(b.coOrganizerIds), hasVerifier=Array.isArray(b.verifierIds);
+      if(!hasCo&&!hasVerifier) err("ASSIGNMENT_LIST_REQUIRED",400);
+      if(hasCo&&!canAssignActivityRole(who,a,"CAN_ASSIGN_CO_ORGANIZER")) err("CO_ORGANIZER_ASSIGNMENT_FORBIDDEN",403);
+      if(hasVerifier&&!canAssignActivityRole(who,a,"CAN_ASSIGN_VERIFIER")) err("VERIFIER_ASSIGNMENT_FORBIDDEN",403);
+
+      const resolveIds=(refs)=>[...new Set(refs.map(String))].map(ref=>{
+        const u=actor(ref); if(!u||u.status!=="ACTIVE") err("ASSIGNEE_NOT_FOUND_OR_INACTIVE",400); return u;
+      });
+      const before=(a.roleAssignments||[]).map(x=>({...x}));
+      let next=[...(a.roleAssignments||[])];
+      if(hasCo){
+        const users=resolveIds(b.coOrganizerIds);
+        if(users.some(u=>u.id===a.organizerId)) err("PRIMARY_ORGANIZER_CANNOT_BE_CO_ORGANIZER",409);
+        next=next.filter(x=>x.role!=="CO_ORGANIZER");
+        next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"CO_ORGANIZER",assignedById:who.id,assignedAt:iso()})));
+      }
+      if(hasVerifier){
+        const users=resolveIds(b.verifierIds);
+        next=next.filter(x=>x.role!=="VERIFIER");
+        next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"VERIFIER",assignedById:who.id,assignedAt:iso()})));
+      }
+      a.roleAssignments=next;save();
+      audit(who.id,"ACTIVITY_ASSIGNMENTS_UPDATED","Activity",a.id,{demo:true,before,after:next});
+      return {ok:true,assignments:activityPublic(a).roleAssignments};
+    }
+
+    m = p.match(/^\/api\/activities\/([^/]+)\/participants$/);
+    if(m && method==="PUT"){
+      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
+      const mode=String(b.mode||"OPEN").toUpperCase();
+      if(!["OPEN","ROSTER","GROUP"].includes(mode)) err("INVALID_PARTICIPATION_MODE",400);
+      const userIds=[...new Set((Array.isArray(b.userIds)?b.userIds:[]).map(String))];
+      const departmentCodes=[...new Set((Array.isArray(b.departmentCodes)?b.departmentCodes:[]).map(String).filter(Boolean))];
+      if(mode==="ROSTER"&&!userIds.length) err("ROSTER_REQUIRES_PARTICIPANTS",400);
+      if(mode==="GROUP"&&!departmentCodes.length) err("GROUP_REQUIRES_DEPARTMENT",400);
+      const roster=mode==="ROSTER"?userIds.map(ref=>{
+        const u=actor(ref); if(!u||u.status!=="ACTIVE") err("PARTICIPANT_NOT_FOUND_OR_INACTIVE",400);
+        return {id:uid("DEMO-AP"),userId:u.id,status:"INVITED",addedById:who.id,createdAt:iso()};
+      }):[];
+      a.participationMode=mode;
+      a.allowedDepartmentCodes=mode==="GROUP"?departmentCodes:[];
+      a.participants=roster;
+      save();audit(who.id,"ACTIVITY_PARTICIPATION_UPDATED","Activity",a.id,{demo:true,mode,participantCount:roster.length,departmentCodes:a.allowedDepartmentCodes});
+      return {ok:true,activity:activityPublic(a)};
+    }
+
+    m = p.match(/^\/api\/activities\/([^/]+)\/qr$/);
     if (m && method === "POST") {
       const a = activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
@@ -447,6 +556,10 @@
       }
       if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      let participationAllowed=a.participationMode==="OPEN"||!a.participationMode;
+      if(a.participationMode==="ROSTER") participationAllowed=(a.participants||[]).some(x=>x.userId===u.id&&x.status!=="CANCELLED");
+      if(a.participationMode==="GROUP") participationAllowed=Boolean(u.department?.code&&(a.allowedDepartmentCodes||[]).includes(u.department.code));
+      if(!participationAllowed) err("ACTIVITY_PARTICIPATION_NOT_ALLOWED",403);
       const existing = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id&&!r.isVoided);
       if(existing) {
         const code = existing.checkoutAt ? "ACTIVITY_ALREADY_COMPLETED" : "ALREADY_CHECKED_IN";
