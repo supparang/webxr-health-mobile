@@ -163,7 +163,7 @@
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
       missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.8",evaluatedAt:iso()
+      ruleVersion:"DEMO-RULES-0.3.9",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
@@ -192,7 +192,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.8-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.3.9-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -469,7 +469,20 @@
       return {ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,records};
     }
 
-    if (p === "/api/audit" && method==="GET") return {ok:true,logs:state.audit};
+    if (p === "/api/audit" && method==="GET") {
+      const logs=state.audit.map(log=>{
+        const r=log.entityType==="AttendanceRecord"?attendance(log.entityId):null;
+        return {
+          ...log,
+          context:r?{
+            participant:{employeeId:actor(r.userId)?.employeeId||"",name:actor(r.userId)?.name||""},
+            activity:{id:r.activityId,title:activity(r.activityId)?.title||"",category:activity(r.activityId)?.category||""},
+            isVoided:Boolean(r.isVoided)
+          }:null
+        };
+      });
+      return {ok:true,logs};
+    }
 
     if (p === "/api/research/export" && method==="GET") {
       return {ok:true,deidentified:true,syntheticDemo:true,generatedAt:iso(),records:state.attendance.filter(r=>!r.isVoided).map(r=>({

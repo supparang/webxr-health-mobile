@@ -95,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.8 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.9 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -157,7 +157,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.8</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.9</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -212,7 +212,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.3.8 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.3.9 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -1093,11 +1093,155 @@
     showLoading(v);
     const data = await api("/api/audit");
     const logs = data.logs || [];
-    v.innerHTML = '<div class="panel"><h2>Audit Trail</h2><div class="table-wrap"><table><thead><tr><th>เวลา</th><th>ผู้กระทำ</th><th>เหตุการณ์</th><th>Entity</th><th>รายละเอียด</th></tr></thead><tbody>'+
-      logs.map(x => '<tr><td>'+fmt(x.createdAt)+'</td><td>'+esc(x.actor ? x.actor.employeeId+" • "+x.actor.name : "SYSTEM")+'</td><td>'+esc(x.action)+'</td><td>'+esc(x.entityType+" / "+x.entityId)+'</td><td><code>'+esc(JSON.stringify(x.metadata||{}))+'</code></td></tr>').join("")+
-      '</tbody></table></div></div>';
+
+    const actionOptions = [...new Set(logs.map(x=>x.action).filter(Boolean))].sort();
+    const actorOptions = [...new Set(logs.map(x=>x.actor?.employeeId).filter(Boolean))].sort();
+
+    v.innerHTML =
+      '<div class="panel"><div class="section-head"><div><h2>Audit Trail</h2>'+
+      '<p class="muted">บันทึกว่าใครทำอะไร เมื่อไร กับรายการใด โดยไม่แก้ไขประวัติย้อนหลัง</p></div>'+
+      '<span class="badge">'+esc(logs.length)+' เหตุการณ์</span></div>'+
+      '<div class="audit-filters">'+
+        '<div class="field"><label>ค้นหา</label><input id="auditSearch" placeholder="P001, ชื่อกิจกรรม, เหตุการณ์..."></div>'+
+        '<div class="field"><label>ผู้ดำเนินการ</label><select id="auditActor"><option value="">ทั้งหมด</option>'+actorOptions.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>เหตุการณ์</label><select id="auditAction"><option value="">ทั้งหมด</option>'+actionOptions.map(x=>'<option value="'+esc(x)+'">'+esc(auditActionLabel(x))+'</option>').join("")+'</select></div>'+
+      '</div>'+
+      '<div id="auditResults"></div></div>';
+
+    const renderResults = () => {
+      const q = document.getElementById("auditSearch").value.trim().toLowerCase();
+      const actor = document.getElementById("auditActor").value;
+      const action = document.getElementById("auditAction").value;
+
+      const filtered = logs.filter(x => {
+        if (actor && x.actor?.employeeId !== actor) return false;
+        if (action && x.action !== action) return false;
+        if (!q) return true;
+        const hay = [
+          x.action, auditActionLabel(x.action), x.actor?.employeeId, x.actor?.name,
+          x.entityType, x.entityId, x.context?.participant?.employeeId,
+          x.context?.participant?.name, x.context?.activity?.title,
+          JSON.stringify(x.metadata||{})
+        ].join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+
+      document.getElementById("auditResults").innerHTML =
+        (filtered.length ? auditDesktopTable(filtered) + auditMobileCards(filtered) : '<div class="empty">ไม่พบเหตุการณ์ตามตัวกรอง</div>');
+    };
+
+    ["auditSearch","auditActor","auditAction"].forEach(id=>{
+      const el=document.getElementById(id);
+      el.addEventListener(id==="auditSearch"?"input":"change",renderResults);
+    });
+    renderResults();
   }
 
+  function auditActionLabel(code) {
+    const map = {
+      CHECKIN:"เช็กอิน",
+      CHECKOUT:"เช็กเอาต์",
+      QR_ISSUED:"สร้าง Dynamic QR",
+      STAFF_VERIFIED:"เจ้าหน้าที่ยืนยัน",
+      EVIDENCE_EVALUATED:"ประเมินหลักฐาน",
+      HUMAN_REVIEW:"บันทึกผลการตรวจสอบโดยมนุษย์",
+      MANUAL_OVERRIDE_VERIFIED:"รับรองเป็นกรณีพิเศษ",
+      FINAL_DECISION_INVALIDATED:"ยกเลิกผลตัดสินเดิม",
+      ATTENDANCE_VOIDED_BY_REVIEWER:"ยกเลิกรายการผิด",
+      GROUND_TRUTH_LABEL:"บันทึกฉลาก Ground Truth",
+      GROUND_TRUTH_ADJUDICATED:"ตัดสิน Ground Truth",
+      GROUND_TRUTH_LOCKED:"ล็อก Ground Truth",
+      MODEL_EVALUATION_IMPORTED:"นำเข้าผลประเมินโมเดล",
+      MODEL_APPROVED:"อนุมัติโมเดล",
+      MODEL_DEPLOYED:"นำโมเดลไปใช้",
+      AI_PREDICTION_IMPORTED:"นำเข้าผลพยากรณ์ AI",
+      AI_PREDICTION_BATCH_IMPORTED:"นำเข้าผลพยากรณ์ AI แบบชุด",
+      ACTIVITY_CREATED:"สร้างกิจกรรม"
+    };
+    return map[code] || String(code || "ไม่ระบุ");
+  }
+
+  function auditReasonLabel(code) {
+    const map = {
+      SHORT_DURATION:"ระยะเวลาเข้าร่วมไม่ถึงเกณฑ์",
+      MISSING_QR:"ไม่มีหลักฐาน QR",
+      MISSING_IDENTITY:"ยังไม่ยืนยันตัวตน",
+      MISSING_CHECKIN:"ไม่มี Check-in",
+      MISSING_CHECKOUT:"ไม่มี Check-out",
+      MISSING_DURATION:"ไม่มีข้อมูลระยะเวลา",
+      MISSING_STAFF_VERIFICATION:"ยังไม่มีการยืนยันโดยเจ้าหน้าที่",
+      MISSING_SIGNATURE:"ยังไม่มีหลักฐานลายเซ็น",
+      DUPLICATE_SCAN:"พบการสแกนซ้ำ",
+      TEMPORAL_CONFLICT:"ข้อมูลเวลาขัดแย้ง",
+      STAFF_WITHOUT_CHECKIN:"มี Staff Verification แต่ไม่มี Check-in"
+    };
+    return map[code] || code;
+  }
+
+  function auditMetadataLines(x) {
+    const m=x.metadata||{};
+    const rows=[];
+    if (m.decision) rows.push(["การตัดสินใจ", auditDecisionLabel(m.decision)]);
+    if (m.reason) rows.push(["เหตุผลผู้ตรวจ", String(m.reason)]);
+    if (Array.isArray(m.blockers) && m.blockers.length) rows.push(["ข้อที่ต้องตรวจ", m.blockers.map(auditReasonLabel).join(" • ")]);
+    if (m.previousFinal) rows.push(["สถานะเดิม", String(m.previousFinal)]);
+    if (m.status) rows.push(["สถานะ", String(m.status)]);
+    if (m.ruleVersion) rows.push(["กฎที่ใช้", String(m.ruleVersion)]);
+    if (m.finalTarget) rows.push(["Ground Truth", String(m.finalTarget)]);
+    if (m.modelVersion) rows.push(["Model", String(m.modelVersion)]);
+    if (m.riskProbability !== undefined) rows.push(["Risk", Math.round(Number(m.riskProbability)*100)+"%"]);
+    if (m.durationMinutes !== undefined) rows.push(["ระยะเวลา", String(m.durationMinutes)+" นาที"]);
+    if (m.attendancePercentage !== undefined) rows.push(["สัดส่วนเข้าร่วม", Number(m.attendancePercentage).toFixed(1)+"%"]);
+    return rows;
+  }
+
+  function auditDecisionLabel(code) {
+    const map={
+      VERIFY:"รับรองปกติ",
+      OVERRIDE_VERIFY:"รับรองเป็นกรณีพิเศษ",
+      CORRECT:"แก้ไข/ส่งกลับ",
+      REQUEST_EVIDENCE:"ขอหลักฐานเพิ่ม",
+      REJECT:"ไม่รับรอง"
+    };
+    return map[code]||String(code||"");
+  }
+
+  function auditDesktopTable(logs) {
+    return '<div class="table-wrap desktop-attendance"><table><thead><tr><th>เวลา</th><th>ผู้ดำเนินการ</th><th>เหตุการณ์</th><th>บุคลากร/กิจกรรม</th><th>รายละเอียด</th></tr></thead><tbody>'+
+      logs.map(x=>{
+        const ctx=x.context||{};
+        const meta=auditMetadataLines(x).map(([k,val])=>'<div><b>'+esc(k)+':</b> '+esc(val)+'</div>').join("");
+        return '<tr><td>'+fmt(x.createdAt)+'</td>'+
+          '<td>'+esc(x.actor?x.actor.employeeId+" • "+x.actor.name:"SYSTEM")+'</td>'+
+          '<td><b>'+esc(auditActionLabel(x.action))+'</b><div class="audit-code">'+esc(x.action||"")+'</div></td>'+
+          '<td>'+esc(ctx.participant?.employeeId||"—")+'<br>'+esc(ctx.activity?.title||x.entityType+" / "+x.entityId)+'</td>'+
+          '<td>'+ (meta || '<span class="muted">ไม่มีรายละเอียดเพิ่มเติม</span>') +'</td></tr>';
+      }).join("")+'</tbody></table></div>';
+  }
+
+  function auditMobileCards(logs) {
+    return '<div class="audit-cards">'+logs.map(x=>{
+      const ctx=x.context||{};
+      const metaRows=auditMetadataLines(x);
+      const summary=metaRows.length
+        ? metaRows.map(([k,val])=>'<div class="audit-detail-row"><span>'+esc(k)+'</span><b>'+esc(val)+'</b></div>').join("")
+        : '<div class="muted">ไม่มีรายละเอียดเพิ่มเติม</div>';
+      return '<article class="audit-card">'+
+        '<div class="audit-card-top"><div><div class="audit-time">'+fmt(x.createdAt)+'</div><h3>'+esc(auditActionLabel(x.action))+'</h3></div>'+
+        '<span class="badge">'+esc(x.actor?.employeeId||"SYSTEM")+'</span></div>'+
+        '<div class="audit-person"><b>ผู้ดำเนินการ:</b> '+esc(x.actor?x.actor.name:"ระบบ")+'</div>'+
+        (ctx.participant?'<div class="audit-context"><div><small>บุคลากร</small><b>'+esc(ctx.participant.employeeId+" • "+ctx.participant.name)+'</b></div>'+
+          '<div><small>กิจกรรม</small><b>'+esc(ctx.activity?.title||"—")+'</b></div></div>':'')+
+        summary+
+        '<details class="audit-more"><summary>ดูข้อมูลทางเทคนิค</summary>'+
+          '<div><b>Action code:</b> <code>'+esc(x.action||"")+'</code></div>'+
+          '<div><b>Entity:</b> <code>'+esc(x.entityType+" / "+x.entityId)+'</code></div>'+
+          '<pre>'+esc(JSON.stringify(x.metadata||{},null,2))+'</pre>'+
+        '</details></article>';
+    }).join("")+'</div>';
+  }
+
+  
   function toCsv(rows) {
     if (!rows.length) return "";
     const headers = Object.keys(rows[0]);

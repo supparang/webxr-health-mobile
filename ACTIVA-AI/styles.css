@@ -97,3 +97,24 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .attendance-cards{display:block}
   .attendance-meta,.evidence-grid,.review-status-grid{grid-template-columns:1fr 1fr}
 }
+
+.audit-filters{display:grid;grid-template-columns:2fr 1fr 1.3fr;gap:10px;margin:14px 0 18px}
+.audit-cards{display:none}
+.audit-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:16px;margin:12px 0;box-shadow:0 4px 18px rgba(23,32,51,.05)}
+.audit-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.audit-card-top h3{font-size:20px;line-height:1.25;margin:4px 0 0}
+.audit-time{font-size:13px;color:var(--muted)}
+.audit-person{margin:12px 0}
+.audit-context{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.audit-context>div{background:#f8fafc;border-radius:10px;padding:10px}
+.audit-context small{display:block;color:var(--muted);margin-bottom:3px}
+.audit-detail-row{display:grid;grid-template-columns:120px 1fr;gap:8px;border-top:1px solid var(--line);padding:9px 0}
+.audit-detail-row span{color:var(--muted)}
+.audit-code{font-size:11px;color:var(--muted);margin-top:4px}
+.audit-more{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+.audit-more summary{cursor:pointer;font-weight:700;color:#35558b}
+.audit-more pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:10px;border-radius:10px;font-size:11px;overflow:auto}
+@media(max-width:780px){
+  .audit-filters{grid-template-columns:1fr}
+  .audit-cards{display:block}
+}

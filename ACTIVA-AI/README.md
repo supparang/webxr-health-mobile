@@ -192,3 +192,12 @@ V0.3:
 - ตรวจ active duplicate records ใน Evidence Matrix
 - ปิดปุ่ม “ประเมินหลักฐานทั้งหมด” จนกว่าจะจัดการรายการซ้ำก่อน
 - ไม่ auto-delete/auto-void duplicate เพราะระบบไม่ควรเดาเองว่าแถวใดคือข้อมูลที่ถูกต้อง
+
+
+## V0.3.9 — Mobile Audit Trail Visual QA
+- ปรับ Audit Trail บนมือถือจากตารางกว้างเป็น cards
+- แปล action code สำคัญเป็นภาษาไทย แต่ยังแสดง code เดิมใน “ข้อมูลทางเทคนิค”
+- แสดงผู้ดำเนินการ บุคลากร กิจกรรม เหตุผล Blocker และ Decision ในหน้าจอเดียว
+- เพิ่มตัวกรองค้นหา / ผู้ดำเนินการ / เหตุการณ์
+- Server และ Demo mode enrich audit logs ด้วย participant/activity context โดยไม่แก้ audit record เดิม
+- แปล reason code เช่น SHORT_DURATION เป็นข้อความไทยสำหรับผู้ใช้

@@ -675,7 +675,49 @@ app.get("/api/audit", requireRoles("ADMIN"), async (_req, res) => {
     orderBy: { createdAt: "desc" },
     take: 300,
   });
-  res.json({ ok: true, logs });
+
+  const attendanceIds = [...new Set(
+    logs
+      .filter((x) => x.entityType === "AttendanceRecord")
+      .map((x) => x.entityId)
+      .filter(Boolean)
+  )];
+
+  const attendanceRows = attendanceIds.length
+    ? await prisma.attendanceRecord.findMany({
+        where: { id: { in: attendanceIds } },
+        include: {
+          user: { select: { employeeId: true, name: true } },
+          activity: { select: { id: true, title: true, category: true } },
+        },
+      })
+    : [];
+
+  const attendanceMap = new Map(attendanceRows.map((r) => [r.id, r]));
+  const enriched = logs.map((log) => {
+    const row = log.entityType === "AttendanceRecord"
+      ? attendanceMap.get(log.entityId)
+      : null;
+    return {
+      ...log,
+      context: row
+        ? {
+            participant: {
+              employeeId: row.user?.employeeId || "",
+              name: row.user?.name || "",
+            },
+            activity: {
+              id: row.activity?.id || "",
+              title: row.activity?.title || "",
+              category: row.activity?.category || "",
+            },
+            isVoided: Boolean(row.isVoided),
+          }
+        : null,
+    };
+  });
+
+  res.json({ ok: true, logs: enriched });
 });
 
 app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), async (req, res) => {
