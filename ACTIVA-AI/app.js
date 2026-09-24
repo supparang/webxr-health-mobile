@@ -3,6 +3,7 @@
 
   const SESSION_KEY = "activa_ai_v034_session";
   const MODE_KEY = "activa_ai_mode";
+  const NAV_GROUP_KEY = "activa_ai_nav_groups";
   let appMode = sessionStorage.getItem(MODE_KEY) || "server";
   let session = readSession();
   let activeView = "dashboard";
@@ -79,25 +80,85 @@
     })[activeView] || "ACTIVA-AI";
   }
 
-  function navItems() {
-    const out = [["dashboard","ภาพรวม"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"]];
-    if (can("ADMIN")) out.splice(1, 0, ["users","บุคลากร"]);
-    if (can("ADMIN","ORGANIZER")) out.splice(can("ADMIN")?2:1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
-    if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"],["xai","AI/XAI Review"]);
-    if (can("ADMIN")) out.push(["readiness","AI Readiness"],["models","Model Evaluation"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
-    return out;
+  function navGroups() {
+    const groups = [];
+
+    const work = [["dashboard","ภาพรวม"]];
+    if (can("ADMIN")) work.push(["users","บุคลากร"]);
+    if (can("ADMIN","ORGANIZER")) work.push(["activities","กิจกรรม"],["qr","Dynamic QR"]);
+    work.push(["attendance","เข้า–ออก"]);
+    groups.push({key:"work",label:"งานประจำ",items:work});
+
+    const verify = [["evidence","หลักฐาน"]];
+    if (can("ADMIN","STAFF")) verify.push(["review","ตรวจสอบโดยมนุษย์"]);
+    if (can("ADMIN")) verify.push(["audit","Audit Trail"]);
+    groups.push({key:"verification",label:"การตรวจสอบ",items:verify});
+
+    const research = [];
+    if (can("ADMIN","STAFF")) research.push(["groundtruth","Ground Truth"]);
+    if (can("ADMIN")) research.push(["readiness","AI Readiness"],["models","Model Evaluation"]);
+    if (can("ADMIN","STAFF")) research.push(["xai","AI/XAI Review"]);
+    if (can("ADMIN")) research.push(["research","ข้อมูลวิจัย"]);
+    if (research.length) groups.push({key:"research",label:"งานวิจัยและ AI",items:research});
+
+    groups.push({key:"system",label:"ระบบ",items:[]});
+    return groups;
+  }
+
+  function readNavGroupState() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(NAV_GROUP_KEY) || "{}");
+      return raw && typeof raw === "object" ? raw : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function writeNavGroupState(state) {
+    sessionStorage.setItem(NAV_GROUP_KEY, JSON.stringify(state));
+  }
+
+  function groupHasActive(group) {
+    return group.items.some(([key]) => key === activeView);
+  }
+
+  function shouldOpenNavGroup(group, storedState) {
+    if (groupHasActive(group)) return true;
+    if (Object.prototype.hasOwnProperty.call(storedState, group.key)) return Boolean(storedState[group.key]);
+
+    const compact = window.matchMedia && window.matchMedia("(max-width: 1000px)").matches;
+    if (!compact) return true;
+    return group.key === "work";
+  }
+
+  function navGroupHtml(group, storedState) {
+    const open = shouldOpenNavGroup(group, storedState);
+    const active = groupHasActive(group);
+    const items = group.items.map(([key,label]) =>
+      '<button data-view="'+key+'" class="nav-item '+(activeView===key?"active":"")+'">'+label+'</button>'
+    ).join("");
+
+    const systemItems = group.key === "system"
+      ? '<button id="logout" class="nav-item nav-logout">ออกจากระบบ</button>'
+      : items;
+
+    return '<section class="nav-group '+(active?"has-active":"")+'" data-nav-group="'+group.key+'">'+
+      '<button type="button" class="nav-group-toggle" data-nav-toggle="'+group.key+'" aria-expanded="'+(open?"true":"false")+'">'+
+        '<span>'+esc(group.label)+'</span><span class="nav-chevron" aria-hidden="true">⌄</span>'+
+      '</button>'+
+      '<div class="nav-group-items" data-nav-items="'+group.key+'" '+(open?"":"hidden")+'>'+systemItems+'</div>'+
+    '</section>';
   }
 
   function shell() {
-    const nav = navItems().map(([key,label]) =>
-      '<button data-view="'+key+'" class="'+(activeView===key?"active":"")+'">'+label+'</button>'
-    ).join("");
+    const storedState = readNavGroupState();
+    const nav = navGroups().map(group => navGroupHtml(group, storedState)).join("");
 
     return '<div class="shell">'+
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
-        '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.4.1 • Ground Truth + ML readiness</div>'+
+        '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
+        '<div class="version">V0.4.2 • Grouped Navigation</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -125,7 +186,30 @@
 
     app().innerHTML = shell();
     document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => setView(b.dataset.view));
-    document.getElementById("logout").onclick = () => { session = null; saveSession(); activeView = "dashboard"; render(); };
+
+    document.querySelectorAll("[data-nav-toggle]").forEach((toggle) => {
+      toggle.onclick = () => {
+        const key = toggle.dataset.navToggle;
+        const items = document.querySelector('[data-nav-items="'+key+'"]');
+        if (!items) return;
+
+        const nextOpen = items.hasAttribute("hidden");
+        if (nextOpen) items.removeAttribute("hidden");
+        else items.setAttribute("hidden","");
+
+        toggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+        const state = readNavGroupState();
+        state[key] = nextOpen;
+        writeNavGroupState(state);
+      };
+    });
+
+    document.getElementById("logout").onclick = () => {
+      session = null;
+      saveSession();
+      activeView = "dashboard";
+      render();
+    };
 
     const conn = document.getElementById("conn");
     if (appMode === "demo") {
@@ -160,7 +244,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.4.1</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.4.2</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -215,7 +299,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.4.1 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.4.2 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+

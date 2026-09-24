@@ -127,3 +127,93 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 @media(max-width:680px){
   .compact-field{min-width:0;width:100%}
 }
+
+
+/* =========================================================
+   ACTIVA-AI V0.4.2 — Grouped / collapsible navigation
+   ========================================================= */
+.sidebar{
+  overflow-y:auto;
+  padding-bottom:24px;
+}
+.nav{
+  display:block;
+  margin-top:24px;
+}
+.nav-group{
+  border-top:1px solid rgba(219,231,255,.12);
+  padding:8px 0;
+}
+.nav-group:first-child{border-top:0}
+.nav-group-toggle{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:0;
+  background:transparent;
+  color:#91a4ca;
+  padding:8px 10px;
+  border-radius:9px;
+  text-align:left;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.25px;
+}
+.nav-group-toggle:hover{background:rgba(255,255,255,.05);color:#c9d7f3}
+.nav-group.has-active .nav-group-toggle{color:#c9d7f3}
+.nav-chevron{
+  transition:transform .18s ease;
+  font-size:16px;
+  line-height:1;
+}
+.nav-group-toggle[aria-expanded="true"] .nav-chevron{transform:rotate(180deg)}
+.nav-group-items{
+  display:grid;
+  gap:5px;
+  margin-top:4px;
+}
+.nav-group-items[hidden]{display:none!important}
+.nav .nav-item{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:#dbe7ff;
+  padding:10px 12px 10px 16px;
+  border-radius:10px;
+  text-align:left;
+}
+.nav .nav-item:hover,.nav .nav-item.active{background:#20345f;color:#fff}
+.nav .nav-item.active{
+  box-shadow:inset 3px 0 0 #7da2ff;
+  font-weight:800;
+}
+.nav .nav-logout{color:#ffc8c4}
+.nav .nav-logout:hover{background:rgba(180,35,24,.22);color:#fff}
+.sidebar .version{
+  position:static;
+  margin-top:18px;
+  color:#91a4ca;
+  font-size:12px;
+}
+
+@media(max-width:1000px){
+  .sidebar{height:auto;position:relative;padding:18px}
+  .nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+  .nav-group{
+    border:1px solid rgba(219,231,255,.12);
+    border-radius:12px;
+    padding:6px;
+    min-width:0;
+  }
+  .nav-group-toggle{padding:9px 10px}
+  .nav-group-items{grid-template-columns:1fr}
+  .sidebar .version{display:block}
+}
+
+@media(max-width:680px){
+  .nav{grid-template-columns:1fr}
+  .nav-group{padding:5px}
+  .nav .nav-item{padding:11px 12px 11px 16px}
+}
