@@ -4,6 +4,21 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function reqError(path, { actor, method = "GET", body } = {}) {
+  const headers = { Accept: "application/json" };
+  if (actor) headers["x-activa-user-id"] = actor;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const res = await fetch(base + path, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let data = {};
+  try { data = JSON.parse(text); } catch {}
+  return { status: res.status, ok: res.ok, data, text };
+}
+
 async function req(path, { actor, method = "GET", body } = {}) {
   const headers = { Accept: "application/json" };
   if (actor) headers["x-activa-user-id"] = actor;
@@ -69,6 +84,13 @@ const evidence = await req("/api/evidence/" + encodeURIComponent(attendanceId) +
 });
 assert(evidence.result?.ruleVersion, "evidence evaluation failed");
 assert(evidence.note?.includes("not AI"), "rule-based disclaimer missing");
+
+const duplicateCheckin = await reqError("/api/attendance/checkin", {
+  actor: "P001",
+  method: "POST",
+  body: { userId: "P001", token: qr.token },
+});
+assert(duplicateCheckin.status === 409, "duplicate active attendance should be blocked");
 
 const queue = await req("/api/ground-truth/queue", { actor: "STF001" });
 const gtRecord = queue.records.find((r) => r.id === attendanceId);
@@ -136,15 +158,28 @@ assert(mlRecord.participant_hash && mlRecord.participant_hash !== "P001", "ML da
 assert(mlRecord.final_target === "REVIEW_REQUIRED", "ML final target mismatch");
 assert(!Object.prototype.hasOwnProperty.call(mlRecord, "risk_probability"), "AI output leaked into training dataset");
 
-await req("/api/reviews/" + encodeURIComponent(attendanceId), {
+const blockedVerify = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
   actor: "STF001",
   method: "POST",
   body: {
     decision: "VERIFY",
-    reason: "CI smoke test",
+    reason: "CI should block ordinary verification",
     reviewDurationSeconds: 1,
   },
 });
+assert(blockedVerify.status === 409, "ordinary VERIFY must be blocked when evidence blockers exist");
+assert(blockedVerify.data?.error === "REVIEW_BLOCKERS_PRESENT", "wrong blocker error for VERIFY");
+
+const overrideReview = await req("/api/reviews/" + encodeURIComponent(attendanceId), {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    decision: "OVERRIDE_VERIFY",
+    reason: "CI manual override with explicit documented justification",
+    reviewDurationSeconds: 1,
+  },
+});
+assert(overrideReview.finalEvidenceStatus === "OVERRIDE_VERIFIED", "manual override final status mismatch");
 
 const participantAttendance = await req("/api/attendance", { actor: "P001" });
 assert(participantAttendance.attendance.every((r) => r.user?.employeeId === "P001"), "participant privacy filter failed");
@@ -247,8 +282,9 @@ assert(Math.abs(xaiRecord.riskProbability - 0.84) < 1e-9, "XAI risk probability 
 const afterPrediction = await req("/api/attendance", { actor: "ADM001" });
 const afterStatus = afterPrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
 assert(beforeStatus === afterStatus, "AI prediction changed final evidence status automatically");
+assert(afterStatus === "OVERRIDE_VERIFIED", "manual override status was not preserved after AI prediction");
 
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
 
-console.log("ACTIVA-AI V0.3.3 smoke test passed");
+console.log("ACTIVA-AI V0.3.7 smoke test passed");

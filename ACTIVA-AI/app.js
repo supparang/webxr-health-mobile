@@ -95,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.6 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.7 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -157,7 +157,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.6</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.7</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -208,6 +208,7 @@
       card("กิจกรรม", s.activityCount)+
       card("รายการเข้าร่วม", s.recordCount)+
       card("รับรองแล้ว", s.verifiedCount)+
+      card("Manual Override", s.overrideVerifiedCount || 0)+
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
@@ -354,26 +355,56 @@
   function statusBadge(status) {
     const s = status || "NOT_EVALUATED";
     const cls = ["VERIFIED","COMPLETE","CONSISTENT"].includes(s) ? "s-ok" :
-      ["INCOMPLETE"].includes(s) ? "s-warn" :
+      ["OVERRIDE_VERIFIED","INCOMPLETE"].includes(s) ? "s-warn" :
       ["REVIEW_REQUIRED","REJECTED","INCONSISTENT"].includes(s) ? "s-bad" : "s-info";
     return '<span class="status '+cls+'">'+esc(s)+'</span>';
   }
 
   function evidenceStatusOf(r) {
-    return r.finalEvidenceStatus || r.consistencyResult?.status || "NOT_EVALUATED";
+    return r.consistencyResult?.status || "NOT_EVALUATED";
+  }
+
+  function finalStatusOf(r) {
+    return r.finalEvidenceStatus || "PENDING";
+  }
+
+  function recordOptionLabel(r) {
+    const person = r.user?.employeeId || r.userId || "";
+    const title = r.activity?.title || r.activityId || "";
+    const inTime = r.checkinAt ? new Date(r.checkinAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
+    const outTime = r.checkoutAt ? new Date(r.checkoutAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "ยังไม่ออก";
+    return person+" • "+title+" • "+inTime+" → "+outTime;
   }
 
   function attendanceTable(rows, actionButtons) {
     if (!rows.length) return '<div class="empty">ยังไม่มีรายการเข้าร่วม</div>';
-    return '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>เข้า</th><th>ออก</th><th>เวลา</th><th>Staff</th><th>Evidence</th>'+(actionButtons?'<th>คำสั่ง</th>':'')+'</tr></thead><tbody>'+
+
+    const table =
+      '<div class="table-wrap desktop-attendance"><table><thead><tr>'+
+      '<th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>เข้า</th><th>ออก</th><th>เวลา</th><th>Staff</th><th>System Evidence</th><th>Final Decision</th>'+
+      (actionButtons?'<th>คำสั่ง</th>':'')+'</tr></thead><tbody>'+
       rows.map(r => {
-        const user = r.user || {};
-        const a = r.activity || {};
-        const buttons = actionButtons ? '<td><button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมิน</button></td>' : '';
+        const user=r.user||{}, a=r.activity||{};
+        const buttons=actionButtons?'<td><button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมิน</button></td>':'';
         return '<tr><td>'+esc((user.employeeId||"")+" • "+(user.name||""))+'</td><td>'+esc(a.title||r.activityId)+'</td>'+
           '<td>'+fmt(r.checkinAt)+'</td><td>'+fmt(r.checkoutAt)+'</td><td>'+(r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%")+'</td>'+
-          '<td>'+(r.staffVerification?"✓":"—")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td>'+buttons+'</tr>';
+          '<td>'+(r.staffVerification?"✓":"—")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td>'+buttons+'</tr>';
       }).join("")+'</tbody></table></div>';
+
+    const cards =
+      '<div class="attendance-cards">'+rows.map(r => {
+        const user=r.user||{}, a=r.activity||{};
+        return '<article class="attendance-card">'+
+          '<div class="attendance-card-head"><div><b>'+esc(user.employeeId||"")+'</b><div>'+esc(user.name||"")+'</div></div>'+statusBadge(finalStatusOf(r))+'</div>'+
+          '<div class="attendance-card-title">'+esc(a.title||r.activityId)+'</div>'+
+          '<div class="attendance-meta"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span>'+
+          '<span><b>เวลา</b>'+(r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"—")+'</span></div>'+
+          '<div class="attendance-status-row"><span>System '+statusBadge(evidenceStatusOf(r))+'</span></div>'+
+          (actionButtons?'<button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมินหลักฐาน</button>':'')+
+          '</article>';
+      }).join("")+'</div>';
+
+    return table+cards;
   }
 
   async function renderAttendance(v) {
@@ -399,10 +430,12 @@
       '<div class="field token-fallback" id="tokenField" hidden style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จาก Dynamic QR"></textarea></div>'+
       '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
       '<div class="panel"><h2>Check-out / Staff Verification</h2>'+
-      '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||"")+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")+'</select></div>'+
       '<div class="actions"><button class="btn secondary" id="coBtn">Check-out</button>'+
       (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
+      (can("ADMIN","STAFF")?'<button class="btn bad" id="voidBtn">ยกเลิกรายการผิด</button>':'')+
       '</div><div id="coMsg"></div></div></div>'+
+      ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><h2>รายการเข้า–ออกล่าสุด</h2>'+attendanceTable(rows, can("ADMIN","ORGANIZER","STAFF"))+'</div>';
 
     async function stopScanner() {
@@ -505,21 +538,23 @@
 
     document.getElementById("stopQrBtn").onclick = stopScanner;
 
-    function syncCheckoutButton() {
-      const select = document.getElementById("coRecord");
-      const button = document.getElementById("coBtn");
-      if (!select || !button) return;
-      const selected = rows.find(r => r.id === select.value);
-      if (selected?.checkoutAt) {
-        button.disabled = true;
-        button.textContent = "Check-out แล้ว";
-      } else {
-        button.disabled = !selected;
-        button.textContent = "Check-out";
+    function syncRecordActions() {
+      const select=document.getElementById("coRecord");
+      const co=document.getElementById("coBtn");
+      const staff=document.getElementById("staffBtn");
+      const voidBtn=document.getElementById("voidBtn");
+      if(!select||!co) return;
+      const selected=rows.find(r=>r.id===select.value);
+      co.disabled=!selected||Boolean(selected?.checkoutAt);
+      co.textContent=selected?.checkoutAt?"Check-out แล้ว":"Check-out";
+      if(staff){
+        staff.disabled=!selected||Boolean(selected?.staffVerification);
+        staff.textContent=selected?.staffVerification?"เจ้าหน้าที่ยืนยันแล้ว":"เจ้าหน้าที่ยืนยัน";
       }
+      if(voidBtn) voidBtn.disabled=!selected;
     }
-    document.getElementById("coRecord").onchange = syncCheckoutButton;
-    syncCheckoutButton();
+    document.getElementById("coRecord").onchange=syncRecordActions;
+    syncRecordActions();
 
     document.getElementById("coBtn").onclick = async () => {
       const id = document.getElementById("coRecord").value;
@@ -532,11 +567,29 @@
       } catch (e) {
         if (e?.message === "ALREADY_CHECKED_OUT") {
           msg.innerHTML = '<div class="alert ok">รายการนี้ Check-out ไปแล้ว ไม่ต้องทำซ้ำ</div>';
-          syncCheckoutButton();
+          syncRecordActions();
         } else {
           msg.innerHTML = errorBox(e);
         }
       }
+    };
+
+    const voidBtn = document.getElementById("voidBtn");
+    if (voidBtn) voidBtn.onclick = async () => {
+      const id=document.getElementById("coRecord").value;
+      const msg=document.getElementById("coMsg");
+      if(!id) return;
+      const reason=prompt("ระบุเหตุผลที่ยกเลิกรายการนี้ เช่น Check-in ซ้ำจากการทดสอบ");
+      if(reason===null) return;
+      if(reason.trim().length<5){
+        msg.innerHTML='<div class="alert warn">กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร</div>';
+        return;
+      }
+      try{
+        await api("/api/attendance/"+encodeURIComponent(id)+"/void",{method:"POST",body:JSON.stringify({reason:reason.trim()})});
+        msg.innerHTML='<div class="alert ok">ยกเลิกรายการผิดแล้ว และเก็บ Audit Trail ไว้</div>';
+        setTimeout(()=>renderAttendance(v),450);
+      }catch(e){msg.innerHTML=errorBox(e);}
     };
 
     const staffBtn = document.getElementById("staffBtn");
@@ -561,27 +614,38 @@
   async function renderEvidence(v) {
     showLoading(v);
     const rows = await loadAttendance();
+    const rowHtml = rows.map(r => {
+      const c=r.consistencyResult;
+      const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
+      return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
+        '<td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
+        '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td><td>'+esc(reasons.join(" • ")||"—")+'</td></tr>';
+    }).join("");
+
+    const cards=rows.map(r=>{
+      const c=r.consistencyResult;
+      const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
+      return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc(r.user?.employeeId||"")+'</b><div>'+esc(r.user?.name||"")+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
+        '<div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div>'+
+        '<div class="evidence-grid"><span>QR <b>'+(r.qrValid?"✓":"✕")+'</b></span><span>ตัวตน <b>'+(r.identityVerified?"✓":"✕")+'</b></span>'+
+        '<span>เข้า <b>'+(r.checkinAt?"✓":"✕")+'</b></span><span>ออก <b>'+(r.checkoutAt?"✓":"✕")+'</b></span>'+
+        '<span>ระยะเวลา <b>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</b></span><span>Staff <b>'+(r.staffVerification?"✓":"✕")+'</b></span></div>'+
+        '<div class="evidence-final">Final Decision '+statusBadge(finalStatusOf(r))+'</div>'+
+        '<div class="muted">'+esc(reasons.join(" • ")||"ยังไม่มีเหตุผลผิดปกติ")+'</div></article>';
+    }).join("");
+
     v.innerHTML =
-      '<div class="panel"><div class="section-head"><div><h2>Evidence Matrix</h2><p class="muted">สถานะการเข้า–ออกและสถานะหลักฐานเป็นคนละเรื่องกัน</p></div>'+
+      '<div class="panel"><div class="section-head"><div><h2>Evidence Matrix</h2><p class="muted"><b>System Evidence</b> คือผลกฎตรวจสอบ ส่วน <b>Final Decision</b> คือผลจากมนุษย์ — แยกกันเสมอ</p></div>'+
       (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn primary" id="evalAll">ประเมินหลักฐานทั้งหมดที่มองเห็น</button>':'')+
       '</div>'+
-      '<div class="table-wrap"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>Staff</th><th>Evidence Status</th><th>เหตุผล</th></tr></thead><tbody>'+
-      rows.map(r => {
-        const c = r.consistencyResult;
-        const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
-        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
-          '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
-          '<td>'+(c?.durationRatio==null?"—":Math.round(Number(c.durationRatio)*100)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
-          '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+esc(reasons.join(" • ") || "—")+'</td></tr>';
-      }).join("")+'</tbody></table></div></div>';
+      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>Staff</th><th>System Evidence</th><th>Final Decision</th><th>เหตุผล</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
+      '<div class="attendance-cards">'+cards+'</div></div>';
 
-    const evalAll = document.getElementById("evalAll");
-    if (evalAll) evalAll.onclick = async () => {
-      evalAll.disabled = true;
-      evalAll.textContent = "กำลังประเมิน…";
-      for (const r of rows) {
-        try { await api("/api/evidence/"+encodeURIComponent(r.id)+"/evaluate", {method:"POST"}); } catch {}
-      }
+    const evalAll=document.getElementById("evalAll");
+    if(evalAll) evalAll.onclick=async()=>{
+      evalAll.disabled=true;evalAll.textContent="กำลังประเมิน…";
+      for(const r of rows){try{await api("/api/evidence/"+encodeURIComponent(r.id)+"/evaluate",{method:"POST"});}catch{}}
       await renderEvidence(v);
     };
   }
@@ -589,52 +653,59 @@
   async function renderReview(v) {
     if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
     showLoading(v);
-    const rows = await loadAttendance();
-    v.innerHTML =
-      '<div class="panel"><h2>Human Review Center</h2><div class="hint">ระบบแสดงเหตุผลจากหลักฐานเพื่อสนับสนุนการตรวจสอบ แต่ผู้ตรวจสอบเป็นผู้ตัดสินใจสุดท้าย</div>'+
-      '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>Evidence</th><th>เหตุผล</th><th></th></tr></thead><tbody>'+
-      rows.map(r => {
-        const c = r.consistencyResult;
-        const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
-        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td><td>'+esc(r.activity?.title||"")+'</td>'+
-          '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+esc(reasons.join(" • ") || "—")+'</td>'+
-          '<td><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></td></tr>';
-      }).join("")+'</tbody></table></div></div><div id="reviewDetail"></div>';
-
-    document.querySelectorAll(".rvOpen").forEach(btn => btn.onclick = () => showReviewDetail(btn.dataset.id, rows));
+    const rows=await loadAttendance();
+    v.innerHTML=
+      '<div class="panel"><h2>Human Review Center</h2><div class="hint">รับรองปกติได้เฉพาะเมื่อ System Evidence ไม่มีหลักฐานบังคับที่ขาดและไม่มีเหตุผลผิดปกติ หากจำเป็นต้องรับรองทั้งที่ยังมี blocker ต้องเป็น Admin Manual Override พร้อมเหตุผลและ Audit Trail</div>'+
+      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>System Evidence</th><th>Final Decision</th><th>เหตุผล</th><th></th></tr></thead><tbody>'+
+      rows.map(r=>{const c=r.consistencyResult;const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td><td>'+esc(r.activity?.title||"")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td><td>'+esc(reasons.join(" • ")||"—")+'</td><td><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></td></tr>';}).join("")+
+      '</tbody></table></div>'+
+      '<div class="attendance-cards">'+rows.map(r=>'<article class="attendance-card"><div class="attendance-card-head"><b>'+esc(r.user?.employeeId||"")+'</b>'+statusBadge(evidenceStatusOf(r))+'</div><div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div><div>Final '+statusBadge(finalStatusOf(r))+'</div><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></article>').join("")+'</div>'+
+      '</div><div id="reviewDetail"></div>';
+    document.querySelectorAll(".rvOpen").forEach(btn=>btn.onclick=()=>showReviewDetail(btn.dataset.id,rows));
   }
 
   function showReviewDetail(id, rows) {
-    const r = rows.find(x => x.id === id);
-    if (!r) return;
-    const c = r.consistencyResult;
-    const reasons = [].concat(c?.missingCodes || [], c?.reasonCodes || []);
-    const box = document.getElementById("reviewDetail");
-    const started = new Date().toISOString();
-    box.innerHTML =
-      '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
-      '<div class="timeline"><div><b>Check-in</b> — '+fmt(r.checkinAt)+'</div><div><b>Check-out</b> — '+fmt(r.checkoutAt)+'</div>'+
-      '<div><b>Staff Verification</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
-      '<div><b>Evidence Engine</b> — '+esc(reasons.join(" • ") || "ไม่พบข้อผิดปกติจากกฎ")+'</div></div>'+
-      '<div class="field" style="margin-top:14px"><label>เหตุผลการตัดสินใจ</label><textarea id="rvReason"></textarea></div>'+
-      '<div class="actions"><button class="btn ok" data-dec="VERIFY">รับรอง</button><button class="btn secondary" data-dec="CORRECT">แก้ไข/ส่งกลับ</button>'+
-      '<button class="btn warn" data-dec="REQUEST_EVIDENCE">ขอหลักฐานเพิ่ม</button><button class="btn bad" data-dec="REJECT">ไม่รับรอง</button></div><div id="rvMsg"></div></div>';
+    const r=rows.find(x=>x.id===id); if(!r)return;
+    const c=r.consistencyResult;
+    const missing=[].concat(c?.missingCodes||[]);
+    const reasons=[].concat(c?.reasonCodes||[]);
+    const blockers=[...missing,...reasons];
+    const evaluated=Boolean(c);
+    const canNormalVerify=evaluated&&blockers.length===0&&c.status==="COMPLETE";
+    const box=document.getElementById("reviewDetail");
+    const started=new Date().toISOString();
 
-    box.querySelectorAll("[data-dec]").forEach(btn => btn.onclick = async () => {
-      const seconds = Math.max(1, Math.round((Date.now() - new Date(started).getTime()) / 1000));
-      try {
-        await api("/api/reviews/"+encodeURIComponent(id), {
-          method:"POST",
-          body:JSON.stringify({
-            decision:btn.dataset.dec,
-            reason:document.getElementById("rvReason").value.trim(),
-            reviewStartedAt:started,
-            reviewDurationSeconds:seconds
-          })
-        });
-        document.getElementById("rvMsg").innerHTML = '<div class="alert ok">บันทึกผลการตรวจสอบแล้ว</div>';
-        setTimeout(() => renderReview(document.getElementById("view")), 350);
-      } catch (e) { document.getElementById("rvMsg").innerHTML = errorBox(e); }
+    box.innerHTML=
+      '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
+      '<div class="review-status-grid"><div><small>System Evidence</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>Final Decision</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
+      '<div class="timeline"><div><b>Check-in</b> — '+fmt(r.checkinAt)+'</div><div><b>Check-out</b> — '+fmt(r.checkoutAt)+'</div><div><b>Staff Verification</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
+      '<div><b>Blockers</b> — '+esc(blockers.join(" • ")||"ไม่มี")+'</div></div>'+
+      (!evaluated?'<div class="alert warn"><b>ยังประเมินหลักฐานไม่ได้</b><br>กลับไปหน้า “หลักฐาน” และประเมินรายการนี้ก่อน Human Review</div>':'')+
+      (evaluated&&blockers.length?'<div class="alert warn"><b>รับรองปกติไม่ได้</b><br>'+esc(blockers.join(" • "))+'</div>':'')+
+      '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ</label><textarea id="rvReason" placeholder="จำเป็นสำหรับ ขอหลักฐานเพิ่ม / ส่งกลับ / ไม่รับรอง / Manual Override"></textarea></div>'+
+      '<div class="actions">'+
+        '<button class="btn ok" data-dec="VERIFY" '+(!canNormalVerify?'disabled':'')+'>รับรองปกติ</button>'+
+        '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
+        '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
+        '<button class="btn bad" data-dec="REJECT" '+(!evaluated?'disabled':'')+'>ไม่รับรอง</button>'+
+        (can("ADMIN")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY">Manual Override: รับรอง</button>':'')+
+      '</div><div id="rvMsg"></div></div>';
+
+    box.querySelectorAll("[data-dec]").forEach(btn=>btn.onclick=async()=>{
+      const decision=btn.dataset.dec;
+      const reason=document.getElementById("rvReason").value.trim();
+      if(decision==="OVERRIDE_VERIFY"&&reason.length<10){
+        document.getElementById("rvMsg").innerHTML='<div class="alert warn">Manual Override ต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';return;
+      }
+      if(["CORRECT","REQUEST_EVIDENCE","REJECT"].includes(decision)&&reason.length<3){
+        document.getElementById("rvMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลการตัดสินใจ</div>';return;
+      }
+      const seconds=Math.max(1,Math.round((Date.now()-new Date(started).getTime())/1000));
+      try{
+        const result=await api("/api/reviews/"+encodeURIComponent(id),{method:"POST",body:JSON.stringify({decision,reason,reviewStartedAt:started,reviewDurationSeconds:seconds})});
+        document.getElementById("rvMsg").innerHTML='<div class="alert ok">บันทึกผลแล้ว: '+esc(result.finalEvidenceStatus)+'</div>';
+        setTimeout(()=>renderReview(document.getElementById("view")),450);
+      }catch(e){document.getElementById("rvMsg").innerHTML=errorBox(e);}
     });
   }
 

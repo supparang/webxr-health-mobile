@@ -50,8 +50,6 @@ export function evaluateEvidence(record, policy, staffVerification, ruleVersion)
   let status = "COMPLETE";
   if (missingCodes.length > 0) status = "INCOMPLETE";
   if (reasonCodes.length > 0) status = "REVIEW_REQUIRED";
-  if (record.finalEvidenceStatus === "VERIFIED") status = "VERIFIED";
-  if (record.finalEvidenceStatus === "REJECTED") status = "REJECTED";
 
   return {
     status,

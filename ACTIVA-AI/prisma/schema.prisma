@@ -29,11 +29,13 @@ enum EvidenceStatus {
   INCONSISTENT
   REVIEW_REQUIRED
   VERIFIED
+  OVERRIDE_VERIFIED
   REJECTED
 }
 
 enum HumanDecision {
   VERIFY
+  OVERRIDE_VERIFY
   CORRECT
   REQUEST_EVIDENCE
   REJECT
@@ -77,7 +79,8 @@ model User {
   departmentId      String?
   department        Department?            @relation(fields: [departmentId], references: [id])
   organizedActivities Activity[]           @relation("ActivityOrganizer")
-  attendanceRecords AttendanceRecord[]
+  attendanceRecords       AttendanceRecord[]
+  voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
   staffVerifications StaffVerification[]   @relation("StaffVerifier")
   humanReviews      HumanReview[]           @relation("HumanReviewer")
   groundTruthLabels        GroundTruthLabel[] @relation("GroundTruthReviewer")
@@ -155,6 +158,11 @@ model AttendanceRecord {
   signatureVerified     Boolean               @default(false)
   scanAttempts          Int                   @default(0)
   finalEvidenceStatus   EvidenceStatus?
+  isVoided              Boolean               @default(false)
+  voidedAt              DateTime?
+  voidedById            String?
+  voidedBy              User?                 @relation("AttendanceVoidedBy", fields: [voidedById], references: [id])
+  voidReason            String?
   staffVerification     StaffVerification?
   consistencyResult     ConsistencyResult?
   humanReviews          HumanReview[]
@@ -165,7 +173,6 @@ model AttendanceRecord {
   updatedAt             DateTime              @updatedAt
 
   @@index([activityId, userId])
-  @@unique([activityId, userId])
 }
 
 model StaffVerification {

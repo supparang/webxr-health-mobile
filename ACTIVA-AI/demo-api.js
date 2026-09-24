@@ -104,17 +104,18 @@
     if (p.checkoutRequired && !r.checkoutAt) missing.push("MISSING_CHECKOUT");
     if (p.staffRequired && !r.staffVerification) missing.push("MISSING_STAFF_VERIFICATION");
     if (p.signatureRequired && !r.signatureVerified) missing.push("MISSING_SIGNATURE");
-    if (p.durationRequired && d.ratio != null && d.ratio < Number(p.minDurationRatio || 0)) reasons.push("SHORT_DURATION");
+    if (p.durationRequired) {
+      if (d.ratio == null) missing.push("MISSING_DURATION");
+      else if (d.ratio < Number(p.minDurationRatio || 0)) reasons.push("SHORT_DURATION");
+    }
     let status = "COMPLETE";
     if (missing.length) status = "INCOMPLETE";
     if (reasons.length) status = "REVIEW_REQUIRED";
-    if (r.finalEvidenceStatus === "VERIFIED") status = "VERIFIED";
-    if (r.finalEvidenceStatus === "REJECTED") status = "REJECTED";
     r.consistencyResult = {
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
       missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.6",evaluatedAt:iso()
+      ruleVersion:"DEMO-RULES-0.3.7",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
@@ -143,7 +144,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.6-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.3.7-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -155,11 +156,13 @@
       return {ok:true,users:state.users.map(userPublic)};
     }
     if (p === "/api/dashboard/summary" && method === "GET") {
-      const rows = who.role === "PARTICIPANT" ? state.attendance.filter(r=>r.userId===who.id) : state.attendance;
+      const activeRows = state.attendance.filter(r=>!r.isVoided);
+      const rows = who.role === "PARTICIPANT" ? activeRows.filter(r=>r.userId===who.id) : activeRows;
       return {ok:true,scope:who.role==="PARTICIPANT"?"SELF":"ORGANIZATION",summary:{
         activityCount:state.activities.length,
         recordCount:rows.length,
-        verifiedCount:rows.filter(r=>r.finalEvidenceStatus==="VERIFIED").length,
+        verifiedCount:rows.filter(r=>["VERIFIED","OVERRIDE_VERIFIED"].includes(r.finalEvidenceStatus)).length,
+        overrideVerifiedCount:rows.filter(r=>r.finalEvidenceStatus==="OVERRIDE_VERIFIED").length,
         reviewRequiredCount:rows.filter(r=>(r.consistencyResult?.status)==="REVIEW_REQUIRED").length,
         incompleteCount:rows.filter(r=>(r.consistencyResult?.status)==="INCOMPLETE").length
       }};
@@ -187,7 +190,8 @@
     }
 
     if (p === "/api/attendance" && method === "GET") {
-      let rows = state.attendance;
+      const includeVoided = url.searchParams.get("includeVoided")==="true" && ["ADMIN","STAFF"].includes(who.role);
+      let rows = includeVoided ? state.attendance : state.attendance.filter(r=>!r.isVoided);
       if (who.role === "PARTICIPANT") rows = rows.filter(r=>r.userId===who.id);
       const activityId = url.searchParams.get("activityId");
       if (activityId) rows = rows.filter(r=>r.activityId===activityId);
@@ -209,7 +213,7 @@
       }
       if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
-      const existing = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id);
+      const existing = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id&&!r.isVoided);
       if(existing) {
         const code = existing.checkoutAt ? "ACTIVITY_ALREADY_COMPLETED" : "ALREADY_CHECKED_IN";
         const e = new Error(code);
@@ -234,9 +238,12 @@
     m = p.match(/^\/api\/attendance\/([^/]+)\/checkout$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(who.role==="PARTICIPANT"&&r.userId!==who.id) err("PARTICIPANT_CAN_ONLY_CHECKOUT_SELF",403);
       if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
-      r.checkoutAt=iso(); r.attendanceStatus="CHECKED_OUT"; save();
+      const previousFinal=r.finalEvidenceStatus||null;
+      r.checkoutAt=iso(); r.attendanceStatus="CHECKED_OUT"; r.finalEvidenceStatus=null; save();
+      if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"CHECKOUT_CHANGED"});
       audit(who.id,"CHECKOUT","AttendanceRecord",r.id,{demo:true});
       return {ok:true,attendance:hydrateAttendance(r)};
     }
@@ -244,31 +251,72 @@
     m = p.match(/^\/api\/attendance\/([^/]+)\/staff-verify$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      if(r.isVoided) err("ATTENDANCE_VOIDED",409);
+      if(r.staffVerification) return {ok:true,verification:r.staffVerification,idempotent:true};
+      const previousFinal=r.finalEvidenceStatus||null;
       r.staffVerification={id:uid("DEMO-SV"),attendanceId:r.id,verifierId:who.id,verifiedAt:iso(),status:"VERIFIED_PRESENT"};
-      save(); audit(who.id,"STAFF_VERIFIED","AttendanceRecord",r.id,{demo:true});
+      r.finalEvidenceStatus=null;
+      save();
+      if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"STAFF_VERIFICATION_CHANGED"});
+      audit(who.id,"STAFF_VERIFIED","AttendanceRecord",r.id,{demo:true});
       return {ok:true,verification:r.staffVerification};
+    }
+
+    m = p.match(/^\/api\/attendance\/([^/]+)\/void$/);
+    if (m && method==="POST") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      if(r.isVoided) return {ok:true,attendance:hydrateAttendance(r),idempotent:true};
+      const locked=state.groundTruthCases.find(x=>x.attendanceId===r.id&&x.status==="LOCKED");
+      if(locked) err("LOCKED_GROUND_TRUTH_CANNOT_BE_VOIDED",409);
+      const reason=String(b.reason||"").trim();
+      if(reason.length<5) err("VOID_REASON_REQUIRED",400);
+      r.isVoided=true;r.voidedAt=iso();r.voidedById=who.id;r.voidReason=reason;
+      save();audit(who.id,"ATTENDANCE_VOIDED_BY_REVIEWER","AttendanceRecord",r.id,{demo:true,reason});
+      return {ok:true,attendance:hydrateAttendance(r)};
     }
 
     m = p.match(/^\/api\/evidence\/([^/]+)\/evaluate$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
-      const result=evalEvidence(r); save(); audit(who.id,"EVIDENCE_EVALUATED","AttendanceRecord",r.id,{demo:true,status:result.status});
+      if(r.isVoided) err("ATTENDANCE_VOIDED",409);
+      const result=evalEvidence(r);
+      if(r.finalEvidenceStatus==="VERIFIED" && result.status!=="COMPLETE"){
+        const previousFinal=r.finalEvidenceStatus;
+        r.finalEvidenceStatus=null;
+        audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"POLICY_BLOCKERS_AFTER_REEVALUATION"});
+      }
+      save(); audit(who.id,"EVIDENCE_EVALUATED","AttendanceRecord",r.id,{demo:true,status:result.status});
       return {ok:true,result,note:"DEMO rule-based result; not AI probability."};
     }
 
     m = p.match(/^\/api\/reviews\/([^/]+)$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
-      const review={id:uid("DEMO-RV"),attendanceId:r.id,reviewerId:who.id,decision:b.decision,reason:b.reason||"",
-        reviewStartedAt:b.reviewStartedAt||null,reviewedAt:iso(),reviewDurationSeconds:b.reviewDurationSeconds||null};
+      if(r.isVoided) err("ATTENDANCE_VOIDED",409);
+      if(!r.consistencyResult) err("EVIDENCE_EVALUATION_REQUIRED",409);
+      const allowed=["VERIFY","OVERRIDE_VERIFY","CORRECT","REQUEST_EVIDENCE","REJECT"];
+      if(!allowed.includes(b.decision)) err("INVALID_DECISION",400);
+      const blockers=[...(r.consistencyResult.missingCodes||[]),...(r.consistencyResult.reasonCodes||[])];
+      const reason=String(b.reason||"").trim();
+      if(b.decision==="VERIFY" && blockers.length) err("REVIEW_BLOCKERS_PRESENT",409);
+      if(b.decision==="OVERRIDE_VERIFY"){
+        if(who.role!=="ADMIN") err("ADMIN_ONLY_MANUAL_OVERRIDE",403);
+        if(!blockers.length) err("OVERRIDE_NOT_NEEDED",409);
+        if(reason.length<10) err("OVERRIDE_REASON_REQUIRED",400);
+      }
+      if(["CORRECT","REQUEST_EVIDENCE","REJECT"].includes(b.decision) && reason.length<3) err("REVIEW_REASON_REQUIRED",400);
+      const review={id:uid("DEMO-RV"),attendanceId:r.id,reviewerId:who.id,decision:b.decision,reason,
+        reviewStartedAt:b.reviewStartedAt||null,reviewedAt:iso(),reviewDurationSeconds:b.reviewDurationSeconds||null,
+        override:b.decision==="OVERRIDE_VERIFY",blockersAtDecision:blockers};
       state.reviews.push(review);
-      r.finalEvidenceStatus=b.decision==="VERIFY"?"VERIFIED":b.decision==="REJECT"?"REJECTED":"REVIEW_REQUIRED";
-      save(); audit(who.id,"HUMAN_REVIEW","AttendanceRecord",r.id,{demo:true,decision:b.decision});
-      return {ok:true,review,finalEvidenceStatus:r.finalEvidenceStatus};
+      r.finalEvidenceStatus=b.decision==="VERIFY"?"VERIFIED":b.decision==="OVERRIDE_VERIFY"?"OVERRIDE_VERIFIED":b.decision==="REJECT"?"REJECTED":"REVIEW_REQUIRED";
+      save(); audit(who.id,b.decision==="OVERRIDE_VERIFY"?"MANUAL_OVERRIDE_VERIFIED":"HUMAN_REVIEW","AttendanceRecord",r.id,{demo:true,decision:b.decision,reason,blockers});
+      return {ok:true,review,finalEvidenceStatus:r.finalEvidenceStatus,systemEvidenceStatus:r.consistencyResult.status};
     }
 
     if (p === "/api/ground-truth/queue" && method==="GET") {
-      const rows=state.attendance.map(r=>{
+      const rows=state.attendance.filter(r=>!r.isVoided).map(r=>{
         const labels=state.groundTruthLabels.filter(x=>x.attendanceId===r.id);
         const safe=who.role==="ADMIN"?labels:labels.filter(x=>x.reviewerId===who.id);
         return {...hydrateAttendance(r),groundTruthLabels:safe,
@@ -352,7 +400,7 @@
     if (p === "/api/ml/inference-dataset" && method==="GET") {
       const model=state.models.find(x=>x.status==="DEPLOYED")||null;
       const scored=new Set(state.predictions.filter(x=>x.modelVersion===model?.version).map(x=>x.attendanceId));
-      const records=model?state.attendance.filter(r=>!scored.has(r.id)).map(r=>({record_id:r.id,participant_hash:hashDemo(r.userId),
+      const records=model?state.attendance.filter(r=>!r.isVoided&&!scored.has(r.id)).map(r=>({record_id:r.id,participant_hash:hashDemo(r.userId),
         event_id:r.activityId,activity_type:activity(r.activityId).category,qr_valid:Number(r.qrValid),identity_verified:Number(r.identityVerified),
         checkin_present:Number(Boolean(r.checkinAt)),checkout_present:Number(Boolean(r.checkoutAt)),duration_ratio:durationInfo(r).ratio,
         staff_verified:Number(Boolean(r.staffVerification)),signature_verified:Number(r.signatureVerified),scan_attempts:r.scanAttempts})):[];
@@ -376,7 +424,7 @@
     if (p === "/api/audit" && method==="GET") return {ok:true,logs:state.audit};
 
     if (p === "/api/research/export" && method==="GET") {
-      return {ok:true,deidentified:true,syntheticDemo:true,generatedAt:iso(),records:state.attendance.map(r=>({
+      return {ok:true,deidentified:true,syntheticDemo:true,generatedAt:iso(),records:state.attendance.filter(r=>!r.isVoided).map(r=>({
         record_id:r.id,participant_hash:hashDemo(r.userId),event_id:r.activityId,activity_type:activity(r.activityId)?.category||"",
         qr_valid:Number(r.qrValid),identity_verified:Number(r.identityVerified),checkin_time:r.checkinAt||"",checkout_time:r.checkoutAt||"",
         staff_verified:Number(Boolean(r.staffVerification)),signature_verified:Number(r.signatureVerified),

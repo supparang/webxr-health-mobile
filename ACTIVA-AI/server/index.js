@@ -125,16 +125,21 @@ app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, 
 
 app.get("/api/dashboard/summary", async (req, res) => {
   const isParticipant = req.activaUser.role === "PARTICIPANT";
-  const attendanceWhere = isParticipant ? { userId: req.activaUser.id } : {};
+  const attendanceWhere = isParticipant
+    ? { userId: req.activaUser.id, isVoided: false }
+    : { isVoided: false };
   const consistencyWhere = isParticipant
-    ? { attendance: { userId: req.activaUser.id } }
-    : {};
+    ? { attendance: { userId: req.activaUser.id, isVoided: false } }
+    : { attendance: { isVoided: false } };
 
-  const [activityCount, recordCount, verifiedCount, reviewCount, incompleteCount] = await Promise.all([
+  const [activityCount, recordCount, verifiedCount, overrideVerifiedCount, reviewCount, incompleteCount] = await Promise.all([
     prisma.activity.count(),
     prisma.attendanceRecord.count({ where: attendanceWhere }),
     prisma.attendanceRecord.count({
-      where: { ...attendanceWhere, finalEvidenceStatus: "VERIFIED" },
+      where: { ...attendanceWhere, finalEvidenceStatus: { in: ["VERIFIED", "OVERRIDE_VERIFIED"] } },
+    }),
+    prisma.attendanceRecord.count({
+      where: { ...attendanceWhere, finalEvidenceStatus: "OVERRIDE_VERIFIED" },
     }),
     prisma.consistencyResult.count({
       where: { ...consistencyWhere, status: "REVIEW_REQUIRED" },
@@ -151,6 +156,7 @@ app.get("/api/dashboard/summary", async (req, res) => {
       activityCount,
       recordCount,
       verifiedCount,
+      overrideVerifiedCount,
       reviewRequiredCount: reviewCount,
       incompleteCount,
     },
@@ -159,6 +165,10 @@ app.get("/api/dashboard/summary", async (req, res) => {
 
 app.get("/api/attendance", async (req, res) => {
   const filters = [];
+  const includeVoided =
+    String(req.query.includeVoided || "false") === "true" &&
+    ["ADMIN", "STAFF"].includes(req.activaUser.role);
+  if (!includeVoided) filters.push({ isVoided: false });
   if (req.query.activityId) filters.push({ activityId: String(req.query.activityId) });
   if (req.activaUser.role === "PARTICIPANT") {
     filters.push({ userId: req.activaUser.id });
@@ -289,7 +299,7 @@ app.post("/api/attendance/checkin", async (req, res) => {
   }
 
   const existing = await prisma.attendanceRecord.findFirst({
-    where: { activityId, userId: user.id },
+    where: { activityId, userId: user.id, isVoided: false },
   });
   if (existing) {
     return res.status(409).json({
@@ -324,6 +334,7 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     include: { activity: true },
   });
   if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (current.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (req.activaUser.role === "PARTICIPANT" && current.userId !== req.activaUser.id) {
     return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
   }
@@ -347,9 +358,16 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
       durationMinutes,
       attendancePercentage,
       attendanceStatus: "CHECKED_OUT",
+      finalEvidenceStatus: null,
     },
   });
 
+  if (current.finalEvidenceStatus) {
+    await audit(req, "FINAL_DECISION_INVALIDATED", "AttendanceRecord", row.id, {
+      previousFinal: current.finalEvidenceStatus,
+      reason: "CHECKOUT_CHANGED",
+    });
+  }
   await audit(req, "CHECKOUT", "AttendanceRecord", row.id, { durationMinutes, attendancePercentage });
   res.json({ ok: true, attendance: row });
 });
@@ -358,17 +376,64 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
   const verifierId = actorId(req);
   if (!verifierId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
-  const attendance = await prisma.attendanceRecord.findUnique({ where: { id: req.params.attendanceId } });
+  const attendance = await prisma.attendanceRecord.findUnique({
+    where: { id: req.params.attendanceId },
+    include: { staffVerification: true },
+  });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
+  if (attendance.staffVerification) {
+    return res.json({ ok: true, verification: attendance.staffVerification, idempotent: true });
+  }
 
-  const row = await prisma.staffVerification.upsert({
-    where: { attendanceId: attendance.id },
-    create: { attendanceId: attendance.id, verifierId },
-    update: { verifierId, verifiedAt: new Date(), status: "VERIFIED_PRESENT" },
+  const row = await prisma.$transaction(async (tx) => {
+    const verification = await tx.staffVerification.create({
+      data: { attendanceId: attendance.id, verifierId, status: "VERIFIED_PRESENT" },
+    });
+    await tx.attendanceRecord.update({
+      where: { id: attendance.id },
+      data: { finalEvidenceStatus: null },
+    });
+    return verification;
   });
 
+  if (attendance.finalEvidenceStatus) {
+    await audit(req, "FINAL_DECISION_INVALIDATED", "AttendanceRecord", attendance.id, {
+      previousFinal: attendance.finalEvidenceStatus,
+      reason: "STAFF_VERIFICATION_CHANGED",
+    });
+  }
   await audit(req, "STAFF_VERIFIED", "AttendanceRecord", attendance.id, { verifierId });
   res.json({ ok: true, verification: row });
+});
+
+app.post("/api/attendance/:attendanceId/void", requireRoles("ADMIN", "STAFF"), async (req, res) => {
+  const attendance = await prisma.attendanceRecord.findUnique({
+    where: { id: req.params.attendanceId },
+    include: { groundTruthCase: true },
+  });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (attendance.isVoided) return res.json({ ok: true, attendance, idempotent: true });
+  if (attendance.groundTruthCase?.status === "LOCKED") {
+    return res.status(409).json({ ok: false, error: "LOCKED_GROUND_TRUTH_CANNOT_BE_VOIDED" });
+  }
+  const reason = String(req.body?.reason || "").trim();
+  if (reason.length < 5) {
+    return res.status(400).json({ ok: false, error: "VOID_REASON_REQUIRED" });
+  }
+
+  const row = await prisma.attendanceRecord.update({
+    where: { id: attendance.id },
+    data: {
+      isVoided: true,
+      voidedAt: new Date(),
+      voidedById: req.activaUser.id,
+      voidReason: reason,
+    },
+  });
+
+  await audit(req, "ATTENDANCE_VOIDED_BY_REVIEWER", "AttendanceRecord", attendance.id, { reason });
+  res.json({ ok: true, attendance: row });
 });
 
 app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (req, res) => {
@@ -380,6 +445,7 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.activity.policy) return res.status(409).json({ ok: false, error: "POLICY_NOT_CONFIGURED" });
 
   const result = evaluateEvidence(
@@ -411,12 +477,29 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     },
   });
 
+  if (attendance.finalEvidenceStatus === "VERIFIED" && stored.status !== "COMPLETE") {
+    await prisma.attendanceRecord.update({
+      where: { id: attendance.id },
+      data: { finalEvidenceStatus: null },
+    });
+    await audit(req, "FINAL_DECISION_INVALIDATED", "AttendanceRecord", attendance.id, {
+      previousFinal: "VERIFIED",
+      reason: "POLICY_BLOCKERS_AFTER_REEVALUATION",
+    });
+  }
+
   await audit(req, "EVIDENCE_EVALUATED", "AttendanceRecord", attendance.id, {
     status: stored.status,
     ruleVersion,
   });
 
-  res.json({ ok: true, result: stored, note: "Rule-based result; not AI risk probability." });
+  res.json({
+    ok: true,
+    result: stored,
+    finalDecisionInvalidated:
+      attendance.finalEvidenceStatus === "VERIFIED" && stored.status !== "COMPLETE",
+    note: "Rule-based result; not AI risk probability.",
+  });
 });
 
 app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (req, res) => {
@@ -424,18 +507,61 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
   if (!reviewerId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
   const b = req.body || {};
-  const allowed = ["VERIFY", "CORRECT", "REQUEST_EVIDENCE", "REJECT"];
-  if (!allowed.includes(b.decision)) return res.status(400).json({ ok: false, error: "INVALID_DECISION" });
+  const allowed = ["VERIFY", "OVERRIDE_VERIFY", "CORRECT", "REQUEST_EVIDENCE", "REJECT"];
+  if (!allowed.includes(b.decision)) {
+    return res.status(400).json({ ok: false, error: "INVALID_DECISION" });
+  }
 
-  const attendance = await prisma.attendanceRecord.findUnique({ where: { id: req.params.attendanceId } });
+  const attendance = await prisma.attendanceRecord.findUnique({
+    where: { id: req.params.attendanceId },
+    include: { consistencyResult: true },
+  });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
+  if (!attendance.consistencyResult) {
+    return res.status(409).json({ ok: false, error: "EVIDENCE_EVALUATION_REQUIRED" });
+  }
+
+  const missingCodes = Array.isArray(attendance.consistencyResult.missingCodes)
+    ? attendance.consistencyResult.missingCodes
+    : [];
+  const reasonCodes = Array.isArray(attendance.consistencyResult.reasonCodes)
+    ? attendance.consistencyResult.reasonCodes
+    : [];
+  const blockers = [...missingCodes, ...reasonCodes];
+  const reason = String(b.reason || "").trim();
+
+  if (b.decision === "VERIFY" && blockers.length > 0) {
+    return res.status(409).json({
+      ok: false,
+      error: "REVIEW_BLOCKERS_PRESENT",
+      blockers,
+      systemEvidenceStatus: attendance.consistencyResult.status,
+    });
+  }
+
+  if (b.decision === "OVERRIDE_VERIFY") {
+    if (req.activaUser.role !== "ADMIN") {
+      return res.status(403).json({ ok: false, error: "ADMIN_ONLY_MANUAL_OVERRIDE" });
+    }
+    if (blockers.length === 0) {
+      return res.status(409).json({ ok: false, error: "OVERRIDE_NOT_NEEDED" });
+    }
+    if (reason.length < 10) {
+      return res.status(400).json({ ok: false, error: "OVERRIDE_REASON_REQUIRED" });
+    }
+  }
+
+  if (["CORRECT", "REQUEST_EVIDENCE", "REJECT"].includes(b.decision) && reason.length < 3) {
+    return res.status(400).json({ ok: false, error: "REVIEW_REASON_REQUIRED" });
+  }
 
   const review = await prisma.humanReview.create({
     data: {
       attendanceId: attendance.id,
       reviewerId,
       decision: b.decision,
-      reason: b.reason || null,
+      reason: reason || null,
       reviewStartedAt: b.reviewStartedAt ? toIso(b.reviewStartedAt) : null,
       reviewDurationSeconds: b.reviewDurationSeconds ? Number(b.reviewDurationSeconds) : null,
     },
@@ -443,6 +569,7 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
 
   let finalEvidenceStatus = "REVIEW_REQUIRED";
   if (b.decision === "VERIFY") finalEvidenceStatus = "VERIFIED";
+  if (b.decision === "OVERRIDE_VERIFY") finalEvidenceStatus = "OVERRIDE_VERIFIED";
   if (b.decision === "REJECT") finalEvidenceStatus = "REJECTED";
 
   await prisma.attendanceRecord.update({
@@ -450,15 +577,26 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
     data: { finalEvidenceStatus },
   });
 
-  await audit(req, "HUMAN_REVIEW", "AttendanceRecord", attendance.id, {
-    decision: b.decision,
-  });
+  await audit(
+    req,
+    b.decision === "OVERRIDE_VERIFY" ? "MANUAL_OVERRIDE_VERIFIED" : "HUMAN_REVIEW",
+    "AttendanceRecord",
+    attendance.id,
+    { decision: b.decision, reason, blockers }
+  );
 
-  res.status(201).json({ ok: true, review, finalEvidenceStatus });
+  res.status(201).json({
+    ok: true,
+    review,
+    finalEvidenceStatus,
+    systemEvidenceStatus: attendance.consistencyResult.status,
+    blockers,
+  });
 });
 
 app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
+    where: { isVoided: false },
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
       activity: { include: { policy: true } },
@@ -724,6 +862,7 @@ app.get("/api/ml/inference-dataset", requireRoles("ADMIN"), async (req, res) => 
 
   const includeScored = String(req.query.includeScored || "false") === "true";
   const rows = await prisma.attendanceRecord.findMany({
+    where: { isVoided: false },
     include: {
       activity: true,
       staffVerification: true,
@@ -1037,7 +1176,7 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   }
 
   const predictions = await prisma.aIPrediction.findMany({
-    where: { modelRunId: deployed.id },
+    where: { modelRunId: deployed.id, attendance: { isVoided: false } },
     include: {
       attendance: {
         include: {
@@ -1062,6 +1201,7 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
 
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
+    where: { isVoided: false },
     include: {
       activity: true,
       staffVerification: true,

@@ -170,3 +170,16 @@ V0.3:
 - ป้องกัน Check-out ซ้ำด้วย ALREADY_CHECKED_OUT
 - เพิ่ม unique constraint activityId + userId สำหรับ PostgreSQL Server Mode
 - ปุ่ม Check-out บน UI ถูกปิดเมื่อรายการ Check-out แล้ว
+
+
+## V0.3.7 — Evidence Integrity, Manual Override and Duplicate Repair
+- แยก System Evidence Status ออกจาก Final Human Decision อย่างเด็ดขาด
+- Rule-based Evidence Engine ไม่สามารถเปลี่ยนเป็น VERIFIED จากผล Human Review
+- VERIFY ปกติถูกบล็อกเมื่อมี required evidence ขาดหรือมี blocker เช่น SHORT_DURATION
+- Admin Manual Override ใช้ OVERRIDE_VERIFY + เหตุผลบังคับ + Audit Trail และแสดง OVERRIDE_VERIFIED
+- Evidence/Checkout/Staff changes สามารถ invalidate ผลรับรองเดิมที่ไม่ใช่ override
+- เพิ่ม “ยกเลิกรายการผิด” สำหรับ ADMIN/STAFF แทนการลบข้อมูล พร้อมเหตุผลและ Audit Trail
+- รายการ voided ถูกตัดออกจาก dashboard, Ground Truth, ML inference และ research export
+- ป้องกัน Staff Verification/Checkout ซ้ำและแสดงสถานะปุ่มให้ชัด
+- ปรับ Attendance/Evidence/Human Review เป็น mobile cards เพื่อลดปัญหาตารางล้นจอ
+- แสดงเวลาเข้า→ออกใน dropdown เพื่อเลือกรายการซ้ำเก่าได้ถูกแถว
