@@ -66,3 +66,6 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 
 .pipeline-steps{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pipeline-steps span{padding:8px 10px;border-radius:999px;background:#eef4ff;color:#244a9b;font-size:12px;font-weight:700}
+
+.badge.demo{background:#fff3d8;color:#8f5b00;border:1px solid #f2d184}
+.mode-card{border:1px dashed var(--line);border-radius:12px;padding:12px}

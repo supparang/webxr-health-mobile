@@ -1,7 +1,9 @@
 (function () {
   "use strict";
 
-  const SESSION_KEY = "activa_ai_v022_session";
+  const SESSION_KEY = "activa_ai_v034_session";
+  const MODE_KEY = "activa_ai_mode";
+  let appMode = sessionStorage.getItem(MODE_KEY) || "server";
   let session = readSession();
   let activeView = "dashboard";
   let qrTimer = null;
@@ -26,10 +28,15 @@
   }
 
   async function api(path, options = {}, actorOverride = null) {
+    const actor = actorOverride || session?.employeeId;
+    if (appMode === "demo") {
+      if (!window.ACTIVA_DEMO_API) throw new Error("DEMO_API_NOT_LOADED");
+      return window.ACTIVA_DEMO_API.request(path, options, actor);
+    }
+
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    const actor = actorOverride || session?.employeeId;
     if (actor) headers.set("x-activa-user-id", actor);
 
     const response = await fetch(path, { ...options, headers });
@@ -42,6 +49,11 @@
       throw err;
     }
     return data;
+  }
+
+  function setMode(mode) {
+    appMode = mode;
+    sessionStorage.setItem(MODE_KEY, mode);
   }
 
   function setView(view) {
@@ -83,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.3 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.4 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -97,8 +109,11 @@
   }
 
   function errorBox(error) {
+    const hint = appMode === "demo"
+      ? "กำลังใช้ Demo Mode; ข้อมูลทั้งหมดเป็นข้อมูลจำลองในเบราว์เซอร์"
+      : "ตรวจว่า PostgreSQL และ ACTIVA-AI server กำลังทำงานอยู่";
     return '<div class="alert bad"><b>เกิดข้อผิดพลาด:</b> '+esc(error?.message || error)+
-      '<br><span class="muted">ตรวจว่า PostgreSQL และ ACTIVA-AI server กำลังทำงานอยู่</span></div>';
+      '<br><span class="muted">'+esc(hint)+'</span></div>';
   }
 
   async function render() {
@@ -111,9 +126,14 @@
     document.getElementById("logout").onclick = () => { session = null; saveSession(); activeView = "dashboard"; render(); };
 
     const conn = document.getElementById("conn");
-    api("/api/health", {}, session.employeeId)
-      .then((d) => { conn.textContent = d.database === "connected" ? "ฐานข้อมูลพร้อม" : "ฐานข้อมูลมีปัญหา"; conn.className = "badge"; })
-      .catch(() => { conn.textContent = "ออฟไลน์"; conn.className = "badge danger"; });
+    if (appMode === "demo") {
+      conn.textContent = "DEMO • ไม่ใช้ PostgreSQL";
+      conn.className = "badge demo";
+    } else {
+      api("/api/health", {}, session.employeeId)
+        .then((d) => { conn.textContent = d.database === "connected" ? "PostgreSQL พร้อม" : "ฐานข้อมูลมีปัญหา"; conn.className = "badge"; })
+        .catch(() => { conn.textContent = "Server/DB ออฟไลน์"; conn.className = "badge danger"; });
+    }
 
     const v = document.getElementById("view");
     try {
@@ -137,20 +157,24 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.3</div><h1>เข้าสู่ระบบ</h1>'+
-      '<p>Prototype นี้ใช้ฐานข้อมูล PostgreSQL และ API เป็นแหล่งข้อมูลหลัก</p>'+
-      '<div class="demo-box"><b>บัญชีทดลองหลังรัน seed</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
+      '<div class="kicker">ACTIVA-AI V0.3.4</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
+      '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
-      '<div class="field" style="margin-top:10px"><label>รหัสผ่าน</label><input id="loginPw" type="password" value="demo" disabled></div>'+
-      '<div class="actions"><button class="btn primary" id="loginBtn">เข้าสู่ระบบทดลอง</button></div>'+
-      '<div class="hint">V0.2.2 ตรวจผู้ใช้จากฐานข้อมูลแล้ว แต่ยังไม่ใช่ระบบรหัสผ่าน/SSO จริง ช่องรหัสผ่านจึงปิดไว้เพื่อไม่สร้างความเข้าใจผิด</div>'+
+      '<div class="actions">'+
+        '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
+        '<button class="btn secondary" id="serverLogin">เข้า Server Mode</button>'+
+      '</div>'+
+      '<div class="hint"><b>Demo Mode:</b> ไม่ต้องใช้ PostgreSQL ข้อมูลเก็บใน browser และเป็นข้อมูลสาธิต/สังเคราะห์เท่านั้น<br><b>Server Mode:</b> ใช้ API + PostgreSQL ตามสถาปัตยกรรมจริง</div>'+
+      '<div class="actions"><button class="btn warn" id="resetDemo">ล้างข้อมูล Demo</button></div>'+
       '<div id="loginMsg"></div></div></div>';
 
-    document.getElementById("loginBtn").onclick = async () => {
+    async function login(mode) {
       const id = document.getElementById("loginId").value.trim().toUpperCase();
       const msg = document.getElementById("loginMsg");
       if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
-      msg.innerHTML = '<div class="alert">กำลังตรวจสอบบัญชี…</div>';
+      setMode(mode);
+      msg.innerHTML = '<div class="alert">กำลังเข้าสู่ '+(mode==="demo"?"Demo Mode":"Server Mode")+'…</div>';
       try {
         const data = await api("/api/me", {}, id);
         session = data.user;
@@ -160,6 +184,13 @@
       } catch (error) {
         msg.innerHTML = errorBox(error);
       }
+    }
+
+    document.getElementById("demoLogin").onclick = () => login("demo");
+    document.getElementById("serverLogin").onclick = () => login("server");
+    document.getElementById("resetDemo").onclick = () => {
+      if (window.ACTIVA_DEMO_API) window.ACTIVA_DEMO_API.reset();
+      document.getElementById("loginMsg").innerHTML = '<div class="alert ok">ล้างข้อมูล Demo แล้ว</div>';
     };
   }
 
@@ -180,6 +211,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+

@@ -141,3 +141,14 @@ V0.3:
 - เพิ่ม UI ดาวน์โหลด inference dataset และ import prediction bundle
 - AI prediction ไม่เปลี่ยน final evidence status อัตโนมัติ
 - Local explanation ใช้ single-feature reference perturbation และระบุชัดว่าไม่ใช่ causal explanation
+
+
+## V0.3.4 — Database-Free Demo Mode
+- เพิ่ม Demo Mode สำหรับทดลอง ACTIVA-AI โดยไม่ต้องเชื่อม PostgreSQL
+- Demo data เก็บใน localStorage ของ browser และติดป้าย DEMO / SYNTHETIC ชัดเจน
+- รองรับ workflow หลัก: Activity → Dynamic QR → Check-in/out → Staff Verification → Evidence → Human Review
+- รองรับ Ground Truth / Readiness / Model registry / XAI screens ในระดับสาธิต
+- เพิ่มปุ่มสลับ Demo Mode กับ Server Mode ที่หน้า Login
+- เพิ่มปุ่มล้างข้อมูล Demo
+- Server Mode เดิมยังคงใช้ API + Prisma + PostgreSQL
+- ข้อมูล Demo ห้ามใช้เป็นผลวิจัยหรือรายงานเชิงประจักษ์
