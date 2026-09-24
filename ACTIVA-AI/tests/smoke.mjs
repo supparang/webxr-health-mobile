@@ -119,7 +119,69 @@ assert(p1CreateAfter.status === 403, "P001 should not create activity after perm
 
 const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
-const activity = activities.activities.find((a) => a.organizer?.employeeId === "ORG001") || activities.activities[0];
+
+const ciNow=Date.now();
+const activeActivityCreate=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI active check-in window",
+    category:"ทดสอบ",
+    location:"CI",
+    startAt:new Date(ciNow-5*60000).toISOString(),
+    endAt:new Date(ciNow+120*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow-10*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow+20*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow+90*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+150*60000).toISOString(),
+    policy:{}
+  }
+});
+const activity=activeActivityCreate.activity;
+assert(activity?.id,"active-window activity creation failed");
+
+// V0.5.6 QR/check-in time-window enforcement
+const futureActivity=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI future QR window",
+    category:"ทดสอบ",
+    location:"CI",
+    startAt:new Date(ciNow+90*60000).toISOString(),
+    endAt:new Date(ciNow+180*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow+60*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow+100*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow+150*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+210*60000).toISOString(),
+    policy:{}
+  }
+});
+const futureQr=await reqError("/api/activities/"+encodeURIComponent(futureActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST"
+});
+assert(futureQr.status===409 && futureQr.data?.error==="QR_CHECKIN_NOT_OPEN","future QR window should block issuance");
+
+const closedActivity=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI closed QR window",
+    category:"ทดสอบ",
+    location:"CI",
+    startAt:new Date(ciNow-60*60000).toISOString(),
+    endAt:new Date(ciNow+60*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow-90*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow-30*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow+30*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+90*60000).toISOString(),
+    policy:{}
+  }
+});
+const closedQr=await reqError("/api/activities/"+encodeURIComponent(closedActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST"
+});
+assert(closedQr.status===409 && closedQr.data?.error==="QR_CHECKIN_CLOSED","closed QR window should block issuance");
 
 // V0.5.2 per-activity assignments + participant scope
 const activityManage = await req("/api/activities/" + encodeURIComponent(activity.id) + "/manage", {
@@ -134,6 +196,7 @@ const assignments = await req("/api/activities/" + encodeURIComponent(activity.i
   body: {
     coOrganizerIds: ["P002"],
     verifierIds: ["STF001"],
+    changeReason: "CI active activity assignment update",
   },
 });
 assert(assignments.assignments.some(x => x.role === "CO_ORGANIZER" && x.user?.employeeId === "P002"), "co-organizer assignment missing");
@@ -394,4 +457,4 @@ assert(afterStatus === "OVERRIDE_VERIFIED", "manual override status was not pres
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
 
-console.log("ACTIVA-AI V0.3.7 smoke test passed");
+console.log("ACTIVA-AI V0.5.6 smoke test passed");

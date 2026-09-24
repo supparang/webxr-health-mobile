@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.5</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.6</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -643,6 +643,11 @@
         field("สถานที่","aLoc","ห้องประชุม")+
         field("เวลาเริ่ม","aStart","","time","09:00")+
         field("เวลาสิ้นสุด","aEnd","","time","16:00")+
+        field("เปิด Check-in QR","aCiOpen","","time","08:30")+
+        field("ปิด Check-in QR","aCiClose","","time","09:30")+
+        field("เปิดช่วง Check-out","aCoOpen","","time","15:30")+
+        field("ปิดช่วง Check-out","aCoClose","","time","16:30")+
+        '<div class="hint full"><b>กติกา QR:</b> สร้างและสแกน Check-in ได้เฉพาะช่วง “เปิด–ปิด Check-in QR” เท่านั้น • QR แต่ละใบมีอายุไม่เกิน 45 วินาที</div>'+
         (can("ADMIN")
           ? '<div class="field full"><label>ผู้จัดกิจกรรมหลัก</label><select id="primaryOrganizer">'+
             eligibleOrganizers.map(u=>'<option value="'+esc(u.id)+'" '+(u.id===session.id?"selected":"")+'>'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+
@@ -668,6 +673,23 @@
     const createBtn=document.getElementById("createAct");
     if(!createBtn) return;
 
+    function shiftTime(value, minutes){
+      const [h,m]=(value||"00:00").split(":").map(Number);
+      const d=new Date(2000,0,1,h||0,m||0);
+      d.setMinutes(d.getMinutes()+minutes);
+      return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+    }
+    const syncDefaultWindows=()=>{
+      const start=document.getElementById("aStart").value;
+      const end=document.getElementById("aEnd").value;
+      document.getElementById("aCiOpen").value=shiftTime(start,-30);
+      document.getElementById("aCiClose").value=shiftTime(start,30);
+      document.getElementById("aCoOpen").value=shiftTime(end,-30);
+      document.getElementById("aCoClose").value=shiftTime(end,30);
+    };
+    document.getElementById("aStart").addEventListener("change",syncDefaultWindows);
+    document.getElementById("aEnd").addEventListener("change",syncDefaultWindows);
+
     createBtn.onclick = async () => {
       const msg = document.getElementById("actMsg");
       const title = document.getElementById("aTitle").value.trim();
@@ -675,6 +697,18 @@
       const date = document.getElementById("aDate").value;
       const start = document.getElementById("aStart").value;
       const end = document.getElementById("aEnd").value;
+      const ciOpen = document.getElementById("aCiOpen").value;
+      const ciClose = document.getElementById("aCiClose").value;
+      const coOpen = document.getElementById("aCoOpen").value;
+      const coClose = document.getElementById("aCoClose").value;
+      const startDt=new Date(date+"T"+start), endDt=new Date(date+"T"+end);
+      const ciOpenDt=new Date(date+"T"+ciOpen), ciCloseDt=new Date(date+"T"+ciClose);
+      const coOpenDt=new Date(date+"T"+coOpen), coCloseDt=new Date(date+"T"+coClose);
+      if(endDt<=startDt) return msg.innerHTML='<div class="alert bad">เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม</div>';
+      if(ciCloseDt<=ciOpenDt) return msg.innerHTML='<div class="alert bad">เวลาปิด Check-in ต้องอยู่หลังเวลาเปิด Check-in</div>';
+      if(ciCloseDt>endDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-in ต้องปิดไม่เกินเวลาสิ้นสุดกิจกรรม</div>';
+      if(coCloseDt<=coOpenDt) return msg.innerHTML='<div class="alert bad">เวลาปิด Check-out ต้องอยู่หลังเวลาเปิด Check-out</div>';
+      if(coOpenDt<startDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-out ต้องไม่เปิดก่อนกิจกรรมเริ่ม</div>';
       try {
         await api("/api/activities", {
           method:"POST",
@@ -682,8 +716,12 @@
             title,
             category:document.getElementById("aCat").value,
             location:document.getElementById("aLoc").value || "ไม่ระบุ",
-            startAt:new Date(date+"T"+start).toISOString(),
-            endAt:new Date(date+"T"+end).toISOString(),
+            startAt:startDt.toISOString(),
+            endAt:endDt.toISOString(),
+            checkinOpenAt:ciOpenDt.toISOString(),
+            checkinCloseAt:ciCloseDt.toISOString(),
+            checkoutOpenAt:coOpenDt.toISOString(),
+            checkoutCloseAt:coCloseDt.toISOString(),
             primaryOrganizerId:document.getElementById("primaryOrganizer")?.value || session.id,
             policy:{
               qrRequired:checked("pQr"),identityRequired:checked("pId"),checkinRequired:checked("pIn"),
@@ -719,7 +757,7 @@
         ? '<button class="btn mini secondary manageActivity" data-id="'+esc(a.id)+'">จัดผู้รับผิดชอบ/ผู้เข้าร่วม</button>'
         : '';
       return '<tr><td><b>'+esc(a.title)+'</b><br><span class="muted">'+esc(a.category)+' • '+esc(a.id)+'</span></td>'+
-        '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'</td>'+
+        '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'<br><span class="muted">Check-in '+fmt(a.checkinOpenAt||new Date(new Date(a.startAt).getTime()-30*60000))+' → '+fmt(a.checkinCloseAt||new Date(new Date(a.startAt).getTime()+30*60000))+'</span></td>'+
         '<td>'+esc(a.location)+'</td>'+
         '<td>'+esc(primary)+'</td>'+
         '<td>'+esc(participationModeLabel(a.participationMode))+(a.participationMode==="ROSTER"?' • '+count+' คน':'')+'</td>'+
@@ -730,7 +768,7 @@
       const count=a._count?.participants ?? (a.participants||[]).length ?? 0;
       return '<article class="activity-card">'+
         '<div class="activity-card-head"><div><b>'+esc(a.title)+'</b><small>'+esc(a.category)+'</small></div><span class="status s-info">'+esc(participationModeLabel(a.participationMode))+'</span></div>'+
-        '<div class="activity-meta"><span><b>วัน/เวลา</b>'+fmt(a.startAt)+'</span><span><b>สถานที่</b>'+esc(a.location)+'</span>'+
+        '<div class="activity-meta"><span><b>วัน/เวลา</b>'+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><span><b>ช่วง Check-in QR</b>'+fmt(a.checkinOpenAt||new Date(new Date(a.startAt).getTime()-30*60000))+' → '+fmt(a.checkinCloseAt||new Date(new Date(a.startAt).getTime()+30*60000))+'</span><span><b>สถานที่</b>'+esc(a.location)+'</span>'+
         '<span><b>ผู้จัดกิจกรรมหลัก</b>'+esc(primary)+'</span><span><b>รายชื่อที่กำหนด</b>'+(a.participationMode==="ROSTER"?esc(count)+" คน":"—")+'</span></div>'+
         '<div class="muted">'+esc(policyText(a.policy))+'</div>'+
         (canManageActivityClient(a)?'<div class="actions"><button class="btn secondary manageActivity" data-id="'+esc(a.id)+'">จัดผู้รับผิดชอบ/ผู้เข้าร่วม</button></div>':'')+
@@ -852,6 +890,19 @@
     }
   }
 
+  function clientCheckinWindowState(a) {
+    const start=new Date(a.startAt).getTime();
+    const open=new Date(a.checkinOpenAt||new Date(start-30*60000)).getTime();
+    const close=new Date(a.checkinCloseAt||new Date(start+30*60000)).getTime();
+    const now=Date.now();
+    return {
+      ok:now>=open&&now<=close,
+      code:now<open?"QR_CHECKIN_NOT_OPEN":now>close?"QR_CHECKIN_CLOSED":"QR_CHECKIN_OPEN",
+      openAt:new Date(open).toISOString(),
+      closeAt:new Date(close).toISOString()
+    };
+  }
+
   async function renderQr(v) {
     if (!(can("ADMIN") || hasActivityPermission("CAN_CREATE_ACTIVITY") || hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES"))) throw new Error("FORBIDDEN");
     showLoading(v);
@@ -861,9 +912,27 @@
     v.innerHTML =
       '<div class="panel"><h2>Dynamic Event QR</h2>'+
       '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div id="qrWindowInfo"></div>'+
       '<div class="actions"><button class="btn primary" id="newQr">สร้าง/หมุน QR ใหม่</button></div>'+
       '<div id="qrArea"></div>'+
-      '<div class="hint">Token ถูกลงลายมือชื่อที่ฝั่งเซิร์ฟเวอร์ด้วย HMAC-SHA256 มี nonce และวันหมดอายุ และไม่บรรจุข้อมูลส่วนบุคคลของผู้เข้าร่วม</div></div>';
+      '<div class="hint">QR นี้ใช้สำหรับ Check-in • สร้างและสแกนได้เฉพาะ Check-in Window • Token มีอายุสูงสุด 45 วินาที มี nonce และไม่บรรจุข้อมูลส่วนบุคคล</div></div>';
+
+    const selectedActivity=()=>activities.find(a=>a.id===document.getElementById("qrAct").value);
+
+    function updateWindowInfo() {
+      const a=selectedActivity();
+      const state=clientCheckinWindowState(a);
+      const info=document.getElementById("qrWindowInfo");
+      const btn=document.getElementById("newQr");
+      if(!a||!info||!btn)return;
+      const label=state.code==="QR_CHECKIN_NOT_OPEN"
+        ? "ยังไม่เปิด Check-in"
+        : state.code==="QR_CHECKIN_CLOSED"
+          ? "ปิด Check-in แล้ว"
+          : "เปิด Check-in อยู่";
+      info.innerHTML='<div class="alert '+(state.ok?"ok":"warn")+'"><b>'+label+'</b><br>ช่วง Check-in: '+esc(fmt(state.openAt))+' → '+esc(fmt(state.closeAt))+'</div>';
+      btn.disabled=!state.ok;
+    }
 
     async function issue() {
       const activityId = document.getElementById("qrAct").value;
@@ -878,19 +947,51 @@
       if (!area) return;
       area.innerHTML =
         '<div class="qrbox" style="margin-top:18px"><div id="qrcode" class="qr"></div><div>'+
-        '<p>หมดอายุใน <b>'+remain+'</b> วินาที</p><div class="token">'+esc(qrState.token)+'</div></div></div>';
+        '<p>หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
+        '<p class="muted">Check-in ได้ถึง '+esc(fmt(qrState.checkinCloseAt))+'</p>'+
+        '<div class="token">'+esc(qrState.token)+'</div></div></div>';
       if (window.QRCode) new QRCode(document.getElementById("qrcode"), {text:qrState.token,width:166,height:166});
     }
 
-    document.getElementById("newQr").onclick = () => issue().catch((e) => {
-      document.getElementById("qrArea").innerHTML = errorBox(e);
-    });
-    document.getElementById("qrAct").onchange = () => { qrState = null; document.getElementById("qrArea").innerHTML = ""; };
-    await issue();
+    function qrError(e) {
+      qrState=null;
+      const area=document.getElementById("qrArea");
+      if(e?.message==="QR_CHECKIN_NOT_OPEN"){
+        area.innerHTML='<div class="alert warn"><b>ยังไม่เปิดช่วง Check-in</b><br>เปิด '+esc(fmt(e.data?.checkinOpenAt))+' ถึง '+esc(fmt(e.data?.checkinCloseAt))+'</div>';
+      }else if(e?.message==="QR_CHECKIN_CLOSED"){
+        area.innerHTML='<div class="alert bad"><b>ปิดช่วง Check-in แล้ว</b><br>ไม่สามารถสร้าง QR สำหรับ Check-in เพิ่มได้</div>';
+      }else{
+        area.innerHTML=errorBox(e);
+      }
+      updateWindowInfo();
+    }
+
+    document.getElementById("newQr").onclick = () => issue().catch(qrError);
+    document.getElementById("qrAct").onchange = () => {
+      qrState = null;
+      document.getElementById("qrArea").innerHTML = "";
+      updateWindowInfo();
+      if(clientCheckinWindowState(selectedActivity()).ok) issue().catch(qrError);
+    };
+
+    updateWindowInfo();
+    if(clientCheckinWindowState(selectedActivity()).ok) {
+      await issue().catch(qrError);
+    }
+
     qrTimer = setInterval(async () => {
-      if (!qrState) return;
-      if (new Date(qrState.expiresAt).getTime() <= Date.now()) {
-        try { await issue(); } catch {}
+      updateWindowInfo();
+      const state=clientCheckinWindowState(selectedActivity());
+      if(!state.ok){
+        qrState=null;
+        const area=document.getElementById("qrArea");
+        if(area && !area.innerHTML.includes("ปิดช่วง Check-in") && !area.innerHTML.includes("ยังไม่เปิดช่วง Check-in")){
+          area.innerHTML='<div class="empty">'+(state.code==="QR_CHECKIN_NOT_OPEN"?"รอเวลาเปิด Check-in":"ปิด Check-in แล้ว")+'</div>';
+        }
+        return;
+      }
+      if (!qrState || new Date(qrState.expiresAt).getTime() <= Date.now()) {
+        try { await issue(); } catch(e) { qrError(e); }
       } else draw();
     }, 1000);
   }
@@ -1089,6 +1190,15 @@
           msg.innerHTML = '<div class="alert warn"><b>Check-in แล้ว</b><br>กิจกรรมนี้มีรายการ Check-in อยู่แล้ว จึงไม่สร้างรายการซ้ำ</div>';
         } else if (e?.message === "ACTIVITY_ALREADY_COMPLETED") {
           msg.innerHTML = '<div class="alert ok"><b>กิจกรรมนี้บันทึกเข้า–ออกแล้ว</b><br>ไม่ต้อง Check-in ซ้ำ ให้ดำเนินการ Staff Verification / Evidence Review ต่อ</div>';
+        } else if (e?.message === "QR_CHECKIN_NOT_OPEN") {
+          msg.innerHTML = '<div class="alert warn"><b>ยังไม่ถึงเวลา Check-in</b><br>เปิด '+esc(fmt(e.data?.checkinOpenAt))+' ถึง '+esc(fmt(e.data?.checkinCloseAt))+'</div>';
+          await stopScanner();
+        } else if (e?.message === "QR_CHECKIN_CLOSED") {
+          msg.innerHTML = '<div class="alert bad"><b>หมดเวลา Check-in แล้ว</b><br>หากมีเหตุจำเป็นให้ติดต่อผู้จัดกิจกรรม/เจ้าหน้าที่</div>';
+          await stopScanner();
+        } else if (e?.message === "INVALID_OR_EXPIRED_DEMO_QR" || e?.message === "TOKEN_EXPIRED") {
+          msg.innerHTML = '<div class="alert warn"><b>QR หมดอายุ</b><br>ให้สแกน Dynamic QR ใบล่าสุดอีกครั้ง</div>';
+          await stopScanner();
         } else {
           msg.innerHTML = errorBox(e);
         }

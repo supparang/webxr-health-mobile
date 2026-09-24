@@ -82,6 +82,10 @@ async function main() {
     startAt.setHours(9, 0, 0, 0);
     const endAt = new Date();
     endAt.setHours(16, 0, 0, 0);
+    const checkinOpenAt = new Date(startAt.getTime() - 30 * 60000);
+    const checkinCloseAt = new Date(startAt.getTime() + 30 * 60000);
+    const checkoutOpenAt = new Date(endAt.getTime() - 30 * 60000);
+    const checkoutCloseAt = new Date(endAt.getTime() + 30 * 60000);
 
     await prisma.activity.create({
       data: {
@@ -91,6 +95,10 @@ async function main() {
         location: "ห้องประชุมคณะ",
         startAt,
         endAt,
+        checkinOpenAt,
+        checkinCloseAt,
+        checkoutOpenAt,
+        checkoutCloseAt,
         organizerId: users.ORG001.id,
         policy: {
           create: {

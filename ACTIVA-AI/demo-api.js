@@ -60,6 +60,10 @@
         location:"ห้องประชุมคณะ",
         startAt:todayAt(9,0),
         endAt:todayAt(16,0),
+        checkinOpenAt:todayAt(8,30),
+        checkinCloseAt:todayAt(9,30),
+        checkoutOpenAt:todayAt(15,30),
+        checkoutCloseAt:todayAt(16,30),
         organizerId:"ORG001",
         participationMode:"OPEN",
         allowedDepartmentCodes:[],
@@ -126,6 +130,18 @@
         }
       }
       data.terminology051Migrated = true;
+    }
+
+    if (!data.timeWindows056Migrated) {
+      for (const a of (data.activities || [])) {
+        const w=activityTimeWindows(a);
+        if(!a.checkinOpenAt) a.checkinOpenAt=w.checkinOpenAt;
+        if(!a.checkinCloseAt) a.checkinCloseAt=w.checkinCloseAt;
+        if(!a.checkoutOpenAt) a.checkoutOpenAt=w.checkoutOpenAt;
+        if(!a.checkoutCloseAt) a.checkoutCloseAt=w.checkoutCloseAt;
+      }
+      data.timeWindows056Migrated=true;
+      changed=true;
     }
 
     if (!data.assignmentsGovernance055Migrated) {
@@ -231,6 +247,25 @@
     if (Number.isFinite(start) && at < start) return "BEFORE_START";
     if (Number.isFinite(end) && at > end) return "ENDED";
     return "ACTIVE";
+  }
+
+  function activityTimeWindows(a) {
+    const start=new Date(a?.startAt||0).getTime();
+    const end=new Date(a?.endAt||0).getTime();
+    const checkinOpenAt=a?.checkinOpenAt || new Date(start-30*60000).toISOString();
+    const checkinCloseAt=a?.checkinCloseAt || new Date(start+30*60000).toISOString();
+    const checkoutOpenAt=a?.checkoutOpenAt || new Date(end-30*60000).toISOString();
+    const checkoutCloseAt=a?.checkoutCloseAt || new Date(end+30*60000).toISOString();
+    return {checkinOpenAt,checkinCloseAt,checkoutOpenAt,checkoutCloseAt};
+  }
+
+  function checkinWindowState(a, at=Date.now()) {
+    const w=activityTimeWindows(a);
+    const open=new Date(w.checkinOpenAt).getTime();
+    const close=new Date(w.checkinCloseAt).getTime();
+    if(at<open) return {ok:false,code:"QR_CHECKIN_NOT_OPEN",...w};
+    if(at>close) return {ok:false,code:"QR_CHECKIN_CLOSED",...w};
+    return {ok:true,code:"QR_CHECKIN_OPEN",...w};
   }
 
   function coAssignmentGovernance(u,a){
@@ -368,7 +403,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.5-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.6-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -513,9 +548,28 @@
         if(selected.role!=="ADMIN"&&!hasActivityPermission(selected,"CAN_CREATE_ACTIVITY")) err("PRIMARY_ORGANIZER_LACKS_CREATE_PERMISSION",409);
         primaryOrganizer=selected;
       }
+      const startMs=new Date(b.startAt).getTime(), endMs=new Date(b.endAt).getTime();
+      if(!Number.isFinite(startMs)||!Number.isFinite(endMs)||endMs<=startMs) err("INVALID_ACTIVITY_TIME_RANGE",400);
+      const defaults={
+        checkinOpenAt:new Date(startMs-30*60000).toISOString(),
+        checkinCloseAt:new Date(startMs+30*60000).toISOString(),
+        checkoutOpenAt:new Date(endMs-30*60000).toISOString(),
+        checkoutCloseAt:new Date(endMs+30*60000).toISOString()
+      };
+      const windows={
+        checkinOpenAt:b.checkinOpenAt||defaults.checkinOpenAt,
+        checkinCloseAt:b.checkinCloseAt||defaults.checkinCloseAt,
+        checkoutOpenAt:b.checkoutOpenAt||defaults.checkoutOpenAt,
+        checkoutCloseAt:b.checkoutCloseAt||defaults.checkoutCloseAt
+      };
+      if(new Date(windows.checkinOpenAt)>=new Date(windows.checkinCloseAt)) err("INVALID_CHECKIN_WINDOW",400);
+      if(new Date(windows.checkoutOpenAt)>=new Date(windows.checkoutCloseAt)) err("INVALID_CHECKOUT_WINDOW",400);
+      if(new Date(windows.checkinCloseAt)>new Date(b.endAt)) err("CHECKIN_WINDOW_AFTER_ACTIVITY_END",400);
+      if(new Date(windows.checkoutOpenAt)<new Date(b.startAt)) err("CHECKOUT_WINDOW_BEFORE_ACTIVITY_START",400);
+
       const a = {
         id:uid("DEMO-EVT"),title:b.title,category:b.category,description:b.description||"",
-        location:b.location,startAt:b.startAt,endAt:b.endAt,organizerId:primaryOrganizer.id,
+        location:b.location,startAt:b.startAt,endAt:b.endAt,...windows,organizerId:primaryOrganizer.id,
         participationMode:"OPEN",allowedDepartmentCodes:[],roleAssignments:[],participants:[],
         assignmentsUpdatedAt:null,
         policy:b.policy||{},qr:null
@@ -634,10 +688,16 @@
     if (m && method === "POST") {
       const a = activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
-      const exp = new Date(Date.now()+45000);
+      const windowState=checkinWindowState(a);
+      if(!windowState.ok){
+        const e=new Error(windowState.code);e.status=409;
+        e.data={ok:false,error:windowState.code,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
+        throw e;
+      }
+      const exp = new Date(Math.min(Date.now()+45000,new Date(windowState.checkinCloseAt).getTime()));
       a.qr = {token:"DEMO|"+a.id+"|"+Date.now()+"|"+Math.random().toString(36).slice(2),issuedAt:iso(),expiresAt:exp.toISOString()};
       audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,expiresAt:a.qr.expiresAt}); save();
-      return {ok:true,...a.qr,demo:true};
+      return {ok:true,...a.qr,demo:true,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
     }
 
     if (p === "/api/attendance" && method === "GET") {
@@ -664,6 +724,12 @@
       }
       if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      const windowState=checkinWindowState(a);
+      if(!windowState.ok){
+        const e=new Error(windowState.code);e.status=409;
+        e.data={ok:false,error:windowState.code,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
+        throw e;
+      }
       let participationAllowed=a.participationMode==="OPEN"||!a.participationMode;
       if(a.participationMode==="ROSTER") participationAllowed=(a.participants||[]).some(x=>x.userId===u.id&&x.status!=="CANCELLED");
       if(a.participationMode==="GROUP") participationAllowed=Boolean(u.department?.code&&(a.allowedDepartmentCodes||[]).includes(u.department.code));

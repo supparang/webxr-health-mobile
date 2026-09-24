@@ -122,6 +122,27 @@ function activityLifecycle(activity, at = new Date()) {
   return "ACTIVE";
 }
 
+function activityTimeWindows(activity) {
+  const start = new Date(activity.startAt).getTime();
+  const end = new Date(activity.endAt).getTime();
+  return {
+    checkinOpenAt: activity.checkinOpenAt || new Date(start - 30 * 60000),
+    checkinCloseAt: activity.checkinCloseAt || new Date(start + 30 * 60000),
+    checkoutOpenAt: activity.checkoutOpenAt || new Date(end - 30 * 60000),
+    checkoutCloseAt: activity.checkoutCloseAt || new Date(end + 30 * 60000),
+  };
+}
+
+function checkinWindowState(activity, at = new Date()) {
+  const w = activityTimeWindows(activity);
+  const now = at.getTime();
+  const open = new Date(w.checkinOpenAt).getTime();
+  const close = new Date(w.checkinCloseAt).getTime();
+  if (now < open) return { ok:false, code:"QR_CHECKIN_NOT_OPEN", ...w };
+  if (now > close) return { ok:false, code:"QR_CHECKIN_CLOSED", ...w };
+  return { ok:true, code:"QR_CHECKIN_OPEN", ...w };
+}
+
 async function coAssignmentGovernance(req, activity) {
   const lifecycle = activityLifecycle(activity);
   const base = await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER");
@@ -214,9 +235,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.5.5", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.5.6", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.5.5", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.5.6", database: "unavailable", error: error.message });
   }
 });
 
@@ -616,18 +637,42 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
       primaryOrganizer = selected;
     }
 
+    const startAt = toIso(b.startAt);
+    const endAt = toIso(b.endAt);
+    if (endAt <= startAt) {
+      return res.status(400).json({ ok:false, error:"INVALID_ACTIVITY_TIME_RANGE" });
+    }
+
+    const checkinOpenAt = b.checkinOpenAt ? toIso(b.checkinOpenAt) : new Date(startAt.getTime() - 30 * 60000);
+    const checkinCloseAt = b.checkinCloseAt ? toIso(b.checkinCloseAt) : new Date(startAt.getTime() + 30 * 60000);
+    const checkoutOpenAt = b.checkoutOpenAt ? toIso(b.checkoutOpenAt) : new Date(endAt.getTime() - 30 * 60000);
+    const checkoutCloseAt = b.checkoutCloseAt ? toIso(b.checkoutCloseAt) : new Date(endAt.getTime() + 30 * 60000);
+
+    if (checkinOpenAt >= checkinCloseAt) {
+      return res.status(400).json({ ok:false, error:"INVALID_CHECKIN_WINDOW" });
+    }
+    if (checkoutOpenAt >= checkoutCloseAt) {
+      return res.status(400).json({ ok:false, error:"INVALID_CHECKOUT_WINDOW" });
+    }
+    if (checkinCloseAt > endAt) {
+      return res.status(400).json({ ok:false, error:"CHECKIN_WINDOW_AFTER_ACTIVITY_END" });
+    }
+    if (checkoutOpenAt < startAt) {
+      return res.status(400).json({ ok:false, error:"CHECKOUT_WINDOW_BEFORE_ACTIVITY_START" });
+    }
+
     const activity = await prisma.activity.create({
       data: {
         title: b.title,
         category: b.category,
         description: b.description || null,
         location: b.location,
-        startAt: toIso(b.startAt),
-        endAt: toIso(b.endAt),
-        checkinOpenAt: b.checkinOpenAt ? toIso(b.checkinOpenAt) : null,
-        checkinCloseAt: b.checkinCloseAt ? toIso(b.checkinCloseAt) : null,
-        checkoutOpenAt: b.checkoutOpenAt ? toIso(b.checkoutOpenAt) : null,
-        checkoutCloseAt: b.checkoutCloseAt ? toIso(b.checkoutCloseAt) : null,
+        startAt,
+        endAt,
+        checkinOpenAt,
+        checkinCloseAt,
+        checkoutOpenAt,
+        checkoutCloseAt,
         organizerId: primaryOrganizer.id,
         participationMode: "OPEN",
         allowedDepartmentCodes: [],
@@ -923,7 +968,18 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
     return res.status(403).json({ ok: false, error: "ACTIVITY_MANAGEMENT_FORBIDDEN" });
   }
 
-  const issued = createEventToken(activity.id, qrTtl);
+  const windowState = checkinWindowState(activity);
+  if (!windowState.ok) {
+    return res.status(409).json({
+      ok:false,
+      error:windowState.code,
+      checkinOpenAt:new Date(windowState.checkinOpenAt).toISOString(),
+      checkinCloseAt:new Date(windowState.checkinCloseAt).toISOString(),
+    });
+  }
+
+  const secondsUntilClose = Math.max(1, Math.floor((new Date(windowState.checkinCloseAt).getTime() - Date.now()) / 1000));
+  const issued = createEventToken(activity.id, Math.min(qrTtl, secondsUntilClose));
   await prisma.qrToken.create({
     data: {
       activityId: activity.id,
@@ -944,6 +1000,8 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
     token: issued.token,
     issuedAt: new Date(issued.payload.iat * 1000).toISOString(),
     expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
+    checkinOpenAt: new Date(windowState.checkinOpenAt).toISOString(),
+    checkinCloseAt: new Date(windowState.checkinCloseAt).toISOString(),
   });
 });
 
@@ -960,6 +1018,16 @@ app.post("/api/attendance/checkin", async (req, res) => {
     include: { policy: true },
   });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+
+  const windowState = checkinWindowState(activity);
+  if (!windowState.ok) {
+    return res.status(409).json({
+      ok:false,
+      error:windowState.code,
+      checkinOpenAt:new Date(windowState.checkinOpenAt).toISOString(),
+      checkinCloseAt:new Date(windowState.checkinCloseAt).toISOString(),
+    });
+  }
 
   const user = await resolveUserRef(b.userId);
   if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });

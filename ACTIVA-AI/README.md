@@ -288,3 +288,16 @@ V0.3:
 - แสดง “บันทึกล่าสุด” ในหน้าผู้จัดกิจกรรมร่วม
 - ถ้ารายชื่อไม่เปลี่ยน ระบบไม่สร้าง Audit event ใหม่
 - การเป็น Co-organizer ยังคงเป็นสิทธิ์เฉพาะกิจกรรม ไม่เปลี่ยน role ถาวรของบุคลากร
+
+
+## V0.5.6 — QR Check-in Time Window Enforcement
+- กำหนด Check-in Open / Check-in Close ต่อกิจกรรม
+- ค่าเริ่มต้น: เปิดก่อนเวลาเริ่ม 30 นาที และปิดหลังเวลาเริ่ม 30 นาที
+- Dynamic QR สร้าง/หมุนได้เฉพาะช่วง Check-in Window
+- QR แต่ละ token อายุสูงสุด 45 วินาที และจะไม่เลยเวลาปิด Check-in
+- Check-in API ตรวจ window ซ้ำอีกชั้น แม้ token ยังไม่หมดอายุ
+- ก่อนเวลาเปิด: QR_CHECKIN_NOT_OPEN
+- หลังเวลาปิด: QR_CHECKIN_CLOSED
+- Participant scope (OPEN/ROSTER/GROUP), identity และ duplicate checks ยังทำงานร่วมกัน
+- เพิ่มช่วง Checkout Open/Close ในกิจกรรมเพื่อรองรับ policy ขั้นต่อไป
+- UI แสดงช่วง Check-in และข้อความภาษาไทยเมื่อยังไม่เปิด/ปิดแล้ว/QR หมดอายุ
