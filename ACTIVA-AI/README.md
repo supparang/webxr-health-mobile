@@ -264,3 +264,9 @@ V0.3:
 - GROUP จำกัดตามหน่วยงาน
 - เพิ่มหน้าจอมือถือ “จัดผู้รับผิดชอบ/ผู้เข้าร่วม” ในรายการกิจกรรม
 - ทุกการเปลี่ยน Assignment และ Participation Policy ถูกบันทึกใน Audit Trail
+
+
+## V0.5.3 — Demo Mode Load Hotfix
+- แก้ syntax error ใน `demo-api.js` ที่ทำให้หน้าเว็บแจ้ง `DEMO_API_NOT_LOADED`
+- เพิ่ม `node --check demo-api.js` ใน ACTIVA-AI CI เพื่อป้องกัน regression
+- bump cache key เป็น `v=053` เพื่อให้มือถือโหลดไฟล์ Demo API รุ่นแก้ไขทันที

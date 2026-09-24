@@ -305,7 +305,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.2-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.3-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -464,7 +464,7 @@
     if(m && method==="GET"){
       const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
-      return {ok:true,activity:{...activityPublic(a),participants:(a.participants||[]).map(x=>({...x,user:userPublic(actor(x.userId))))},capabilities:{
+      return {ok:true,activity:{...activityPublic(a),participants:(a.participants||[]).map(x=>({...x,user:userPublic(actor(x.userId))}))},capabilities:{
         canManage:true,
         canManageParticipants:true,
         canAssignCo:canAssignActivityRole(who,a,"CAN_ASSIGN_CO_ORGANIZER"),

@@ -69,6 +69,7 @@ jobs:
       - name: JavaScript syntax checks
         run: |
           node --check app.js
+          node --check demo-api.js
           node --check server/index.js
           node --check server/auth.js
           node --check server/db.js

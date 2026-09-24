@@ -196,7 +196,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.5.2 • Role/Permission Terminology</div>'+
+        '<div class="version">V0.5.3 • Role/Permission Terminology</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.2</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.3</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -344,7 +344,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.2 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.3 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
