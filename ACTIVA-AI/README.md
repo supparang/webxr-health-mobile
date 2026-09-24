@@ -152,3 +152,12 @@ V0.3:
 - เพิ่มปุ่มล้างข้อมูล Demo
 - Server Mode เดิมยังคงใช้ API + Prisma + PostgreSQL
 - ข้อมูล Demo ห้ามใช้เป็นผลวิจัยหรือรายงานเชิงประจักษ์
+
+
+## V0.3.5 — Mobile Camera QR Scan
+- เพิ่มปุ่ม "📷 สแกน QR" ในหน้า Check-in
+- ใช้กล้องหลังของมือถือผ่าน html5-qrcode
+- เมื่ออ่าน QR สำเร็จ ระบบนำ token ไป Check-in โดยอัตโนมัติ
+- ยังมี "กรอก/วาง Token" เป็น fallback
+- Demo QR สามารถสแกนข้ามอุปกรณ์ได้ภายในอายุ token 45 วินาที โดยตรวจ event id + issued timestamp จาก token
+- กล้องต้องเปิดผ่าน HTTPS หรือ localhost และผู้ใช้ต้องอนุญาต Camera permission

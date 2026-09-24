@@ -114,7 +114,7 @@
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
       missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.4",evaluatedAt:iso()
+      ruleVersion:"DEMO-RULES-0.3.5",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
@@ -143,7 +143,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.4-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.3.5-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -196,8 +196,19 @@
     if (p === "/api/attendance/checkin" && method === "POST") {
       const u = actor(b.userId); if(!u) err("USER_NOT_FOUND",404);
       if (who.role==="PARTICIPANT" && who.id!==u.id) err("PARTICIPANT_CAN_ONLY_CHECKIN_SELF",403);
-      const a = state.activities.find(x=>x.qr?.token===b.token);
-      if(!a || new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      let a = state.activities.find(x=>x.qr?.token===b.token);
+      if (!a && typeof b.token === "string" && b.token.startsWith("DEMO|")) {
+        const parts = b.token.split("|");
+        const activityId = parts[1];
+        const issuedAtMs = Number(parts[2]);
+        const candidate = activity(activityId);
+        const ageMs = Date.now() - issuedAtMs;
+        if (candidate && Number.isFinite(issuedAtMs) && ageMs >= 0 && ageMs <= 45000) {
+          a = candidate;
+        }
+      }
+      if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       const open = state.attendance.find(r=>r.activityId===a.id&&r.userId===u.id&&!r.checkoutAt);
       if(open) err("OPEN_ATTENDANCE_EXISTS",409);
       const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,checkinAt:iso(),checkoutAt:null,

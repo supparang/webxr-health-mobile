@@ -95,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.4 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.5 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -157,7 +157,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.4</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.5</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -380,12 +380,24 @@
     showLoading(v);
     const [activities, users, rows] = await Promise.all([loadActivities(), loadUsers(), loadAttendance()]);
     const participants = users.filter(u => u.role === "PARTICIPANT");
+    let qrScanner = null;
+    let scannerBusy = false;
+
     v.innerHTML =
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
       '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select></div>'+
-      '<div class="field" style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="สแกนหรือวาง token จาก Dynamic QR"></textarea></div>'+
-      '<div class="actions"><button class="btn primary" id="ciBtn">ยืนยัน Check-in</button></div><div id="ciMsg"></div></div>'+
+      '<div class="actions scan-actions">'+
+        '<button class="btn primary scan-btn" id="scanQrBtn">📷 สแกน QR</button>'+
+        '<button class="btn secondary" id="manualTokenBtn">กรอก/วาง Token</button>'+
+      '</div>'+
+      '<div id="scannerPanel" class="scanner-panel" hidden>'+
+        '<div class="scanner-head"><div><b>สแกน Dynamic QR</b><br><span class="muted">อนุญาตการใช้กล้อง แล้วเล็ง QR ให้อยู่กลางกรอบ</span></div><button class="btn secondary mini" id="stopQrBtn">ปิดกล้อง</button></div>'+
+        '<div id="qrReader" class="qr-reader"></div>'+
+        '<div id="qrScanMsg"></div>'+
+      '</div>'+
+      '<div class="field token-fallback" id="tokenField" hidden style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จาก Dynamic QR"></textarea></div>'+
+      '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
       '<div class="panel"><h2>Check-out / Staff Verification</h2>'+
       '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||"")+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div class="actions"><button class="btn secondary" id="coBtn">Check-out</button>'+
@@ -393,20 +405,99 @@
       '</div><div id="coMsg"></div></div></div>'+
       '<div class="panel"><h2>รายการเข้า–ออกล่าสุด</h2>'+attendanceTable(rows, can("ADMIN","ORGANIZER","STAFF"))+'</div>';
 
-    document.getElementById("ciBtn").onclick = async () => {
+    async function stopScanner() {
+      if (!qrScanner) return;
+      try {
+        const state = qrScanner.getState ? qrScanner.getState() : null;
+        if (state !== 1) await qrScanner.stop();
+      } catch {}
+      try { await qrScanner.clear(); } catch {}
+      qrScanner = null;
+      scannerBusy = false;
+      const panel = document.getElementById("scannerPanel");
+      if (panel) panel.hidden = true;
+    }
+
+    async function performCheckin(token, source) {
       const msg = document.getElementById("ciMsg");
+      if (!token) {
+        msg.innerHTML = '<div class="alert warn">ยังไม่มีข้อมูล QR/Token</div>';
+        return;
+      }
       try {
         const result = await api("/api/attendance/checkin", {
           method:"POST",
           body:JSON.stringify({
             userId:document.getElementById("ciUser").value,
-            token:document.getElementById("ciToken").value.trim()
+            token:String(token).trim()
           })
         });
-        msg.innerHTML = '<div class="alert ok">Check-in สำเร็จ: '+esc(result.attendance.id)+'</div>';
-        setTimeout(() => renderAttendance(v), 350);
-      } catch (e) { msg.innerHTML = errorBox(e); }
+        msg.innerHTML =
+          '<div class="alert ok"><b>Check-in สำเร็จ</b><br>อ่านจาก '+esc(source||"QR")+
+          ' • เวลา '+esc(fmt(result.attendance.checkinAt))+'</div>';
+        await stopScanner();
+        setTimeout(() => renderAttendance(v), 900);
+      } catch (e) {
+        msg.innerHTML = errorBox(e);
+      }
+    }
+
+    document.getElementById("manualTokenBtn").onclick = () => {
+      const field = document.getElementById("tokenField");
+      field.hidden = !field.hidden;
+      if (!field.hidden) document.getElementById("ciToken").focus();
     };
+
+    document.getElementById("ciBtn").onclick = async () => {
+      await performCheckin(document.getElementById("ciToken").value, "Token ที่กรอก");
+    };
+
+    document.getElementById("scanQrBtn").onclick = async () => {
+      const scanMsg = document.getElementById("qrScanMsg");
+      const panel = document.getElementById("scannerPanel");
+      panel.hidden = false;
+
+      if (!window.isSecureContext) {
+        scanMsg.innerHTML = '<div class="alert bad">กล้องต้องเปิดผ่าน HTTPS หรือ localhost</div>';
+        return;
+      }
+      if (!window.Html5Qrcode) {
+        scanMsg.innerHTML = '<div class="alert bad">โหลดตัวอ่าน QR ไม่สำเร็จ กรุณารีเฟรชหน้า</div>';
+        return;
+      }
+      if (scannerBusy) return;
+
+      scannerBusy = true;
+      scanMsg.innerHTML = '<div class="alert">กำลังเปิดกล้อง…</div>';
+      try {
+        qrScanner = new Html5Qrcode("qrReader");
+        await qrScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+          async (decodedText) => {
+            if (!scannerBusy) return;
+            scannerBusy = false;
+            scanMsg.innerHTML = '<div class="alert ok">อ่าน QR สำเร็จ กำลัง Check-in…</div>';
+            const tokenBox = document.getElementById("ciToken");
+            if (tokenBox) tokenBox.value = decodedText;
+            await performCheckin(decodedText, "กล้องสแกน QR");
+          },
+          () => {}
+        );
+        scanMsg.innerHTML = '<div class="alert ok">กล้องพร้อมแล้ว — เล็ง QR ให้อยู่ในกรอบ</div>';
+      } catch (e) {
+        scannerBusy = false;
+        qrScanner = null;
+        const name = String(e?.name || "");
+        const detail = String(e?.message || e || "");
+        let hint = detail;
+        if (/NotAllowed|Permission/i.test(name+" "+detail)) hint = "ไม่ได้รับอนุญาตให้ใช้กล้อง กรุณาอนุญาต Camera permission ในเบราว์เซอร์";
+        if (/NotFound/i.test(name+" "+detail)) hint = "ไม่พบกล้องบนอุปกรณ์นี้";
+        scanMsg.innerHTML = '<div class="alert bad"><b>เปิดกล้องไม่สำเร็จ</b><br>'+esc(hint)+'</div>';
+      }
+    };
+
+    document.getElementById("stopQrBtn").onclick = stopScanner;
 
     document.getElementById("coBtn").onclick = async () => {
       const id = document.getElementById("coRecord").value;

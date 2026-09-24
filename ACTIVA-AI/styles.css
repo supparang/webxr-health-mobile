@@ -69,3 +69,12 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 
 .badge.demo{background:#fff3d8;color:#8f5b00;border:1px solid #f2d184}
 .mode-card{border:1px dashed var(--line);border-radius:12px;padding:12px}
+
+.scanner-panel{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#f8fafc}
+.scanner-panel[hidden],.token-fallback[hidden]{display:none!important}
+.scanner-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.qr-reader{width:100%;max-width:420px;margin:0 auto;overflow:hidden;border-radius:14px;background:#111827;min-height:280px}
+.qr-reader video{border-radius:14px}
+.scan-actions{margin-top:14px}
+.scan-btn{font-size:17px;padding:12px 18px}
+@media(max-width:680px){.scanner-head{flex-direction:column}.qr-reader{max-width:100%;min-height:240px}.scan-btn{width:100%}}
