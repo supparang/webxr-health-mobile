@@ -131,7 +131,10 @@
   function activity(id) { return state.activities.find(a => a.id === id); }
   function attendance(id) { return state.attendance.find(r => r.id === id); }
   function userPublic(u) {
-    return {id:u.id,employeeId:u.employeeId,name:u.name,role:u.role,status:u.status};
+    return {
+      id:u.id,employeeId:u.employeeId,name:u.name,email:u.email||null,
+      role:u.role,status:u.status,department:u.department||null
+    };
   }
   function durationInfo(r) {
     const a = activity(r.activityId);
@@ -192,16 +195,88 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.9-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.4.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
+      if (who.status !== "ACTIVE") err("INVALID_OR_INACTIVE_USER",401);
       return {ok:true,user:userPublic(who)};
     }
-    if (!who) err("DEMO_LOGIN_REQUIRED",401);
+    if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
 
     if (p === "/api/users" && method === "GET") {
       return {ok:true,users:state.users.map(userPublic)};
+    }
+    if (p === "/api/users" && method === "POST") {
+      if (who.role !== "ADMIN") err("FORBIDDEN",403);
+      const employeeId=String(b.employeeId||"").trim().toUpperCase();
+      const name=String(b.name||"").trim();
+      const role=String(b.role||"PARTICIPANT").toUpperCase();
+      if(!employeeId||!name) err("EMPLOYEE_ID_AND_NAME_REQUIRED",400);
+      if(!["ADMIN","ORGANIZER","STAFF","PARTICIPANT"].includes(role)) err("INVALID_ROLE",400);
+      if(state.users.some(u=>u.employeeId===employeeId)) err("EMPLOYEE_ID_ALREADY_EXISTS",409);
+      const email=String(b.email||"").trim()||null;
+      if(email && state.users.some(u=>String(u.email||"").toLowerCase()===email.toLowerCase())) err("EMAIL_ALREADY_EXISTS",409);
+      const departmentName=String(b.department||"").trim();
+      const user={
+        id:employeeId,employeeId,name,email,role,status:"ACTIVE",
+        department:departmentName?{code:"DEMO-"+uid("D").slice(-6).toUpperCase(),name:departmentName}:null
+      };
+      state.users.push(user);save();
+      audit(who.id,"USER_CREATED","User",user.id,{employeeId,role,department:departmentName||null});
+      return {ok:true,user:userPublic(user)};
+    }
+
+    let userMatch=p.match(/^\/api\/users\/([^/]+)$/);
+    if(userMatch && method==="PATCH"){
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
+      const user=state.users.find(u=>u.id===decodeURIComponent(userMatch[1])); if(!user) err("USER_NOT_FOUND",404);
+      const name=String(b.name||user.name).trim();
+      const role=String(b.role||user.role).toUpperCase();
+      if(!name) err("NAME_REQUIRED",400);
+      if(!["ADMIN","ORGANIZER","STAFF","PARTICIPANT"].includes(role)) err("INVALID_ROLE",400);
+      const email=String(b.email||"").trim()||null;
+      if(email && state.users.some(u=>u.id!==user.id&&String(u.email||"").toLowerCase()===email.toLowerCase())) err("EMAIL_ALREADY_EXISTS",409);
+      const departmentName=String(b.department||"").trim();
+      Object.assign(user,{name,email,role,department:departmentName?{code:user.department?.code||"DEMO-"+uid("D").slice(-6).toUpperCase(),name:departmentName}:null});
+      save();audit(who.id,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,role,department:departmentName||null});
+      return {ok:true,user:userPublic(user)};
+    }
+
+    userMatch=p.match(/^\/api\/users\/([^/]+)\/status$/);
+    if(userMatch && method==="PATCH"){
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
+      const user=state.users.find(u=>u.id===decodeURIComponent(userMatch[1])); if(!user) err("USER_NOT_FOUND",404);
+      const status=String(b.status||"").toUpperCase();
+      if(!["ACTIVE","INACTIVE"].includes(status)) err("INVALID_USER_STATUS",400);
+      if(user.id===who.id && status==="INACTIVE") err("CANNOT_DEACTIVATE_SELF",409);
+      user.status=status;save();audit(who.id,"USER_STATUS_CHANGED","User",user.id,{employeeId:user.employeeId,status});
+      return {ok:true,user:userPublic(user)};
+    }
+
+    if (p === "/api/users/import" && method === "POST") {
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
+      const rows=Array.isArray(b.users)?b.users:[];
+      if(!rows.length) err("USERS_REQUIRED",400);
+      let createdCount=0,skippedCount=0,errorCount=0;
+      const errors=[];
+      for(const raw of rows.slice(0,2000)){
+        try{
+          const employeeId=String(raw.employeeId||"").trim().toUpperCase();
+          const name=String(raw.name||"").trim();
+          let role=String(raw.role||"PARTICIPANT").trim().toUpperCase();
+          if(role==="ADMIN") role="PARTICIPANT";
+          if(!employeeId||!name||!["ORGANIZER","STAFF","PARTICIPANT"].includes(role)){errorCount++;errors.push({employeeId,error:"INVALID_ROW"});continue;}
+          if(state.users.some(u=>u.employeeId===employeeId)){skippedCount++;continue;}
+          const email=String(raw.email||"").trim()||null;
+          if(email && state.users.some(u=>String(u.email||"").toLowerCase()===email.toLowerCase())){errorCount++;errors.push({employeeId,error:"EMAIL_ALREADY_EXISTS"});continue;}
+          const dept=String(raw.department||"").trim();
+          const user={id:employeeId,employeeId,name,email,role,status:"ACTIVE",department:dept?{code:"DEMO-"+uid("D").slice(-6).toUpperCase(),name:dept}:null};
+          state.users.push(user);createdCount++;
+        }catch(e){errorCount++;errors.push({employeeId:String(raw.employeeId||""),error:String(e.message||e)});}
+      }
+      save();audit(who.id,"USER_IMPORT","User","BATCH",{createdCount,skippedCount,errorCount});
+      return {ok:true,createdCount,skippedCount,errorCount,errors:errors.slice(0,50)};
     }
     if (p === "/api/dashboard/summary" && method === "GET") {
       const activeRows = state.attendance.filter(r=>!r.isVoided);

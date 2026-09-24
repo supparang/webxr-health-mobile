@@ -86,9 +86,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.2.0", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.4.1", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.2.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.4.1", database: "unavailable", error: error.message });
   }
 });
 
@@ -114,6 +114,7 @@ app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, 
       id: true,
       employeeId: true,
       name: true,
+      email: true,
       role: true,
       status: true,
       department: { select: { code: true, name: true } },
@@ -122,6 +123,123 @@ app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, 
   });
   res.json({ ok: true, users });
 });
+
+function normalizeRole(value, allowAdmin = true) {
+  const role=String(value||"PARTICIPANT").trim().toUpperCase();
+  const allowed=allowAdmin
+    ? ["ADMIN","ORGANIZER","STAFF","PARTICIPANT"]
+    : ["ORGANIZER","STAFF","PARTICIPANT"];
+  return allowed.includes(role)?role:null;
+}
+
+async function resolveDepartmentByName(name) {
+  const departmentName=String(name||"").trim();
+  if(!departmentName) return null;
+  const code="DEPT-"+crypto.createHash("sha1").update(departmentName.toLowerCase()).digest("hex").slice(0,10).toUpperCase();
+  return prisma.department.upsert({
+    where:{code},
+    create:{code,name:departmentName},
+    update:{name:departmentName},
+  });
+}
+
+app.post("/api/users", requireRoles("ADMIN"), async (req,res)=>{
+  const b=req.body||{};
+  const employeeId=String(b.employeeId||"").trim().toUpperCase();
+  const name=String(b.name||"").trim();
+  const email=String(b.email||"").trim()||null;
+  const role=normalizeRole(b.role,true);
+  if(!employeeId||!name) return res.status(400).json({ok:false,error:"EMPLOYEE_ID_AND_NAME_REQUIRED"});
+  if(!role) return res.status(400).json({ok:false,error:"INVALID_ROLE"});
+
+  const existing=await prisma.user.findUnique({where:{employeeId}});
+  if(existing) return res.status(409).json({ok:false,error:"EMPLOYEE_ID_ALREADY_EXISTS"});
+  if(email){
+    const sameEmail=await prisma.user.findUnique({where:{email}});
+    if(sameEmail) return res.status(409).json({ok:false,error:"EMAIL_ALREADY_EXISTS"});
+  }
+
+  const department=await resolveDepartmentByName(b.department);
+  const user=await prisma.user.create({
+    data:{employeeId,name,email,role,status:"ACTIVE",departmentId:department?.id||null},
+    include:{department:{select:{code:true,name:true}}},
+  });
+  await audit(req,"USER_CREATED","User",user.id,{employeeId,role,department:department?.name||null});
+  res.status(201).json({ok:true,user});
+});
+
+app.patch("/api/users/:userId", requireRoles("ADMIN"), async (req,res)=>{
+  const current=await prisma.user.findUnique({where:{id:req.params.userId}});
+  if(!current) return res.status(404).json({ok:false,error:"USER_NOT_FOUND"});
+  const b=req.body||{};
+  const name=String(b.name||current.name).trim();
+  const email=String(b.email||"").trim()||null;
+  const role=normalizeRole(b.role||current.role,true);
+  if(!name) return res.status(400).json({ok:false,error:"NAME_REQUIRED"});
+  if(!role) return res.status(400).json({ok:false,error:"INVALID_ROLE"});
+  if(email){
+    const sameEmail=await prisma.user.findUnique({where:{email}});
+    if(sameEmail && sameEmail.id!==current.id) return res.status(409).json({ok:false,error:"EMAIL_ALREADY_EXISTS"});
+  }
+  const department=await resolveDepartmentByName(b.department);
+  const user=await prisma.user.update({
+    where:{id:current.id},
+    data:{name,email,role,departmentId:department?.id||null},
+    include:{department:{select:{code:true,name:true}}},
+  });
+  await audit(req,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,role,department:department?.name||null});
+  res.json({ok:true,user});
+});
+
+app.patch("/api/users/:userId/status", requireRoles("ADMIN"), async (req,res)=>{
+  const current=await prisma.user.findUnique({where:{id:req.params.userId}});
+  if(!current) return res.status(404).json({ok:false,error:"USER_NOT_FOUND"});
+  const status=String(req.body?.status||"").toUpperCase();
+  if(!["ACTIVE","INACTIVE"].includes(status)) return res.status(400).json({ok:false,error:"INVALID_USER_STATUS"});
+  if(current.id===req.activaUser.id && status==="INACTIVE"){
+    return res.status(409).json({ok:false,error:"CANNOT_DEACTIVATE_SELF"});
+  }
+  const user=await prisma.user.update({
+    where:{id:current.id},data:{status},
+    include:{department:{select:{code:true,name:true}}},
+  });
+  await audit(req,"USER_STATUS_CHANGED","User",user.id,{employeeId:user.employeeId,status});
+  res.json({ok:true,user});
+});
+
+app.post("/api/users/import", requireRoles("ADMIN"), async (req,res)=>{
+  const rows=Array.isArray(req.body?.users)?req.body.users:[];
+  if(!rows.length) return res.status(400).json({ok:false,error:"USERS_REQUIRED"});
+  if(rows.length>2000) return res.status(413).json({ok:false,error:"USER_IMPORT_TOO_LARGE",max:2000});
+
+  let createdCount=0,skippedCount=0,errorCount=0;
+  const errors=[];
+  for(const raw of rows){
+    try{
+      const employeeId=String(raw.employeeId||"").trim().toUpperCase();
+      const name=String(raw.name||"").trim();
+      const email=String(raw.email||"").trim()||null;
+      const role=normalizeRole(raw.role,false);
+      if(!employeeId||!name||!role){errorCount++;errors.push({employeeId,error:"INVALID_ROW"});continue;}
+      const exists=await prisma.user.findUnique({where:{employeeId}});
+      if(exists){skippedCount++;continue;}
+      if(email){
+        const sameEmail=await prisma.user.findUnique({where:{email}});
+        if(sameEmail){errorCount++;errors.push({employeeId,error:"EMAIL_ALREADY_EXISTS"});continue;}
+      }
+      const department=await resolveDepartmentByName(raw.department);
+      await prisma.user.create({
+        data:{employeeId,name,email,role,status:"ACTIVE",departmentId:department?.id||null},
+      });
+      createdCount++;
+    }catch(error){
+      errorCount++;errors.push({employeeId:String(raw.employeeId||""),error:String(error.message||error)});
+    }
+  }
+  await audit(req,"USER_IMPORT","User","BATCH",{createdCount,skippedCount,errorCount});
+  res.json({ok:true,createdCount,skippedCount,errorCount,errors:errors.slice(0,50)});
+});
+
 
 app.get("/api/dashboard/summary", async (req, res) => {
   const isParticipant = req.activaUser.role === "PARTICIPANT";

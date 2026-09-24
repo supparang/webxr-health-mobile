@@ -64,6 +64,7 @@
   function viewTitle() {
     return ({
       dashboard:"ภาพรวม",
+      users:"บุคลากร / ผู้ใช้งาน",
       activities:"กิจกรรมและนโยบายหลักฐาน",
       qr:"Dynamic QR",
       attendance:"Check-in / Check-out",
@@ -80,7 +81,8 @@
 
   function navItems() {
     const out = [["dashboard","ภาพรวม"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"]];
-    if (can("ADMIN","ORGANIZER")) out.splice(1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
+    if (can("ADMIN")) out.splice(1, 0, ["users","บุคลากร"]);
+    if (can("ADMIN","ORGANIZER")) out.splice(can("ADMIN")?2:1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
     if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"],["xai","AI/XAI Review"]);
     if (can("ADMIN")) out.push(["readiness","AI Readiness"],["models","Model Evaluation"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
     return out;
@@ -95,7 +97,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.4.0 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.4.1 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -138,6 +140,7 @@
     const v = document.getElementById("view");
     try {
       if (activeView === "dashboard") await renderDashboard(v);
+      else if (activeView === "users") await renderUsersAdmin(v);
       else if (activeView === "activities") await renderActivities(v);
       else if (activeView === "qr") await renderQr(v);
       else if (activeView === "attendance") await renderAttendance(v);
@@ -157,7 +160,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.4.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.4.1</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -212,7 +215,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.4.0 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.4.1 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -239,6 +242,196 @@
       ["signatureRequired","ลายเซ็น"]
     ];
     return labels.filter(([k]) => p[k]).map(([,l]) => l).join(", ");
+  }
+
+
+  function userStatusLabel(status) {
+    return status === "ACTIVE" ? "ใช้งาน" : "ปิดใช้งาน";
+  }
+
+  function roleOptions(selected) {
+    const roles = [
+      ["PARTICIPANT","ผู้เข้าร่วม"],
+      ["STAFF","เจ้าหน้าที่ตรวจสอบ"],
+      ["ORGANIZER","ผู้จัดกิจกรรม"],
+      ["ADMIN","ผู้ดูแลระบบ"]
+    ];
+    return roles.map(([value,label]) =>
+      '<option value="'+value+'" '+(value===selected?"selected":"")+'>'+label+'</option>'
+    ).join("");
+  }
+
+  function parseCsvRows(text) {
+    const rows=[]; let row=[]; let cell=""; let quoted=false;
+    for(let i=0;i<text.length;i++){
+      const ch=text[i], next=text[i+1];
+      if(ch==='"'){
+        if(quoted && next==='"'){cell+='"';i++;}
+        else quoted=!quoted;
+      } else if(ch==="," && !quoted){row.push(cell);cell="";}
+      else if((ch==="\n" || ch==="\r") && !quoted){
+        if(ch==="\r" && next==="\n") i++;
+        row.push(cell);cell="";
+        if(row.some(x=>String(x).trim()!=="")) rows.push(row);
+        row=[];
+      } else cell+=ch;
+    }
+    row.push(cell); if(row.some(x=>String(x).trim()!=="")) rows.push(row);
+    return rows;
+  }
+
+  function normalizeUserCsv(text) {
+    const rows=parseCsvRows(text);
+    if(rows.length<2) throw new Error("CSV_NO_DATA");
+    const norm=s=>String(s||"").trim().toLowerCase().replace(/\s+/g,"");
+    const aliases={
+      employeeId:["employeeid","employee_id","รหัสบุคลากร","รหัส"],
+      name:["name","fullname","ชื่อ","ชื่อ-นามสกุล","ชื่อสกุล"],
+      email:["email","อีเมล"],
+      department:["department","departmentname","หน่วยงาน","สาขา"],
+      role:["role","บทบาท"]
+    };
+    const header=rows[0].map(norm);
+    const idx={};
+    Object.entries(aliases).forEach(([key,names])=>{
+      idx[key]=header.findIndex(h=>names.map(norm).includes(h));
+    });
+    if(idx.employeeId<0 || idx.name<0) throw new Error("CSV_REQUIRED_HEADERS");
+    return rows.slice(1).map(r=>({
+      employeeId:String(r[idx.employeeId]||"").trim().toUpperCase(),
+      name:String(r[idx.name]||"").trim(),
+      email:idx.email>=0?String(r[idx.email]||"").trim():"",
+      department:idx.department>=0?String(r[idx.department]||"").trim():"",
+      role:idx.role>=0?String(r[idx.role]||"PARTICIPANT").trim().toUpperCase():"PARTICIPANT"
+    })).filter(r=>r.employeeId && r.name);
+  }
+
+  async function renderUsersAdmin(v) {
+    if (!can("ADMIN")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data=await api("/api/users");
+    const users=data.users||[];
+    const active=users.filter(u=>u.status==="ACTIVE").length;
+    const participants=users.filter(u=>u.role==="PARTICIPANT"&&u.status==="ACTIVE").length;
+    const staff=users.filter(u=>u.role==="STAFF"&&u.status==="ACTIVE").length;
+
+    v.innerHTML=
+      '<div class="panel"><div class="section-head"><div><h2>บุคลากร / ผู้ใช้งาน</h2>'+
+      '<p class="muted">เฉพาะผู้ดูแลระบบเพิ่ม แก้ไข หรือปิดใช้งานบัญชีหลัก ผู้จัดกิจกรรมเลือกผู้เข้าร่วมได้ แต่ไม่สร้างบัญชีใหม่</p></div></div>'+
+      '<div class="grid cards">'+card("ทั้งหมด",users.length)+card("ใช้งาน",active)+card("ผู้เข้าร่วม",participants)+card("เจ้าหน้าที่ตรวจสอบ",staff)+'</div></div>'+
+
+      '<div class="split"><div class="panel"><h2>เพิ่มบุคลากรทีละคน</h2>'+
+      '<div class="form-grid">'+
+        field("รหัสบุคลากร","uEmp","เช่น 6612345")+
+        field("ชื่อ–นามสกุล","uName","ชื่อผู้ใช้งาน")+
+        field("อีเมล (ถ้ามี)","uEmail","name@university.ac.th","email")+
+        field("หน่วยงาน / สาขา","uDept","เช่น เทคโนโลยีสารสนเทศ")+
+        '<div class="field"><label>บทบาท</label><select id="uRole">'+roleOptions("PARTICIPANT")+'</select></div>'+
+      '</div>'+
+      '<div class="actions"><button class="btn primary" id="createUser">เพิ่มบุคลากร</button></div><div id="userMsg"></div></div>'+
+
+      '<div class="panel"><h2>นำเข้าจาก CSV</h2>'+
+      '<p class="muted">รองรับหัวคอลัมน์: รหัสบุคลากร, ชื่อ, อีเมล, หน่วยงาน, บทบาท หรือ employeeId,name,email,department,role</p>'+
+      '<div class="actions"><button class="btn secondary" id="userTemplate">ดาวน์โหลดไฟล์ตัวอย่าง</button></div>'+
+      '<div class="field" style="margin-top:12px"><label>เลือกไฟล์ CSV UTF-8</label><input id="userCsv" type="file" accept=".csv,text/csv"></div>'+
+      '<div class="actions"><button class="btn primary" id="importUsers">นำเข้าบุคลากร</button></div>'+
+      '<div class="hint">การนำเข้าแบบชุดจะไม่สร้าง ADMIN และจะข้ามรหัสบุคลากรที่มีอยู่แล้ว เพื่อป้องกันการเขียนทับข้อมูลโดยไม่ตั้งใจ</div>'+
+      '<div id="importMsg"></div></div></div>'+
+
+      '<div class="panel"><div class="section-head"><div><h2>รายชื่อบุคลากร</h2><p class="muted">ไม่ลบบัญชีที่เคยมีประวัติการใช้งาน ให้ใช้ “ปิดใช้งาน” เพื่อคง Audit Trail</p></div>'+
+      '<div class="field compact-field"><input id="userSearch" placeholder="ค้นหารหัส ชื่อ หน่วยงาน..."></div></div>'+
+      '<div id="userList"></div></div>';
+
+    function renderList(){
+      const q=document.getElementById("userSearch").value.trim().toLowerCase();
+      const visible=users.filter(u=>[
+        u.employeeId,u.name,u.email,u.department?.name,roleLabel(u.role),userStatusLabel(u.status)
+      ].join(" ").toLowerCase().includes(q));
+
+      document.getElementById("userList").innerHTML=
+        '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>หน่วยงาน</th><th>บทบาท</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
+        visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
+          '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+        '</td></tr>').join("")+'</tbody></table></div>'+
+        '<div class="attendance-cards">'+visible.map(u=>
+          '<article class="attendance-card"><div class="attendance-card-head"><div><b>'+esc(u.employeeId)+'</b><div>'+esc(u.name)+'</div></div>'+
+          '<span class="status '+(u.status==="ACTIVE"?"s-ok":"s-warn")+'">'+esc(userStatusLabel(u.status))+'</span></div>'+
+          '<div class="attendance-meta"><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาท</b>'+esc(roleLabel(u.role))+'</span></div>'+
+          (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
+          '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+          '</div></article>'
+        ).join("")+'</div>';
+
+      document.querySelectorAll(".editUser").forEach(btn=>btn.onclick=()=>{
+        const u=users.find(x=>x.id===btn.dataset.id); if(!u)return;
+        document.getElementById("uEmp").value=u.employeeId;
+        document.getElementById("uEmp").disabled=true;
+        document.getElementById("uName").value=u.name||"";
+        document.getElementById("uEmail").value=u.email||"";
+        document.getElementById("uDept").value=u.department?.name||"";
+        document.getElementById("uRole").value=u.role;
+        const create=document.getElementById("createUser");
+        create.textContent="บันทึกการแก้ไข";
+        create.dataset.editId=u.id;
+        window.scrollTo({top:0,behavior:"smooth"});
+      });
+
+      document.querySelectorAll(".toggleUser").forEach(btn=>btn.onclick=async()=>{
+        const next=btn.dataset.status==="ACTIVE"?"INACTIVE":"ACTIVE";
+        if(!confirm((next==="INACTIVE"?"ปิด":"เปิด")+"การใช้งานบัญชีนี้?")) return;
+        try{
+          await api("/api/users/"+encodeURIComponent(btn.dataset.id)+"/status",{method:"PATCH",body:JSON.stringify({status:next})});
+          await renderUsersAdmin(v);
+        }catch(e){alert(e.message);}
+      });
+    }
+
+    document.getElementById("userSearch").oninput=renderList;
+    renderList();
+
+    document.getElementById("createUser").onclick=async()=>{
+      const msg=document.getElementById("userMsg");
+      const button=document.getElementById("createUser");
+      const employeeId=document.getElementById("uEmp").value.trim().toUpperCase();
+      const name=document.getElementById("uName").value.trim();
+      if(!employeeId||!name){msg.innerHTML='<div class="alert warn">กรุณาระบุรหัสบุคลากรและชื่อ–นามสกุล</div>';return;}
+      const payload={
+        employeeId,name,
+        email:document.getElementById("uEmail").value.trim()||null,
+        department:document.getElementById("uDept").value.trim()||null,
+        role:document.getElementById("uRole").value
+      };
+      try{
+        if(button.dataset.editId){
+          await api("/api/users/"+encodeURIComponent(button.dataset.editId),{method:"PATCH",body:JSON.stringify(payload)});
+        }else{
+          await api("/api/users",{method:"POST",body:JSON.stringify(payload)});
+        }
+        msg.innerHTML='<div class="alert ok">บันทึกข้อมูลบุคลากรแล้ว</div>';
+        setTimeout(()=>renderUsersAdmin(v),350);
+      }catch(e){msg.innerHTML=errorBox(e);}
+    };
+
+    document.getElementById("userTemplate").onclick=()=>{
+      const csv="\uFEFFรหัสบุคลากร,ชื่อ,อีเมล,หน่วยงาน,บทบาท\nP101,สมชาย ตัวอย่าง,somchai@example.ac.th,เทคโนโลยีสารสนเทศ,PARTICIPANT\nSTF101,สมหญิง ตัวอย่าง,somying@example.ac.th,สำนักงานคณะ,STAFF\n";
+      download("activa-users-template.csv",csv,"text/csv;charset=utf-8");
+    };
+
+    document.getElementById("importUsers").onclick=async()=>{
+      const msg=document.getElementById("importMsg");
+      const file=document.getElementById("userCsv").files?.[0];
+      if(!file){msg.innerHTML='<div class="alert warn">กรุณาเลือกไฟล์ CSV</div>';return;}
+      try{
+        const rows=normalizeUserCsv(await file.text());
+        if(!rows.length) throw new Error("CSV_NO_VALID_ROWS");
+        const result=await api("/api/users/import",{method:"POST",body:JSON.stringify({users:rows})});
+        msg.innerHTML='<div class="alert ok">นำเข้าสำเร็จ '+esc(result.createdCount)+' คน • ข้าม '+esc(result.skippedCount)+' คน'+
+          (result.errorCount?' • ผิดพลาด '+esc(result.errorCount)+' คน':'')+'</div>';
+        setTimeout(()=>renderUsersAdmin(v),600);
+      }catch(e){msg.innerHTML=errorBox(e);}
+    };
   }
 
   async function renderActivities(v) {
@@ -1207,7 +1400,11 @@
       MODEL_DEPLOYED:"นำโมเดลไปใช้",
       AI_PREDICTION_IMPORTED:"นำเข้าผลพยากรณ์ AI",
       AI_PREDICTION_BATCH_IMPORTED:"นำเข้าผลพยากรณ์ AI แบบชุด",
-      ACTIVITY_CREATED:"สร้างกิจกรรม"
+      ACTIVITY_CREATED:"สร้างกิจกรรม",
+      USER_CREATED:"เพิ่มบุคลากร",
+      USER_UPDATED:"แก้ไขข้อมูลบุคลากร",
+      USER_STATUS_CHANGED:"เปลี่ยนสถานะบัญชี",
+      USER_IMPORT:"นำเข้าบุคลากรแบบชุด"
     };
     return map[code] || String(code || "ไม่ระบุ");
   }
