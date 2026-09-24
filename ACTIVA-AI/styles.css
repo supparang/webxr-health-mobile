@@ -229,3 +229,13 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 .permission-option small{display:block;color:var(--muted);margin:3px 0 6px;line-height:1.35}
 .permission-option code{font-size:10px;color:#52627e}
 @media(max-width:680px){.permission-grid{grid-template-columns:1fr}}
+
+
+/* ACTIVA-AI V0.5.1 — role/permission terminology */
+.demo-account-list{display:grid;gap:7px;margin-top:10px}
+.demo-account-list>div{display:grid;grid-template-columns:70px 1fr;gap:8px;align-items:start;padding:7px 0;border-bottom:1px solid #e4ebf8}
+.demo-account-list>div:last-child{border-bottom:0}
+.demo-account-list b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.demo-account-list span{line-height:1.35}
+.demo-note{margin-top:10px;padding-top:10px;border-top:1px dashed #cbd8ef;color:var(--muted);line-height:1.45}
+@media(max-width:420px){.demo-account-list>div{grid-template-columns:1fr;gap:1px}}

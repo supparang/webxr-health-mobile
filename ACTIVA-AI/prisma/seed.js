@@ -12,11 +12,11 @@ async function main() {
 
   const demoUsers = [
     { employeeId: "ADM001", name: "ผู้ดูแลระบบตัวอย่าง", role: "ADMIN" },
-    { employeeId: "ORG001", name: "ผู้จัดกิจกรรมตัวอย่าง", role: "ORGANIZER" },
-    { employeeId: "STF001", name: "เจ้าหน้าที่ตรวจสอบตัวอย่าง", role: "STAFF" },
-    { employeeId: "P001", name: "ผู้เข้าร่วมตัวอย่าง 1", role: "PARTICIPANT" },
-    { employeeId: "P002", name: "ผู้เข้าร่วมตัวอย่าง 2", role: "PARTICIPANT" },
-    { employeeId: "P003", name: "ผู้เข้าร่วมตัวอย่าง 3", role: "PARTICIPANT" },
+    { employeeId: "ORG001", name: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)", role: "ORGANIZER" },
+    { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง", role: "STAFF" },
+    { employeeId: "P001", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 1", role: "PARTICIPANT" },
+    { employeeId: "P002", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 2", role: "PARTICIPANT" },
+    { employeeId: "P003", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 3", role: "PARTICIPANT" },
   ];
 
   const users = {};

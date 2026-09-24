@@ -31,11 +31,11 @@
     return {
       users: [
         {id:"ADM001",employeeId:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",role:"ADMIN",status:"ACTIVE"},
-        {id:"ORG001",employeeId:"ORG001",name:"ผู้จัดกิจกรรมตัวอย่าง",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
-        {id:"STF001",employeeId:"STF001",name:"เจ้าหน้าที่ตรวจสอบตัวอย่าง",role:"STAFF",status:"ACTIVE"},
-        {id:"P001",employeeId:"P001",name:"ผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
-        {id:"P002",employeeId:"P002",name:"ผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
-        {id:"P003",employeeId:"P003",name:"ผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"}
+        {id:"ORG001",employeeId:"ORG001",name:"บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
+        {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง",role:"STAFF",status:"ACTIVE"},
+        {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
+        {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
+        {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"}
       ],
       activities: [{
         id:"DEMO-EVT-001",
@@ -78,6 +78,23 @@
       }
     }
     data.legacyActivityPermissionsMigrated = true;
+
+    if (!data.terminology051Migrated) {
+      const demoNames = {
+        ORG001: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",
+        STF001: "ผู้ตรวจสอบหลักฐานตัวอย่าง",
+        P001: "บุคลากรผู้เข้าร่วมตัวอย่าง 1",
+        P002: "บุคลากรผู้เข้าร่วมตัวอย่าง 2",
+        P003: "บุคลากรผู้เข้าร่วมตัวอย่าง 3",
+      };
+      for (const u of (data.users || [])) {
+        if (demoNames[u.employeeId]) {
+          u.name = demoNames[u.employeeId];
+          changed = true;
+        }
+      }
+      data.terminology051Migrated = true;
+    }
 
     for (const r of data.attendance) {
       if (r.isVoided === undefined) { r.isVoided = false; changed = true; }
@@ -243,7 +260,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.0-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);

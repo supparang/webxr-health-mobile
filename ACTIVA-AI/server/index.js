@@ -148,9 +148,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.5.0", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.5.1", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.5.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.5.1", database: "unavailable", error: error.message });
   }
 });
 

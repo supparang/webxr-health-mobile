@@ -24,7 +24,12 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   })[c]);
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
-  const roleLabel = (r) => ({ADMIN:"ผู้ดูแลระบบ",ORGANIZER:"ผู้จัดกิจกรรม",STAFF:"เจ้าหน้าที่ตรวจสอบ",PARTICIPANT:"ผู้เข้าร่วม"})[r] || r;
+  const roleLabel = (r) => ({
+    ADMIN:"ผู้ดูแลระบบ",
+    ORGANIZER:"บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม",
+    STAFF:"ผู้ตรวจสอบหลักฐาน",
+    PARTICIPANT:"บุคลากรผู้เข้าร่วมกิจกรรม"
+  })[r] || r;
   const can = (...roles) => session && roles.includes(session.role);
 
   function activityPermissionKeys(user = session) {
@@ -188,7 +193,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.5.0 • Grouped Navigation</div>'+
+        '<div class="version">V0.5.1 • Role/Permission Terminology</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -274,9 +279,16 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.1</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
-      '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
+      '<div class="demo-box"><b>บัญชีทดลอง</b>'+
+      '<div class="demo-account-list">'+
+        '<div><b>ADM001</b><span>ผู้ดูแลระบบ</span></div>'+
+        '<div><b>ORG001</b><span>บุคลากรตัวอย่าง • ได้รับสิทธิ์จัดกิจกรรม</span></div>'+
+        '<div><b>STF001</b><span>ผู้ตรวจสอบหลักฐาน</span></div>'+
+        '<div><b>P001</b><span>บุคลากรผู้เข้าร่วมกิจกรรม</span></div>'+
+      '</div>'+
+      '<div class="demo-note">หมายเหตุ: “ผู้จัดกิจกรรม” เป็นสิทธิ์ที่ ADMIN เพิ่ม/ลดให้บุคลากร ไม่ใช่ประเภทบุคลากรถาวร</div></div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
       '<div class="actions">'+
         '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
@@ -329,7 +341,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.0 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.1 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -365,9 +377,9 @@
 
   function roleOptions(selected) {
     const roles = [
-      ["PARTICIPANT","ผู้เข้าร่วม"],
-      ["STAFF","เจ้าหน้าที่ตรวจสอบ"],
-      ["ORGANIZER","ผู้จัดกิจกรรม"],
+      ["PARTICIPANT","บุคลากรผู้เข้าร่วมกิจกรรม"],
+      ["STAFF","ผู้ตรวจสอบหลักฐาน"],
+      ["ORGANIZER","บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม (Legacy Role)"],
       ["ADMIN","ผู้ดูแลระบบ"]
     ];
     return roles.map(([value,label]) =>
@@ -431,7 +443,7 @@
 
     v.innerHTML=
       '<div class="panel"><div class="section-head"><div><h2>บุคลากร / ผู้ใช้งาน</h2>'+
-      '<p class="muted">เฉพาะผู้ดูแลระบบเพิ่ม แก้ไข หรือปิดใช้งานบัญชีหลัก ผู้จัดกิจกรรมเลือกผู้เข้าร่วมได้ แต่ไม่สร้างบัญชีใหม่</p></div></div>'+
+      '<p class="muted">เฉพาะผู้ดูแลระบบเพิ่ม แก้ไข หรือปิดใช้งานบัญชีหลัก ส่วนสิทธิ์สร้าง/จัดกิจกรรมให้กำหนดแยกใน “สิทธิ์กิจกรรม” ของแต่ละบุคคล</p></div></div>'+
       '<div class="grid cards">'+card("ทั้งหมด",users.length)+card("ใช้งาน",active)+card("ผู้เข้าร่วม",participants)+card("เจ้าหน้าที่ตรวจสอบ",staff)+'</div></div>'+
 
       '<div class="split"><div class="panel"><h2>เพิ่มบุคลากรทีละคน</h2>'+
@@ -440,7 +452,7 @@
         field("ชื่อ–นามสกุล","uName","ชื่อผู้ใช้งาน")+
         field("อีเมล (ถ้ามี)","uEmail","name@university.ac.th","email")+
         field("หน่วยงาน / สาขา","uDept","เช่น เทคโนโลยีสารสนเทศ")+
-        '<div class="field"><label>บทบาท</label><select id="uRole">'+roleOptions("PARTICIPANT")+'</select></div>'+
+        '<div class="field"><label>บทบาทระบบพื้นฐาน</label><select id="uRole">'+roleOptions("PARTICIPANT")+'</select><small class="muted">สิทธิ์จัดกิจกรรมกำหนดแยกจากบทบาทระบบ</small></div>'+
       '</div>'+
       '<div class="actions"><button class="btn primary" id="createUser">เพิ่มบุคลากร</button></div><div id="userMsg"></div></div>'+
 
@@ -464,7 +476,7 @@
       ].join(" ").toLowerCase().includes(q));
 
       document.getElementById("userList").innerHTML=
-        '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>หน่วยงาน</th><th>บทบาท</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
+        '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>หน่วยงาน</th><th>บทบาทระบบ</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
         visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
           '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
           '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button> '+
@@ -473,7 +485,7 @@
         '<div class="attendance-cards">'+visible.map(u=>
           '<article class="attendance-card"><div class="attendance-card-head"><div><b>'+esc(u.employeeId)+'</b><div>'+esc(u.name)+'</div></div>'+
           '<span class="status '+(u.status==="ACTIVE"?"s-ok":"s-warn")+'">'+esc(userStatusLabel(u.status))+'</span></div>'+
-          '<div class="attendance-meta"><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาท</b>'+esc(roleLabel(u.role))+'</span></div>'+
+          '<div class="attendance-meta"><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาทระบบ</b>'+esc(roleLabel(u.role))+'</span></div>'+
           (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
           '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
           '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button>'+
