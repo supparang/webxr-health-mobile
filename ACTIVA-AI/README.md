@@ -183,3 +183,12 @@ V0.3:
 - ป้องกัน Staff Verification/Checkout ซ้ำและแสดงสถานะปุ่มให้ชัด
 - ปรับ Attendance/Evidence/Human Review เป็น mobile cards เพื่อลดปัญหาตารางล้นจอ
 - แสดงเวลาเข้า→ออกใน dropdown เพื่อเลือกรายการซ้ำเก่าได้ถูกแถว
+
+
+## V0.3.8 — Legacy Demo Integrity Migration
+- ล้างสถานะ VERIFIED เก่าที่ขัดกับ Evidence Policy โดยอัตโนมัติเมื่อโหลด Demo state
+- ถ้า required evidence ขาด, Staff required แต่ไม่มี, duration ต่ำกว่า policy หรือยังไม่ได้ evaluate ระบบจะเปลี่ยน Final Decision เดิมกลับเป็น PENDING
+- ไม่แตะ OVERRIDE_VERIFIED เพราะเป็น explicit governance decision
+- ตรวจ active duplicate records ใน Evidence Matrix
+- ปิดปุ่ม “ประเมินหลักฐานทั้งหมด” จนกว่าจะจัดการรายการซ้ำก่อน
+- ไม่ auto-delete/auto-void duplicate เพราะระบบไม่ควรเดาเองว่าแถวใดคือข้อมูลที่ถูกต้อง

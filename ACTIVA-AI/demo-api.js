@@ -46,10 +46,58 @@
     };
   }
 
+  function migrateLegacyState(data) {
+    if (!data || !Array.isArray(data.attendance)) return data;
+
+    let changed = false;
+    for (const r of data.attendance) {
+      if (r.isVoided === undefined) { r.isVoided = false; changed = true; }
+
+      if (r.finalEvidenceStatus === "VERIFIED") {
+        const a = (data.activities || []).find(x => x.id === r.activityId);
+        const p = a?.policy || {};
+        const missing =
+          (p.qrRequired && !r.qrValid) ||
+          (p.identityRequired && !r.identityVerified) ||
+          (p.checkinRequired && !r.checkinAt) ||
+          (p.checkoutRequired && !r.checkoutAt) ||
+          (p.staffRequired && !r.staffVerification) ||
+          (p.signatureRequired && !r.signatureVerified);
+
+        let shortDuration = false;
+        if (p.durationRequired && r.checkinAt && r.checkoutAt && a?.startAt && a?.endAt) {
+          const expected = new Date(a.endAt) - new Date(a.startAt);
+          const actual = new Date(r.checkoutAt) - new Date(r.checkinAt);
+          const ratio = expected > 0 ? Math.max(0, actual / expected) : null;
+          shortDuration = ratio == null || ratio < Number(p.minDurationRatio || 0);
+        } else if (p.durationRequired) {
+          shortDuration = true;
+        }
+
+        const systemBlocked =
+          !r.consistencyResult ||
+          r.consistencyResult.status !== "COMPLETE" ||
+          missing ||
+          shortDuration;
+
+        if (systemBlocked) {
+          r.finalEvidenceStatus = null;
+          r.legacyFinalClearedAt = new Date().toISOString();
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    return data;
+  }
+
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      return data && data.users ? data : seed();
+      return migrateLegacyState(data && data.users ? data : seed());
     } catch {
       return seed();
     }
@@ -115,7 +163,7 @@
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
       missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.7",evaluatedAt:iso()
+      ruleVersion:"DEMO-RULES-0.3.8",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
@@ -144,7 +192,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.3.7-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.3.8-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);

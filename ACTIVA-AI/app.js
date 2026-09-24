@@ -95,7 +95,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.7 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.8 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -157,7 +157,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.7</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.8</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -212,7 +212,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.3.8 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -374,6 +374,17 @@
     const inTime = r.checkinAt ? new Date(r.checkinAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
     const outTime = r.checkoutAt ? new Date(r.checkoutAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "ยังไม่ออก";
     return person+" • "+title+" • "+inTime+" → "+outTime;
+  }
+
+  function activeDuplicateCount(rows) {
+    const seen = new Set();
+    let duplicates = 0;
+    for (const r of rows) {
+      const key = (r.user?.id || r.userId || "")+"|"+(r.activity?.id || r.activityId || "");
+      if (seen.has(key)) duplicates++;
+      else seen.add(key);
+    }
+    return duplicates;
   }
 
   function attendanceTable(rows, actionButtons) {
@@ -614,6 +625,7 @@
   async function renderEvidence(v) {
     showLoading(v);
     const rows = await loadAttendance();
+    const duplicateCount = activeDuplicateCount(rows);
     const rowHtml = rows.map(r => {
       const c=r.consistencyResult;
       const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
@@ -637,8 +649,9 @@
 
     v.innerHTML =
       '<div class="panel"><div class="section-head"><div><h2>Evidence Matrix</h2><p class="muted"><b>System Evidence</b> คือผลกฎตรวจสอบ ส่วน <b>Final Decision</b> คือผลจากมนุษย์ — แยกกันเสมอ</p></div>'+
-      (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn primary" id="evalAll">ประเมินหลักฐานทั้งหมดที่มองเห็น</button>':'')+
+      (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn primary" id="evalAll" '+(duplicateCount>0?'disabled':'')+'>ประเมินหลักฐานทั้งหมดที่มองเห็น</button>':'')+
       '</div>'+
+      (duplicateCount>0?'<div class="alert warn"><b>พบข้อมูลซ้ำ '+duplicateCount+' รายการ</b><br>กรุณาไปเมนู “เข้า–ออก” แล้วใช้ “ยกเลิกรายการผิด” ก่อนประเมินหลักฐาน เพื่อไม่ให้ข้อมูลซ้ำเข้าสู่ Ground Truth/งานวิจัย</div>':'')+
       '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>Staff</th><th>System Evidence</th><th>Final Decision</th><th>เหตุผล</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
       '<div class="attendance-cards">'+cards+'</div></div>';
 
