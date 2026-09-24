@@ -27,6 +27,20 @@
     return d.toISOString();
   }
 
+  function demoParticipantRoster() {
+    return Array.from({length:10}, (_,i) => {
+      const n=String(i+1).padStart(3,"0");
+      return {
+        id:"T"+n,
+        employeeId:"T"+n,
+        name:"บุคลากรทดลอง "+(i+1),
+        role:"PARTICIPANT",
+        status:"ACTIVE",
+        activityPermissions:[]
+      };
+    });
+  }
+
   function seed() {
     return {
       users: [
@@ -35,7 +49,8 @@
         {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง",role:"STAFF",status:"ACTIVE"},
         {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
-        {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"}
+        {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"},
+        ...demoParticipantRoster()
       ],
       activities: [{
         id:"DEMO-EVT-001",
@@ -70,6 +85,18 @@
     if (!data || !Array.isArray(data.attendance)) return data;
 
     let changed = false;
+
+    if (!data.demoRoster054Migrated) {
+      if (!Array.isArray(data.users)) data.users = [];
+      for (const sample of demoParticipantRoster()) {
+        if (!data.users.some(u => u.employeeId === sample.employeeId || u.id === sample.id)) {
+          data.users.push(sample);
+          changed = true;
+        }
+      }
+      data.demoRoster054Migrated = true;
+      changed = true;
+    }
 
     for (const u of (data.users || [])) {
       if (!Array.isArray(u.activityPermissions)) {
@@ -305,7 +332,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.3-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.4-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);

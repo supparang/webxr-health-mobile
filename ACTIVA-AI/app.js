@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.3</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.4</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -290,6 +290,7 @@
         '<div><b>ORG001</b><span>บุคลากรตัวอย่าง • ได้รับสิทธิ์จัดกิจกรรม</span></div>'+
         '<div><b>STF001</b><span>ผู้ตรวจสอบหลักฐาน</span></div>'+
         '<div><b>P001</b><span>บุคลากรผู้เข้าร่วมกิจกรรม</span></div>'+
+        '<div><b>T001–T010</b><span>บุคลากรทดลองสำหรับทดสอบหลายคน</span></div>'+
       '</div>'+
       '<div class="demo-note">หมายเหตุ: “ผู้จัดกิจกรรม” เป็นสิทธิ์ที่ ADMIN เพิ่ม/ลดให้บุคลากร ไม่ใช่ประเภทบุคลากรถาวร</div></div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -314,7 +315,13 @@
         activeView = "dashboard";
         render();
       } catch (error) {
-        msg.innerHTML = errorBox(error);
+        if (mode === "demo" && error?.message === "DEMO_USER_NOT_FOUND") {
+          msg.innerHTML =
+            '<div class="alert bad"><b>ไม่พบรหัส '+esc(id)+' ในบัญชี Demo</b><br>'+
+            'ใช้ ADM001, ORG001, STF001, P001–P003 หรือ T001–T010 ได้ทันที</div>';
+        } else {
+          msg.innerHTML = errorBox(error);
+        }
       }
     }
 
