@@ -128,6 +128,21 @@
       data.terminology051Migrated = true;
     }
 
+    if (!data.assignmentsGovernance055Migrated) {
+      for (const a of (data.activities || [])) {
+        if (a.assignmentsUpdatedAt === undefined) {
+          const latest=(a.roleAssignments||[])
+            .map(x=>x.assignedAt)
+            .filter(Boolean)
+            .sort()
+            .slice(-1)[0] || null;
+          a.assignmentsUpdatedAt=latest;
+        }
+      }
+      data.assignmentsGovernance055Migrated=true;
+      changed=true;
+    }
+
     if (!data.activityManagement052Migrated) {
       for (const a of (data.activities || [])) {
         if (!a.organizerId) a.organizerId = "ORG001";
@@ -209,6 +224,27 @@
     }).map(p=>p.permission);
   }
   function hasActivityPermission(u,key){ return effectiveActivityPermissions(u).includes(key); }
+
+  function activityLifecycle(a, at = Date.now()) {
+    const start = new Date(a?.startAt || 0).getTime();
+    const end = new Date(a?.endAt || 0).getTime();
+    if (Number.isFinite(start) && at < start) return "BEFORE_START";
+    if (Number.isFinite(end) && at > end) return "ENDED";
+    return "ACTIVE";
+  }
+
+  function coAssignmentGovernance(u,a){
+    const lifecycle=activityLifecycle(a);
+    const base=canAssignActivityRole(u,a,"CAN_ASSIGN_CO_ORGANIZER");
+    if(lifecycle==="BEFORE_START"){
+      return {lifecycle,canEdit:base,reasonRequired:false,adminOverrideRequired:false};
+    }
+    if(lifecycle==="ACTIVE"){
+      return {lifecycle,canEdit:base,reasonRequired:base,adminOverrideRequired:false};
+    }
+    const isAdmin=u?.role==="ADMIN";
+    return {lifecycle,canEdit:isAdmin,reasonRequired:isAdmin,adminOverrideRequired:isAdmin};
+  }
   function canManageActivity(u,a){
     if(!u||!a) return false;
     if(u.role==="ADMIN"||hasActivityPermission(u,"CAN_MANAGE_ALL_ACTIVITIES")) return true;
@@ -332,7 +368,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.4-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.5-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -481,6 +517,7 @@
         id:uid("DEMO-EVT"),title:b.title,category:b.category,description:b.description||"",
         location:b.location,startAt:b.startAt,endAt:b.endAt,organizerId:primaryOrganizer.id,
         participationMode:"OPEN",allowedDepartmentCodes:[],roleAssignments:[],participants:[],
+        assignmentsUpdatedAt:null,
         policy:b.policy||{},qr:null
       };
       state.activities.unshift(a); audit(who.id,"ACTIVITY_CREATED","Activity",a.id,{demo:true,primaryOrganizerId:primaryOrganizer.id,primaryOrganizerEmployeeId:primaryOrganizer.employeeId}); save();
@@ -491,11 +528,15 @@
     if(m && method==="GET"){
       const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
+      const coGov=coAssignmentGovernance(who,a);
       return {ok:true,activity:{...activityPublic(a),participants:(a.participants||[]).map(x=>({...x,user:userPublic(actor(x.userId))}))},capabilities:{
         canManage:true,
         canManageParticipants:true,
-        canAssignCo:canAssignActivityRole(who,a,"CAN_ASSIGN_CO_ORGANIZER"),
-        canAssignVerifier:canAssignActivityRole(who,a,"CAN_ASSIGN_VERIFIER")
+        canAssignCo:coGov.canEdit,
+        canAssignVerifier:canAssignActivityRole(who,a,"CAN_ASSIGN_VERIFIER"),
+        lifecycle:coGov.lifecycle,
+        coChangeReasonRequired:coGov.reasonRequired,
+        coAdminOverrideRequired:coGov.adminOverrideRequired
       }};
     }
 
@@ -504,7 +545,11 @@
       const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       const hasCo=Array.isArray(b.coOrganizerIds), hasVerifier=Array.isArray(b.verifierIds);
       if(!hasCo&&!hasVerifier) err("ASSIGNMENT_LIST_REQUIRED",400);
-      if(hasCo&&!canAssignActivityRole(who,a,"CAN_ASSIGN_CO_ORGANIZER")) err("CO_ORGANIZER_ASSIGNMENT_FORBIDDEN",403);
+
+      const coGov=coAssignmentGovernance(who,a);
+      if(hasCo&&!coGov.canEdit) {
+        err(coGov.lifecycle==="ENDED"?"CO_ORGANIZER_LOCKED_AFTER_ACTIVITY":"CO_ORGANIZER_ASSIGNMENT_FORBIDDEN",403);
+      }
       if(hasVerifier&&!canAssignActivityRole(who,a,"CAN_ASSIGN_VERIFIER")) err("VERIFIER_ASSIGNMENT_FORBIDDEN",403);
 
       const resolveIds=(refs)=>[...new Set(refs.map(String))].map(ref=>{
@@ -512,20 +557,56 @@
       });
       const before=(a.roleAssignments||[]).map(x=>({...x}));
       let next=[...(a.roleAssignments||[])];
+      const reason=String(b.changeReason||"").trim();
+
+      let coAdded=[],coRemoved=[];
       if(hasCo){
         const users=resolveIds(b.coOrganizerIds);
         if(users.some(u=>u.id===a.organizerId)) err("PRIMARY_ORGANIZER_CANNOT_BE_CO_ORGANIZER",409);
-        next=next.filter(x=>x.role!=="CO_ORGANIZER");
-        next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"CO_ORGANIZER",assignedById:who.id,assignedAt:iso()})));
+
+        const beforeIds=before.filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId).sort();
+        const nextIds=users.map(u=>u.id).sort();
+        coAdded=nextIds.filter(id=>!beforeIds.includes(id));
+        coRemoved=beforeIds.filter(id=>!nextIds.includes(id));
+        const changed=coAdded.length>0||coRemoved.length>0;
+
+        if(changed&&coGov.reasonRequired&&reason.length<10){
+          err(coGov.lifecycle==="ENDED"?"ADMIN_OVERRIDE_REASON_REQUIRED":"CHANGE_REASON_REQUIRED_DURING_ACTIVITY",400);
+        }
+
+        if(changed){
+          next=next.filter(x=>x.role!=="CO_ORGANIZER");
+          next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"CO_ORGANIZER",assignedById:who.id,assignedAt:iso()})));
+          a.assignmentsUpdatedAt=iso();
+        }
       }
+
       if(hasVerifier){
         const users=resolveIds(b.verifierIds);
         next=next.filter(x=>x.role!=="VERIFIER");
         next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"VERIFIER",assignedById:who.id,assignedAt:iso()})));
+        a.assignmentsUpdatedAt=iso();
       }
+
+      const noChange=hasCo&&coAdded.length===0&&coRemoved.length===0&&!hasVerifier;
+      if(noChange) return {ok:true,assignments:activityPublic(a).roleAssignments,noChange:true,lifecycle:coGov.lifecycle};
+
       a.roleAssignments=next;save();
-      audit(who.id,"ACTIVITY_ASSIGNMENTS_UPDATED","Activity",a.id,{demo:true,before,after:next});
-      return {ok:true,assignments:activityPublic(a).roleAssignments};
+      const action=hasCo
+        ? (coGov.lifecycle==="ENDED"?"CO_ORGANIZER_ADMIN_OVERRIDE_AFTER_END":
+           coGov.lifecycle==="ACTIVE"?"CO_ORGANIZER_CHANGED_DURING_ACTIVITY":
+           "CO_ORGANIZER_ASSIGNMENTS_UPDATED")
+        : "ACTIVITY_ASSIGNMENTS_UPDATED";
+      audit(who.id,action,"Activity",a.id,{
+        demo:true,
+        lifecycle:coGov.lifecycle,
+        changeReason:reason||null,
+        coAdded,
+        coRemoved,
+        before,
+        after:next
+      });
+      return {ok:true,assignments:activityPublic(a).roleAssignments,noChange:false,lifecycle:coGov.lifecycle,assignmentsUpdatedAt:a.assignmentsUpdatedAt};
     }
 
     m = p.match(/^\/api\/activities\/([^/]+)\/participants$/);

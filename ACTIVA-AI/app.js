@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.4</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.5</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -698,6 +698,14 @@
     };
   }
 
+  function activityLifecycleLabel(value) {
+    return ({
+      BEFORE_START:"ก่อนเริ่มกิจกรรม",
+      ACTIVE:"กำลังดำเนินกิจกรรม",
+      ENDED:"กิจกรรมสิ้นสุดแล้ว"
+    })[value] || value || "—";
+  }
+
   function participationModeLabel(mode) {
     return ({OPEN:"บุคลากรทุกคน",ROSTER:"เฉพาะรายชื่อ",GROUP:"เฉพาะหน่วยงาน"})[mode] || mode || "บุคลากรทุกคน";
   }
@@ -760,8 +768,15 @@
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
         '<div class="split">'+
           '<div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">สิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ไม่ทำให้บุคคลเป็นผู้จัดกิจกรรมอื่น</p>'+
+            '<div class="assignment-governance">'+
+              '<span class="status s-info">'+esc(activityLifecycleLabel(caps.lifecycle))+'</span>'+
+              (a.assignmentsUpdatedAt?'<span class="muted">บันทึกล่าสุด '+esc(fmt(a.assignmentsUpdatedAt))+'</span>':'<span class="muted">ยังไม่เคยบันทึกการเปลี่ยนแปลงผู้รับผิดชอบ</span>')+
+            '</div>'+
+            (caps.lifecycle==="ACTIVE"?'<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ การเปลี่ยนผู้จัดร่วมทำได้เฉพาะผู้มีสิทธิ์และต้องระบุเหตุผล ระบบจะบันทึก Audit Trail</div>':'')+
+            (caps.lifecycle==="ENDED"?(caps.canAssignCo?'<div class="alert warn"><b>กิจกรรมสิ้นสุดแล้ว</b><br>แก้ไขผู้จัดร่วมได้เฉพาะ ADMIN พร้อมเหตุผล และจะถูกบันทึกเป็น Administrative Override</div>':'<div class="alert bad"><b>กิจกรรมสิ้นสุดแล้ว</b><br>รายชื่อผู้จัดร่วมถูกล็อก ผู้ใช้ทั่วไปแก้ไขไม่ได้</div>'):'')+
             assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo)+
-            (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">บันทึกผู้จัดร่วม</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
+            (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
+            (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
           '</div>'+
           '<div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เป็นการมอบหมายเฉพาะกิจกรรม ไม่ใช่การเปลี่ยนบทบาทระบบถาวร</p>'+
             assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier)+
@@ -800,7 +815,24 @@
           setTimeout(()=>renderActivityManagement(host,activityId),300);
         }catch(e){msg.innerHTML=errorBox(e);}
       }
-      if(document.getElementById("saveCo")) document.getElementById("saveCo").onclick=()=>saveAssignments({coOrganizerIds:checkedValues(".coAssign")},"บันทึกผู้จัดกิจกรรมร่วมแล้ว");
+      if(document.getElementById("saveCo")) document.getElementById("saveCo").onclick=async()=>{
+        const reason=document.getElementById("coChangeReason")?.value.trim()||"";
+        if(caps.coChangeReasonRequired&&reason.length<10){
+          document.getElementById("activityManageMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';
+          return;
+        }
+        const msg=document.getElementById("activityManageMsg");
+        try{
+          const result=await api("/api/activities/"+encodeURIComponent(activityId)+"/assignments",{
+            method:"PUT",
+            body:JSON.stringify({coOrganizerIds:checkedValues(".coAssign"),changeReason:reason})
+          });
+          msg.innerHTML=result.noChange
+            ? '<div class="alert">ไม่มีการเปลี่ยนแปลงรายชื่อผู้จัดร่วม</div>'
+            : '<div class="alert ok">'+(caps.lifecycle==="ENDED"?'บันทึก Administrative Override แล้ว':'บันทึกการเปลี่ยนแปลงผู้จัดร่วมแล้ว')+'</div>';
+          if(!result.noChange) setTimeout(()=>renderActivityManagement(host,activityId),350);
+        }catch(e){msg.innerHTML=errorBox(e);}
+      };
       if(document.getElementById("saveVerifier")) document.getElementById("saveVerifier").onclick=()=>saveAssignments({verifierIds:checkedValues(".verifierAssign")},"บันทึกผู้ตรวจสอบหลักฐานแล้ว");
       if(document.getElementById("saveParticipation")) document.getElementById("saveParticipation").onclick=async()=>{
         const msg=document.getElementById("activityManageMsg");

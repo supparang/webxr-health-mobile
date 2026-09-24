@@ -113,6 +113,28 @@ async function canAssignActivityRole(req, activity, permissionKey) {
   return userHasActivityPermission(req.activaUser, permissionKey);
 }
 
+function activityLifecycle(activity, at = new Date()) {
+  const now = at.getTime();
+  const start = new Date(activity?.startAt).getTime();
+  const end = new Date(activity?.endAt).getTime();
+  if (Number.isFinite(start) && now < start) return "BEFORE_START";
+  if (Number.isFinite(end) && now > end) return "ENDED";
+  return "ACTIVE";
+}
+
+async function coAssignmentGovernance(req, activity) {
+  const lifecycle = activityLifecycle(activity);
+  const base = await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER");
+  if (lifecycle === "BEFORE_START") {
+    return { lifecycle, canEdit: base, reasonRequired: false, adminOverrideRequired: false };
+  }
+  if (lifecycle === "ACTIVE") {
+    return { lifecycle, canEdit: base, reasonRequired: base, adminOverrideRequired: false };
+  }
+  const isAdmin = req.activaUser?.role === "ADMIN";
+  return { lifecycle, canEdit: isAdmin, reasonRequired: isAdmin, adminOverrideRequired: isAdmin };
+}
+
 async function canManageActivity(req, activity) {
   if (req.activaUser?.role === "ADMIN") return true;
   if (await userHasActivityPermission(req.activaUser, "CAN_MANAGE_ALL_ACTIVITIES")) return true;
@@ -192,9 +214,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.5.2", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.5.5", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.5.2", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.5.5", database: "unavailable", error: error.message });
   }
 });
 
@@ -660,7 +682,7 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
     return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
   }
 
-  const canAssignCo = await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER");
+  const coGov = await coAssignmentGovernance(req, activity);
   const canAssignVerifier = await canAssignActivityRole(req, activity, "CAN_ASSIGN_VERIFIER");
 
   res.json({
@@ -669,8 +691,11 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
     capabilities:{
       canManage:true,
       canManageParticipants:true,
-      canAssignCo,
+      canAssignCo:coGov.canEdit,
       canAssignVerifier,
+      lifecycle:coGov.lifecycle,
+      coChangeReasonRequired:coGov.reasonRequired,
+      coAdminOverrideRequired:coGov.adminOverrideRequired,
     },
   });
 });
@@ -685,8 +710,15 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
     return res.status(400).json({ok:false,error:"ASSIGNMENT_LIST_REQUIRED"});
   }
 
-  if (hasCoPayload && !(await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER"))) {
-    return res.status(403).json({ok:false,error:"CO_ORGANIZER_ASSIGNMENT_FORBIDDEN"});
+  const coGov = await coAssignmentGovernance(req, activity);
+  if (hasCoPayload && !coGov.canEdit) {
+    return res.status(403).json({
+      ok:false,
+      error:coGov.lifecycle==="ENDED"
+        ? "CO_ORGANIZER_LOCKED_AFTER_ACTIVITY"
+        : "CO_ORGANIZER_ASSIGNMENT_FORBIDDEN",
+      lifecycle:coGov.lifecycle,
+    });
   }
   if (hasVerifierPayload && !(await canAssignActivityRole(req, activity, "CAN_ASSIGN_VERIFIER"))) {
     return res.status(403).json({ok:false,error:"VERIFIER_ASSIGNMENT_FORBIDDEN"});
@@ -715,11 +747,46 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
 
     const coUsers = hasCoPayload ? await resolveActiveIds(req.body.coOrganizerIds) : null;
     const verifierUsers = hasVerifierPayload ? await resolveActiveIds(req.body.verifierIds) : null;
+    const changeReason=String(req.body?.changeReason||"").trim();
 
     if (coUsers && coUsers.some(u=>u.id===activity.organizerId)) {
       return res.status(409).json({ok:false,error:"PRIMARY_ORGANIZER_CANNOT_BE_CO_ORGANIZER"});
     }
 
+    let coAdded=[],coRemoved=[];
+    if (coUsers) {
+      const beforeIds=before.filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId).sort();
+      const afterIds=coUsers.map(x=>x.id).sort();
+      coAdded=afterIds.filter(id=>!beforeIds.includes(id));
+      coRemoved=beforeIds.filter(id=>!afterIds.includes(id));
+      const changed=coAdded.length>0||coRemoved.length>0;
+
+      if (changed && coGov.reasonRequired && changeReason.length<10) {
+        return res.status(400).json({
+          ok:false,
+          error:coGov.lifecycle==="ENDED"
+            ? "ADMIN_OVERRIDE_REASON_REQUIRED"
+            : "CHANGE_REASON_REQUIRED_DURING_ACTIVITY",
+          lifecycle:coGov.lifecycle,
+        });
+      }
+
+      if (!changed && !hasVerifierPayload) {
+        return res.json({
+          ok:true,
+          assignments:await prisma.activityRoleAssignment.findMany({
+            where:{activityId:activity.id},
+            include:{user:{select:{id:true,employeeId:true,name:true}}},
+            orderBy:{assignedAt:"asc"},
+          }),
+          noChange:true,
+          lifecycle:coGov.lifecycle,
+          assignmentsUpdatedAt:activity.assignmentsUpdatedAt,
+        });
+      }
+    }
+
+    const updatedAt=new Date();
     await prisma.$transaction(async (tx)=>{
       if (coUsers) {
         await tx.activityRoleAssignment.deleteMany({where:{activityId:activity.id,role:"CO_ORGANIZER"}});
@@ -743,6 +810,10 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
           });
         }
       }
+      await tx.activity.update({
+        where:{id:activity.id},
+        data:{assignmentsUpdatedAt:updatedAt},
+      });
     });
 
     const after = await prisma.activityRoleAssignment.findMany({
@@ -751,12 +822,30 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
       orderBy:{assignedAt:"asc"},
     });
 
-    await audit(req,"ACTIVITY_ASSIGNMENTS_UPDATED","Activity",activity.id,{
+    const action=hasCoPayload
+      ? (coGov.lifecycle==="ENDED"
+          ? "CO_ORGANIZER_ADMIN_OVERRIDE_AFTER_END"
+          : coGov.lifecycle==="ACTIVE"
+            ? "CO_ORGANIZER_CHANGED_DURING_ACTIVITY"
+            : "CO_ORGANIZER_ASSIGNMENTS_UPDATED")
+      : "ACTIVITY_ASSIGNMENTS_UPDATED";
+
+    await audit(req,action,"Activity",activity.id,{
+      lifecycle:coGov.lifecycle,
+      changeReason:changeReason||null,
+      coAdded,
+      coRemoved,
       before,
       after:after.map(x=>({userId:x.userId,role:x.role,employeeId:x.user.employeeId})),
     });
 
-    res.json({ok:true,assignments:after});
+    res.json({
+      ok:true,
+      assignments:after,
+      noChange:false,
+      lifecycle:coGov.lifecycle,
+      assignmentsUpdatedAt:updatedAt.toISOString(),
+    });
   } catch(error) {
     res.status(400).json({ok:false,error:error.code||error.message});
   }
