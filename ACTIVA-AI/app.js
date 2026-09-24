@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.7</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.8</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1144,8 +1144,10 @@
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select></div>'+
       '<div class="actions scan-actions">'+
         '<button class="btn primary scan-btn" id="scanQrBtn">📷 สแกน QR</button>'+
+        (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceTestBtn">🧪 ทดสอบ QR บนเครื่องนี้</button>':'')+
         '<button class="btn secondary" id="manualTokenBtn">กรอก/วาง Token</button>'+
       '</div>'+
+      (appMode==="demo"?'<div class="hint"><b>ทดสอบเครื่องเดียว:</b> เปิด Dynamic QR ไว้อีกแท็บในเบราว์เซอร์เดียวกัน แล้วกด “🧪 ทดสอบ QR บนเครื่องนี้” ระบบจะใช้ QR ล่าสุดที่ยังไม่หมดอายุผ่าน Check-in logic เดียวกัน และบันทึก Audit เป็น TEST/DEMO SCAN</div>':'')+
       '<div id="scannerPanel" class="scanner-panel" hidden>'+
         '<div class="scanner-head"><div><b>สแกน Dynamic QR</b><br><span class="muted">อนุญาตการใช้กล้อง แล้วเล็ง QR ให้อยู่กลางกรอบ</span></div><button class="btn secondary mini" id="stopQrBtn">ปิดกล้อง</button></div>'+
         '<div id="qrReader" class="qr-reader"></div>'+
@@ -1175,7 +1177,7 @@
       if (panel) panel.hidden = true;
     }
 
-    async function performCheckin(token, source) {
+    async function performCheckin(token, source, testMode=false) {
       const msg = document.getElementById("ciMsg");
       if (!token) {
         msg.innerHTML = '<div class="alert warn">ยังไม่มีข้อมูล QR/Token</div>';
@@ -1186,12 +1188,16 @@
           method:"POST",
           body:JSON.stringify({
             userId:document.getElementById("ciUser").value,
-            token:String(token).trim()
+            token:String(token).trim(),
+            scanSource:String(source||"QR"),
+            testMode:Boolean(testMode)
           })
         });
         msg.innerHTML =
           '<div class="alert ok"><b>Check-in สำเร็จ</b><br>อ่านจาก '+esc(source||"QR")+
-          ' • เวลา '+esc(fmt(result.attendance.checkinAt))+'</div>';
+          ' • เวลา '+esc(fmt(result.attendance.checkinAt))+
+          (testMode?'<br><b>สถานะ:</b> TEST/DEMO SCAN — ไม่ใช่การสแกนกล้องจริง':'')+
+          '</div>';
         await stopScanner();
         setTimeout(() => renderAttendance(v), 900);
       } catch (e) {
@@ -1216,6 +1222,40 @@
         }
       }
     }
+
+    const sameDeviceTestBtn=document.getElementById("sameDeviceTestBtn");
+    if(sameDeviceTestBtn) sameDeviceTestBtn.onclick=async()=>{
+      const msg=document.getElementById("ciMsg");
+      sameDeviceTestBtn.disabled=true;
+      sameDeviceTestBtn.textContent="กำลังหา QR ล่าสุด…";
+      try{
+        const latest=await api("/api/demo/latest-qr");
+        const select=document.getElementById("ciAct");
+        if(select && latest.activity){
+          let option=[...select.options].find(o=>o.value===latest.activity.id);
+          if(!option){
+            option=document.createElement("option");
+            option.value=latest.activity.id;
+            option.textContent=latest.activity.title;
+            select.appendChild(option);
+          }
+          select.value=latest.activity.id;
+        }
+        msg.innerHTML='<div class="alert">พบ QR ล่าสุดของ <b>'+esc(latest.activity?.title||"กิจกรรม")+'</b> กำลังจำลองการสแกน…</div>';
+        await performCheckin(latest.token,"TEST/DEMO SCAN",true);
+      }catch(e){
+        if(e?.message==="DEMO_ACTIVE_QR_NOT_FOUND"){
+          msg.innerHTML='<div class="alert warn"><b>ไม่พบ Dynamic QR ที่ยังใช้งานได้</b><br>เปิดอีกแท็บเป็นผู้จัดกิจกรรม → หน้า Dynamic QR แล้วสร้าง/หมุน QR ใหม่ จากนั้นกลับมากดปุ่มนี้ภายใน 45 วินาที</div>';
+        }else{
+          msg.innerHTML=errorBox(e);
+        }
+      }finally{
+        if(document.body.contains(sameDeviceTestBtn)){
+          sameDeviceTestBtn.disabled=false;
+          sameDeviceTestBtn.textContent="🧪 ทดสอบ QR บนเครื่องนี้";
+        }
+      }
+    };
 
     document.getElementById("manualTokenBtn").onclick = () => {
       const field = document.getElementById("tokenField");

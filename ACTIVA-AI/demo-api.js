@@ -328,8 +328,27 @@
   }
 
   let state = load();
+
+  function refreshStateFromStorage() {
+    try {
+      const raw=localStorage.getItem(STORAGE_KEY);
+      if(!raw) return state;
+      const parsed=JSON.parse(raw);
+      if(parsed && parsed.users) state=migrateLegacyState(parsed);
+    } catch {}
+    return state;
+  }
+
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   function reset() { state = seed(); save(); return {ok:true}; }
+
+  window.addEventListener("storage",(event)=>{
+    if(event.key!==STORAGE_KEY || !event.newValue) return;
+    try{
+      const parsed=JSON.parse(event.newValue);
+      if(parsed && parsed.users) state=migrateLegacyState(parsed);
+    }catch{}
+  });
   function actor(ref) { return state.users.find(u => u.id === ref || u.employeeId === ref) || null; }
   function effectiveActivityPermissions(u) {
     if (!u) return [];
@@ -499,6 +518,7 @@
   }
 
   async function request(path, options={}, actorRef=null) {
+    refreshStateFromStorage();
     const method = String(options.method || "GET").toUpperCase();
     const b = body(options);
     const who = actor(actorRef);
@@ -506,7 +526,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.7-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.8-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -514,6 +534,23 @@
       return {ok:true,user:{...userPublic(who),activityPermissions:effectiveActivityPermissions(who),activityAssignments:state.activities.flatMap(a=>(a.roleAssignments||[]).filter(x=>x.userId===who.id).map(x=>({activityId:a.id,role:x.role})))}};
     }
     if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
+
+    if (p === "/api/demo/latest-qr" && method === "GET") {
+      const nowMs=Date.now();
+      const candidates=(state.activities||[])
+        .filter(a=>a.qr?.token && new Date(a.qr.expiresAt).getTime()>nowMs && checkinWindowState(a,nowMs).ok)
+        .sort((a,b)=>new Date(b.qr.issuedAt||0)-new Date(a.qr.issuedAt||0));
+      const a=candidates[0];
+      if(!a) err("DEMO_ACTIVE_QR_NOT_FOUND",404);
+      return {
+        ok:true,
+        token:a.qr.token,
+        issuedAt:a.qr.issuedAt,
+        expiresAt:a.qr.expiresAt,
+        activity:activityPublic(a),
+        syntheticTest:true
+      };
+    }
 
     if (p === "/api/users" && method === "GET") {
       if(!canAccessPersonnelDirectory(who)) err("PERSONNEL_DIRECTORY_FORBIDDEN",403);
@@ -869,8 +906,16 @@
       }
       const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,checkinAt:iso(),checkoutAt:null,
         attendanceStatus:"CHECKED_IN",qrValid:true,identityVerified:true,signatureVerified:false,
-        scanAttempts:1,staffVerification:null,consistencyResult:null,finalEvidenceStatus:null};
-      state.attendance.unshift(r); audit(who.id,"CHECKIN","AttendanceRecord",r.id,{demo:true}); save();
+        scanAttempts:1,staffVerification:null,consistencyResult:null,finalEvidenceStatus:null,
+        captureSource:String(b.scanSource||"QR"),
+        syntheticTest:Boolean(b.testMode)};
+      state.attendance.unshift(r);
+      audit(who.id,b.testMode?"DEMO_SAME_DEVICE_TEST_CHECKIN":"CHECKIN","AttendanceRecord",r.id,{
+        demo:true,
+        syntheticTest:Boolean(b.testMode),
+        scanSource:String(b.scanSource||"QR")
+      });
+      save();
       return {ok:true,attendance:hydrateAttendance(r)};
     }
 

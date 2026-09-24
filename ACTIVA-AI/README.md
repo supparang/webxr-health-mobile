@@ -311,3 +311,13 @@ V0.3:
 - ขยาย QR เป็น 240×240 และใช้ error correction ระดับ L เพื่อให้อ่าน payload ที่ยาวขึ้นได้ง่ายขึ้น
 - แก้ข้อความ UI: Demo Mode ไม่อ้างว่าใช้ HMAC-SHA256; HMAC ใช้เฉพาะ Server Mode
 - ข้อจำกัดยังคงอยู่: localStorage ไม่ sync attendance ข้ามอุปกรณ์ ดังนั้น Check-in ที่เครื่องผู้เข้าร่วมจะไม่ไปปรากฏบนเครื่อง Staff/Admin จนกว่าจะใช้ shared backend
+
+
+## V0.5.8 — One-Device QR Test Mode
+- เพิ่มปุ่ม “🧪 ทดสอบ QR บนเครื่องนี้” เฉพาะ Demo Mode
+- ทดสอบบนมือถือ/คอมเครื่องเดียวได้โดยเปิด 2 แท็บในเบราว์เซอร์เดียวกัน
+- Demo API sync localStorage ใหม่ก่อนทุก request เพื่อให้แท็บผู้จัดและแท็บผู้เข้าร่วมเห็น state ล่าสุดร่วมกัน
+- ปุ่มทดสอบดึง Dynamic QR ล่าสุดที่ยังไม่หมดอายุ แล้วส่งผ่าน /api/attendance/checkin ชุดเดียวกับ QR scan จริง
+- Check-in จากปุ่มทดสอบถูกติดป้าย syntheticTest=true และ Audit action = DEMO_SAME_DEVICE_TEST_CHECKIN
+- ถ้าไม่มี QR ที่ยัง valid ระบบบอกให้กลับไปสร้าง QR ในอีกแท็บ
+- ฟังก์ชันนี้ไม่ใช้กล้อง และห้ามตีความเป็นหลักฐานการสแกนจริง
