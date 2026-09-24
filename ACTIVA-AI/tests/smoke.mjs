@@ -50,6 +50,73 @@ const users = await req("/api/users", { actor: "ADM001" });
 const p1 = users.users.find((u) => u.employeeId === "P001");
 assert(p1, "P001 seed user missing");
 
+// V0.5.0 activity permission grant/revoke
+const p1CreateBefore = await reqError("/api/activities", {
+  actor: "P001",
+  method: "POST",
+  body: {
+    title: "CI permission should block",
+    category: "ทดสอบ",
+    location: "CI",
+    startAt: new Date(Date.now()+3600000).toISOString(),
+    endAt: new Date(Date.now()+7200000).toISOString(),
+    policy: {}
+  }
+});
+assert(p1CreateBefore.status === 403, "P001 should not create activity before permission grant");
+
+const p1User = users.users.find((u) => u.employeeId === "P001");
+const grantedPerms = await req("/api/users/" + encodeURIComponent(p1User.id) + "/activity-permissions", {
+  actor: "ADM001",
+  method: "PATCH",
+  body: {
+    permissions: ["CAN_CREATE_ACTIVITY","CAN_EDIT_OWN_ACTIVITY"],
+    reason: "CI activity permission grant/revoke test"
+  }
+});
+assert(grantedPerms.changes?.granted?.includes("CAN_CREATE_ACTIVITY"), "activity permission grant missing");
+
+const p1MeWithPermission = await req("/api/me", { actor: "P001" });
+assert(p1MeWithPermission.user?.activityPermissions?.includes("CAN_CREATE_ACTIVITY"), "granted activity permission not effective");
+
+const p1Created = await req("/api/activities", {
+  actor: "P001",
+  method: "POST",
+  body: {
+    title: "CI delegated organizer activity",
+    category: "ทดสอบ",
+    location: "CI",
+    startAt: new Date(Date.now()+3600000).toISOString(),
+    endAt: new Date(Date.now()+7200000).toISOString(),
+    policy: {}
+  }
+});
+assert(p1Created.activity?.organizer?.employeeId === "P001", "creator should become primary organizer");
+
+const revokedPerms = await req("/api/users/" + encodeURIComponent(p1User.id) + "/activity-permissions", {
+  actor: "ADM001",
+  method: "PATCH",
+  body: {
+    permissions: [],
+    reason: "CI revoke after delegated organizer test"
+  }
+});
+assert(revokedPerms.changes?.revoked?.includes("CAN_CREATE_ACTIVITY"), "activity permission revoke missing");
+
+const p1CreateAfter = await reqError("/api/activities", {
+  actor: "P001",
+  method: "POST",
+  body: {
+    title: "CI permission should be revoked",
+    category: "ทดสอบ",
+    location: "CI",
+    startAt: new Date(Date.now()+3600000).toISOString(),
+    endAt: new Date(Date.now()+7200000).toISOString(),
+    policy: {}
+  }
+});
+assert(p1CreateAfter.status === 403, "P001 should not create activity after permission revoke");
+
 const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
 const activity = activities.activities[0];

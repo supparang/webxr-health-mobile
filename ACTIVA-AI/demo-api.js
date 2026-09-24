@@ -2,6 +2,21 @@
   "use strict";
 
   const STORAGE_KEY = "activa_ai_demo_v034";
+  const ACTIVITY_PERMISSION_KEYS = [
+    "CAN_CREATE_ACTIVITY",
+    "CAN_EDIT_OWN_ACTIVITY",
+    "CAN_ASSIGN_CO_ORGANIZER",
+    "CAN_ASSIGN_VERIFIER",
+    "CAN_CLOSE_ACTIVITY",
+    "CAN_MANAGE_ALL_ACTIVITIES"
+  ];
+  const ORGANIZER_DEFAULT_PERMISSIONS = [
+    "CAN_CREATE_ACTIVITY",
+    "CAN_EDIT_OWN_ACTIVITY",
+    "CAN_ASSIGN_CO_ORGANIZER",
+    "CAN_ASSIGN_VERIFIER",
+    "CAN_CLOSE_ACTIVITY"
+  ];
   const now = () => new Date();
   const iso = (d = now()) => d.toISOString();
   const uid = (p) => p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
@@ -16,7 +31,7 @@
     return {
       users: [
         {id:"ADM001",employeeId:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",role:"ADMIN",status:"ACTIVE"},
-        {id:"ORG001",employeeId:"ORG001",name:"ผู้จัดกิจกรรมตัวอย่าง",role:"ORGANIZER",status:"ACTIVE"},
+        {id:"ORG001",employeeId:"ORG001",name:"ผู้จัดกิจกรรมตัวอย่าง",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
         {id:"STF001",employeeId:"STF001",name:"เจ้าหน้าที่ตรวจสอบตัวอย่าง",role:"STAFF",status:"ACTIVE"},
         {id:"P001",employeeId:"P001",name:"ผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P002",employeeId:"P002",name:"ผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
@@ -50,6 +65,20 @@
     if (!data || !Array.isArray(data.attendance)) return data;
 
     let changed = false;
+
+    for (const u of (data.users || [])) {
+      if (!Array.isArray(u.activityPermissions)) {
+        u.activityPermissions = u.role === "ORGANIZER"
+          ? ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({
+              permission,grantedAt:iso(),validFrom:null,validUntil:null,
+              reason:"Legacy organizer migration",revokedAt:null
+            }))
+          : [];
+        changed = true;
+      }
+    }
+    data.legacyActivityPermissionsMigrated = true;
+
     for (const r of data.attendance) {
       if (r.isVoided === undefined) { r.isVoided = false; changed = true; }
 
@@ -107,6 +136,24 @@
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   function reset() { state = seed(); save(); return {ok:true}; }
   function actor(ref) { return state.users.find(u => u.id === ref || u.employeeId === ref) || null; }
+  function effectiveActivityPermissions(u) {
+    if (!u) return [];
+    if (u.role === "ADMIN") return [...ACTIVITY_PERMISSION_KEYS];
+    const nowMs=Date.now();
+    return (u.activityPermissions||[]).filter(p=>{
+      if(p.revokedAt) return false;
+      const from=p.validFrom?new Date(p.validFrom).getTime():null;
+      const until=p.validUntil?new Date(p.validUntil).getTime():null;
+      return (from==null||from<=nowMs)&&(until==null||until>=nowMs);
+    }).map(p=>p.permission);
+  }
+  function hasActivityPermission(u,key){ return effectiveActivityPermissions(u).includes(key); }
+  function canManageActivity(u,a){
+    if(!u||!a) return false;
+    if(u.role==="ADMIN"||hasActivityPermission(u,"CAN_MANAGE_ALL_ACTIVITIES")) return true;
+    return a.organizerId===u.id && (hasActivityPermission(u,"CAN_EDIT_OWN_ACTIVITY")||hasActivityPermission(u,"CAN_CREATE_ACTIVITY"));
+  }
+
   function body(options) {
     if (!options || !options.body) return {};
     if (typeof options.body === "string") {
@@ -133,7 +180,8 @@
   function userPublic(u) {
     return {
       id:u.id,employeeId:u.employeeId,name:u.name,email:u.email||null,
-      role:u.role,status:u.status,department:u.department||null
+      role:u.role,status:u.status,department:u.department||null,
+      activityPermissions:(u.activityPermissions||[]).map(p=>({...p}))
     };
   }
   function durationInfo(r) {
@@ -195,12 +243,12 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.4.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.5.0-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
       if (who.status !== "ACTIVE") err("INVALID_OR_INACTIVE_USER",401);
-      return {ok:true,user:userPublic(who)};
+      return {ok:true,user:{...userPublic(who),activityPermissions:effectiveActivityPermissions(who)}};
     }
     if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
 
@@ -254,6 +302,43 @@
       return {ok:true,user:userPublic(user)};
     }
 
+    userMatch=p.match(/^\/api\/users\/([^/]+)\/activity-permissions$/);
+    if(userMatch && method==="PATCH"){
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
+      const user=state.users.find(u=>u.id===decodeURIComponent(userMatch[1])); if(!user) err("USER_NOT_FOUND",404);
+      const requested=Array.isArray(b.permissions)?[...new Set(b.permissions.map(String))]:[];
+      const invalid=requested.filter(x=>!ACTIVITY_PERMISSION_KEYS.includes(x));
+      if(invalid.length) err("INVALID_ACTIVITY_PERMISSION",400);
+      const reason=String(b.reason||"").trim(); if(reason.length<3) err("PERMISSION_REASON_REQUIRED",400);
+      const validFrom=b.validFrom?new Date(b.validFrom).toISOString():null;
+      const validUntil=b.validUntil?new Date(b.validUntil).toISOString():null;
+      if(validFrom&&validUntil&&new Date(validUntil)<new Date(validFrom)) err("INVALID_PERMISSION_DATE_RANGE",400);
+
+      user.activityPermissions=Array.isArray(user.activityPermissions)?user.activityPermissions:[];
+      const changes={granted:[],updated:[],revoked:[]};
+      for(const key of ACTIVITY_PERMISSION_KEYS){
+        let cur=user.activityPermissions.find(x=>x.permission===key);
+        const want=requested.includes(key);
+        if(want){
+          if(!cur){
+            cur={permission:key,grantedAt:iso(),validFrom,validUntil,reason,revokedAt:null,revokedById:null,revokeReason:null};
+            user.activityPermissions.push(cur);changes.granted.push(key);
+            audit(who.id,"ACTIVITY_PERMISSION_GRANTED","User",user.id,{employeeId:user.employeeId,permission:key,validFrom,validUntil,reason});
+          }else{
+            const wasRevoked=Boolean(cur.revokedAt);
+            Object.assign(cur,{grantedAt:wasRevoked?iso():cur.grantedAt,validFrom,validUntil,reason,revokedAt:null,revokedById:null,revokeReason:null});
+            (wasRevoked?changes.granted:changes.updated).push(key);
+            audit(who.id,wasRevoked?"ACTIVITY_PERMISSION_GRANTED":"ACTIVITY_PERMISSION_UPDATED","User",user.id,{employeeId:user.employeeId,permission:key,validFrom,validUntil,reason});
+          }
+        }else if(cur&&!cur.revokedAt){
+          cur.revokedAt=iso();cur.revokedById=who.id;cur.revokeReason=reason;changes.revoked.push(key);
+          audit(who.id,"ACTIVITY_PERMISSION_REVOKED","User",user.id,{employeeId:user.employeeId,permission:key,reason});
+        }
+      }
+      save();
+      return {ok:true,employeeId:user.employeeId,activityPermissions:user.activityPermissions,changes};
+    }
+
     if (p === "/api/users/import" && method === "POST") {
       if(who.role!=="ADMIN") err("FORBIDDEN",403);
       const rows=Array.isArray(b.users)?b.users:[];
@@ -294,18 +379,27 @@
       return {ok:true,activities:state.activities};
     }
     if (p === "/api/activities" && method === "POST") {
+      if(!hasActivityPermission(who,"CAN_CREATE_ACTIVITY")) err("ACTIVITY_PERMISSION_REQUIRED",403);
+      let primaryOrganizer=who;
+      if(who.role==="ADMIN"&&b.primaryOrganizerId){
+        const selected=actor(b.primaryOrganizerId);
+        if(!selected||selected.status!=="ACTIVE") err("PRIMARY_ORGANIZER_NOT_FOUND_OR_INACTIVE",400);
+        if(selected.role!=="ADMIN"&&!hasActivityPermission(selected,"CAN_CREATE_ACTIVITY")) err("PRIMARY_ORGANIZER_LACKS_CREATE_PERMISSION",409);
+        primaryOrganizer=selected;
+      }
       const a = {
         id:uid("DEMO-EVT"),title:b.title,category:b.category,description:b.description||"",
-        location:b.location,startAt:b.startAt,endAt:b.endAt,organizerId:who.id,
+        location:b.location,startAt:b.startAt,endAt:b.endAt,organizerId:primaryOrganizer.id,
         policy:b.policy||{},qr:null
       };
-      state.activities.unshift(a); audit(who.id,"ACTIVITY_CREATED","Activity",a.id,{demo:true}); save();
+      state.activities.unshift(a); audit(who.id,"ACTIVITY_CREATED","Activity",a.id,{demo:true,primaryOrganizerId:primaryOrganizer.id,primaryOrganizerEmployeeId:primaryOrganizer.employeeId}); save();
       return {ok:true,activity:a};
     }
 
     let m = p.match(/^\/api\/activities\/([^/]+)\/qr$/);
     if (m && method === "POST") {
       const a = activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
       const exp = new Date(Date.now()+45000);
       a.qr = {token:"DEMO|"+a.id+"|"+Date.now()+"|"+Math.random().toString(36).slice(2),issuedAt:iso(),expiresAt:exp.toISOString()};
       audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,expiresAt:a.qr.expiresAt}); save();

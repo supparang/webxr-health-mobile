@@ -10,6 +10,15 @@
   let qrTimer = null;
   let qrState = null;
 
+  const ACTIVITY_PERMISSION_DEFS = [
+    ["CAN_CREATE_ACTIVITY","สร้างกิจกรรม","สร้างกิจกรรมใหม่และเป็นผู้จัดกิจกรรมหลักของกิจกรรมที่สร้าง"],
+    ["CAN_EDIT_OWN_ACTIVITY","จัดการกิจกรรมของตน","แก้ไข/ดำเนินงานกิจกรรมที่ตนเป็นผู้จัดกิจกรรมหลัก"],
+    ["CAN_ASSIGN_CO_ORGANIZER","เพิ่มผู้จัดร่วม","มอบหมายผู้จัดกิจกรรมร่วม"],
+    ["CAN_ASSIGN_VERIFIER","มอบหมายผู้ตรวจสอบ","เลือกผู้ตรวจสอบหลักฐานของกิจกรรม"],
+    ["CAN_CLOSE_ACTIVITY","ปิดกิจกรรม","ปิดกิจกรรมเมื่อดำเนินงานเสร็จ"],
+    ["CAN_MANAGE_ALL_ACTIVITIES","จัดการกิจกรรมทั้งหมด","สิทธิ์ระดับสูงสำหรับจัดการกิจกรรมทุกกิจกรรม"]
+  ];
+
   const app = () => document.getElementById("app");
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -17,6 +26,26 @@
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
   const roleLabel = (r) => ({ADMIN:"ผู้ดูแลระบบ",ORGANIZER:"ผู้จัดกิจกรรม",STAFF:"เจ้าหน้าที่ตรวจสอบ",PARTICIPANT:"ผู้เข้าร่วม"})[r] || r;
   const can = (...roles) => session && roles.includes(session.role);
+
+  function activityPermissionKeys(user = session) {
+    if (!user) return [];
+    if (user.role === "ADMIN") return ACTIVITY_PERMISSION_DEFS.map(([key])=>key);
+    return (user.activityPermissions || []).map(p => typeof p === "string" ? p : p.permission).filter(Boolean);
+  }
+
+  function hasActivityPermission(key, user = session) {
+    return activityPermissionKeys(user).includes(key);
+  }
+
+  function canManageActivities(user = session) {
+    return user?.role === "ADMIN" || activityPermissionKeys(user).length > 0;
+  }
+
+  function canManageActivityClient(activity) {
+    if (can("ADMIN") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES")) return true;
+    return activity?.organizerId === session?.id &&
+      (hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_CREATE_ACTIVITY"));
+  }
 
   function readSession() {
     try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }
@@ -85,7 +114,8 @@
 
     const work = [["dashboard","ภาพรวม"]];
     if (can("ADMIN")) work.push(["users","บุคลากร"]);
-    if (can("ADMIN","ORGANIZER")) work.push(["activities","กิจกรรม"],["qr","Dynamic QR"]);
+    if (canManageActivities()) work.push(["activities","กิจกรรม"]);
+    if (can("ADMIN") || hasActivityPermission("CAN_CREATE_ACTIVITY") || hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES")) work.push(["qr","Dynamic QR"]);
     work.push(["attendance","เข้า–ออก"]);
     groups.push({key:"work",label:"งานประจำ",items:work});
 
@@ -158,7 +188,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.4.2 • Grouped Navigation</div>'+
+        '<div class="version">V0.5.0 • Grouped Navigation</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -244,7 +274,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.4.2</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -299,7 +329,7 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.4.2 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.0 จะล้างสถานะ VERIFIED เก่าที่ขัดกับหลักฐานโดยอัตโนมัติ แต่จะไม่ลบรายการซ้ำให้เอง</div>':'')+
       '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
@@ -422,6 +452,7 @@
       '<div class="hint">การนำเข้าแบบชุดจะไม่สร้าง ADMIN และจะข้ามรหัสบุคลากรที่มีอยู่แล้ว เพื่อป้องกันการเขียนทับข้อมูลโดยไม่ตั้งใจ</div>'+
       '<div id="importMsg"></div></div></div>'+
 
+      '<div id="permissionEditor"></div>'+
       '<div class="panel"><div class="section-head"><div><h2>รายชื่อบุคลากร</h2><p class="muted">ไม่ลบบัญชีที่เคยมีประวัติการใช้งาน ให้ใช้ “ปิดใช้งาน” เพื่อคง Audit Trail</p></div>'+
       '<div class="field compact-field"><input id="userSearch" placeholder="ค้นหารหัส ชื่อ หน่วยงาน..."></div></div>'+
       '<div id="userList"></div></div>';
@@ -436,6 +467,7 @@
         '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>หน่วยงาน</th><th>บทบาท</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
         visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
           '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
+          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button> '+
           (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
         '</td></tr>').join("")+'</tbody></table></div>'+
         '<div class="attendance-cards">'+visible.map(u=>
@@ -444,6 +476,7 @@
           '<div class="attendance-meta"><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาท</b>'+esc(roleLabel(u.role))+'</span></div>'+
           (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
           '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
+          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button>'+
           (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
           '</div></article>'
         ).join("")+'</div>';
@@ -460,6 +493,58 @@
         create.textContent="บันทึกการแก้ไข";
         create.dataset.editId=u.id;
         window.scrollTo({top:0,behavior:"smooth"});
+      });
+
+      function openPermissionEditor(u){
+        const host=document.getElementById("permissionEditor");
+        const activeKeys=activityPermissionKeys(u);
+        const currentRows=(u.activityPermissions||[]).filter(p=>typeof p!=="string"&&!p.revokedAt);
+        const sharedFrom=currentRows.map(p=>p.validFrom).filter(Boolean)[0]||"";
+        const sharedUntil=currentRows.map(p=>p.validUntil).filter(Boolean)[0]||"";
+        const dateValue=(iso)=>iso?new Date(iso).toISOString().slice(0,10):"";
+
+        host.innerHTML=
+          '<div class="panel permission-editor"><div class="section-head"><div><h2>สิทธิ์การกำหนดกิจกรรม</h2>'+
+          '<p><b>'+esc(u.employeeId+" • "+u.name)+'</b></p></div><button class="btn mini secondary" id="closePerm">ปิด</button></div>'+
+          '<div class="permission-grid">'+ACTIVITY_PERMISSION_DEFS.map(([key,label,desc])=>
+            '<label class="permission-option"><input type="checkbox" data-permission="'+key+'" '+(activeKeys.includes(key)?"checked":"")+'>'+
+            '<span><b>'+esc(label)+'</b><small>'+esc(desc)+'</small><code>'+esc(key)+'</code></span></label>'
+          ).join("")+'</div>'+
+          '<div class="form-grid" style="margin-top:14px">'+
+            '<div class="field"><label>เริ่มมีผล (ถ้าไม่ระบุ = ทันที)</label><input id="permFrom" type="date" value="'+esc(dateValue(sharedFrom))+'"></div>'+
+            '<div class="field"><label>สิ้นสุดสิทธิ์ (ถ้าไม่ระบุ = ไม่หมดอายุ)</label><input id="permUntil" type="date" value="'+esc(dateValue(sharedUntil))+'"></div>'+
+          '</div>'+
+          '<div class="field"><label>เหตุผลการเพิ่ม/ลดสิทธิ์</label><textarea id="permReason" placeholder="เช่น ผู้รับผิดชอบโครงการปีงบประมาณ 2570 / สิ้นสุดการมอบหมาย"></textarea></div>'+
+          '<div class="hint">การเอาเครื่องหมาย ✓ ออกจากสิทธิ์เดิม = ถอนสิทธิ์ทันที และบันทึกผู้ดำเนินการ/เหตุผลลง Audit Trail</div>'+
+          '<div class="actions"><button class="btn primary" id="savePerm">บันทึกสิทธิ์</button></div><div id="permMsg"></div></div>';
+
+        document.getElementById("closePerm").onclick=()=>{host.innerHTML="";};
+        document.getElementById("savePerm").onclick=async()=>{
+          const selected=[...host.querySelectorAll("[data-permission]:checked")].map(x=>x.dataset.permission);
+          const reason=document.getElementById("permReason").value.trim();
+          const msg=document.getElementById("permMsg");
+          if(reason.length<3){msg.innerHTML='<div class="alert warn">กรุณาระบุเหตุผลการเพิ่ม/ลดสิทธิ์</div>';return;}
+          const from=document.getElementById("permFrom").value;
+          const until=document.getElementById("permUntil").value;
+          try{
+            const result=await api("/api/users/"+encodeURIComponent(u.id)+"/activity-permissions",{
+              method:"PATCH",
+              body:JSON.stringify({
+                permissions:selected,
+                validFrom:from?new Date(from+"T00:00:00").toISOString():null,
+                validUntil:until?new Date(until+"T23:59:59").toISOString():null,
+                reason
+              })
+            });
+            msg.innerHTML='<div class="alert ok">บันทึกแล้ว • เพิ่ม '+esc(result.changes?.granted?.length||0)+' • ปรับ '+esc(result.changes?.updated?.length||0)+' • ถอน '+esc(result.changes?.revoked?.length||0)+'</div>';
+            setTimeout(()=>renderUsersAdmin(v),500);
+          }catch(e){msg.innerHTML=errorBox(e);}
+        };
+        host.scrollIntoView({behavior:"smooth",block:"start"});
+      }
+
+      document.querySelectorAll(".permUser").forEach(btn=>btn.onclick=()=>{
+        const u=users.find(x=>x.id===btn.dataset.id); if(u)openPermissionEditor(u);
       });
 
       document.querySelectorAll(".toggleUser").forEach(btn=>btn.onclick=async()=>{
@@ -519,27 +604,44 @@
   }
 
   async function renderActivities(v) {
-    if (!can("ADMIN","ORGANIZER")) throw new Error("FORBIDDEN");
+    if (!canManageActivities()) throw new Error("FORBIDDEN");
     showLoading(v);
-    const activities = await loadActivities();
-    v.innerHTML =
-      '<div class="panel"><h2>สร้างกิจกรรม</h2><div class="form-grid">'+
-      field("ชื่อกิจกรรม","aTitle","เช่น อบรมการใช้ AI")+
-      '<div class="field"><label>ประเภทกิจกรรม</label><select id="aCat"><option>พัฒนาบุคลากร</option><option>ประชุม</option><option>บริการวิชาการ</option><option>วิจัย</option><option>ประกันคุณภาพ</option></select></div>'+
-      field("วันที่","aDate","","date",new Date().toISOString().slice(0,10))+
-      field("สถานที่","aLoc","ห้องประชุม")+
-      field("เวลาเริ่ม","aStart","","time","09:00")+
-      field("เวลาสิ้นสุด","aEnd","","time","16:00")+
-      '</div><h3>นโยบายหลักฐานของกิจกรรม</h3><div class="policy">'+
-      check("pQr","QR กิจกรรม",true)+check("pId","ยืนยันตัวตน",true)+
-      check("pIn","Check-in",true)+check("pOut","Check-out",true)+
-      check("pDur","ระยะเวลา",true)+check("pStaff","เจ้าหน้าที่ยืนยัน",true)+
-      check("pSig","ลายเซ็น",false)+
-      '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="pRatio" type="number" min="0" max="1" step=".05" value=".75"></div>'+
-      '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'+
+    const [activities, users] = await Promise.all([loadActivities(), can("ADMIN") ? loadUsers() : Promise.resolve([])]);
+    const mayCreate = hasActivityPermission("CAN_CREATE_ACTIVITY");
+    const eligibleOrganizers = users.filter(u =>
+      u.status === "ACTIVE" &&
+      (u.role === "ADMIN" || activityPermissionKeys(u).includes("CAN_CREATE_ACTIVITY"))
+    );
+
+    const createPanel = mayCreate
+      ? '<div class="panel"><h2>สร้างกิจกรรม</h2><div class="form-grid">'+
+        field("ชื่อกิจกรรม","aTitle","เช่น อบรมการใช้ AI")+
+        '<div class="field"><label>ประเภทกิจกรรม</label><select id="aCat"><option>พัฒนาบุคลากร</option><option>ประชุม</option><option>บริการวิชาการ</option><option>วิจัย</option><option>ประกันคุณภาพ</option></select></div>'+
+        field("วันที่","aDate","","date",new Date().toISOString().slice(0,10))+
+        field("สถานที่","aLoc","ห้องประชุม")+
+        field("เวลาเริ่ม","aStart","","time","09:00")+
+        field("เวลาสิ้นสุด","aEnd","","time","16:00")+
+        (can("ADMIN")
+          ? '<div class="field full"><label>ผู้จัดกิจกรรมหลัก</label><select id="primaryOrganizer">'+
+            eligibleOrganizers.map(u=>'<option value="'+esc(u.id)+'" '+(u.id===session.id?"selected":"")+'>'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+
+            '</select><small class="muted">เลือกได้เฉพาะบุคลากรที่มีสิทธิ์ “สร้างกิจกรรม”</small></div>'
+          : '<div class="hint full">ผู้จัดกิจกรรมหลัก: <b>'+esc(session.name)+'</b> (กำหนดอัตโนมัติจากผู้สร้างกิจกรรม)</div>')+
+        '</div><h3>นโยบายหลักฐานของกิจกรรม</h3><div class="policy">'+
+        check("pQr","QR กิจกรรม",true)+check("pId","ยืนยันตัวตน",true)+
+        check("pIn","Check-in",true)+check("pOut","Check-out",true)+
+        check("pDur","ระยะเวลา",true)+check("pStaff","เจ้าหน้าที่ยืนยัน",true)+
+        check("pSig","ลายเซ็น",false)+
+        '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="pRatio" type="number" min="0" max="1" step=".05" value=".75"></div>'+
+        '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'
+      : '<div class="panel"><div class="hint"><b>สิทธิ์ปัจจุบัน:</b> คุณจัดการกิจกรรมที่ได้รับสิทธิ์ได้ แต่ไม่มีสิทธิ์สร้างกิจกรรมใหม่</div></div>';
+
+    v.innerHTML = createPanel+
       '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable(activities)+'</div>';
 
-    document.getElementById("createAct").onclick = async () => {
+    const createBtn=document.getElementById("createAct");
+    if(!createBtn) return;
+
+    createBtn.onclick = async () => {
       const msg = document.getElementById("actMsg");
       const title = document.getElementById("aTitle").value.trim();
       if (!title) return msg.innerHTML = '<div class="alert bad">กรุณาระบุชื่อกิจกรรม</div>';
@@ -555,6 +657,7 @@
             location:document.getElementById("aLoc").value || "ไม่ระบุ",
             startAt:new Date(date+"T"+start).toISOString(),
             endAt:new Date(date+"T"+end).toISOString(),
+            primaryOrganizerId:document.getElementById("primaryOrganizer")?.value || session.id,
             policy:{
               qrRequired:checked("pQr"),identityRequired:checked("pId"),checkinRequired:checked("pIn"),
               checkoutRequired:checked("pOut"),durationRequired:checked("pDur"),staffRequired:checked("pStaff"),
@@ -577,9 +680,9 @@
   }
 
   async function renderQr(v) {
-    if (!can("ADMIN","ORGANIZER")) throw new Error("FORBIDDEN");
+    if (!(can("ADMIN") || hasActivityPermission("CAN_CREATE_ACTIVITY") || hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES"))) throw new Error("FORBIDDEN");
     showLoading(v);
-    const activities = await loadActivities();
+    const activities = (await loadActivities()).filter(canManageActivityClient);
     if (!activities.length) return v.innerHTML = '<div class="panel"><div class="empty">ยังไม่มีกิจกรรมสำหรับสร้าง QR</div></div>';
 
     v.innerHTML =
@@ -1488,7 +1591,10 @@
       USER_CREATED:"เพิ่มบุคลากร",
       USER_UPDATED:"แก้ไขข้อมูลบุคลากร",
       USER_STATUS_CHANGED:"เปลี่ยนสถานะบัญชี",
-      USER_IMPORT:"นำเข้าบุคลากรแบบชุด"
+      USER_IMPORT:"นำเข้าบุคลากรแบบชุด",
+      ACTIVITY_PERMISSION_GRANTED:"เพิ่มสิทธิ์กิจกรรม",
+      ACTIVITY_PERMISSION_UPDATED:"ปรับสิทธิ์กิจกรรม",
+      ACTIVITY_PERMISSION_REVOKED:"ถอนสิทธิ์กิจกรรม"
     };
     return map[code] || String(code || "ไม่ระบุ");
   }

@@ -217,3 +217,15 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .nav-group{padding:5px}
   .nav .nav-item{padding:11px 12px 11px 16px}
 }
+
+
+/* ACTIVA-AI V0.5.0 — Activity permission governance */
+.permission-editor{border-color:#bfd0f4}
+.permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.permission-option{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfdff;cursor:pointer}
+.permission-option input{margin-top:4px}
+.permission-option span{display:block;min-width:0}
+.permission-option b{display:block}
+.permission-option small{display:block;color:var(--muted);margin:3px 0 6px;line-height:1.35}
+.permission-option code{font-size:10px;color:#52627e}
+@media(max-width:680px){.permission-grid{grid-template-columns:1fr}}

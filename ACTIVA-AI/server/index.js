@@ -21,6 +21,68 @@ function actorId(req) {
   return req.activaUser?.id || null;
 }
 
+const ACTIVITY_PERMISSION_KEYS = [
+  "CAN_CREATE_ACTIVITY",
+  "CAN_EDIT_OWN_ACTIVITY",
+  "CAN_ASSIGN_CO_ORGANIZER",
+  "CAN_ASSIGN_VERIFIER",
+  "CAN_CLOSE_ACTIVITY",
+  "CAN_MANAGE_ALL_ACTIVITIES",
+];
+
+function permissionWindowWhere(at = new Date()) {
+  return {
+    revokedAt: null,
+    AND: [
+      { OR: [{ validFrom: null }, { validFrom: { lte: at } }] },
+      { OR: [{ validUntil: null }, { validUntil: { gte: at } }] },
+    ],
+  };
+}
+
+async function effectiveActivityPermissionKeys(userId, at = new Date()) {
+  const rows = await prisma.userActivityPermission.findMany({
+    where: { userId, ...permissionWindowWhere(at) },
+    select: { permission: true },
+  });
+  return rows.map((x) => x.permission);
+}
+
+async function userHasActivityPermission(user, key) {
+  if (!user) return false;
+  if (user.role === "ADMIN") return true;
+  const row = await prisma.userActivityPermission.findFirst({
+    where: { userId: user.id, permission: key, ...permissionWindowWhere(new Date()) },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+function requireActivityPermission(key) {
+  return async function activityPermissionGuard(req, res, next) {
+    try {
+      if (await userHasActivityPermission(req.activaUser, key)) return next();
+      return res.status(403).json({
+        ok: false,
+        error: "ACTIVITY_PERMISSION_REQUIRED",
+        permission: key,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+async function canManageActivity(req, activity) {
+  if (req.activaUser?.role === "ADMIN") return true;
+  if (await userHasActivityPermission(req.activaUser, "CAN_MANAGE_ALL_ACTIVITIES")) return true;
+  if (activity?.organizerId !== req.activaUser?.id) return false;
+  return (
+    await userHasActivityPermission(req.activaUser, "CAN_EDIT_OWN_ACTIVITY") ||
+    await userHasActivityPermission(req.activaUser, "CAN_CREATE_ACTIVITY")
+  );
+}
+
 async function audit(req, action, entityType, entityId, metadata = {}) {
   await prisma.auditLog.create({
     data: {
@@ -86,16 +148,20 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.4.1", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.5.0", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.4.1", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.5.0", database: "unavailable", error: error.message });
   }
 });
 
 
 app.use("/api", attachActor);
 
-app.get("/api/me", (req, res) => {
+app.get("/api/me", async (req, res) => {
+  const activityPermissions = req.activaUser.role === "ADMIN"
+    ? [...ACTIVITY_PERMISSION_KEYS]
+    : await effectiveActivityPermissionKeys(req.activaUser.id);
+
   res.json({
     ok: true,
     user: {
@@ -104,6 +170,7 @@ app.get("/api/me", (req, res) => {
       name: req.activaUser.name,
       role: req.activaUser.role,
       status: req.activaUser.status,
+      activityPermissions,
     },
   });
 });
@@ -118,6 +185,20 @@ app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, 
       role: true,
       status: true,
       department: { select: { code: true, name: true } },
+      activityPermissions: {
+        select: {
+          id: true,
+          permission: true,
+          grantedAt: true,
+          validFrom: true,
+          validUntil: true,
+          reason: true,
+          revokedAt: true,
+          revokedById: true,
+          revokeReason: true,
+        },
+        orderBy: { permission: "asc" },
+      },
     },
     orderBy: { employeeId: "asc" },
   });
@@ -205,6 +286,118 @@ app.patch("/api/users/:userId/status", requireRoles("ADMIN"), async (req,res)=>{
   });
   await audit(req,"USER_STATUS_CHANGED","User",user.id,{employeeId:user.employeeId,status});
   res.json({ok:true,user});
+});
+
+app.patch("/api/users/:userId/activity-permissions", requireRoles("ADMIN"), async (req, res) => {
+  const target = await prisma.user.findUnique({ where: { id: req.params.userId } });
+  if (!target) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+
+  const requested = Array.isArray(req.body?.permissions)
+    ? [...new Set(req.body.permissions.map(String))]
+    : [];
+  const invalid = requested.filter((x) => !ACTIVITY_PERMISSION_KEYS.includes(x));
+  if (invalid.length) {
+    return res.status(400).json({ ok: false, error: "INVALID_ACTIVITY_PERMISSION", invalid });
+  }
+
+  const reason = String(req.body?.reason || "").trim();
+  if (reason.length < 3) {
+    return res.status(400).json({ ok: false, error: "PERMISSION_REASON_REQUIRED" });
+  }
+
+  const validFrom = req.body?.validFrom ? toIso(req.body.validFrom) : null;
+  const validUntil = req.body?.validUntil ? toIso(req.body.validUntil) : null;
+  if (validFrom && validUntil && validUntil < validFrom) {
+    return res.status(400).json({ ok: false, error: "INVALID_PERMISSION_DATE_RANGE" });
+  }
+
+  const existing = await prisma.userActivityPermission.findMany({
+    where: { userId: target.id },
+  });
+  const byKey = new Map(existing.map((x) => [x.permission, x]));
+  const now = new Date();
+  const granted = [];
+  const revoked = [];
+  const updated = [];
+
+  for (const key of ACTIVITY_PERMISSION_KEYS) {
+    const current = byKey.get(key);
+    const want = requested.includes(key);
+
+    if (want) {
+      if (!current) {
+        await prisma.userActivityPermission.create({
+          data: {
+            userId: target.id,
+            permission: key,
+            grantedById: req.activaUser.id,
+            grantedAt: now,
+            validFrom,
+            validUntil,
+            reason,
+          },
+        });
+        granted.push(key);
+        await audit(req, "ACTIVITY_PERMISSION_GRANTED", "User", target.id, {
+          employeeId: target.employeeId,
+          permission: key,
+          validFrom: validFrom?.toISOString() || null,
+          validUntil: validUntil?.toISOString() || null,
+          reason,
+        });
+      } else {
+        const wasRevoked = Boolean(current.revokedAt);
+        await prisma.userActivityPermission.update({
+          where: { id: current.id },
+          data: {
+            grantedById: req.activaUser.id,
+            grantedAt: wasRevoked ? now : current.grantedAt,
+            validFrom,
+            validUntil,
+            reason,
+            revokedAt: null,
+            revokedById: null,
+            revokeReason: null,
+          },
+        });
+        (wasRevoked ? granted : updated).push(key);
+        await audit(req, wasRevoked ? "ACTIVITY_PERMISSION_GRANTED" : "ACTIVITY_PERMISSION_UPDATED", "User", target.id, {
+          employeeId: target.employeeId,
+          permission: key,
+          validFrom: validFrom?.toISOString() || null,
+          validUntil: validUntil?.toISOString() || null,
+          reason,
+        });
+      }
+    } else if (current && !current.revokedAt) {
+      await prisma.userActivityPermission.update({
+        where: { id: current.id },
+        data: {
+          revokedAt: now,
+          revokedById: req.activaUser.id,
+          revokeReason: reason,
+        },
+      });
+      revoked.push(key);
+      await audit(req, "ACTIVITY_PERMISSION_REVOKED", "User", target.id, {
+        employeeId: target.employeeId,
+        permission: key,
+        reason,
+      });
+    }
+  }
+
+  const activityPermissions = await prisma.userActivityPermission.findMany({
+    where: { userId: target.id },
+    orderBy: { permission: "asc" },
+  });
+
+  res.json({
+    ok: true,
+    employeeId: target.employeeId,
+    activityPermissions,
+    changes: { granted, updated, revoked },
+  });
 });
 
 app.post("/api/users/import", requireRoles("ADMIN"), async (req,res)=>{
@@ -318,17 +511,32 @@ app.get("/api/attendance", async (req, res) => {
 
 app.get("/api/activities", async (_req, res) => {
   const rows = await prisma.activity.findMany({
-    include: { policy: true },
+    include: {
+      policy: true,
+      organizer: { select: { id: true, employeeId: true, name: true } },
+    },
     orderBy: { startAt: "desc" },
   });
   res.json({ ok: true, activities: rows });
 });
 
-app.post("/api/activities", requireRoles("ADMIN", "ORGANIZER"), async (req, res) => {
+app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.title || !b.category || !b.location || !b.startAt || !b.endAt) {
       return res.status(400).json({ ok: false, error: "MISSING_REQUIRED_FIELDS" });
+    }
+
+    let primaryOrganizer = req.activaUser;
+    if (req.activaUser.role === "ADMIN" && b.primaryOrganizerId) {
+      const selected = await resolveUserRef(b.primaryOrganizerId);
+      if (!selected || selected.status !== "ACTIVE") {
+        return res.status(400).json({ ok: false, error: "PRIMARY_ORGANIZER_NOT_FOUND_OR_INACTIVE" });
+      }
+      if (!(await userHasActivityPermission(selected, "CAN_CREATE_ACTIVITY")) && selected.role !== "ADMIN") {
+        return res.status(409).json({ ok: false, error: "PRIMARY_ORGANIZER_LACKS_CREATE_PERMISSION" });
+      }
+      primaryOrganizer = selected;
     }
 
     const activity = await prisma.activity.create({
@@ -343,7 +551,7 @@ app.post("/api/activities", requireRoles("ADMIN", "ORGANIZER"), async (req, res)
         checkinCloseAt: b.checkinCloseAt ? toIso(b.checkinCloseAt) : null,
         checkoutOpenAt: b.checkoutOpenAt ? toIso(b.checkoutOpenAt) : null,
         checkoutCloseAt: b.checkoutCloseAt ? toIso(b.checkoutCloseAt) : null,
-        organizerId: actorId(req),
+        organizerId: primaryOrganizer.id,
         policy: {
           create: {
             qrRequired: b.policy?.qrRequired ?? true,
@@ -357,19 +565,29 @@ app.post("/api/activities", requireRoles("ADMIN", "ORGANIZER"), async (req, res)
           },
         },
       },
-      include: { policy: true },
+      include: {
+        policy: true,
+        organizer: { select: { id: true, employeeId: true, name: true } },
+      },
     });
 
-    await audit(req, "ACTIVITY_CREATED", "Activity", activity.id, { title: activity.title });
+    await audit(req, "ACTIVITY_CREATED", "Activity", activity.id, {
+      title: activity.title,
+      primaryOrganizerId: primaryOrganizer.id,
+      primaryOrganizerEmployeeId: primaryOrganizer.employeeId,
+    });
     res.status(201).json({ ok: true, activity });
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message });
   }
 });
 
-app.post("/api/activities/:activityId/qr", requireRoles("ADMIN", "ORGANIZER"), async (req, res) => {
+app.post("/api/activities/:activityId/qr", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where: { id: req.params.activityId } });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (!(await canManageActivity(req, activity))) {
+    return res.status(403).json({ ok: false, error: "ACTIVITY_MANAGEMENT_FORBIDDEN" });
+  }
 
   const issued = createEventToken(activity.id, qrTtl);
   await prisma.qrToken.create({

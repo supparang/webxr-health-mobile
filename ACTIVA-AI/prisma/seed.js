@@ -39,6 +39,40 @@ async function main() {
     });
   }
 
+  const organizerPermissions = [
+    "CAN_CREATE_ACTIVITY",
+    "CAN_EDIT_OWN_ACTIVITY",
+    "CAN_ASSIGN_CO_ORGANIZER",
+    "CAN_ASSIGN_VERIFIER",
+    "CAN_CLOSE_ACTIVITY",
+  ];
+
+  for (const permission of organizerPermissions) {
+    await prisma.userActivityPermission.upsert({
+      where: {
+        userId_permission: {
+          userId: users.ORG001.id,
+          permission,
+        },
+      },
+      update: {
+        revokedAt: null,
+        revokedById: null,
+        revokeReason: null,
+        validFrom: null,
+        validUntil: null,
+        reason: "Demo organizer permission seed",
+        grantedById: users.ADM001.id,
+      },
+      create: {
+        userId: users.ORG001.id,
+        permission,
+        grantedById: users.ADM001.id,
+        reason: "Demo organizer permission seed",
+      },
+    });
+  }
+
   const existing = await prisma.activity.findFirst({
     where: { title: "อบรมการใช้ AI อย่างรับผิดชอบ" },
   });

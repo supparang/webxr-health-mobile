@@ -14,6 +14,15 @@ enum UserRole {
   PARTICIPANT
 }
 
+enum ActivityPermissionKey {
+  CAN_CREATE_ACTIVITY
+  CAN_EDIT_OWN_ACTIVITY
+  CAN_ASSIGN_CO_ORGANIZER
+  CAN_ASSIGN_VERIFIER
+  CAN_CLOSE_ACTIVITY
+  CAN_MANAGE_ALL_ACTIVITIES
+}
+
 enum AttendanceStatus {
   REGISTERED
   CHECKED_IN
@@ -78,6 +87,9 @@ model User {
   status            String                 @default("ACTIVE")
   departmentId      String?
   department        Department?            @relation(fields: [departmentId], references: [id])
+  activityPermissions      UserActivityPermission[] @relation("ActivityPermissionUser")
+  activityPermissionGrants UserActivityPermission[] @relation("ActivityPermissionGrantedBy")
+  activityPermissionRevokes UserActivityPermission[] @relation("ActivityPermissionRevokedBy")
   organizedActivities Activity[]           @relation("ActivityOrganizer")
   attendanceRecords       AttendanceRecord[]
   voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
@@ -88,6 +100,28 @@ model User {
   auditLogs                AuditLog[]         @relation("AuditActor")
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
+}
+
+model UserActivityPermission {
+  id           String                @id @default(cuid())
+  userId       String
+  user         User                  @relation("ActivityPermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission   ActivityPermissionKey
+  grantedById  String?
+  grantedBy    User?                 @relation("ActivityPermissionGrantedBy", fields: [grantedById], references: [id])
+  grantedAt    DateTime              @default(now())
+  validFrom    DateTime?
+  validUntil   DateTime?
+  reason       String?
+  revokedAt    DateTime?
+  revokedById  String?
+  revokedBy    User?                 @relation("ActivityPermissionRevokedBy", fields: [revokedById], references: [id])
+  revokeReason String?
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([userId, permission])
+  @@index([userId, revokedAt])
+  @@index([permission, revokedAt])
 }
 
 model Activity {
