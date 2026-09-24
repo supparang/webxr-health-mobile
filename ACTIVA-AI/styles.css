@@ -118,3 +118,7 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .audit-filters{grid-template-columns:1fr}
   .audit-cards{display:block}
 }
+
+.tech-inline{margin-top:8px;font-size:12px}
+.tech-inline summary{cursor:pointer;color:#7b5a13;font-weight:700}
+.tech-inline code{display:block;margin-top:6px;white-space:normal;word-break:break-word}

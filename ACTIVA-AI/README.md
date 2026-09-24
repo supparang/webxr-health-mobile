@@ -201,3 +201,12 @@ V0.3:
 - เพิ่มตัวกรองค้นหา / ผู้ดำเนินการ / เหตุการณ์
 - Server และ Demo mode enrich audit logs ด้วย participant/activity context โดยไม่แก้ audit record เดิม
 - แปล reason code เช่น SHORT_DURATION เป็นข้อความไทยสำหรับผู้ใช้
+
+
+## V0.4.0 — Thai-First Operational UI
+- แปลสถานะที่ผู้ใช้เห็นเป็นภาษาไทย เช่น ต้องตรวจสอบ, รอการตัดสิน, รับรองแล้ว, รับรองเป็นกรณีพิเศษ
+- เก็บ technical status code เดิมไว้ใน title/data-code เพื่อใช้ด้านวิจัยและ debugging
+- ปรับ Human Review Center เป็น “ศูนย์ตรวจสอบโดยมนุษย์”
+- ปรับ System Evidence / Final Decision / Blockers / Staff Verification เป็นคำไทย
+- แปล reason codes เช่น SHORT_DURATION เป็น “ระยะเวลาเข้าร่วมไม่ถึงเกณฑ์”
+- เพิ่ม “ดูรหัสทางเทคนิค” แบบพับได้ เพื่อไม่ให้เจ้าหน้าที่ทั่วไปต้องอ่าน code ภาษาอังกฤษ
