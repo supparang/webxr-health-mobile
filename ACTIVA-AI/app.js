@@ -196,7 +196,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.5.8 • One-Device QR Test</div>'+
+        '<div class="version">V0.5.9 • Event Attendance Dashboard</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.8</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.5.9</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1100,35 +1100,73 @@
     return duplicates;
   }
 
-  function attendanceTable(rows, actionButtons) {
-    if (!rows.length) return '<div class="empty">ยังไม่มีรายการเข้าร่วม</div>';
+  function attendanceNeedsReview(r) {
+    const system=evidenceStatusOf(r);
+    const final=finalStatusOf(r);
+    return ["REVIEW_REQUIRED","INCOMPLETE","INCONSISTENT"].includes(system) || final==="REJECTED";
+  }
 
-    const table =
-      '<div class="table-wrap desktop-attendance"><table><thead><tr>'+
-      '<th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>เข้า</th><th>ออก</th><th>เวลา</th><th>เจ้าหน้าที่</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th>'+
-      (actionButtons?'<th>คำสั่ง</th>':'')+'</tr></thead><tbody>'+
-      rows.map(r => {
-        const user=r.user||{}, a=r.activity||{};
-        const buttons=actionButtons?'<td><button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมิน</button></td>':'';
-        return '<tr><td>'+esc((user.employeeId||"")+" • "+(user.name||""))+'</td><td>'+esc(a.title||r.activityId)+'</td>'+
-          '<td>'+fmt(r.checkinAt)+'</td><td>'+fmt(r.checkoutAt)+'</td><td>'+(r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%")+'</td>'+
-          '<td>'+(r.staffVerification?"✓":"—")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td>'+buttons+'</tr>';
-      }).join("")+'</tbody></table></div>';
+  function attendanceFilterMatch(r, filter) {
+    if(filter==="ACTIVE") return Boolean(r.checkinAt) && !r.checkoutAt;
+    if(filter==="CHECKED_OUT") return Boolean(r.checkoutAt);
+    if(filter==="WAIT_STAFF") return Boolean(r.checkinAt) && !r.staffVerification;
+    if(filter==="NEEDS_REVIEW") return attendanceNeedsReview(r);
+    if(filter==="NOT_EVALUATED") return evidenceStatusOf(r)==="NOT_EVALUATED";
+    if(filter==="VERIFIED") return ["VERIFIED","OVERRIDE_VERIFIED"].includes(finalStatusOf(r));
+    return true;
+  }
 
-    const cards =
-      '<div class="attendance-cards">'+rows.map(r => {
-        const user=r.user||{}, a=r.activity||{};
-        return '<article class="attendance-card">'+
-          '<div class="attendance-card-head"><div><b>'+esc(user.employeeId||"")+'</b><div>'+esc(user.name||"")+'</div></div>'+statusBadge(finalStatusOf(r))+'</div>'+
-          '<div class="attendance-card-title">'+esc(a.title||r.activityId)+'</div>'+
-          '<div class="attendance-meta"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span>'+
-          '<span><b>เวลา</b>'+(r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%")+'</span><span><b>เจ้าหน้าที่</b>'+(r.staffVerification?"✓":"—")+'</span></div>'+
-          '<div class="attendance-status-row"><span>ผลระบบ '+statusBadge(evidenceStatusOf(r))+'</span></div>'+
-          (actionButtons?'<button class="btn mini secondary evalBtn" data-id="'+r.id+'">ประเมินหลักฐาน</button>':'')+
-          '</article>';
-      }).join("")+'</div>';
+  function attendanceStateBadge(r) {
+    if(attendanceNeedsReview(r)) return statusBadge("REVIEW_REQUIRED");
+    if(["VERIFIED","OVERRIDE_VERIFIED"].includes(finalStatusOf(r))) return statusBadge(finalStatusOf(r));
+    if(r.checkinAt && !r.checkoutAt) return '<span class="status s-info">กำลังเข้าร่วม</span>';
+    if(r.checkoutAt && !r.staffVerification) return '<span class="status s-warn">รอเจ้าหน้าที่</span>';
+    if(evidenceStatusOf(r)==="NOT_EVALUATED") return statusBadge("NOT_EVALUATED");
+    return statusBadge(finalStatusOf(r));
+  }
 
-    return table+cards;
+  function attendanceSummary(rows) {
+    return {
+      total:rows.length,
+      active:rows.filter(r=>r.checkinAt&&!r.checkoutAt).length,
+      checkedOut:rows.filter(r=>r.checkoutAt).length,
+      staff:rows.filter(r=>r.staffVerification).length,
+      needsReview:rows.filter(attendanceNeedsReview).length,
+      notEvaluated:rows.filter(r=>evidenceStatusOf(r)==="NOT_EVALUATED").length,
+      verified:rows.filter(r=>["VERIFIED","OVERRIDE_VERIFIED"].includes(finalStatusOf(r))).length
+    };
+  }
+
+  function compactAttendanceCard(r, actionButtons) {
+    const u=r.user||{};
+    const c=r.consistencyResult;
+    const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
+    const pct=r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%";
+    const timeText=(r.checkinAt?new Date(r.checkinAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}):"—")+
+      " → "+(r.checkoutAt?new Date(r.checkoutAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}):"ยังไม่ออก");
+
+    return '<details class="attendance-compact">'+
+      '<summary>'+
+        '<span class="compact-person"><b>'+esc(u.employeeId||"")+'</b><span>'+esc(u.name||"")+'</span></span>'+
+        '<span class="compact-time">'+esc(timeText)+'</span>'+
+        '<span class="compact-state">'+attendanceStateBadge(r)+'</span>'+
+      '</summary>'+
+      '<div class="compact-detail">'+
+        '<div class="compact-evidence-grid">'+
+          '<span><b>เข้า</b>'+fmt(r.checkinAt)+'</span>'+
+          '<span><b>ออก</b>'+fmt(r.checkoutAt)+'</span>'+
+          '<span><b>ระยะเวลา</b>'+pct+'</span>'+
+          '<span><b>เจ้าหน้าที่</b>'+(r.staffVerification?"✓":"—")+'</span>'+
+          '<span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span>'+
+          '<span><b>ผลสุดท้าย</b>'+statusBadge(finalStatusOf(r))+'</span>'+
+        '</div>'+
+        '<div class="compact-reason"><b>เหตุผล/ข้อสังเกต:</b> '+esc(evidenceReasonText(reasons)||"ไม่มี")+'</div>'+
+        (actionButtons?'<div class="actions compact-actions">'+
+          '<button class="btn mini secondary dashManageBtn" data-id="'+r.id+'">จัดการรายการ</button>'+
+          '<button class="btn mini primary dashEvalBtn" data-id="'+r.id+'" '+(r.staffVerification?"":"title=\"ยังไม่มีการยืนยันโดยเจ้าหน้าที่\"")+'>ประเมินหลักฐาน</button>'+
+        '</div>':'')+
+      '</div>'+
+    '</details>';
   }
 
   async function renderAttendance(v) {
@@ -1155,14 +1193,144 @@
       '</div>'+
       '<div class="field token-fallback" id="tokenField" hidden style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จาก Dynamic QR"></textarea></div>'+
       '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
-      '<div class="panel"><h2>Check-out / Staff Verification</h2>'+
+      '<div class="panel" id="recordActionsPanel"><h2>Check-out / Staff Verification</h2>'+
       '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")+'</select></div>'+
       '<div class="actions"><button class="btn secondary" id="coBtn">Check-out</button>'+
       (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
       (can("ADMIN","STAFF")?'<button class="btn bad" id="voidBtn">ยกเลิกรายการผิด</button>':'')+
       '</div><div id="coMsg"></div></div></div>'+
       ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
-      '<div class="panel"><h2>รายการเข้า–ออกล่าสุด</h2>'+attendanceTable(rows, can("ADMIN","ORGANIZER","STAFF"))+'</div>';
+      '<div class="panel"><div id="attendanceDashboard"></div></div>';
+
+
+    const dashboardState={
+      activityId:document.getElementById("ciAct")?.value || activities[0]?.id || "",
+      filter:"AUTO",
+      search:"",
+      page:1,
+      pageSize:20
+    };
+
+    function renderAttendanceDashboard() {
+      const host=document.getElementById("attendanceDashboard");
+      if(!host) return;
+
+      const activityOptions=activities.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===dashboardState.activityId?'selected':'')+'>'+esc(a.title)+'</option>').join("");
+      const eventRows=rows.filter(r=>!dashboardState.activityId || (r.activity?.id||r.activityId)===dashboardState.activityId);
+      const summary=attendanceSummary(eventRows);
+
+      if(dashboardState.filter==="AUTO"){
+        dashboardState.filter=(can("ADMIN","ORGANIZER","STAFF")&&summary.needsReview>0)?"NEEDS_REVIEW":"ALL";
+      }
+
+      const term=dashboardState.search.trim().toLowerCase();
+      let filtered=eventRows.filter(r=>{
+        if(!attendanceFilterMatch(r,dashboardState.filter)) return false;
+        if(!term) return true;
+        const hay=[r.user?.employeeId,r.user?.name,r.userId].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(term);
+      });
+
+      filtered=filtered.sort((a,b)=>{
+        const ap=attendanceNeedsReview(a)?0:(!a.staffVerification?1:2);
+        const bp=attendanceNeedsReview(b)?0:(!b.staffVerification?1:2);
+        if(ap!==bp) return ap-bp;
+        return new Date(b.checkinAt||0)-new Date(a.checkinAt||0);
+      });
+
+      const pages=Math.max(1,Math.ceil(filtered.length/dashboardState.pageSize));
+      dashboardState.page=Math.min(Math.max(1,dashboardState.page),pages);
+      const start=(dashboardState.page-1)*dashboardState.pageSize;
+      const pageRows=filtered.slice(start,start+dashboardState.pageSize);
+
+      const filters=[
+        ["ALL","ทั้งหมด",summary.total],
+        ["ACTIVE","กำลังเข้าร่วม",summary.active],
+        ["CHECKED_OUT","ออกแล้ว",summary.checkedOut],
+        ["WAIT_STAFF","รอเจ้าหน้าที่",eventRows.filter(r=>attendanceFilterMatch(r,"WAIT_STAFF")).length],
+        ["NEEDS_REVIEW","ต้องตรวจสอบ",summary.needsReview],
+        ["NOT_EVALUATED","ยังไม่ประเมิน",summary.notEvaluated],
+        ["VERIFIED","รับรองแล้ว",summary.verified]
+      ];
+
+      host.innerHTML=
+        '<div class="event-dashboard-head"><div><h2>ภาพรวมผู้เข้าร่วมรายกิจกรรม</h2><p class="muted">เลือกกิจกรรมก่อน แล้วดูเฉพาะรายการที่ต้องจัดการ — รายละเอียดแต่ละคนถูกยุบไว้เพื่อรองรับกิจกรรมที่มีผู้เข้าร่วมจำนวนมาก</p></div></div>'+
+        '<div class="event-toolbar">'+
+          '<div class="field"><label>กิจกรรม</label><select id="dashActivity">'+activityOptions+'</select></div>'+
+          '<div class="field"><label>ค้นหารหัส/ชื่อบุคลากร</label><input id="dashSearch" value="'+esc(dashboardState.search)+'" placeholder="เช่น T004 หรือชื่อบุคลากร"></div>'+
+        '</div>'+
+        '<div class="event-summary-grid">'+
+          '<div class="event-stat"><b>'+summary.total+'</b><span>รายการทั้งหมด</span></div>'+
+          '<div class="event-stat"><b>'+summary.active+'</b><span>กำลังเข้าร่วม</span></div>'+
+          '<div class="event-stat"><b>'+summary.checkedOut+'</b><span>ออกแล้ว</span></div>'+
+          '<div class="event-stat"><b>'+summary.staff+'</b><span>เจ้าหน้าที่ยืนยัน</span></div>'+
+          '<div class="event-stat alert-stat"><b>'+summary.needsReview+'</b><span>ต้องตรวจสอบ</span></div>'+
+          '<div class="event-stat"><b>'+summary.verified+'</b><span>รับรองแล้ว</span></div>'+
+        '</div>'+
+        '<div class="filter-chips">'+filters.map(([key,label,count])=>
+          '<button class="filter-chip '+(dashboardState.filter===key?'active':'')+'" data-filter="'+key+'">'+esc(label)+' <span>'+count+'</span></button>'
+        ).join("")+'</div>'+
+        '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' รายการ'+
+          (dashboardState.filter==="NEEDS_REVIEW"?'<span class="exception-note"> • โหมด Exception-first</span>':'')+
+        '</div>'+
+        '<div class="compact-list">'+
+          (pageRows.length?pageRows.map(r=>compactAttendanceCard(r,can("ADMIN","ORGANIZER","STAFF"))).join(""):'<div class="empty">ไม่พบรายการตามตัวกรอง</div>')+
+        '</div>'+
+        '<div class="pagination">'+
+          '<button class="btn secondary mini" id="dashPrev" '+(dashboardState.page<=1?'disabled':'')+'>ก่อนหน้า</button>'+
+          '<span>หน้า '+dashboardState.page+' / '+pages+'</span>'+
+          '<button class="btn secondary mini" id="dashNext" '+(dashboardState.page>=pages?'disabled':'')+'>ถัดไป</button>'+
+        '</div>';
+
+      document.getElementById("dashActivity").onchange=(e)=>{
+        dashboardState.activityId=e.target.value;
+        dashboardState.filter="AUTO";
+        dashboardState.search="";
+        dashboardState.page=1;
+        renderAttendanceDashboard();
+      };
+
+      document.getElementById("dashSearch").oninput=(e)=>{
+        dashboardState.search=e.target.value;
+        dashboardState.page=1;
+        renderAttendanceDashboard();
+        const next=document.getElementById("dashSearch");
+        if(next){ next.focus(); next.setSelectionRange(next.value.length,next.value.length); }
+      };
+
+      host.querySelectorAll(".filter-chip").forEach(btn=>btn.onclick=()=>{
+        dashboardState.filter=btn.dataset.filter;
+        dashboardState.page=1;
+        renderAttendanceDashboard();
+      });
+
+      const prev=document.getElementById("dashPrev");
+      const next=document.getElementById("dashNext");
+      if(prev) prev.onclick=()=>{dashboardState.page--;renderAttendanceDashboard();};
+      if(next) next.onclick=()=>{dashboardState.page++;renderAttendanceDashboard();};
+
+      host.querySelectorAll(".dashManageBtn").forEach(btn=>btn.onclick=()=>{
+        const select=document.getElementById("coRecord");
+        if(select){
+          select.value=btn.dataset.id;
+          syncRecordActions();
+          document.getElementById("recordActionsPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+        }
+      });
+
+      host.querySelectorAll(".dashEvalBtn").forEach(btn=>btn.onclick=async()=>{
+        btn.disabled=true;
+        try{
+          await api("/api/evidence/"+encodeURIComponent(btn.dataset.id)+"/evaluate",{method:"POST"});
+          await renderAttendance(v);
+        }catch(e){
+          btn.disabled=false;
+          alert(e.message);
+        }
+      });
+    }
+
+    renderAttendanceDashboard();
 
     async function stopScanner() {
       if (!qrScanner) return;
@@ -1222,6 +1390,13 @@
         }
       }
     }
+
+    document.getElementById("ciAct")?.addEventListener("change",(e)=>{
+      dashboardState.activityId=e.target.value;
+      dashboardState.filter="AUTO";
+      dashboardState.page=1;
+      renderAttendanceDashboard();
+    });
 
     const sameDeviceTestBtn=document.getElementById("sameDeviceTestBtn");
     if(sameDeviceTestBtn) sameDeviceTestBtn.onclick=async()=>{
@@ -1380,11 +1555,6 @@
       } catch (e) { msg.innerHTML = errorBox(e); }
     };
 
-    document.querySelectorAll(".evalBtn").forEach(btn => btn.onclick = async () => {
-      btn.disabled = true;
-      try { await api("/api/evidence/"+encodeURIComponent(btn.dataset.id)+"/evaluate", {method:"POST"}); await renderAttendance(v); }
-      catch (e) { btn.disabled = false; alert(e.message); }
-    });
   }
 
   async function renderEvidence(v) {

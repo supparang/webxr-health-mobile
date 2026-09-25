@@ -1,6 +1,6 @@
 {
   "name": "activa-ai-prototype",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "private": true,
   "type": "module",
   "description": "ACTIVA-AI research prototype: policy-aware multi-source participation evidence verification",
