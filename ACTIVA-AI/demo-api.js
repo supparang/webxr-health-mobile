@@ -1048,7 +1048,9 @@
           a = candidate;
         }
       }
-      if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);\n      ensureDemoActivityMutable(a);\n      if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      ensureDemoActivityMutable(a);
+      if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       const windowState=checkinWindowState(a);
       if(!windowState.ok){
         const e=new Error(windowState.code);e.status=409;
