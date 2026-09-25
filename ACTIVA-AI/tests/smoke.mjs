@@ -41,7 +41,8 @@ async function req(path, { actor, method = "GET", body } = {}) {
 }
 
 const health = await req("/api/health");
-assert(health.ok && health.database === "connected", "health/database check failed");\nassert(health.version === "1.0.0", "health version must report ACTIVA-AI 1.0.0");
+assert(health.ok && health.database === "connected", "health/database check failed");
+assert(health.version === "1.0.0", "health version must report ACTIVA-AI 1.0.0");
 
 const me = await req("/api/me", { actor: "ADM001" });
 assert(me.user?.employeeId === "ADM001", "admin identity check failed");
