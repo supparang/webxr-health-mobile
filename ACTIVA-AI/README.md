@@ -347,6 +347,21 @@ V0.3:
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
 
 
+## V1.0.0 — Pilot-Ready Release Gate
+- เพิ่ม V1 Release Gate แบบ `GO / HOLD` สำหรับ ADMIN/STAFF โดยแยกจากการตัดสิน participation รายบุคคล
+- เพิ่ม immutable activity closure พร้อม SHA-256 closure hash และ snapshot ของ final operational state
+- หลังปิดกิจกรรม ระบบ block การแก้ assignments/participants, Dynamic QR, check-in/out, staff verification, void, Evidence re-evaluation และ Human Review
+- Ground Truth/Research annotation ยังคงแยกจาก operational closure เพื่อรองรับงานวิจัยหลังเหตุการณ์
+- เพิ่ม ADMIN-only operational backup export พร้อม checksum; ระบุชัดว่า backup มี PII แต่ไม่รวม cryptographic QR credentials
+- เพิ่ม recovery-check ที่ตรวจ format/count/checksum โดยไม่ overwrite live database
+- Release Gate ต้องมี recovery check ของ release ปัจจุบันภายใน 24 ชั่วโมง
+- เพิ่ม runtime acceptance scenarios: security configuration, human final authority, activity immutability, backlog target, critical data quality และ backup/recovery
+- เพิ่ม release-decision audit: `PILOT_RELEASE_GO` / `PILOT_RELEASE_HOLD` พร้อมเหตุผล
+- Production GO ถูก block หาก security secret ยังเป็น placeholder, มีกิจกรรมสิ้นสุดที่ยังไม่ immutable-close หรือยังไม่มี recovery check ล่าสุด
+- Demo Mode ถูกบังคับ HOLD เสมอและไม่สามารถอนุมัติ Production GO
+- เพิ่ม UI สำหรับปิดกิจกรรม, export backup, recovery-check และบันทึก GO/HOLD
+- CI smoke test ครอบคลุม closure idempotency, HTTP 423 mutation lock, backup checksum, tamper detection, access control และ release audit
+
 ## V0.9.0 — Pilot Readiness & Operational Monitoring
 - เพิ่ม endpoint `GET /api/operations/pilot-readiness` สำหรับ ADMIN/STAFF
 - เพิ่มสถานะ `READY / WATCH / BLOCKED` สำหรับ readiness ของกระบวนการ Pilot
