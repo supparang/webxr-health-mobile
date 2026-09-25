@@ -606,4 +606,26 @@ assert(staffAnalytics.containsPII === false, "staff aggregate analytics exposed 
 const participantAnalytics = await reqError("/api/analytics/verified", { actor: "P001" });
 assert(participantAnalytics.status === 403, "participant must not access organization analytics");
 
-console.log("ACTIVA-AI V0.8.0 smoke test passed");
+const pilot = await req("/api/operations/pilot-readiness", { actor: "ADM001" });
+assert(pilot.ok === true, "pilot readiness endpoint failed");
+assert(pilot.aggregated === true, "pilot readiness must be aggregate-only");
+assert(pilot.containsPII === false, "pilot readiness must not expose PII");
+assert(["READY","WATCH","BLOCKED"].includes(pilot.pilotStatus), "invalid pilot readiness status");
+assert(pilot.governance?.humanFinalDecisionRequired === true, "pilot governance lost human final decision requirement");
+assert(pilot.governance?.aiAutonomousDecision === false, "pilot governance must prohibit autonomous AI personnel decisions");
+assert(pilot.governance?.aiRequiredForPilot === false, "AI must not be mandatory for pilot operation");
+assert(pilot.reviewMonitoring?.targetHours > 0, "review monitoring target missing");
+assert(
+  pilot.reviewMonitoring?.targetType === "OPERATIONAL_MONITORING_TARGET_NOT_PERSONNEL_SCORE",
+  "review target must be labeled as operational, not personnel scoring"
+);
+assert(Array.isArray(pilot.dataQuality?.alerts), "pilot data-quality alerts missing");
+assert(Array.isArray(pilot.activityClosing?.activities), "activity closing checklist missing");
+
+const staffPilot = await req("/api/operations/pilot-readiness", { actor: "STF001" });
+assert(staffPilot.containsPII === false, "staff pilot readiness exposed PII");
+
+const participantPilot = await reqError("/api/operations/pilot-readiness", { actor: "P001" });
+assert(participantPilot.status === 403, "participant must not access pilot readiness");
+
+console.log("ACTIVA-AI V0.9.0 smoke test passed");
