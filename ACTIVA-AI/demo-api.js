@@ -563,7 +563,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.6.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.7.0-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1269,8 +1269,20 @@
 
     if (p === "/api/xai/queue" && method==="GET") {
       const model=state.models.find(x=>x.status==="DEPLOYED")||null;
-      const records=model?state.predictions.filter(x=>x.modelVersion===model.version).map(pr=>({...pr,attendance:hydrateAttendance(attendance(pr.attendanceId))})):[];
-      return {ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,records};
+      const records=model?state.predictions
+        .filter(x=>x.modelVersion===model.version)
+        .sort((a,b)=>Number(b.riskProbability||0)-Number(a.riskProbability||0))
+        .map((pr,index)=>({
+          ...pr,
+          priorityRank:index+1,
+          riskPercent:Math.round(Number(pr.riskProbability||0)*100),
+          modelFlaggedForReview:pr.predictedLabel==="REVIEW_REQUIRED",
+          attendance:hydrateAttendance(attendance(pr.attendanceId))
+        })):[];
+      return {
+        ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,
+        rankingBasis:"deployed_model_risk_probability_desc",records
+      };
     }
 
     if (p === "/api/audit" && method==="GET") {
