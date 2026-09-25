@@ -254,14 +254,14 @@ app.get("/api/health", async (_req, res) => {
     });
     res.json({
       ok: true,
-      version: "0.7.0",
+      version: "0.8.0",
       database: "connected",
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
     });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.7.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.8.0", database: "unavailable", error: error.message });
   }
 });
 
@@ -2238,6 +2238,160 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   });
 });
 
+app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+  const deployed = await prisma.modelRun.findFirst({
+    where: { status: "DEPLOYED" },
+    orderBy: { deployedAt: "desc" },
+    select: { id: true, version: true, modelFamily: true, deployedAt: true },
+  });
+
+  const rows = await prisma.attendanceRecord.findMany({
+    where: { isVoided: false },
+    include: {
+      activity: { select: { id: true, title: true, category: true, startAt: true, endAt: true } },
+      consistencyResult: true,
+      humanReviews: { orderBy: { reviewedAt: "desc" } },
+      groundTruthCase: true,
+      groundTruthLabels: true,
+      aiPredictions: deployed
+        ? { where: { modelRunId: deployed.id }, take: 1 }
+        : { where: { id: "__NO_DEPLOYED_MODEL__" }, take: 1 },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const terminalStatuses = new Set(["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"]);
+  const finalizedRows = rows.filter((r) => terminalStatuses.has(r.finalEvidenceStatus));
+  const unresolvedRows = rows.filter((r) => !terminalStatuses.has(r.finalEvidenceStatus));
+
+  const verifiedCount = finalizedRows.filter((r) =>
+    ["VERIFIED", "OVERRIDE_VERIFIED"].includes(r.finalEvidenceStatus)
+  ).length;
+  const overrideVerifiedCount = finalizedRows.filter((r) => r.finalEvidenceStatus === "OVERRIDE_VERIFIED").length;
+  const rejectedCount = finalizedRows.filter((r) => r.finalEvidenceStatus === "REJECTED").length;
+
+  const reviewDurations = finalizedRows
+    .map((r) => r.humanReviews[0]?.reviewDurationSeconds)
+    .filter((x) => Number.isFinite(Number(x)) && Number(x) >= 0)
+    .map(Number);
+
+  const resolutionHours = finalizedRows
+    .map((r) => {
+      const reviewedAt = r.humanReviews[0]?.reviewedAt;
+      if (!reviewedAt) return null;
+      const delta = new Date(reviewedAt).getTime() - new Date(r.createdAt).getTime();
+      return delta >= 0 ? delta / 3600000 : null;
+    })
+    .filter((x) => x !== null && Number.isFinite(x));
+
+  const mean = (values) => values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : null;
+
+  const exceptionCounts = new Map();
+  finalizedRows.forEach((r) => {
+    const codes = [
+      ...(Array.isArray(r.consistencyResult?.missingCodes) ? r.consistencyResult.missingCodes : []),
+      ...(Array.isArray(r.consistencyResult?.reasonCodes) ? r.consistencyResult.reasonCodes : []),
+    ];
+    [...new Set(codes.map(String))].forEach((code) => {
+      exceptionCounts.set(code, (exceptionCounts.get(code) || 0) + 1);
+    });
+  });
+
+  const activityMap = new Map();
+  rows.forEach((r) => {
+    const key = r.activityId;
+    if (!activityMap.has(key)) {
+      activityMap.set(key, {
+        activityId: key,
+        title: r.activity?.title || "",
+        category: r.activity?.category || "",
+        recordCount: 0,
+        finalizedCount: 0,
+        verifiedCount: 0,
+        overrideVerifiedCount: 0,
+        rejectedCount: 0,
+        unresolvedCount: 0,
+      });
+    }
+    const item = activityMap.get(key);
+    item.recordCount += 1;
+    if (terminalStatuses.has(r.finalEvidenceStatus)) item.finalizedCount += 1;
+    else item.unresolvedCount += 1;
+    if (["VERIFIED", "OVERRIDE_VERIFIED"].includes(r.finalEvidenceStatus)) item.verifiedCount += 1;
+    if (r.finalEvidenceStatus === "OVERRIDE_VERIFIED") item.overrideVerifiedCount += 1;
+    if (r.finalEvidenceStatus === "REJECTED") item.rejectedCount += 1;
+  });
+
+  const byActivity = [...activityMap.values()]
+    .map((x) => ({
+      ...x,
+      finalizationRate: x.recordCount ? x.finalizedCount / x.recordCount : 0,
+      verifiedOutcomeRate: x.finalizedCount ? x.verifiedCount / x.finalizedCount : null,
+    }))
+    .sort((a, b) => b.recordCount - a.recordCount || a.title.localeCompare(b.title));
+
+  const lockedRows = rows.filter((r) =>
+    r.groundTruthCase?.status === "LOCKED" && r.groundTruthCase?.finalTarget
+  );
+  const comparable = lockedRows.filter((r) => r.aiPredictions[0]);
+  let tp = 0, fp = 0, tn = 0, fn = 0, agreementCount = 0;
+  comparable.forEach((r) => {
+    const actual = r.groundTruthCase.finalTarget;
+    const predicted = r.aiPredictions[0].predictedLabel;
+    if (actual === predicted) agreementCount += 1;
+    if (actual === "REVIEW_REQUIRED" && predicted === "REVIEW_REQUIRED") tp += 1;
+    else if (actual === "NO_REVIEW_REQUIRED" && predicted === "REVIEW_REQUIRED") fp += 1;
+    else if (actual === "NO_REVIEW_REQUIRED" && predicted === "NO_REVIEW_REQUIRED") tn += 1;
+    else if (actual === "REVIEW_REQUIRED" && predicted === "NO_REVIEW_REQUIRED") fn += 1;
+  });
+
+  const doubleLabeled = rows.filter((r) => (r.groundTruthLabels || []).length >= 2);
+  const reviewerAgreementCount = doubleLabeled.filter((r) => {
+    const targets = [...new Set(r.groundTruthLabels.map((x) => x.target))];
+    return targets.length === 1;
+  }).length;
+
+  res.json({
+    ok: true,
+    aggregated: true,
+    containsPII: false,
+    scope: "ORGANIZATION",
+    generatedAt: new Date().toISOString(),
+    operational: {
+      recordCount: rows.length,
+      finalizedCount: finalizedRows.length,
+      unresolvedCount: unresolvedRows.length,
+      verifiedCount,
+      overrideVerifiedCount,
+      rejectedCount,
+      finalizationRate: rows.length ? finalizedRows.length / rows.length : 0,
+      verifiedOutcomeRate: finalizedRows.length ? verifiedCount / finalizedRows.length : null,
+      averageReviewDurationSeconds: mean(reviewDurations),
+      averageResolutionHours: mean(resolutionHours),
+      turnaroundDefinition: "attendance_record_created_at_to_latest_terminal_human_review",
+      exceptionPatterns: [...exceptionCounts.entries()]
+        .map(([code, count]) => ({ code, count }))
+        .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code)),
+      byActivity,
+    },
+    researchSnapshot: {
+      separatedFromOperationalOutcomes: true,
+      deployedModel: deployed,
+      lockedGroundTruthCount: lockedRows.length,
+      comparableModelGroundTruthCount: comparable.length,
+      modelGroundTruthAgreementCount: agreementCount,
+      modelGroundTruthAgreementRate: comparable.length ? agreementCount / comparable.length : null,
+      confusionMatrix: { tp, fp, tn, fn },
+      doubleLabeledCaseCount: doubleLabeled.length,
+      reviewerAgreementCount,
+      reviewerAgreementRate: doubleLabeled.length ? reviewerAgreementCount / doubleLabeled.length : null,
+      note: "Research metrics compare deployed-model predictions with locked ground truth; they are not personnel performance scores.",
+    },
+  });
+});
+
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     where: { isVoided: false },
@@ -2307,5 +2461,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.7.0 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.8.0 server running on http://localhost:" + port);
 });
