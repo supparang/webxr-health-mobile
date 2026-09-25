@@ -247,9 +247,21 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.6.2", database: "connected", ai: "disabled-until-ground-truth" });
+    const deployedModel = await prisma.modelRun.findFirst({
+      where: { status: "DEPLOYED" },
+      orderBy: { deployedAt: "desc" },
+      select: { version: true },
+    });
+    res.json({
+      ok: true,
+      version: "0.7.0",
+      database: "connected",
+      ai: deployedModel ? "decision-support-active" : "no-deployed-model",
+      deployedModelVersion: deployedModel?.version || null,
+      autonomousDecision: false,
+    });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.6.2", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.7.0", database: "unavailable", error: error.message });
   }
 });
 
