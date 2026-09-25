@@ -2613,7 +2613,10 @@
     if (m.decision) rows.push(["การตัดสินใจ", auditDecisionLabel(m.decision)]);
     if (m.reason) rows.push(["เหตุผลผู้ตรวจ", String(m.reason)]);
     if (Array.isArray(m.blockers) && m.blockers.length) rows.push(["ข้อที่ต้องตรวจ", m.blockers.map(auditReasonLabel).join(" • ")]);
-    if (m.previousFinal) rows.push(["สถานะเดิม", String(m.previousFinal)]);
+    const previousFinalStatus=m.previousFinalStatus??m.previousFinal;
+    if (previousFinalStatus !== undefined && previousFinalStatus !== null) rows.push(["สถานะเดิม", String(previousFinalStatus||"ยังไม่มีผลตัดสิน")]);
+    if (m.finalEvidenceStatus) rows.push(["สถานะสุดท้าย", String(m.finalEvidenceStatus)]);
+    if (m.systemEvidenceStatus) rows.push(["ผลตรวจหลักฐานของระบบ", String(m.systemEvidenceStatus)]);
     if (m.status) rows.push(["สถานะ", String(m.status)]);
     if (m.ruleVersion) rows.push(["กฎที่ใช้", String(m.ruleVersion)]);
     if (m.finalTarget) rows.push(["Ground Truth", String(m.finalTarget)]);
