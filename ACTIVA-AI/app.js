@@ -392,11 +392,13 @@
   }
 
   function analyticsPct(value) {
+    if (value === null || value === undefined || value === "") return "—";
     const n=Number(value);
     return Number.isFinite(n) ? (n*100).toFixed(1)+"%" : "—";
   }
 
   function analyticsNumber(value, digits=1) {
+    if (value === null || value === undefined || value === "") return "—";
     const n=Number(value);
     return Number.isFinite(n) ? n.toFixed(digits) : "—";
   }
