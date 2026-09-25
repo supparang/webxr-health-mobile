@@ -251,10 +251,20 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 .activity-meta span{background:#f8fafc;border-radius:10px;padding:10px}
 .activity-meta b{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
 .activity-manager hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+.assignment-role-grid{align-items:start}
+.assignment-section{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+.assignment-section-title{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+.assignment-section-title h3{margin:0}
+.assignment-section-title p{margin:4px 0 0}
+.assignment-step{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;border-radius:999px;background:#e9f0ff;color:#174ea6;font-weight:800}
+.assignment-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:10px 0 8px}
+.assignment-tools .field{margin:0}
+.assignment-selection-bar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .assignment-list{display:grid;gap:7px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fbfdff}
-.assignment-person{display:flex;gap:10px;align-items:flex-start;padding:9px;border-radius:9px}
+.assignment-person{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:9px;border:1px solid transparent}
 .assignment-person:hover{background:#f1f5fb}
-.assignment-person input{margin-top:4px}
+.assignment-person:has(input:checked){background:#eef5ff;border-color:#9cb9f4}
+.assignment-person input{margin-top:4px;transform:scale(1.12)}
 .assignment-person span{display:block}
 .assignment-person b,.assignment-person small{display:block}
 .assignment-person small{color:var(--muted);margin-top:2px}
@@ -267,6 +277,12 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .activity-cards{display:grid;gap:12px}
   .activity-meta{grid-template-columns:1fr 1fr}
   .participation-modes{grid-template-columns:1fr}
+  .assignment-role-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .assignment-section{padding:12px}
+  .assignment-section-title{position:sticky;top:0;z-index:3;background:#fff;padding:8px 0 10px;border-bottom:1px solid #edf1f7}
+  .assignment-tools{grid-template-columns:1fr}
+  .assignment-selection-bar{justify-content:space-between}
+  .assignment-list{max-height:240px}
 }
 @media(max-width:430px){.activity-meta{grid-template-columns:1fr}}
 
