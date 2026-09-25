@@ -1232,6 +1232,7 @@
       (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+className+'">ล้างที่เลือก</button>':'')+
       '</div></div>'+
       '<div id="'+countId+'Names" class="assignment-selected-summary"><b>รายชื่อที่เลือกจริง:</b> '+esc(selectedText)+'</div>'+
+      '<div id="'+countId+'Hidden" class="alert warn assignment-hidden-warning" style="display:none"></div>'+
       '<div class="assignment-list" data-search-for="'+searchId+'">'+users.map(u=>
       '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
       '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
@@ -1294,6 +1295,32 @@
         const list=host.querySelector('.assignment-list[data-search-for="'+searchId+'"]');
         const count=document.getElementById(countId);
         const summary=document.getElementById(countId+"Names");
+        const hiddenWarning=document.getElementById(countId+"Hidden");
+        const applyFilter=()=>{
+          if(!input||!list)return;
+          const q=input.value.trim().toLowerCase();
+          list.querySelectorAll('.assignment-person').forEach(row=>{
+            row.style.display=!q||String(row.dataset.search||"").includes(q)?"flex":"none";
+          });
+          const hiddenChecked=[...list.querySelectorAll('.'+className+':checked')].filter(x=>x.closest(".assignment-person")?.style.display==="none");
+          if(hiddenWarning){
+            if(q&&hiddenChecked.length){
+              hiddenWarning.style.display="block";
+              hiddenWarning.innerHTML='<b>มีผู้ที่เลือกอยู่แต่ถูกซ่อนจากผลค้นหา '+hiddenChecked.length+' คน</b><br>'+
+                esc(hiddenChecked.map(x=>x.dataset.label||x.value).join(", "))+
+                '<div class="actions"><button type="button" class="btn mini secondary clearHiddenSelection">ล้างรายการที่ซ่อน</button></div>';
+              const clearHidden=hiddenWarning.querySelector(".clearHiddenSelection");
+              if(clearHidden)clearHidden.onclick=()=>{
+                hiddenChecked.forEach(x=>{x.checked=false;});
+                updateCount();
+                applyFilter();
+              };
+            }else{
+              hiddenWarning.style.display="none";
+              hiddenWarning.innerHTML="";
+            }
+          }
+        };
         const updateCount=()=>{
           const checked=[...host.querySelectorAll('.'+className+':checked')];
           if(count) count.textContent='เลือก '+checked.length+' คน';
@@ -1301,13 +1328,7 @@
             const labels=checked.map(x=>x.dataset.label||x.value);
             summary.textContent='รายชื่อที่เลือกจริง: '+(labels.length?labels.join(", "):"ยังไม่ได้เลือกใคร");
           }
-        };
-        const applyFilter=()=>{
-          if(!input||!list)return;
-          const q=input.value.trim().toLowerCase();
-          list.querySelectorAll('.assignment-person').forEach(row=>{
-            row.style.display=!q||String(row.dataset.search||"").includes(q)?"flex":"none";
-          });
+          applyFilter();
         };
         if(input) input.oninput=applyFilter;
         host.querySelectorAll('.'+className).forEach(x=>x.onchange=updateCount);
