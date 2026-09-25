@@ -41,7 +41,7 @@ async function req(path, { actor, method = "GET", body } = {}) {
 }
 
 const health = await req("/api/health");
-assert(health.ok && health.database === "connected", "health/database check failed");
+assert(health.ok && health.database === "connected", "health/database check failed");\nassert(health.version === "1.0.0", "health version must report ACTIVA-AI 1.0.0");
 
 const me = await req("/api/me", { actor: "ADM001" });
 assert(me.user?.employeeId === "ADM001", "admin identity check failed");
@@ -628,4 +628,93 @@ assert(staffPilot.containsPII === false, "staff pilot readiness exposed PII");
 const participantPilot = await reqError("/api/operations/pilot-readiness", { actor: "P001" });
 assert(participantPilot.status === 403, "participant must not access pilot readiness");
 
-console.log("ACTIVA-AI V0.9.0 smoke test passed");
+// V1.0 pilot release gate, immutable closure, backup and recovery verification
+const releaseNow=Date.now();
+const releaseActivity=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI V1 immutable closure",
+    category:"ทดสอบ Release",
+    location:"CI",
+    startAt:new Date(releaseNow-120*60000).toISOString(),
+    endAt:new Date(releaseNow-60*60000).toISOString(),
+    policy:{}
+  }
+});
+assert(releaseActivity.activity?.id,"V1 closure activity creation failed");
+
+const gateBeforeClose=await req("/api/operations/release-gate",{actor:"ADM001"});
+assert(gateBeforeClose.releaseVersion==="ACTIVA-AI-1.0.0","release gate version mismatch");
+assert(["GO","HOLD"].includes(gateBeforeClose.gate),"release gate status invalid");
+assert(gateBeforeClose.containsPII===false,"release gate must not expose PII");
+assert(Array.isArray(gateBeforeClose.scenarios),"release acceptance scenarios missing");
+assert(gateBeforeClose.activityClosure?.activities?.some(x=>x.id===releaseActivity.activity.id||x.activityId===releaseActivity.activity.id),"ended activity missing from release closure gate");
+
+const closure=await req("/api/operations/activities/"+encodeURIComponent(releaseActivity.activity.id)+"/close",{
+  actor:"ADM001",
+  method:"POST",
+  body:{reason:"CI confirms immutable V1 operational closure"}
+});
+assert(closure.immutableOperationalClosure===true,"activity immutable closure failed");
+assert(closure.pilotClosureHash,"activity closure hash missing");
+assert(closure.pilotClosureVersion==="ACTIVA-AI-1.0.0","activity closure version mismatch");
+
+const closureAgain=await req("/api/operations/activities/"+encodeURIComponent(releaseActivity.activity.id)+"/close",{
+  actor:"ADM001",
+  method:"POST",
+  body:{reason:"CI idempotent closure confirmation"}
+});
+assert(closureAgain.idempotent===true,"activity closure must be idempotent");
+
+const mutateClosedActivity=await reqError("/api/activities/"+encodeURIComponent(releaseActivity.activity.id)+"/participants",{
+  actor:"ADM001",
+  method:"PUT",
+  body:{mode:"OPEN",userIds:[],departmentCodes:[]}
+});
+assert(mutateClosedActivity.status===423,"closed activity operational mutation must be locked");
+assert(mutateClosedActivity.data?.error==="ACTIVITY_PILOT_CLOSED_IMMUTABLE","wrong closed activity mutation error");
+
+const participantGate=await reqError("/api/operations/release-gate",{actor:"P001"});
+assert(participantGate.status===403,"participant must not access V1 release gate");
+
+const participantBackup=await reqError("/api/operations/backup",{actor:"P001"});
+assert(participantBackup.status===403,"participant must not export operational backup");
+
+const backupExport=await req("/api/operations/backup",{actor:"ADM001"});
+assert(backupExport.backup?.format==="ACTIVA_AI_BACKUP_V1","backup format mismatch");
+assert(backupExport.backup?.releaseVersion==="ACTIVA-AI-1.0.0","backup release version mismatch");
+assert(backupExport.backup?.containsPII===true,"operational backup must explicitly declare PII");
+assert(backupExport.backup?.containsSecrets===false,"operational backup must exclude secrets");
+assert(backupExport.backup?.checksum,"backup checksum missing");
+
+const recoveryCheck=await req("/api/operations/recovery-check",{
+  actor:"ADM001",
+  method:"POST",
+  body:{backup:backupExport.backup}
+});
+assert(recoveryCheck.restorableStructureVerified===true,"backup recovery structure check failed");
+assert(recoveryCheck.destructiveRestorePerformed===false,"recovery check must not overwrite live database");
+assert(recoveryCheck.currentReleaseVersionMatch===true,"recovery check release version mismatch");
+
+const tamperedBackup=JSON.parse(JSON.stringify(backupExport.backup));
+tamperedBackup.payload.users.push({id:"tampered"});
+const tamperedCheck=await reqError("/api/operations/recovery-check",{
+  actor:"ADM001",
+  method:"POST",
+  body:{backup:tamperedBackup}
+});
+assert(tamperedCheck.status===422,"tampered backup must fail recovery verification");
+assert(tamperedCheck.data?.error==="BACKUP_CHECKSUM_MISMATCH","tampered backup checksum error mismatch");
+
+const gateAfterRecovery=await req("/api/operations/release-gate",{actor:"ADM001"});
+assert(gateAfterRecovery.backupRecovery?.passed===true,"recent V1 recovery check must satisfy backup gate");
+
+const holdDecision=await req("/api/operations/release-decision",{
+  actor:"ADM001",
+  method:"POST",
+  body:{decision:"HOLD",reason:"CI records a deliberate HOLD decision for release audit"}
+});
+assert(holdDecision.decision==="HOLD","release HOLD decision was not recorded");
+
+console.log("ACTIVA-AI V1.0.0 smoke test passed");
