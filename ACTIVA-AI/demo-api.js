@@ -478,6 +478,69 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
+  const RELEASE_VERSION="ACTIVA-AI-1.0.0";
+  const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
+
+  function ensureDemoActivityMutable(a){
+    if(!a) err("ACTIVITY_NOT_FOUND",404);
+    if(a.pilotClosedAt) err("ACTIVITY_PILOT_CLOSED_IMMUTABLE",423);
+  }
+
+  function demoActivityCloseAssessment(a){
+    if(!a) return null;
+    const terminal=new Set(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"]);
+    const rows=state.attendance.filter(r=>!r.isVoided&&r.activityId===a.id);
+    const critical=[];
+    const byUser=new Map();
+    rows.forEach(r=>{if(!byUser.has(r.userId))byUser.set(r.userId,[]);byUser.get(r.userId).push(r);});
+    byUser.forEach(xs=>{if(xs.length>1)critical.push("DUPLICATE_NONVOID_ATTENDANCE");});
+    rows.forEach(r=>{
+      const latest=state.reviews.filter(x=>x.attendanceId===r.id).sort((x,y)=>String(y.reviewedAt).localeCompare(String(x.reviewedAt)))[0]||null;
+      const blockers=[...(r.consistencyResult?.missingCodes||[]),...(r.consistencyResult?.reasonCodes||[])];
+      if(r.checkinAt&&r.checkoutAt&&new Date(r.checkoutAt)<new Date(r.checkinAt))critical.push("CHECKOUT_BEFORE_CHECKIN");
+      if(terminal.has(r.finalEvidenceStatus)&&!latest)critical.push("FINAL_STATUS_WITHOUT_HUMAN_REVIEW");
+      if(r.finalEvidenceStatus==="VERIFIED"&&(!r.consistencyResult||r.consistencyResult.status!=="COMPLETE"||blockers.length))critical.push("NORMAL_VERIFY_WITH_SYSTEM_BLOCKERS");
+    });
+    const unevaluatedCount=rows.filter(r=>!r.consistencyResult).length;
+    const unresolvedCount=rows.filter(r=>!terminal.has(r.finalEvidenceStatus)).length;
+    const ended=new Date(a.endAt).getTime()<Date.now();
+    const criticalIssues=[...new Set(critical)];
+    const checklist=[
+      {key:"ACTIVITY_ENDED",passed:ended},
+      {key:"ALL_RECORDS_EVALUATED",passed:unevaluatedCount===0},
+      {key:"NO_UNRESOLVED_HUMAN_REVIEW",passed:unresolvedCount===0},
+      {key:"NO_CRITICAL_DATA_QUALITY",passed:criticalIssues.length===0}
+    ];
+    return {activity:a,rows,recordCount:rows.length,unevaluatedCount,unresolvedCount,criticalIssues,ended,checklist,closeReady:checklist.every(x=>x.passed)};
+  }
+
+  function demoBackup(){
+    const cleanUsers=state.users.map(u=>{const copy={...u};delete copy.personalQrCredential;return copy;});
+    const cleanActivities=state.activities.map(a=>{const copy={...a};delete copy.qr;delete copy.qrByPurpose;return copy;});
+    const payload={
+      users:cleanUsers,
+      activities:cleanActivities,
+      attendance:JSON.parse(JSON.stringify(state.attendance)),
+      reviews:JSON.parse(JSON.stringify(state.reviews)),
+      groundTruthLabels:JSON.parse(JSON.stringify(state.groundTruthLabels)),
+      groundTruthCases:JSON.parse(JSON.stringify(state.groundTruthCases)),
+      models:JSON.parse(JSON.stringify(state.models)),
+      predictions:JSON.parse(JSON.stringify(state.predictions)),
+      audit:JSON.parse(JSON.stringify(state.audit))
+    };
+    const serialized=JSON.stringify(payload);
+    const checksum=hashDemo(serialized);
+    const counts=Object.fromEntries(Object.entries(payload).map(([k,v])=>[k,Array.isArray(v)?v.length:0]));
+    return {format:BACKUP_FORMAT,releaseVersion:RELEASE_VERSION,generatedAt:iso(),containsPII:true,containsSecrets:false,
+      excludedEphemeralSecurityData:["DynamicQrToken","PersonalQrCredential"],checksumAlgorithm:"DEMO_FNV32",checksum,counts,payload,syntheticDemo:true};
+  }
+
+  function validateDemoBackup(backup){
+    if(!backup||backup.format!==BACKUP_FORMAT||!backup.payload||!backup.checksum)return{valid:false,error:"INVALID_BACKUP_FORMAT"};
+    const checksum=hashDemo(JSON.stringify(backup.payload));
+    if(checksum!==backup.checksum)return{valid:false,error:"BACKUP_CHECKSUM_MISMATCH",expected:backup.checksum,actual:checksum};
+    return{valid:true,checksum,releaseVersion:backup.releaseVersion||null,currentReleaseVersionMatch:backup.releaseVersion===RELEASE_VERSION,containsPII:Boolean(backup.containsPII),containsSecrets:Boolean(backup.containsSecrets)};
+  }
   function activityPublic(a) {
     if(!a) return null;
     const assignments=(a.roleAssignments||[]).map(x=>({...x,user:userPublic(actor(x.userId))}));
@@ -563,7 +626,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.9.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -797,7 +860,7 @@
         id:uid("DEMO-EVT"),title:b.title,category:b.category,description:b.description||"",
         location:b.location,startAt:b.startAt,endAt:b.endAt,...windows,organizerId:primaryOrganizer.id,
         participationMode:"OPEN",allowedDepartmentCodes:[],roleAssignments:[],participants:[],
-        assignmentsUpdatedAt:null,
+        assignmentsUpdatedAt:null,pilotClosedAt:null,pilotClosedById:null,pilotClosureNote:null,pilotClosureVersion:null,pilotClosureHash:null,pilotClosureSnapshot:null,
         policy:b.policy||{},qr:null
       };
       state.activities.unshift(a); audit(who.id,"ACTIVITY_CREATED","Activity",a.id,{demo:true,primaryOrganizerId:primaryOrganizer.id,primaryOrganizerEmployeeId:primaryOrganizer.employeeId}); save();
@@ -822,7 +885,7 @@
 
     m = p.match(/^\/api\/activities\/([^/]+)\/assignments$/);
     if(m && method==="PUT"){
-      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404); ensureDemoActivityMutable(a);
       const hasCo=Array.isArray(b.coOrganizerIds), hasVerifier=Array.isArray(b.verifierIds);
       if(!hasCo&&!hasVerifier) err("ASSIGNMENT_LIST_REQUIRED",400);
 
@@ -891,7 +954,7 @@
 
     m = p.match(/^\/api\/activities\/([^/]+)\/participants$/);
     if(m && method==="PUT"){
-      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      const a=activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404); ensureDemoActivityMutable(a);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
       const mode=String(b.mode||"OPEN").toUpperCase();
       if(!["OPEN","ROSTER","GROUP"].includes(mode)) err("INVALID_PARTICIPATION_MODE",400);
@@ -985,8 +1048,7 @@
           a = candidate;
         }
       }
-      if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);
-      if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      if(!a) err("INVALID_OR_EXPIRED_DEMO_QR",400);\n      ensureDemoActivityMutable(a);\n      if(a.qr?.token===b.token && new Date(a.qr.expiresAt)<=new Date()) err("INVALID_OR_EXPIRED_DEMO_QR",400);
       const windowState=checkinWindowState(a);
       if(!windowState.ok){
         const e=new Error(windowState.code);e.status=409;
@@ -1288,6 +1350,77 @@
         ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,
         rankingBasis:"deployed_model_risk_probability_desc",records
       };
+    }
+
+    if (p === "/api/operations/release-gate" && method==="GET") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const ended=state.activities.filter(a=>new Date(a.endAt).getTime()<Date.now());
+      const assessments=ended.map(a=>{
+        if(a.pilotClosedAt)return{activityId:a.id,title:a.title,category:a.category,endAt:a.endAt,pilotClosedAt:a.pilotClosedAt,pilotClosureHash:a.pilotClosureHash,pilotClosureVersion:a.pilotClosureVersion,alreadyClosed:true,closeReady:true,criticalIssues:[],checklist:[{key:"IMMUTABLE_CLOSURE_RECORDED",passed:true}]};
+        const x=demoActivityCloseAssessment(a);return{activityId:a.id,title:a.title,category:a.category,endAt:a.endAt,pilotClosedAt:null,pilotClosureHash:null,pilotClosureVersion:null,alreadyClosed:false,closeReady:x.closeReady,criticalIssues:x.criticalIssues,checklist:x.checklist,unresolvedCount:x.unresolvedCount,unevaluatedCount:x.unevaluatedCount};
+      });
+      const recovery=state.audit.find(log=>log.action==="BACKUP_RECOVERY_CHECK_PASSED"&&log.metadata?.backupReleaseVersion===RELEASE_VERSION&&log.metadata?.valid===true) || null;
+      const recoveryFresh=Boolean(recovery&&(Date.now()-new Date(recovery.createdAt).getTime()<=24*3600000));
+      const blockers=["DEMO_MODE_NOT_PRODUCTION"];
+      if(assessments.some(x=>!x.alreadyClosed))blockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
+      if(!recoveryFresh)blockers.push("RECENT_BACKUP_RECOVERY_CHECK_REQUIRED");
+      const latestDecision=state.audit.find(log=>["PILOT_RELEASE_GO","PILOT_RELEASE_HOLD"].includes(log.action))||null;
+      return {ok:true,releaseVersion:RELEASE_VERSION,gate:"HOLD",blockers,generatedAt:iso(),containsPII:false,syntheticDemo:true,
+        security:{qrSigningReady:false,researchSaltReady:false,ready:false,secretsExposed:false,demoMode:true},
+        reviewMonitoring:{targetHours:24,backlogCount:0,overTargetCount:0},
+        activityClosure:{endedActivityCount:ended.length,closedCount:assessments.filter(x=>x.alreadyClosed).length,notClosedCount:assessments.filter(x=>!x.alreadyClosed).length,activities:assessments},
+        backupRecovery:{required:true,freshnessHours:24,passed:recoveryFresh,lastPassedAt:recovery?.createdAt||null},
+        scenarios:[
+          {id:"DEMO_NOT_PRODUCTION",title:"Demo mode cannot receive production GO",status:"HOLD",evidence:{syntheticDemo:true}},
+          {id:"HUMAN_FINAL_DECISION",title:"Human decision remains final authority",status:"PASS",evidence:{aiAutonomousDecision:false,humanFinalDecisionRequired:true}},
+          {id:"ACTIVITY_IMMUTABILITY",title:"Ended activities are immutably closed before release",status:assessments.every(x=>x.alreadyClosed)?"PASS":"HOLD",evidence:{notClosedCount:assessments.filter(x=>!x.alreadyClosed).length}},
+          {id:"BACKUP_RECOVERY",title:"Current-release backup recovery verification",status:recoveryFresh?"PASS":"HOLD",evidence:{passedAt:recovery?.createdAt||null}}
+        ],
+        latestReleaseDecision:latestDecision?{action:latestDecision.action,createdAt:latestDecision.createdAt,metadata:latestDecision.metadata}:null,
+        note:"Demo mode is intentionally HOLD and cannot authorize a production pilot."
+      };
+    }
+
+    m=p.match(/^\/api\/operations\/activities\/([^/]+)\/close$/);
+    if(m&&method==="POST"){
+      if(who.role!=="ADMIN")err("FORBIDDEN",403);
+      const a=activity(decodeURIComponent(m[1]));if(!a)err("ACTIVITY_NOT_FOUND",404);
+      if(a.pilotClosedAt)return{ok:true,idempotent:true,activityId:a.id,pilotClosedAt:a.pilotClosedAt,pilotClosureHash:a.pilotClosureHash,pilotClosureVersion:a.pilotClosureVersion};
+      const assessment=demoActivityCloseAssessment(a);
+      if(!assessment.closeReady){
+        const e=new Error("ACTIVITY_NOT_CLOSE_READY");e.status=409;e.data={ok:false,error:"ACTIVITY_NOT_CLOSE_READY",checklist:assessment.checklist,unevaluatedCount:assessment.unevaluatedCount,unresolvedCount:assessment.unresolvedCount,criticalIssues:assessment.criticalIssues};throw e;
+      }
+      const reason=String(b.reason||"").trim();if(reason.length<10)err("ACTIVITY_CLOSURE_REASON_REQUIRED",400);
+      const snapshot={releaseVersion:RELEASE_VERSION,activityId:a.id,title:a.title,category:a.category,startAt:a.startAt,endAt:a.endAt,policy:a.policy,checklist:assessment.checklist,recordCount:assessment.recordCount,
+        records:assessment.rows.map(row=>({attendanceId:row.id,systemEvidenceStatus:row.consistencyResult?.status||null,finalEvidenceStatus:row.finalEvidenceStatus||null,
+          latestHumanReview:(state.reviews.filter(x=>x.attendanceId===row.id).sort((x,y)=>String(y.reviewedAt).localeCompare(String(x.reviewedAt)))[0]||null)}))};
+      a.pilotClosedAt=iso();a.pilotClosedById=who.id;a.pilotClosureNote=reason;a.pilotClosureVersion=RELEASE_VERSION;a.pilotClosureSnapshot=snapshot;a.pilotClosureHash=hashDemo(JSON.stringify(snapshot));
+      save();audit(who.id,"ACTIVITY_PILOT_CLOSED","Activity",a.id,{demo:true,releaseVersion:RELEASE_VERSION,closureHash:a.pilotClosureHash,note:reason,recordCount:assessment.recordCount,checklist:assessment.checklist});
+      return{ok:true,immutableOperationalClosure:true,activityId:a.id,pilotClosedAt:a.pilotClosedAt,pilotClosureHash:a.pilotClosureHash,pilotClosureVersion:a.pilotClosureVersion,syntheticDemo:true};
+    }
+
+    if(p==="/api/operations/backup"&&method==="GET"){
+      if(who.role!=="ADMIN")err("FORBIDDEN",403);
+      const backup=demoBackup();audit(who.id,"BACKUP_EXPORTED","System",RELEASE_VERSION,{demo:true,releaseVersion:RELEASE_VERSION,checksum:backup.checksum,counts:backup.counts,containsPII:true,containsSecrets:false});
+      return{ok:true,warning:"DEMO backup contains synthetic PII-like fields only. It is not a production backup.",backup};
+    }
+
+    if(p==="/api/operations/recovery-check"&&method==="POST"){
+      if(who.role!=="ADMIN")err("FORBIDDEN",403);
+      const result=validateDemoBackup(b.backup);
+      audit(who.id,result.valid?"BACKUP_RECOVERY_CHECK_PASSED":"BACKUP_RECOVERY_CHECK_FAILED","System",RELEASE_VERSION,{demo:true,valid:result.valid,checksum:result.checksum||b.backup?.checksum||null,backupReleaseVersion:b.backup?.releaseVersion||null,currentReleaseVersionMatch:Boolean(result.currentReleaseVersionMatch),error:result.error||null});
+      if(!result.valid){const e=new Error(result.error);e.status=422;e.data={ok:false,...result};throw e;}
+      return{ok:true,restorableStructureVerified:true,destructiveRestorePerformed:false,...result,syntheticDemo:true};
+    }
+
+    if(p==="/api/operations/release-decision"&&method==="POST"){
+      if(who.role!=="ADMIN")err("FORBIDDEN",403);
+      const decision=String(b.decision||"").toUpperCase(),reason=String(b.reason||"").trim();
+      if(!["GO","HOLD"].includes(decision))err("INVALID_RELEASE_DECISION",400);
+      if(reason.length<10)err("RELEASE_DECISION_REASON_REQUIRED",400);
+      if(decision==="GO")err("DEMO_MODE_CANNOT_AUTHORIZE_PRODUCTION_GO",409);
+      audit(who.id,"PILOT_RELEASE_HOLD","System",RELEASE_VERSION,{demo:true,releaseVersion:RELEASE_VERSION,decision:"HOLD",reason,blockersAtDecision:["DEMO_MODE_NOT_PRODUCTION"]});
+      return{ok:true,releaseVersion:RELEASE_VERSION,decision:"HOLD",reason,blockersAtDecision:["DEMO_MODE_NOT_PRODUCTION"],recordedAt:iso(),syntheticDemo:true};
     }
 
     if (p === "/api/operations/pilot-readiness" && method==="GET") {
