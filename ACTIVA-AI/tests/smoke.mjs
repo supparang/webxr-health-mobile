@@ -519,28 +519,50 @@ const batchPrediction = await req("/api/predictions/import-batch", {
   method: "POST",
   body: {
     modelVersion: "ACTIVA-CI-SYNTHETIC-001",
-    predictions: [{
-      attendanceId,
-      riskProbability: 0.84,
-      predictedLabel: "REVIEW_REQUIRED",
-      explanation: {
-        method: "single_feature_reference_perturbation",
-        causal: false,
-        threshold: 0.5,
-        reasons: [
-          { feature: "duration_ratio", label: "สัดส่วนระยะเวลาเข้าร่วม", contribution: 0.30 }
-        ]
+    predictions: [
+      {
+        attendanceId,
+        riskProbability: 0.84,
+        predictedLabel: "REVIEW_REQUIRED",
+        explanation: {
+          method: "single_feature_reference_perturbation",
+          causal: false,
+          threshold: 0.5,
+          reasons: [
+            { feature: "duration_ratio", label: "สัดส่วนระยะเวลาเข้าร่วม", contribution: 0.30 }
+          ]
+        }
+      },
+      {
+        attendanceId: assistCheckin.attendance.id,
+        riskProbability: 0.32,
+        predictedLabel: "NO_REVIEW_REQUIRED",
+        explanation: {
+          method: "single_feature_reference_perturbation",
+          causal: false,
+          threshold: 0.5,
+          reasons: [
+            { feature: "staff_verified", label: "หลักฐานจากเจ้าหน้าที่", contribution: -0.12 }
+          ]
+        }
       }
-    }]
+    ]
   },
 });
-assert(batchPrediction.importedCount === 1, "AI batch prediction import failed");
+assert(batchPrediction.importedCount === 2, "AI batch prediction import failed");
 
 const xai = await req("/api/xai/queue", { actor: "STF001" });
+assert(xai.decisionSupportOnly === true, "XAI queue must remain decision support only");
+assert(xai.rankingBasis === "deployed_model_risk_probability_desc", "XAI queue ranking basis mismatch");
 const xaiRecord = xai.records.find((p) => p.attendanceId === attendanceId);
-assert(xaiRecord, "XAI queue missing imported prediction");
+const xaiLowerRisk = xai.records.find((p) => p.attendanceId === assistCheckin.attendance.id);
+assert(xaiRecord && xaiLowerRisk, "XAI queue missing ranked predictions");
 assert(xaiRecord.modelVersion === "ACTIVA-CI-SYNTHETIC-001", "XAI model version mismatch");
 assert(Math.abs(xaiRecord.riskProbability - 0.84) < 1e-9, "XAI risk probability mismatch");
+assert(xaiRecord.riskPercent === 84, "XAI riskPercent mismatch");
+assert(xaiRecord.modelFlaggedForReview === true, "XAI flagged-for-review metadata mismatch");
+assert(xaiLowerRisk.modelFlaggedForReview === false, "XAI no-review metadata mismatch");
+assert(xaiRecord.priorityRank < xaiLowerRisk.priorityRank, "higher AI risk must receive earlier queue priority");
 
 const afterPrediction = await req("/api/attendance", { actor: "ADM001" });
 const afterStatus = afterPrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
@@ -561,4 +583,4 @@ assert(reviewAudit.metadata?.finalEvidenceStatus === "OVERRIDE_VERIFIED", "revie
 assert(reviewAudit.metadata?.systemEvidenceStatus, "review audit missing systemEvidenceStatus");
 assert(String(reviewAudit.metadata?.reason || "").length >= 3, "review audit missing rationale");
 
-console.log("ACTIVA-AI V0.6.2 smoke test passed");
+console.log("ACTIVA-AI V0.7.0 smoke test passed");
