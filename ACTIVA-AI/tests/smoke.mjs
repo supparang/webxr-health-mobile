@@ -421,6 +421,18 @@ const blockedVerify = await reqError("/api/reviews/" + encodeURIComponent(attend
 assert(blockedVerify.status === 409, "ordinary VERIFY must be blocked when evidence blockers exist");
 assert(blockedVerify.data?.error === "REVIEW_BLOCKERS_PRESENT", "wrong blocker error for VERIFY");
 
+const missingReasonReview = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    decision: "OVERRIDE_VERIFY",
+    reason: "",
+    reviewDurationSeconds: 1,
+  },
+});
+assert(missingReasonReview.status === 400, "every human review decision must require a reason");
+assert(missingReasonReview.data?.error === "REVIEW_REASON_REQUIRED", "wrong missing-reason review error");
+
 const overrideReview = await req("/api/reviews/" + encodeURIComponent(attendanceId), {
   actor: "ADM001",
   method: "POST",
@@ -537,5 +549,16 @@ assert(afterStatus === "OVERRIDE_VERIFIED", "manual override status was not pres
 
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
+const reviewAudit = audit.logs.find((x) =>
+  x.entityType === "AttendanceRecord" &&
+  x.entityId === attendanceId &&
+  ["HUMAN_REVIEW","MANUAL_OVERRIDE_VERIFIED"].includes(x.action)
+);
+assert(reviewAudit, "human review audit entry missing");
+assert(reviewAudit.metadata?.reviewId, "review audit missing reviewId");
+assert(Object.prototype.hasOwnProperty.call(reviewAudit.metadata || {}, "previousFinalStatus"), "review audit missing previousFinalStatus");
+assert(reviewAudit.metadata?.finalEvidenceStatus === "OVERRIDE_VERIFIED", "review audit finalEvidenceStatus mismatch");
+assert(reviewAudit.metadata?.systemEvidenceStatus, "review audit missing systemEvidenceStatus");
+assert(String(reviewAudit.metadata?.reason || "").length >= 3, "review audit missing rationale");
 
-console.log("ACTIVA-AI V0.5.6 smoke test passed");
+console.log("ACTIVA-AI V0.6.2 smoke test passed");
