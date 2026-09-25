@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "webxr-health-mobile",
+  "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "./ACTIVA-AI",
+    "exclude": [
+      ".env*",
+      "Dockerfile",
+      "README.md",
+      "docker-compose.yml",
+      "docs/**",
+      "ml/**",
+      "package*.json",
+      "prisma/**",
+      "server/**",
+      "tests/**"
+    ]
+  }
+}
