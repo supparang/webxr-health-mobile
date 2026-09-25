@@ -260,6 +260,8 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 .assignment-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin:10px 0 8px}
 .assignment-tools .field{margin:0}
 .assignment-selection-bar{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.assignment-selected-summary{margin:0 0 8px;padding:9px 10px;border-radius:10px;background:#f8fafc;border:1px dashed #cbd5e1;color:#475569;font-size:13px;line-height:1.45}
+.assignment-selected-summary b{color:#172033}
 .assignment-list{display:grid;gap:7px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fbfdff}
 .assignment-person{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:9px;border:1px solid transparent}
 .assignment-person:hover{background:#f1f5fb}
