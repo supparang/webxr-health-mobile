@@ -243,6 +243,9 @@ model AttendanceRecord {
   user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkinAt             DateTime?
   checkoutAt            DateTime?
+  checkoutQrValid       Boolean               @default(false)
+  checkoutMethod        String?
+  checkoutExceptionReason String?
   durationMinutes       Int?
   attendancePercentage  Float?
   attendanceStatus      AttendanceStatus      @default(REGISTERED)

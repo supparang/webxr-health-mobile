@@ -36,7 +36,7 @@
     return new TextDecoder().decode(bytes);
   }
 
-  function encodePortableDemoQr(activity, expiresAtMs){
+  function encodePortableDemoQr(activity, purpose, expiresAtMs){
     const windows=activityTimeWindows(activity);
     const p=activity.policy||{};
     const participantEmployeeIds=(activity.participants||[])
@@ -45,6 +45,7 @@
       .filter(Boolean);
     const payload={
       v:1,
+      q:String(purpose||"CHECKIN").toUpperCase(),
       id:activity.id,
       t:activity.title,
       c:activity.category||"",
@@ -80,6 +81,8 @@
     try{
       const payload=JSON.parse(decodeBase64UrlUtf8(token.slice("ACTIVADEMO1.".length)));
       if(payload?.v!==1||!payload.id||!payload.exp||!payload.iat) return null;
+      payload.q=String(payload.q||"CHECKIN").toUpperCase();
+      if(!["CHECKIN","CHECKOUT"].includes(payload.q)) return null;
       return payload;
     }catch{return null;}
   }
@@ -116,6 +119,7 @@
         minDurationRatio:Number(payload.p?.mr??0.75)
       },
       qr:null,
+      qrByPurpose:{},
       importedFromPortableQr:true,
       assignmentsUpdatedAt:null
     };
@@ -176,7 +180,8 @@
           qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
           durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.75
         },
-        qr:null
+        qr:null,
+        qrByPurpose:{}
       }],
       attendance: [],
       reviews: [],
@@ -390,6 +395,15 @@
     return {ok:true,code:"QR_CHECKIN_OPEN",...w};
   }
 
+  function checkoutWindowState(a, at=Date.now()) {
+    const w=activityTimeWindows(a);
+    const open=new Date(w.checkoutOpenAt).getTime();
+    const close=new Date(w.checkoutCloseAt).getTime();
+    if(at<open) return {ok:false,code:"QR_CHECKOUT_NOT_OPEN",...w};
+    if(at>close) return {ok:false,code:"QR_CHECKOUT_CLOSED",...w};
+    return {ok:true,code:"QR_CHECKOUT_OPEN",...w};
+  }
+
   function coAssignmentGovernance(u,a){
     const lifecycle=activityLifecycle(a);
     const base=canAssignActivityRole(u,a,"CAN_ASSIGN_CO_ORGANIZER");
@@ -489,6 +503,9 @@
       if (d.ratio == null) missing.push("MISSING_DURATION");
       else if (d.ratio < Number(p.minDurationRatio || 0)) reasons.push("SHORT_DURATION");
     }
+    if (r.checkoutAt && !r.checkoutQrValid) {
+      reasons.push(r.checkoutMethod==="STAFF_ASSISTED" ? "STAFF_ASSISTED_CHECKOUT" : "CHECKOUT_QR_NOT_VERIFIED");
+    }
     let status = "COMPLETE";
     if (missing.length) status = "INCOMPLETE";
     if (reasons.length) status = "REVIEW_REQUIRED";
@@ -526,7 +543,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.5.8-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.6.0-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -536,18 +553,24 @@
     if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
 
     if (p === "/api/demo/latest-qr" && method === "GET") {
+      const purpose=String(url.searchParams.get("purpose")||"CHECKIN").toUpperCase();
+      if(!["CHECKIN","CHECKOUT"].includes(purpose)) err("INVALID_QR_PURPOSE",400);
       const nowMs=Date.now();
+      const windowOk=a=>purpose==="CHECKOUT"?checkoutWindowState(a,nowMs).ok:checkinWindowState(a,nowMs).ok;
+      const qrFor=a=>a.qrByPurpose?.[purpose] || (purpose==="CHECKIN"?a.qr:null);
       const candidates=(state.activities||[])
-        .filter(a=>a.qr?.token && new Date(a.qr.expiresAt).getTime()>nowMs && checkinWindowState(a,nowMs).ok)
-        .sort((a,b)=>new Date(b.qr.issuedAt||0)-new Date(a.qr.issuedAt||0));
-      const a=candidates[0];
-      if(!a) err("DEMO_ACTIVE_QR_NOT_FOUND",404);
+        .map(a=>({a,qr:qrFor(a)}))
+        .filter(x=>x.qr?.token && new Date(x.qr.expiresAt).getTime()>nowMs && windowOk(x.a))
+        .sort((x,y)=>new Date(y.qr.issuedAt||0)-new Date(x.qr.issuedAt||0));
+      const hit=candidates[0];
+      if(!hit) err("DEMO_ACTIVE_QR_NOT_FOUND",404);
       return {
         ok:true,
-        token:a.qr.token,
-        issuedAt:a.qr.issuedAt,
-        expiresAt:a.qr.expiresAt,
-        activity:activityPublic(a),
+        purpose,
+        token:hit.qr.token,
+        issuedAt:hit.qr.issuedAt,
+        expiresAt:hit.qr.expiresAt,
+        activity:activityPublic(hit.a),
         syntheticTest:true
       };
     }
@@ -828,22 +851,37 @@
     if (m && method === "POST") {
       const a = activity(decodeURIComponent(m[1])); if(!a) err("ACTIVITY_NOT_FOUND",404);
       if(!canManageActivity(who,a)) err("ACTIVITY_MANAGEMENT_FORBIDDEN",403);
-      const windowState=checkinWindowState(a);
+      const purpose=String(b.purpose||"CHECKIN").toUpperCase();
+      if(!["CHECKIN","CHECKOUT"].includes(purpose)) err("INVALID_QR_PURPOSE",400);
+      const windowState=purpose==="CHECKOUT"?checkoutWindowState(a):checkinWindowState(a);
       if(!windowState.ok){
         const e=new Error(windowState.code);e.status=409;
-        e.data={ok:false,error:windowState.code,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
+        e.data={
+          ok:false,error:windowState.code,purpose,
+          checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt,
+          checkoutOpenAt:windowState.checkoutOpenAt,checkoutCloseAt:windowState.checkoutCloseAt
+        };
         throw e;
       }
-      const exp = new Date(Math.min(Date.now()+45000,new Date(windowState.checkinCloseAt).getTime()));
-      a.qr = {
-        token:encodePortableDemoQr(a,exp.getTime()),
+      const closeAt=purpose==="CHECKOUT"?windowState.checkoutCloseAt:windowState.checkinCloseAt;
+      const exp = new Date(Math.min(Date.now()+45000,new Date(closeAt).getTime()));
+      const qrRecord = {
+        token:encodePortableDemoQr(a,purpose,exp.getTime()),
         issuedAt:iso(),
         expiresAt:exp.toISOString(),
+        purpose,
         format:"ACTIVADEMO1",
         portableAcrossDevices:true
       };
-      audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,expiresAt:a.qr.expiresAt,format:"ACTIVADEMO1",portableAcrossDevices:true}); save();
-      return {ok:true,...a.qr,demo:true,checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt};
+      a.qrByPurpose=a.qrByPurpose||{};
+      a.qrByPurpose[purpose]=qrRecord;
+      if(purpose==="CHECKIN") a.qr=qrRecord;
+      audit(who.id,"QR_ISSUED","Activity",a.id,{demo:true,purpose,expiresAt:qrRecord.expiresAt,format:"ACTIVADEMO1",portableAcrossDevices:true}); save();
+      return {
+        ok:true,...qrRecord,demo:true,
+        checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt,
+        checkoutOpenAt:windowState.checkoutOpenAt,checkoutCloseAt:windowState.checkoutCloseAt
+      };
     }
 
     if (p === "/api/attendance" && method === "GET") {
@@ -857,14 +895,21 @@
     if (p === "/api/attendance/checkin" && method === "POST") {
       const u = actor(b.userId); if(!u) err("USER_NOT_FOUND",404);
       if (who.role==="PARTICIPANT" && who.id!==u.id) err("PARTICIPANT_CAN_ONLY_CHECKIN_SELF",403);
-      let a = state.activities.find(x=>x.qr?.token===b.token);
+      let a = state.activities.find(x=>x.qrByPurpose?.CHECKIN?.token===b.token || x.qr?.token===b.token);
       const portable=decodePortableDemoQr(b.token);
       if(portable){
         const nowMs=Date.now();
         if(nowMs>Number(portable.exp)) err("INVALID_OR_EXPIRED_DEMO_QR",400);
         if(nowMs<Number(portable.iat)-120000) err("INVALID_DEMO_QR_CLOCK",400);
+        if(portable.q!=="CHECKIN"){
+          const e=new Error("QR_PURPOSE_MISMATCH");e.status=409;
+          e.data={ok:false,error:"QR_PURPOSE_MISMATCH",expectedPurpose:"CHECKIN",actualPurpose:portable.q};
+          throw e;
+        }
         a=materializePortableActivity(portable);
-        a.qr={token:b.token,issuedAt:new Date(Number(portable.iat)).toISOString(),expiresAt:new Date(Number(portable.exp)).toISOString(),format:"ACTIVADEMO1",portableAcrossDevices:true};
+        a.qrByPurpose=a.qrByPurpose||{};
+        a.qrByPurpose.CHECKIN={token:b.token,issuedAt:new Date(Number(portable.iat)).toISOString(),expiresAt:new Date(Number(portable.exp)).toISOString(),purpose:"CHECKIN",format:"ACTIVADEMO1",portableAcrossDevices:true};
+        a.qr=a.qrByPurpose.CHECKIN;
         save();
       }
       if (!a && typeof b.token === "string" && b.token.startsWith("DEMO|")) {
@@ -907,6 +952,7 @@
       const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,checkinAt:iso(),checkoutAt:null,
         attendanceStatus:"CHECKED_IN",qrValid:true,identityVerified:true,signatureVerified:false,
         scanAttempts:1,staffVerification:null,consistencyResult:null,finalEvidenceStatus:null,
+        checkoutQrValid:false,checkoutMethod:null,checkoutExceptionReason:null,
         captureSource:String(b.scanSource||"QR"),
         syntheticTest:Boolean(b.testMode)};
       state.attendance.unshift(r);
@@ -925,11 +971,70 @@
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(who.role==="PARTICIPANT"&&r.userId!==who.id) err("PARTICIPANT_CAN_ONLY_CHECKOUT_SELF",403);
       if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
+      if(!b.token) err("CHECKOUT_QR_REQUIRED",400);
+
+      const portable=decodePortableDemoQr(b.token);
+      if(!portable) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      const nowMs=Date.now();
+      if(nowMs>Number(portable.exp)) err("INVALID_OR_EXPIRED_DEMO_QR",400);
+      if(nowMs<Number(portable.iat)-120000) err("INVALID_DEMO_QR_CLOCK",400);
+      if(portable.q!=="CHECKOUT"){
+        const e=new Error("QR_PURPOSE_MISMATCH");e.status=409;
+        e.data={ok:false,error:"QR_PURPOSE_MISMATCH",expectedPurpose:"CHECKOUT",actualPurpose:portable.q};
+        throw e;
+      }
+      if(portable.id!==r.activityId){
+        const e=new Error("CHECKOUT_QR_ACTIVITY_MISMATCH");e.status=409;
+        e.data={ok:false,error:"CHECKOUT_QR_ACTIVITY_MISMATCH",expectedActivityId:r.activityId,actualActivityId:portable.id};
+        throw e;
+      }
+
+      const a=activity(r.activityId)||materializePortableActivity(portable);
+      const windowState=checkoutWindowState(a);
+      if(!windowState.ok){
+        const e=new Error(windowState.code);e.status=409;
+        e.data={ok:false,error:windowState.code,checkoutOpenAt:windowState.checkoutOpenAt,checkoutCloseAt:windowState.checkoutCloseAt};
+        throw e;
+      }
+
       const previousFinal=r.finalEvidenceStatus||null;
-      r.checkoutAt=iso(); r.attendanceStatus="CHECKED_OUT"; r.finalEvidenceStatus=null; save();
+      r.checkoutAt=iso();
+      r.attendanceStatus="CHECKED_OUT";
+      r.checkoutQrValid=true;
+      r.checkoutMethod="DYNAMIC_QR";
+      r.checkoutExceptionReason=null;
+      r.checkoutCaptureSource=String(b.scanSource||"QR");
+      r.checkoutSyntheticTest=Boolean(b.testMode);
+      r.finalEvidenceStatus=null;
+      save();
       if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"CHECKOUT_CHANGED"});
-      audit(who.id,"CHECKOUT","AttendanceRecord",r.id,{demo:true});
+      audit(who.id,b.testMode?"DEMO_SAME_DEVICE_TEST_CHECKOUT":"CHECKOUT","AttendanceRecord",r.id,{
+        demo:true,method:"DYNAMIC_QR",checkoutQrValid:true,syntheticTest:Boolean(b.testMode),scanSource:String(b.scanSource||"QR")
+      });
       return {ok:true,attendance:hydrateAttendance(r)};
+    }
+
+    m = p.match(/^\/api\/attendance\/([^/]+)\/checkout-assist$/);
+    if (m && method==="POST") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      if(r.isVoided) err("ATTENDANCE_VOIDED",409);
+      if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
+      const reason=String(b.reason||"").trim();
+      if(reason.length<10) err("CHECKOUT_EXCEPTION_REASON_REQUIRED",400);
+      const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      const windowState=checkoutWindowState(a);
+      const previousFinal=r.finalEvidenceStatus||null;
+      r.checkoutAt=iso();
+      r.attendanceStatus="CHECKED_OUT";
+      r.checkoutQrValid=false;
+      r.checkoutMethod="STAFF_ASSISTED";
+      r.checkoutExceptionReason=reason;
+      r.finalEvidenceStatus=null;
+      save();
+      if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"STAFF_ASSISTED_CHECKOUT"});
+      audit(who.id,"STAFF_ASSISTED_CHECKOUT","AttendanceRecord",r.id,{demo:true,reason,checkoutWindowState:windowState.code});
+      return {ok:true,attendance:hydrateAttendance(r),exception:true,windowState:windowState.code};
     }
 
     m = p.match(/^\/api\/attendance\/([^/]+)\/staff-verify$/);

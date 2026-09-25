@@ -333,3 +333,15 @@ V0.3:
 - แบ่งหน้า 20 รายการต่อหน้า เหมาะกับกิจกรรมที่มีผู้เข้าร่วมจำนวนมาก
 - ปุ่ม “จัดการรายการ” จะเลือก Attendance record ใน Check-out/Staff Verification แล้วเลื่อนไปยังส่วนจัดการให้ทันที
 - การประเมินหลักฐานยังทำรายบุคคลจากรายการย่อได้
+
+
+## V0.6.0 — Dual Dynamic QR for Check-in and Check-out
+- Dynamic Event QR แยก purpose ชัดเจนเป็น CHECKIN และ CHECKOUT
+- CHECKIN QR ใช้ Check-out ไม่ได้ และ CHECKOUT QR ใช้ Check-in ไม่ได้
+- การออก CHECKOUT QR ถูกจำกัดด้วย checkoutOpenAt / checkoutCloseAt และ token หมดอายุไม่เกิน 45 วินาที
+- Check-out ปกติต้องส่ง CHECKOUT QR token ของกิจกรรมเดียวกัน; ปุ่ม Check-out ตรงแบบเดิมถูกยกเลิก
+- เพิ่มกล้องสแกน Check-out QR, manual token fallback และ Demo one-device checkout test
+- เพิ่ม Staff-assisted checkout สำหรับ ADMIN/STAFF เท่านั้น ต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษรและเก็บ Audit Trail
+- Staff-assisted/legacy checkout ที่ไม่มี Dynamic Checkout QR จะถูก Evidence Engine flag เพื่อ Human Review
+- AttendanceRecord เพิ่ม checkoutQrValid, checkoutMethod, checkoutExceptionReason
+- Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน

@@ -196,7 +196,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.5.9 • Event Attendance Dashboard</div>'+
+        '<div class="version">V0.6.0 • Dual Dynamic QR Check-in/out</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -282,7 +282,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.5.9</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.6.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -890,18 +890,29 @@
     }
   }
 
-  function clientCheckinWindowState(a) {
+  function clientEventWindowState(a, purpose="CHECKIN") {
+    const p=String(purpose||"CHECKIN").toUpperCase();
     const start=new Date(a.startAt).getTime();
-    const open=new Date(a.checkinOpenAt||new Date(start-30*60000)).getTime();
-    const close=new Date(a.checkinCloseAt||new Date(start+30*60000)).getTime();
+    const end=new Date(a.endAt).getTime();
+    const open=p==="CHECKOUT"
+      ? new Date(a.checkoutOpenAt||new Date(end-30*60000)).getTime()
+      : new Date(a.checkinOpenAt||new Date(start-30*60000)).getTime();
+    const close=p==="CHECKOUT"
+      ? new Date(a.checkoutCloseAt||new Date(end+30*60000)).getTime()
+      : new Date(a.checkinCloseAt||new Date(start+30*60000)).getTime();
     const now=Date.now();
+    const prefix=p==="CHECKOUT"?"QR_CHECKOUT":"QR_CHECKIN";
     return {
       ok:now>=open&&now<=close,
-      code:now<open?"QR_CHECKIN_NOT_OPEN":now>close?"QR_CHECKIN_CLOSED":"QR_CHECKIN_OPEN",
+      code:now<open?prefix+"_NOT_OPEN":now>close?prefix+"_CLOSED":prefix+"_OPEN",
       openAt:new Date(open).toISOString(),
-      closeAt:new Date(close).toISOString()
+      closeAt:new Date(close).toISOString(),
+      purpose:p
     };
   }
+
+  function clientCheckinWindowState(a){ return clientEventWindowState(a,"CHECKIN"); }
+  function clientCheckoutWindowState(a){ return clientEventWindowState(a,"CHECKOUT"); }
 
   async function renderQr(v) {
     if (!(can("ADMIN") || hasActivityPermission("CAN_CREATE_ACTIVITY") || hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES"))) throw new Error("FORBIDDEN");
@@ -911,98 +922,112 @@
 
     v.innerHTML =
       '<div class="panel"><h2>Dynamic Event QR</h2>'+
-      '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div class="event-toolbar">'+
+        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>ประเภท QR</label><select id="qrPurpose"><option value="CHECKIN">QR สำหรับ Check-in</option><option value="CHECKOUT">QR สำหรับ Check-out</option></select></div>'+
+      '</div>'+
       '<div id="qrWindowInfo"></div>'+
       '<div class="actions"><button class="btn primary" id="newQr">สร้าง/หมุน QR ใหม่</button></div>'+
       '<div id="qrArea"></div>'+
       '<div class="hint">'+
         (appMode==="demo"
-          ? '<b>Demo Mode:</b> QR แบบ portable ใช้สแกนข้ามอุปกรณ์ได้ภายในอายุ token แต่เป็นข้อมูลสาธิตและไม่ได้ใช้ลายมือชื่อ HMAC จริง'
-          : '<b>Server Mode:</b> Token ลงลายมือชื่อฝั่งเซิร์ฟเวอร์ด้วย HMAC-SHA256 มี nonce และวันหมดอายุ')+
-        '<br>QR ใช้สำหรับ Check-in • สร้างและสแกนได้เฉพาะ Check-in Window • ไม่บรรจุข้อมูลส่วนบุคคลโดยตรง</div></div>';
+          ? '<b>Demo Mode:</b> QR แบบ portable สำหรับทดสอบข้ามอุปกรณ์ ไม่ใช่ลายมือชื่อ HMAC จริง'
+          : '<b>Server Mode:</b> Token ลงลายมือชื่อ HMAC-SHA256 มี nonce, purpose และวันหมดอายุ')+
+        '<br><b>CHECKIN</b> ใช้ได้เฉพาะ Check-in Window • <b>CHECKOUT</b> ใช้ได้เฉพาะ Check-out Window • QR คนละ purpose ใช้แทนกันไม่ได้</div></div>';
 
     const selectedActivity=()=>activities.find(a=>a.id===document.getElementById("qrAct").value);
+    const selectedPurpose=()=>document.getElementById("qrPurpose").value;
 
     function updateWindowInfo() {
       const a=selectedActivity();
-      const state=clientCheckinWindowState(a);
+      const purpose=selectedPurpose();
+      const state=clientEventWindowState(a,purpose);
       const info=document.getElementById("qrWindowInfo");
       const btn=document.getElementById("newQr");
       if(!a||!info||!btn)return;
-      const label=state.code==="QR_CHECKIN_NOT_OPEN"
-        ? "ยังไม่เปิด Check-in"
-        : state.code==="QR_CHECKIN_CLOSED"
-          ? "ปิด Check-in แล้ว"
-          : "เปิด Check-in อยู่";
-      info.innerHTML='<div class="alert '+(state.ok?"ok":"warn")+'"><b>'+label+'</b><br>ช่วง Check-in: '+esc(fmt(state.openAt))+' → '+esc(fmt(state.closeAt))+'</div>';
+      const isOut=purpose==="CHECKOUT";
+      const label=state.ok
+        ? (isOut?"เปิด Check-out อยู่":"เปิด Check-in อยู่")
+        : state.code.endsWith("NOT_OPEN")
+          ? (isOut?"ยังไม่เปิด Check-out":"ยังไม่เปิด Check-in")
+          : (isOut?"ปิด Check-out แล้ว":"ปิด Check-in แล้ว");
+      info.innerHTML='<div class="alert '+(state.ok?"ok":"warn")+'"><b>'+label+'</b><br>ช่วง '+(isOut?"Check-out":"Check-in")+': '+esc(fmt(state.openAt))+' → '+esc(fmt(state.closeAt))+'</div>';
       btn.disabled=!state.ok;
+      btn.textContent=isOut?"สร้าง/หมุน Check-out QR":"สร้าง/หมุน Check-in QR";
     }
 
     async function issue() {
-      const activityId = document.getElementById("qrAct").value;
-      qrState = await api("/api/activities/"+encodeURIComponent(activityId)+"/qr", {method:"POST"});
+      const activityId=document.getElementById("qrAct").value;
+      const purpose=selectedPurpose();
+      qrState=await api("/api/activities/"+encodeURIComponent(activityId)+"/qr",{
+        method:"POST",
+        body:JSON.stringify({purpose})
+      });
       draw();
     }
 
     function draw() {
-      if (!qrState) return;
-      const remain = Math.max(0, Math.ceil((new Date(qrState.expiresAt).getTime()-Date.now())/1000));
-      const area = document.getElementById("qrArea");
-      if (!area) return;
-      area.innerHTML =
+      if(!qrState)return;
+      const remain=Math.max(0,Math.ceil((new Date(qrState.expiresAt).getTime()-Date.now())/1000));
+      const area=document.getElementById("qrArea");
+      if(!area)return;
+      const purpose=qrState.purpose||selectedPurpose();
+      const closeAt=purpose==="CHECKOUT"?qrState.checkoutCloseAt:qrState.checkinCloseAt;
+      const label=purpose==="CHECKOUT"?"CHECK-OUT QR":"CHECK-IN QR";
+      area.innerHTML=
         '<div class="qrbox" style="margin-top:18px"><div id="qrcode" class="qr"></div><div>'+
-        '<p>หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
-        '<p class="muted">Check-in ได้ถึง '+esc(fmt(qrState.checkinCloseAt))+'</p>'+
+        '<p><b>'+label+'</b> • หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
+        '<p class="muted">'+(purpose==="CHECKOUT"?"Check-out":"Check-in")+' ได้ถึง '+esc(fmt(closeAt))+'</p>'+
         '<div class="token">'+esc(qrState.token)+'</div></div></div>';
-      if (window.QRCode) new QRCode(document.getElementById("qrcode"), {
-        text:qrState.token,
-        width:240,
-        height:240,
-        correctLevel:QRCode.CorrectLevel.L
+      if(window.QRCode)new QRCode(document.getElementById("qrcode"),{
+        text:qrState.token,width:240,height:240,correctLevel:QRCode.CorrectLevel.L
       });
     }
 
-    function qrError(e) {
+    function qrError(e){
       qrState=null;
       const area=document.getElementById("qrArea");
-      if(e?.message==="QR_CHECKIN_NOT_OPEN"){
-        area.innerHTML='<div class="alert warn"><b>ยังไม่เปิดช่วง Check-in</b><br>เปิด '+esc(fmt(e.data?.checkinOpenAt))+' ถึง '+esc(fmt(e.data?.checkinCloseAt))+'</div>';
-      }else if(e?.message==="QR_CHECKIN_CLOSED"){
-        area.innerHTML='<div class="alert bad"><b>ปิดช่วง Check-in แล้ว</b><br>ไม่สามารถสร้าง QR สำหรับ Check-in เพิ่มได้</div>';
+      const purpose=selectedPurpose();
+      if(e?.message==="QR_CHECKIN_NOT_OPEN"||e?.message==="QR_CHECKOUT_NOT_OPEN"){
+        const openAt=purpose==="CHECKOUT"?e.data?.checkoutOpenAt:e.data?.checkinOpenAt;
+        const closeAt=purpose==="CHECKOUT"?e.data?.checkoutCloseAt:e.data?.checkinCloseAt;
+        area.innerHTML='<div class="alert warn"><b>ยังไม่เปิดช่วง '+(purpose==="CHECKOUT"?"Check-out":"Check-in")+'</b><br>เปิด '+esc(fmt(openAt))+' ถึง '+esc(fmt(closeAt))+'</div>';
+      }else if(e?.message==="QR_CHECKIN_CLOSED"||e?.message==="QR_CHECKOUT_CLOSED"){
+        area.innerHTML='<div class="alert bad"><b>ปิดช่วง '+(purpose==="CHECKOUT"?"Check-out":"Check-in")+' แล้ว</b><br>ไม่สามารถสร้าง QR เพิ่มได้</div>';
       }else{
         area.innerHTML=errorBox(e);
       }
       updateWindowInfo();
     }
 
-    document.getElementById("newQr").onclick = () => issue().catch(qrError);
-    document.getElementById("qrAct").onchange = () => {
-      qrState = null;
-      document.getElementById("qrArea").innerHTML = "";
+    function resetAndMaybeIssue(){
+      qrState=null;
+      const area=document.getElementById("qrArea");
+      if(area)area.innerHTML="";
       updateWindowInfo();
-      if(clientCheckinWindowState(selectedActivity()).ok) issue().catch(qrError);
-    };
-
-    updateWindowInfo();
-    if(clientCheckinWindowState(selectedActivity()).ok) {
-      await issue().catch(qrError);
+      if(clientEventWindowState(selectedActivity(),selectedPurpose()).ok)issue().catch(qrError);
     }
 
-    qrTimer = setInterval(async () => {
+    document.getElementById("newQr").onclick=()=>issue().catch(qrError);
+    document.getElementById("qrAct").onchange=resetAndMaybeIssue;
+    document.getElementById("qrPurpose").onchange=resetAndMaybeIssue;
+
+    updateWindowInfo();
+    if(clientEventWindowState(selectedActivity(),selectedPurpose()).ok)await issue().catch(qrError);
+
+    qrTimer=setInterval(async()=>{
       updateWindowInfo();
-      const state=clientCheckinWindowState(selectedActivity());
+      const state=clientEventWindowState(selectedActivity(),selectedPurpose());
       if(!state.ok){
         qrState=null;
         const area=document.getElementById("qrArea");
-        if(area && !area.innerHTML.includes("ปิดช่วง Check-in") && !area.innerHTML.includes("ยังไม่เปิดช่วง Check-in")){
-          area.innerHTML='<div class="empty">'+(state.code==="QR_CHECKIN_NOT_OPEN"?"รอเวลาเปิด Check-in":"ปิด Check-in แล้ว")+'</div>';
-        }
+        if(area)area.innerHTML='<div class="empty">'+(state.code.endsWith("NOT_OPEN")?"รอเวลาเปิด "+(state.purpose==="CHECKOUT"?"Check-out":"Check-in"):"ปิดช่วง "+(state.purpose==="CHECKOUT"?"Check-out":"Check-in")+" แล้ว")+'</div>';
         return;
       }
-      if (!qrState || new Date(qrState.expiresAt).getTime() <= Date.now()) {
-        try { await issue(); } catch(e) { qrError(e); }
-      } else draw();
-    }, 1000);
+      if(!qrState||qrState.purpose!==selectedPurpose()||new Date(qrState.expiresAt).getTime()<=Date.now()){
+        try{await issue();}catch(e){qrError(e);}
+      }else draw();
+    },1000);
   }
 
   async function loadUsers() {
@@ -1070,6 +1095,8 @@
       MISSING_DURATION:"ไม่มีข้อมูลระยะเวลา",
       MISSING_STAFF_VERIFICATION:"ยังไม่มีการยืนยันโดยเจ้าหน้าที่",
       MISSING_SIGNATURE:"ยังไม่มีหลักฐานลายเซ็น",
+      CHECKOUT_QR_NOT_VERIFIED:"Check-out ไม่ได้ยืนยันด้วย Dynamic QR",
+      STAFF_ASSISTED_CHECKOUT:"Check-out แบบเจ้าหน้าที่ช่วย ต้องตรวจสอบเหตุผล",
       DUPLICATE_SCAN:"พบการสแกนซ้ำ",
       TEMPORAL_CONFLICT:"ข้อมูลเวลาขัดแย้ง",
       STAFF_WITHOUT_CHECKIN:"มีการยืนยันโดยเจ้าหน้าที่แต่ไม่มีเวลาเข้า"
@@ -1175,6 +1202,8 @@
     const participants = users.filter(u => u.role === "PARTICIPANT");
     let qrScanner = null;
     let scannerBusy = false;
+    let checkoutScanner = null;
+    let checkoutScannerBusy = false;
 
     v.innerHTML =
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
@@ -1195,10 +1224,22 @@
       '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
       '<div class="panel" id="recordActionsPanel"><h2>Check-out / Staff Verification</h2>'+
       '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")+'</select></div>'+
-      '<div class="actions"><button class="btn secondary" id="coBtn">Check-out</button>'+
-      (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
-      (can("ADMIN","STAFF")?'<button class="btn bad" id="voidBtn">ยกเลิกรายการผิด</button>':'')+
-      '</div><div id="coMsg"></div></div></div>'+
+      '<div class="actions checkout-actions">'+
+        '<button class="btn primary" id="coScanQrBtn">📷 สแกน Check-out QR</button>'+
+        (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceCheckoutTestBtn">🧪 ทดสอบ Check-out QR</button>':'')+
+        '<button class="btn secondary" id="coManualTokenBtn">กรอก/วาง Check-out Token</button>'+
+        (can("ADMIN","STAFF")?'<button class="btn warn" id="assistCheckoutBtn">Check-out กรณีพิเศษ</button>':'')+
+        (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
+        (can("ADMIN","STAFF")?'<button class="btn bad" id="voidBtn">ยกเลิกรายการผิด</button>':'')+
+      '</div>'+
+      '<div id="checkoutScannerPanel" class="scanner-panel" hidden>'+
+        '<div class="scanner-head"><div><b>สแกน Dynamic Check-out QR</b><br><span class="muted">ต้องเป็น QR ประเภท CHECKOUT ของกิจกรรมเดียวกันและอยู่ใน Check-out Window</span></div><button class="btn secondary mini" id="stopCheckoutQrBtn">ปิดกล้อง</button></div>'+
+        '<div id="checkoutQrReader" class="qr-reader"></div><div id="checkoutQrScanMsg"></div>'+
+      '</div>'+
+      '<div class="field token-fallback" id="coTokenField" hidden style="margin-top:10px"><label>Dynamic Check-out QR Token</label><textarea id="coToken" placeholder="วาง CHECKOUT token"></textarea>'+
+        '<div class="actions"><button class="btn secondary" id="coBtn">ยืนยัน Check-out จาก Token</button></div></div>'+
+      '<div class="hint">Check-out ปกติต้องใช้ Dynamic CHECKOUT QR ณ จุดกิจกรรม หากสแกนไม่ได้จริง เจ้าหน้าที่/ผู้ดูแลระบบใช้ “Check-out กรณีพิเศษ” พร้อมเหตุผล และรายการจะถูกส่งให้ตรวจสอบ</div>'+
+      '<div id="coMsg"></div></div></div>'+
       ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><div id="attendanceDashboard"></div></div>';
 
@@ -1404,7 +1445,7 @@
       sameDeviceTestBtn.disabled=true;
       sameDeviceTestBtn.textContent="กำลังหา QR ล่าสุด…";
       try{
-        const latest=await api("/api/demo/latest-qr");
+        const latest=await api("/api/demo/latest-qr?purpose=CHECKIN");
         const select=document.getElementById("ciAct");
         if(select && latest.activity){
           let option=[...select.options].find(o=>o.value===latest.activity.id);
@@ -1489,40 +1530,169 @@
 
     document.getElementById("stopQrBtn").onclick = stopScanner;
 
+    async function stopCheckoutScanner(){
+      if(!checkoutScanner)return;
+      try{
+        const state=checkoutScanner.getState?checkoutScanner.getState():null;
+        if(state!==1)await checkoutScanner.stop();
+      }catch{}
+      try{await checkoutScanner.clear();}catch{}
+      checkoutScanner=null;
+      checkoutScannerBusy=false;
+      const panel=document.getElementById("checkoutScannerPanel");
+      if(panel)panel.hidden=true;
+    }
+
+    async function performCheckout(token,source,testMode=false){
+      const id=document.getElementById("coRecord").value;
+      const msg=document.getElementById("coMsg");
+      if(!id)return msg.innerHTML='<div class="alert warn">ยังไม่มีรายการสำหรับ Check-out</div>';
+      if(!token)return msg.innerHTML='<div class="alert warn">กรุณาสแกนหรือวาง Check-out QR Token ก่อน</div>';
+      try{
+        const result=await api("/api/attendance/"+encodeURIComponent(id)+"/checkout",{
+          method:"POST",
+          body:JSON.stringify({token:String(token).trim(),scanSource:String(source||"QR"),testMode:Boolean(testMode)})
+        });
+        msg.innerHTML='<div class="alert ok"><b>Check-out สำเร็จ</b><br>อ่านจาก '+esc(source||"QR")+
+          ' • เวลา '+esc(fmt(result.attendance.checkoutAt))+
+          (testMode?'<br><b>สถานะ:</b> TEST/DEMO SCAN — ไม่ใช่การสแกนกล้องจริง':'')+'</div>';
+        await stopCheckoutScanner();
+        setTimeout(()=>renderAttendance(v),650);
+      }catch(e){
+        if(e?.message==="ALREADY_CHECKED_OUT"){
+          msg.innerHTML='<div class="alert ok">รายการนี้ Check-out ไปแล้ว ไม่ต้องทำซ้ำ</div>';
+        }else if(e?.message==="CHECKOUT_QR_REQUIRED"){
+          msg.innerHTML='<div class="alert warn"><b>ต้องใช้ Check-out QR</b><br>สแกน Dynamic QR ประเภท CHECKOUT ของกิจกรรมนี้</div>';
+        }else if(e?.message==="QR_PURPOSE_MISMATCH"){
+          msg.innerHTML='<div class="alert bad"><b>ใช้ QR ผิดประเภท</b><br>Check-out ต้องใช้ QR ประเภท CHECKOUT เท่านั้น</div>';
+        }else if(e?.message==="CHECKOUT_QR_ACTIVITY_MISMATCH"){
+          msg.innerHTML='<div class="alert bad"><b>QR เป็นคนละกิจกรรม</b><br>เลือก/สแกน Check-out QR ของกิจกรรมเดียวกับรายการนี้</div>';
+        }else if(e?.message==="QR_CHECKOUT_NOT_OPEN"){
+          msg.innerHTML='<div class="alert warn"><b>ยังไม่ถึงเวลา Check-out</b><br>เปิด '+esc(fmt(e.data?.checkoutOpenAt))+' ถึง '+esc(fmt(e.data?.checkoutCloseAt))+'</div>';
+        }else if(e?.message==="QR_CHECKOUT_CLOSED"){
+          msg.innerHTML='<div class="alert bad"><b>หมดเวลา Check-out แล้ว</b><br>หากมีเหตุจำเป็นให้เจ้าหน้าที่ใช้ Check-out กรณีพิเศษพร้อมเหตุผล</div>';
+        }else if(["INVALID_OR_EXPIRED_DEMO_QR","EXPIRED_TOKEN","TOKEN_EXPIRED"].includes(e?.message)){
+          msg.innerHTML='<div class="alert warn"><b>Check-out QR หมดอายุ</b><br>สแกน Dynamic Check-out QR ใบล่าสุดอีกครั้ง</div>';
+        }else{
+          msg.innerHTML=errorBox(e);
+        }
+      }
+    }
+
     function syncRecordActions() {
       const select=document.getElementById("coRecord");
-      const co=document.getElementById("coBtn");
+      const scan=document.getElementById("coScanQrBtn");
+      const testBtn=document.getElementById("sameDeviceCheckoutTestBtn");
+      const assist=document.getElementById("assistCheckoutBtn");
       const staff=document.getElementById("staffBtn");
       const voidBtn=document.getElementById("voidBtn");
-      if(!select||!co) return;
+      const co=document.getElementById("coBtn");
+      if(!select)return;
       const selected=rows.find(r=>r.id===select.value);
-      co.disabled=!selected||Boolean(selected?.checkoutAt);
-      co.textContent=selected?.checkoutAt?"Check-out แล้ว":"Check-out";
+      const done=Boolean(selected?.checkoutAt);
+      if(scan){scan.disabled=!selected||done;scan.textContent=done?"Check-out แล้ว":"📷 สแกน Check-out QR";}
+      if(testBtn)testBtn.disabled=!selected||done;
+      if(assist)assist.disabled=!selected||done;
+      if(co)co.disabled=!selected||done;
       if(staff){
         staff.disabled=!selected||Boolean(selected?.staffVerification);
         staff.textContent=selected?.staffVerification?"เจ้าหน้าที่ยืนยันแล้ว":"เจ้าหน้าที่ยืนยัน";
       }
-      if(voidBtn) voidBtn.disabled=!selected;
+      if(voidBtn)voidBtn.disabled=!selected;
     }
     document.getElementById("coRecord").onchange=syncRecordActions;
     syncRecordActions();
 
-    document.getElementById("coBtn").onclick = async () => {
-      const id = document.getElementById("coRecord").value;
-      const msg = document.getElementById("coMsg");
-      if (!id) return msg.innerHTML = '<div class="alert warn">ยังไม่มีรายการสำหรับ Check-out</div>';
-      try {
-        await api("/api/attendance/"+encodeURIComponent(id)+"/checkout", {method:"POST"});
-        msg.innerHTML = '<div class="alert ok">Check-out สำเร็จ</div>';
-        setTimeout(() => renderAttendance(v), 350);
-      } catch (e) {
-        if (e?.message === "ALREADY_CHECKED_OUT") {
-          msg.innerHTML = '<div class="alert ok">รายการนี้ Check-out ไปแล้ว ไม่ต้องทำซ้ำ</div>';
+    document.getElementById("coManualTokenBtn").onclick=()=>{
+      const field=document.getElementById("coTokenField");
+      field.hidden=!field.hidden;
+      if(!field.hidden)document.getElementById("coToken").focus();
+    };
+
+    document.getElementById("coBtn").onclick=async()=>{
+      await performCheckout(document.getElementById("coToken").value,"Token ที่กรอก");
+    };
+
+    document.getElementById("coScanQrBtn").onclick=async()=>{
+      const panel=document.getElementById("checkoutScannerPanel");
+      const scanMsg=document.getElementById("checkoutQrScanMsg");
+      panel.hidden=false;
+      if(!window.isSecureContext){
+        scanMsg.innerHTML='<div class="alert bad">กล้องต้องเปิดผ่าน HTTPS หรือ localhost</div>';return;
+      }
+      if(!window.Html5Qrcode){
+        scanMsg.innerHTML='<div class="alert bad">โหลดตัวอ่าน QR ไม่สำเร็จ กรุณารีเฟรชหน้า</div>';return;
+      }
+      if(checkoutScannerBusy)return;
+      checkoutScannerBusy=true;
+      scanMsg.innerHTML='<div class="alert">กำลังเปิดกล้อง…</div>';
+      try{
+        checkoutScanner=new Html5Qrcode("checkoutQrReader");
+        await checkoutScanner.start(
+          {facingMode:"environment"},
+          {fps:10,qrbox:{width:250,height:250},aspectRatio:1.0},
+          async(decodedText)=>{
+            if(!checkoutScannerBusy)return;
+            checkoutScannerBusy=false;
+            scanMsg.innerHTML='<div class="alert ok">อ่าน QR สำเร็จ กำลัง Check-out…</div>';
+            const box=document.getElementById("coToken");if(box)box.value=decodedText;
+            await performCheckout(decodedText,"กล้องสแกน Check-out QR");
+          },
+          ()=>{}
+        );
+        scanMsg.innerHTML='<div class="alert ok">กล้องพร้อมแล้ว — เล็ง CHECKOUT QR ให้อยู่ในกรอบ</div>';
+      }catch(e){
+        checkoutScannerBusy=false;checkoutScanner=null;
+        const detail=String(e?.message||e||"");
+        scanMsg.innerHTML='<div class="alert bad"><b>เปิดกล้องไม่สำเร็จ</b><br>'+esc(detail)+'</div>';
+      }
+    };
+
+    document.getElementById("stopCheckoutQrBtn").onclick=stopCheckoutScanner;
+
+    const sameDeviceCheckoutTestBtn=document.getElementById("sameDeviceCheckoutTestBtn");
+    if(sameDeviceCheckoutTestBtn)sameDeviceCheckoutTestBtn.onclick=async()=>{
+      const msg=document.getElementById("coMsg");
+      sameDeviceCheckoutTestBtn.disabled=true;
+      sameDeviceCheckoutTestBtn.textContent="กำลังหา Check-out QR…";
+      try{
+        const latest=await api("/api/demo/latest-qr?purpose=CHECKOUT");
+        const matching=rows.find(r=>(r.activity?.id||r.activityId)===latest.activity?.id&&!r.checkoutAt);
+        if(matching){
+          document.getElementById("coRecord").value=matching.id;
           syncRecordActions();
-        } else {
-          msg.innerHTML = errorBox(e);
+        }
+        msg.innerHTML='<div class="alert">พบ Check-out QR ล่าสุดของ <b>'+esc(latest.activity?.title||"กิจกรรม")+'</b> กำลังจำลองการสแกน…</div>';
+        await performCheckout(latest.token,"TEST/DEMO CHECKOUT SCAN",true);
+      }catch(e){
+        if(e?.message==="DEMO_ACTIVE_QR_NOT_FOUND"){
+          msg.innerHTML='<div class="alert warn"><b>ไม่พบ Check-out QR ที่ยังใช้งานได้</b><br>อีกแท็บให้ผู้จัดเลือก “QR สำหรับ Check-out” และสร้าง/หมุน QR ใหม่ในช่วง Check-out Window</div>';
+        }else msg.innerHTML=errorBox(e);
+      }finally{
+        if(document.body.contains(sameDeviceCheckoutTestBtn)){
+          sameDeviceCheckoutTestBtn.disabled=false;
+          sameDeviceCheckoutTestBtn.textContent="🧪 ทดสอบ Check-out QR";
         }
       }
+    };
+
+    const assistCheckoutBtn=document.getElementById("assistCheckoutBtn");
+    if(assistCheckoutBtn)assistCheckoutBtn.onclick=async()=>{
+      const id=document.getElementById("coRecord").value;
+      const msg=document.getElementById("coMsg");
+      if(!id)return;
+      const reason=prompt("ระบุเหตุผล Check-out กรณีพิเศษอย่างน้อย 10 ตัวอักษร เช่น ออกจากงานก่อนเวลาเพราะมีภารกิจราชการ");
+      if(reason===null)return;
+      if(reason.trim().length<10){
+        msg.innerHTML='<div class="alert warn">กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';return;
+      }
+      try{
+        await api("/api/attendance/"+encodeURIComponent(id)+"/checkout-assist",{
+          method:"POST",body:JSON.stringify({reason:reason.trim()})
+        });
+        msg.innerHTML='<div class="alert warn"><b>บันทึก Check-out กรณีพิเศษแล้ว</b><br>รายการนี้ไม่มี Dynamic Checkout QR และจะถูกส่งให้ตรวจสอบหลักฐาน</div>';
+        setTimeout(()=>renderAttendance(v),650);
+      }catch(e){msg.innerHTML=errorBox(e);}
     };
 
     const voidBtn = document.getElementById("voidBtn");
@@ -1566,7 +1736,7 @@
       const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
       return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
         '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
-        '<td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
+        '<td>'+(r.checkoutQrValid?"✓":"✕")+'</td><td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
         '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td><td>'+esc(evidenceReasonText(reasons)||"—")+'</td></tr>';
     }).join("");
 
@@ -1575,8 +1745,9 @@
       const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
       return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc(r.user?.employeeId||"")+'</b><div>'+esc(r.user?.name||"")+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
         '<div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div>'+
-        '<div class="evidence-grid"><span>QR <b>'+(r.qrValid?"✓":"✕")+'</b></span><span>ตัวตน <b>'+(r.identityVerified?"✓":"✕")+'</b></span>'+
+        '<div class="evidence-grid"><span>Check-in QR <b>'+(r.qrValid?"✓":"✕")+'</b></span><span>ตัวตน <b>'+(r.identityVerified?"✓":"✕")+'</b></span>'+
         '<span>เข้า <b>'+(r.checkinAt?"✓":"✕")+'</b></span><span>ออก <b>'+(r.checkoutAt?"✓":"✕")+'</b></span>'+
+        '<span>Check-out QR <b>'+(r.checkoutQrValid?"✓":"✕")+'</b></span>'+
         '<span>ระยะเวลา <b>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</b></span><span>Staff <b>'+(r.staffVerification?"✓":"✕")+'</b></span></div>'+
         '<div class="evidence-final">ผลตัดสินสุดท้าย '+statusBadge(finalStatusOf(r))+'</div>'+
         '<div class="muted">'+esc(evidenceReasonText(reasons)||"ยังไม่มีเหตุผลผิดปกติ")+'</div></article>';
@@ -1587,7 +1758,7 @@
       (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn primary" id="evalAll" '+(duplicateCount>0?'disabled':'')+'>ประเมินหลักฐานทั้งหมดที่มองเห็น</button>':'')+
       '</div>'+
       (duplicateCount>0?'<div class="alert warn"><b>พบข้อมูลซ้ำ '+duplicateCount+' รายการ</b><br>กรุณาไปเมนู “เข้า–ออก” แล้วใช้ “ยกเลิกรายการผิด” ก่อนประเมินหลักฐาน เพื่อไม่ให้ข้อมูลซ้ำเข้าสู่ Ground Truth/งานวิจัย</div>':'')+
-      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>ระยะเวลา</th><th>เจ้าหน้าที่</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th><th>เหตุผล</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
+      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>Check-in QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>Check-out QR</th><th>ระยะเวลา</th><th>เจ้าหน้าที่</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th><th>เหตุผล</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
       '<div class="attendance-cards">'+cards+'</div></div>';
 
     const evalAll=document.getElementById("evalAll");

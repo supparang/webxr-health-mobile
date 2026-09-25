@@ -143,6 +143,16 @@ function checkinWindowState(activity, at = new Date()) {
   return { ok:true, code:"QR_CHECKIN_OPEN", ...w };
 }
 
+function checkoutWindowState(activity, at = new Date()) {
+  const w = activityTimeWindows(activity);
+  const now = at.getTime();
+  const open = new Date(w.checkoutOpenAt).getTime();
+  const close = new Date(w.checkoutCloseAt).getTime();
+  if (now < open) return { ok:false, code:"QR_CHECKOUT_NOT_OPEN", ...w };
+  if (now > close) return { ok:false, code:"QR_CHECKOUT_CLOSED", ...w };
+  return { ok:true, code:"QR_CHECKOUT_OPEN", ...w };
+}
+
 async function coAssignmentGovernance(req, activity) {
   const lifecycle = activityLifecycle(activity);
   const base = await canAssignActivityRole(req, activity, "CAN_ASSIGN_CO_ORGANIZER");
@@ -221,6 +231,8 @@ function inferenceFeatureRow(r) {
     identity_verified: Number(r.identityVerified),
     checkin_present: Number(Boolean(r.checkinAt)),
     checkout_present: Number(Boolean(r.checkoutAt)),
+    checkout_qr_valid: Number(Boolean(r.checkoutQrValid)),
+    checkout_method: r.checkoutMethod || null,
     scheduled_duration_minutes: scheduledMinutes,
     actual_duration_minutes: actualMinutes,
     duration_ratio: durationRatio,
@@ -235,9 +247,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.5.6", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.6.0", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.5.6", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.6.0", database: "unavailable", error: error.message });
   }
 });
 
@@ -968,18 +980,30 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
     return res.status(403).json({ ok: false, error: "ACTIVITY_MANAGEMENT_FORBIDDEN" });
   }
 
-  const windowState = checkinWindowState(activity);
+  const purpose = String(req.body?.purpose || "CHECKIN").toUpperCase();
+  if (!["CHECKIN","CHECKOUT"].includes(purpose)) {
+    return res.status(400).json({ ok:false, error:"INVALID_QR_PURPOSE" });
+  }
+
+  const windowState = purpose === "CHECKOUT"
+    ? checkoutWindowState(activity)
+    : checkinWindowState(activity);
+
   if (!windowState.ok) {
     return res.status(409).json({
       ok:false,
       error:windowState.code,
+      purpose,
       checkinOpenAt:new Date(windowState.checkinOpenAt).toISOString(),
       checkinCloseAt:new Date(windowState.checkinCloseAt).toISOString(),
+      checkoutOpenAt:new Date(windowState.checkoutOpenAt).toISOString(),
+      checkoutCloseAt:new Date(windowState.checkoutCloseAt).toISOString(),
     });
   }
 
-  const secondsUntilClose = Math.max(1, Math.floor((new Date(windowState.checkinCloseAt).getTime() - Date.now()) / 1000));
-  const issued = createEventToken(activity.id, Math.min(qrTtl, secondsUntilClose));
+  const closeAt = purpose === "CHECKOUT" ? windowState.checkoutCloseAt : windowState.checkinCloseAt;
+  const secondsUntilClose = Math.max(1, Math.floor((new Date(closeAt).getTime() - Date.now()) / 1000));
+  const issued = createEventToken(activity.id, purpose, Math.min(qrTtl, secondsUntilClose));
   await prisma.qrToken.create({
     data: {
       activityId: activity.id,
@@ -992,16 +1016,20 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
   });
 
   await audit(req, "QR_ISSUED", "Activity", activity.id, {
+    purpose,
     expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
   });
 
   res.json({
     ok: true,
+    purpose,
     token: issued.token,
     issuedAt: new Date(issued.payload.iat * 1000).toISOString(),
     expiresAt: new Date(issued.payload.exp * 1000).toISOString(),
     checkinOpenAt: new Date(windowState.checkinOpenAt).toISOString(),
     checkinCloseAt: new Date(windowState.checkinCloseAt).toISOString(),
+    checkoutOpenAt: new Date(windowState.checkoutOpenAt).toISOString(),
+    checkoutCloseAt: new Date(windowState.checkoutCloseAt).toISOString(),
   });
 });
 
@@ -1010,6 +1038,14 @@ app.post("/api/attendance/checkin", async (req, res) => {
   const tokenResult = verifyEventToken(b.token);
   if (!tokenResult.ok) {
     return res.status(400).json({ ok: false, error: tokenResult.reason });
+  }
+  if (tokenResult.payload.purpose !== "CHECKIN") {
+    return res.status(409).json({
+      ok:false,
+      error:"QR_PURPOSE_MISMATCH",
+      expectedPurpose:"CHECKIN",
+      actualPurpose:tokenResult.payload.purpose,
+    });
   }
 
   const activityId = tokenResult.payload.eventId;
@@ -1105,6 +1141,40 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     checkoutAt: current.checkoutAt,
   });
 
+  const token = req.body?.token;
+  if (!token) return res.status(400).json({ ok:false, error:"CHECKOUT_QR_REQUIRED" });
+
+  const tokenResult = verifyEventToken(token);
+  if (!tokenResult.ok) {
+    return res.status(400).json({ ok:false, error:tokenResult.reason });
+  }
+  if (tokenResult.payload.purpose !== "CHECKOUT") {
+    return res.status(409).json({
+      ok:false,
+      error:"QR_PURPOSE_MISMATCH",
+      expectedPurpose:"CHECKOUT",
+      actualPurpose:tokenResult.payload.purpose,
+    });
+  }
+  if (tokenResult.payload.eventId !== current.activityId) {
+    return res.status(409).json({
+      ok:false,
+      error:"CHECKOUT_QR_ACTIVITY_MISMATCH",
+      expectedActivityId:current.activityId,
+      actualActivityId:tokenResult.payload.eventId,
+    });
+  }
+
+  const windowState = checkoutWindowState(current.activity);
+  if (!windowState.ok) {
+    return res.status(409).json({
+      ok:false,
+      error:windowState.code,
+      checkoutOpenAt:new Date(windowState.checkoutOpenAt).toISOString(),
+      checkoutCloseAt:new Date(windowState.checkoutCloseAt).toISOString(),
+    });
+  }
+
   const checkoutAt = new Date();
   const durationMinutes = Math.max(0, Math.round((checkoutAt.getTime() - current.checkinAt.getTime()) / 60000));
   const expectedMinutes = Math.max(1, Math.round((current.activity.endAt.getTime() - current.activity.startAt.getTime()) / 60000));
@@ -1114,6 +1184,9 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     where: { id: current.id },
     data: {
       checkoutAt,
+      checkoutQrValid:true,
+      checkoutMethod:"DYNAMIC_QR",
+      checkoutExceptionReason:null,
       durationMinutes,
       attendancePercentage,
       attendanceStatus: "CHECKED_OUT",
@@ -1127,8 +1200,61 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
       reason: "CHECKOUT_CHANGED",
     });
   }
-  await audit(req, "CHECKOUT", "AttendanceRecord", row.id, { durationMinutes, attendancePercentage });
+  await audit(req, "CHECKOUT", "AttendanceRecord", row.id, {
+    durationMinutes,
+    attendancePercentage,
+    method:"DYNAMIC_QR",
+    checkoutQrValid:true,
+  });
   res.json({ ok: true, attendance: row });
+});
+
+app.post("/api/attendance/:attendanceId/checkout-assist", requireRoles("ADMIN", "STAFF"), async (req, res) => {
+  const current = await prisma.attendanceRecord.findUnique({
+    where:{id:req.params.attendanceId},
+    include:{activity:true},
+  });
+  if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});
+  if (current.isVoided) return res.status(409).json({ok:false,error:"ATTENDANCE_VOIDED"});
+  if (!current.checkinAt) return res.status(409).json({ok:false,error:"CHECKIN_REQUIRED"});
+  if (current.checkoutAt) return res.status(409).json({ok:false,error:"ALREADY_CHECKED_OUT",checkoutAt:current.checkoutAt});
+
+  const reason=String(req.body?.reason||"").trim();
+  if (reason.length<10) return res.status(400).json({ok:false,error:"CHECKOUT_EXCEPTION_REASON_REQUIRED"});
+
+  const checkoutAt=new Date();
+  const durationMinutes=Math.max(0,Math.round((checkoutAt.getTime()-current.checkinAt.getTime())/60000));
+  const expectedMinutes=Math.max(1,Math.round((current.activity.endAt.getTime()-current.activity.startAt.getTime())/60000));
+  const attendancePercentage=Math.min(100,(durationMinutes/expectedMinutes)*100);
+  const windowState=checkoutWindowState(current.activity,checkoutAt);
+
+  const row=await prisma.attendanceRecord.update({
+    where:{id:current.id},
+    data:{
+      checkoutAt,
+      checkoutQrValid:false,
+      checkoutMethod:"STAFF_ASSISTED",
+      checkoutExceptionReason:reason,
+      durationMinutes,
+      attendancePercentage,
+      attendanceStatus:"CHECKED_OUT",
+      finalEvidenceStatus:null,
+    },
+  });
+
+  if(current.finalEvidenceStatus){
+    await audit(req,"FINAL_DECISION_INVALIDATED","AttendanceRecord",row.id,{
+      previousFinal:current.finalEvidenceStatus,
+      reason:"STAFF_ASSISTED_CHECKOUT",
+    });
+  }
+  await audit(req,"STAFF_ASSISTED_CHECKOUT","AttendanceRecord",row.id,{
+    reason,
+    durationMinutes,
+    attendancePercentage,
+    checkoutWindowState:windowState.code,
+  });
+  res.json({ok:true,attendance:row,exception:true,windowState:windowState.code});
 });
 
 app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (req, res) => {

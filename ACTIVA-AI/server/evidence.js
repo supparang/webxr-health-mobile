@@ -43,6 +43,11 @@ export function evaluateEvidence(record, policy, staffVerification, ruleVersion)
   if (record.checkoutAt && !record.checkinAt) {
     reasonCodes.push("CHECKOUT_WITHOUT_CHECKIN");
   }
+  if (record.checkoutAt && !record.checkoutQrValid) {
+    reasonCodes.push(record.checkoutMethod === "STAFF_ASSISTED"
+      ? "STAFF_ASSISTED_CHECKOUT"
+      : "CHECKOUT_QR_NOT_VERIFIED");
+  }
 
   const completenessRatio =
     required.length === 0 ? 1 : satisfied.length / required.length;

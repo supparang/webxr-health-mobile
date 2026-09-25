@@ -128,12 +128,12 @@ const activeActivityCreate=await req("/api/activities",{
     title:"CI active check-in window",
     category:"ทดสอบ",
     location:"CI",
-    startAt:new Date(ciNow-5*60000).toISOString(),
-    endAt:new Date(ciNow+120*60000).toISOString(),
-    checkinOpenAt:new Date(ciNow-10*60000).toISOString(),
-    checkinCloseAt:new Date(ciNow+20*60000).toISOString(),
-    checkoutOpenAt:new Date(ciNow+90*60000).toISOString(),
-    checkoutCloseAt:new Date(ciNow+150*60000).toISOString(),
+    startAt:new Date(ciNow-30*60000).toISOString(),
+    endAt:new Date(ciNow+20*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow-40*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow+10*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow-10*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+30*60000).toISOString(),
     policy:{}
   }
 });
@@ -161,6 +161,11 @@ const futureQr=await reqError("/api/activities/"+encodeURIComponent(futureActivi
   actor:"ORG001",method:"POST"
 });
 assert(futureQr.status===409 && futureQr.data?.error==="QR_CHECKIN_NOT_OPEN","future QR window should block issuance");
+
+const futureCheckoutQr=await reqError("/api/activities/"+encodeURIComponent(futureActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST",body:{purpose:"CHECKOUT"}
+});
+assert(futureCheckoutQr.status===409 && futureCheckoutQr.data?.error==="QR_CHECKOUT_NOT_OPEN","future checkout QR window should block issuance");
 
 const closedActivity=await req("/api/activities",{
   actor:"ORG001",
@@ -219,8 +224,16 @@ assert(roster.activity?.participationMode === "ROSTER", "roster participation mo
 const qr = await req("/api/activities/" + encodeURIComponent(activity.id) + "/qr", {
   actor: "ORG001",
   method: "POST",
+  body: { purpose:"CHECKIN" },
 });
-assert(qr.token && qr.expiresAt, "signed QR issuance failed");
+assert(qr.token && qr.expiresAt && qr.purpose==="CHECKIN", "signed CHECKIN QR issuance failed");
+
+const checkoutQr = await req("/api/activities/" + encodeURIComponent(activity.id) + "/qr", {
+  actor:"ORG001",
+  method:"POST",
+  body:{purpose:"CHECKOUT"},
+});
+assert(checkoutQr.token && checkoutQr.purpose==="CHECKOUT","signed CHECKOUT QR issuance failed");
 
 const blockedNonRoster = await reqError("/api/attendance/checkin", {
   actor: "P003",
@@ -238,10 +251,27 @@ const checkin = await req("/api/attendance/checkin", {
 const attendanceId = checkin.attendance?.id;
 assert(attendanceId, "check-in failed");
 
-await req("/api/attendance/" + encodeURIComponent(attendanceId) + "/checkout", {
+const checkoutWithoutQr=await reqError("/api/attendance/" + encodeURIComponent(attendanceId) + "/checkout", {
+  actor:"P001",method:"POST"
+});
+assert(checkoutWithoutQr.status===400 && checkoutWithoutQr.data?.error==="CHECKOUT_QR_REQUIRED","checkout must require CHECKOUT QR");
+
+const wrongPurposeCheckout=await reqError("/api/attendance/" + encodeURIComponent(attendanceId) + "/checkout", {
+  actor:"P001",method:"POST",body:{token:qr.token}
+});
+assert(wrongPurposeCheckout.status===409 && wrongPurposeCheckout.data?.error==="QR_PURPOSE_MISMATCH","CHECKIN QR must not work for checkout");
+
+const wrongPurposeCheckin=await reqError("/api/attendance/checkin",{
+  actor:"P001",method:"POST",body:{userId:"P001",token:checkoutQr.token}
+});
+assert(wrongPurposeCheckin.status===409 && wrongPurposeCheckin.data?.error==="QR_PURPOSE_MISMATCH","CHECKOUT QR must not work for checkin");
+
+const checkedOut=await req("/api/attendance/" + encodeURIComponent(attendanceId) + "/checkout", {
   actor: "P001",
   method: "POST",
+  body:{token:checkoutQr.token}
 });
+assert(checkedOut.attendance?.checkoutQrValid===true && checkedOut.attendance?.checkoutMethod==="DYNAMIC_QR","checkout QR evidence not stored");
 
 await req("/api/attendance/" + encodeURIComponent(attendanceId) + "/staff-verify", {
   actor: "STF001",
@@ -261,6 +291,35 @@ const duplicateCheckin = await reqError("/api/attendance/checkin", {
   body: { userId: "P001", token: qr.token },
 });
 assert(duplicateCheckin.status === 409, "duplicate active attendance should be blocked");
+
+const assistActivity=await req("/api/activities",{
+  actor:"ORG001",method:"POST",
+  body:{
+    title:"CI staff-assisted checkout",
+    category:"ทดสอบ",location:"CI",
+    startAt:new Date(ciNow-5*60000).toISOString(),
+    endAt:new Date(ciNow+120*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow-10*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow+20*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow+90*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+150*60000).toISOString(),
+    policy:{}
+  }
+});
+const assistCheckinQr=await req("/api/activities/"+encodeURIComponent(assistActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST",body:{purpose:"CHECKIN"}
+});
+const assistCheckin=await req("/api/attendance/checkin",{
+  actor:"P002",method:"POST",body:{userId:"P002",token:assistCheckinQr.token}
+});
+const assisted=await req("/api/attendance/"+encodeURIComponent(assistCheckin.attendance.id)+"/checkout-assist",{
+  actor:"STF001",method:"POST",body:{reason:"CI official duty early checkout exception"}
+});
+assert(assisted.attendance?.checkoutMethod==="STAFF_ASSISTED" && assisted.attendance?.checkoutQrValid===false,"staff-assisted checkout evidence missing");
+const assistedEvidence=await req("/api/evidence/"+encodeURIComponent(assistCheckin.attendance.id)+"/evaluate",{
+  actor:"STF001",method:"POST"
+});
+assert((assistedEvidence.result?.reasonCodes||[]).includes("STAFF_ASSISTED_CHECKOUT"),"assisted checkout must be review-required");
 
 const queue = await req("/api/ground-truth/queue", { actor: "STF001" });
 const gtRecord = queue.records.find((r) => r.id === attendanceId);

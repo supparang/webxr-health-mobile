@@ -23,11 +23,16 @@ function sign(encodedPayload) {
     .digest("base64url");
 }
 
-export function createEventToken(activityId, ttlSeconds = 45) {
+export function createEventToken(activityId, purpose = "CHECKIN", ttlSeconds = 45) {
+  const normalizedPurpose = String(purpose || "CHECKIN").toUpperCase();
+  if (!["CHECKIN","CHECKOUT"].includes(normalizedPurpose)) {
+    throw new Error("INVALID_QR_PURPOSE");
+  }
   const issued = Math.floor(Date.now() / 1000);
   const payload = {
     typ: "ACTIVA_EVENT_QR",
     eventId: activityId,
+    purpose: normalizedPurpose,
     iat: issued,
     exp: issued + ttlSeconds,
     nonce: crypto.randomBytes(12).toString("base64url"),
@@ -60,6 +65,10 @@ export function verifyEventToken(token) {
 
     const payload = JSON.parse(fromB64url(encoded));
     if (payload.typ !== "ACTIVA_EVENT_QR") return { ok: false, reason: "INVALID_TYPE" };
+    payload.purpose = String(payload.purpose || "CHECKIN").toUpperCase();
+    if (!["CHECKIN","CHECKOUT"].includes(payload.purpose)) {
+      return { ok: false, reason: "INVALID_QR_PURPOSE", payload };
+    }
 
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp <= now) return { ok: false, reason: "EXPIRED_TOKEN", payload };
