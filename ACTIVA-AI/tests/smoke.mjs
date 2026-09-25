@@ -583,4 +583,27 @@ assert(reviewAudit.metadata?.finalEvidenceStatus === "OVERRIDE_VERIFIED", "revie
 assert(reviewAudit.metadata?.systemEvidenceStatus, "review audit missing systemEvidenceStatus");
 assert(String(reviewAudit.metadata?.reason || "").length >= 3, "review audit missing rationale");
 
-console.log("ACTIVA-AI V0.7.0 smoke test passed");
+const analytics = await req("/api/analytics/verified", { actor: "ADM001" });
+assert(analytics.ok === true, "verified analytics endpoint failed");
+assert(analytics.aggregated === true, "verified analytics must be aggregate-only");
+assert(analytics.containsPII === false, "verified analytics must not expose PII");
+assert(analytics.operational?.recordCount >= 2, "verified analytics record count is incomplete");
+assert(analytics.operational?.finalizedCount >= 1, "verified analytics finalized count is missing");
+assert(analytics.operational?.unresolvedCount >= 1, "verified analytics unresolved workload is missing");
+assert(analytics.operational?.verifiedCount >= 1, "verified analytics verified outcome is missing");
+assert(Array.isArray(analytics.operational?.byActivity), "verified analytics activity comparison missing");
+assert(Array.isArray(analytics.operational?.exceptionPatterns), "verified analytics exception patterns missing");
+assert(analytics.researchSnapshot?.lockedGroundTruthCount >= 1, "research snapshot locked ground truth missing");
+assert(analytics.researchSnapshot?.comparableModelGroundTruthCount >= 1, "research snapshot model-ground-truth comparison missing");
+assert(
+  analytics.researchSnapshot?.modelGroundTruthAgreementRate !== null,
+  "research snapshot agreement rate missing"
+);
+
+const staffAnalytics = await req("/api/analytics/verified", { actor: "STF001" });
+assert(staffAnalytics.containsPII === false, "staff aggregate analytics exposed PII");
+
+const participantAnalytics = await reqError("/api/analytics/verified", { actor: "P001" });
+assert(participantAnalytics.status === 403, "participant must not access organization analytics");
+
+console.log("ACTIVA-AI V0.8.0 smoke test passed");
