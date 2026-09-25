@@ -115,6 +115,7 @@
       models:"Model Evaluation",
       xai:"AI/XAI Review",
       audit:"Audit Trail",
+      analytics:"Verified Analytics",
       research:"Research Export"
     })[activeView] || "ACTIVA-AI";
   }
@@ -132,6 +133,7 @@
     const verify = [["evidence","หลักฐาน"]];
     if (can("ADMIN","STAFF")) verify.push(["review","ตรวจสอบโดยมนุษย์"]);
     if (can("ADMIN")) verify.push(["audit","Audit Trail"]);
+    if (can("ADMIN","STAFF")) verify.push(["analytics","Verified Analytics"]);
     groups.push({key:"verification",label:"การตรวจสอบ",items:verify});
 
     const research = [];
@@ -198,7 +200,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.6.1 • Activity Center + Review Queue + Personal QR</div>'+
+        '<div class="version">V0.8.0 • Verified Analytics + AI Review Priority</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -276,6 +278,7 @@
       else if (activeView === "models") await renderModels(v);
       else if (activeView === "xai") await renderXai(v);
       else if (activeView === "audit") await renderAudit(v);
+      else if (activeView === "analytics") await renderVerifiedAnalytics(v);
       else if (activeView === "research") await renderResearch(v);
     } catch (error) {
       v.innerHTML = '<div class="panel">'+errorBox(error)+'</div>';
@@ -285,7 +288,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.7.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.8.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -386,6 +389,82 @@
       '<span class="status s-info">'+scopeText+'</span>'+
       '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
       '<p class="muted">ผลจาก Evidence Engine ในระยะนี้เป็นกฎตรวจสอบ (rule-based) ไม่ใช่ค่าความน่าจะเป็นจาก AI</p></div>';
+  }
+
+  function analyticsPct(value) {
+    const n=Number(value);
+    return Number.isFinite(n) ? (n*100).toFixed(1)+"%" : "—";
+  }
+
+  function analyticsNumber(value, digits=1) {
+    const n=Number(value);
+    return Number.isFinite(n) ? n.toFixed(digits) : "—";
+  }
+
+  async function renderVerifiedAnalytics(v) {
+    if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data=await api("/api/analytics/verified");
+    const o=data.operational||{};
+    const research=data.researchSnapshot||{};
+    const byActivity=o.byActivity||[];
+    const patterns=o.exceptionPatterns||[];
+    const cm=research.confusionMatrix||{tp:0,fp:0,tn:0,fn:0};
+
+    const activityRows=byActivity.length
+      ? byActivity.map(x=>'<tr>'+
+          '<td><b>'+esc(x.title||x.activityId)+'</b><br><span class="muted">'+esc(x.category||"")+'</span></td>'+
+          '<td>'+esc(x.recordCount)+'</td>'+
+          '<td>'+esc(x.finalizedCount)+'</td>'+
+          '<td>'+esc(x.verifiedCount)+'</td>'+
+          '<td>'+esc(x.rejectedCount)+'</td>'+
+          '<td>'+esc(x.unresolvedCount)+'</td>'+
+          '<td>'+analyticsPct(x.finalizationRate)+'</td>'+
+          '<td>'+analyticsPct(x.verifiedOutcomeRate)+'</td>'+
+        '</tr>').join("")
+      : '<tr><td colspan="8">ยังไม่มีข้อมูลกิจกรรม</td></tr>';
+
+    const patternRows=patterns.length
+      ? patterns.slice(0,12).map(x=>'<tr><td>'+esc(auditReasonLabel(x.code))+'<div class="audit-code">'+esc(x.code)+'</div></td><td><b>'+esc(x.count)+'</b></td></tr>').join("")
+      : '<tr><td colspan="2">ยังไม่มี exception ในรายการที่ผ่าน Human Decision</td></tr>';
+
+    v.innerHTML=
+      (data.syntheticDemo?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ตัวเลขหน้านี้ใช้ทดสอบ workflow เท่านั้น ไม่ใช่ผลการดำเนินงานจริง</div>':'')+
+      '<div class="panel"><div class="section-head"><div><h2>Verified Analytics & Management Dashboard</h2>'+
+      '<p class="muted">Outcome metrics ใช้เฉพาะรายการที่ผ่าน Human Decision แล้ว ส่วน unresolved แสดงเพื่อบริหารคิวงานเท่านั้น • API นี้ส่งข้อมูล aggregate และไม่ส่งชื่อ/รหัสบุคลากร</p></div>'+
+      '<span class="badge">'+(data.containsPII?'PII PRESENT':'NO PII')+'</span></div>'+
+      '<div class="grid cards">'+
+        card("รายการทั้งหมด",o.recordCount||0)+
+        card("ผ่าน Human Decision",o.finalizedCount||0)+
+        card("ค้างตรวจ",o.unresolvedCount||0)+
+        card("รับรองแล้ว",o.verifiedCount||0)+
+        card("ไม่รับรอง",o.rejectedCount||0)+
+        card("Manual Override",o.overrideVerifiedCount||0)+
+      '</div>'+
+      '<div class="grid cards">'+
+        card("Finalization Rate",analyticsPct(o.finalizationRate))+
+        card("Verified Outcome Rate",analyticsPct(o.verifiedOutcomeRate))+
+        card("เวลา Review เฉลี่ย",o.averageReviewDurationSeconds==null?"—":analyticsNumber(o.averageReviewDurationSeconds,0)+" วินาที")+
+        card("เวลาถึงผลตัดสินเฉลี่ย",o.averageResolutionHours==null?"—":analyticsNumber(o.averageResolutionHours,2)+" ชม.")+
+      '</div>'+
+      '<div class="hint"><b>นิยาม Turnaround:</b> จากเวลาสร้าง attendance record ถึง Human Review ล่าสุดที่ให้ผลสุดท้าย การวัดนี้ยังไม่ใช่ SLA ตั้งแต่ “เข้าคิว Review” เพราะระบบยังไม่มี queuedAt แยกเฉพาะ</div></div>'+
+      '<div class="panel"><h2>เปรียบเทียบตามกิจกรรม</h2>'+
+      '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>ทั้งหมด</th><th>ตัดสินแล้ว</th><th>รับรอง</th><th>ไม่รับรอง</th><th>ค้าง</th><th>Finalization</th><th>Verified Outcome</th></tr></thead><tbody>'+activityRows+'</tbody></table></div>'+
+      '<p class="muted">Verified Outcome Rate ใช้ตัวหารเฉพาะ case ที่ผ่าน Human Decision แล้ว จึงไม่เอา case ค้างตรวจมาปะปนกับผลลัพธ์สุดท้าย</p></div>'+
+      '<div class="split"><div class="panel"><h2>Exception Patterns หลัง Human Decision</h2>'+
+      '<div class="table-wrap"><table><thead><tr><th>สาเหตุจาก Evidence Engine</th><th>จำนวน case</th></tr></thead><tbody>'+patternRows+'</tbody></table></div>'+
+      '</div><div class="panel"><h2>Research Snapshot — แยกจาก Operational</h2>'+
+      '<div class="hint"><b>ไม่ใช่คะแนนบุคลากร:</b> ส่วนนี้ใช้ตรวจคุณภาพกระบวนการวิจัยและโมเดลเท่านั้น</div>'+
+      '<div class="analytics-kv">'+
+        '<p><b>Deployed model:</b> '+esc(research.deployedModel?.version||"ยังไม่มี")+'</p>'+
+        '<p><b>Locked Ground Truth:</b> '+esc(research.lockedGroundTruthCount||0)+'</p>'+
+        '<p><b>Model ↔ Ground Truth comparable:</b> '+esc(research.comparableModelGroundTruthCount||0)+'</p>'+
+        '<p><b>Agreement:</b> '+analyticsPct(research.modelGroundTruthAgreementRate)+'</p>'+
+        '<p><b>Double-labeled cases:</b> '+esc(research.doubleLabeledCaseCount||0)+'</p>'+
+        '<p><b>Reviewer agreement:</b> '+analyticsPct(research.reviewerAgreementRate)+'</p>'+
+      '</div>'+
+      '<div class="table-wrap"><table><thead><tr><th>TP</th><th>FP</th><th>TN</th><th>FN</th></tr></thead><tbody><tr><td>'+esc(cm.tp||0)+'</td><td>'+esc(cm.fp||0)+'</td><td>'+esc(cm.tn||0)+'</td><td>'+esc(cm.fn||0)+'</td></tr></tbody></table></div>'+
+      '<p class="muted">Positive class = REVIEW_REQUIRED • การเปรียบเทียบใช้ deployed-model prediction กับ locked ground truth เท่านั้น</p></div></div>';
   }
 
   function field(label,id,placeholder,type,value) {
