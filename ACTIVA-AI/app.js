@@ -1220,10 +1220,15 @@
       items.map(row).join("")+'</tbody></table></div><div class="activity-cards">'+cards+'</div>';
   }
 
-  function assignmentChecks(users, selectedIds, className, disabled) {
+  function assignmentChecks(users, selectedIds, className, disabled, searchId, countId) {
     const selected=new Set(selectedIds||[]);
-    return '<div class="assignment-list">'+users.map(u=>
-      '<label class="assignment-person"><input type="checkbox" class="'+className+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
+    return '<div class="assignment-tools">'+
+      '<div class="field"><label>ค้นหารายชื่อ</label><input id="'+searchId+'" class="assignment-search" placeholder="พิมพ์รหัสหรือชื่อ เช่น STF001"></div>'+
+      '<div class="assignment-selection-bar"><span id="'+countId+'" class="status s-info">เลือก '+selected.size+' คน</span>'+
+      (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+className+'">ล้างที่เลือก</button>':'')+
+      '</div></div>'+
+      '<div class="assignment-list" data-search-for="'+searchId+'">'+users.map(u=>
+      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
       '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
     ).join("")+'</div>';
   }
@@ -1246,36 +1251,64 @@
       host.innerHTML=
         '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b></p></div><button class="btn mini secondary" id="closeActivityManager">ปิด</button></div>'+
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
-        '<div class="split">'+
-          '<div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">สิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ไม่ทำให้บุคคลเป็นผู้จัดกิจกรรมอื่น</p>'+
+        '<div class="split assignment-role-grid">'+
+          '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน</p></div></div>'+
             '<div class="assignment-governance">'+
               '<span class="status s-info">'+esc(activityLifecycleLabel(caps.lifecycle))+'</span>'+
               (a.assignmentsUpdatedAt?'<span class="muted">บันทึกล่าสุด '+esc(fmt(a.assignmentsUpdatedAt))+'</span>':'<span class="muted">ยังไม่เคยบันทึกการเปลี่ยนแปลงผู้รับผิดชอบ</span>')+
             '</div>'+
             (caps.lifecycle==="ACTIVE"?'<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ การเปลี่ยนผู้จัดร่วมทำได้เฉพาะผู้มีสิทธิ์และต้องระบุเหตุผล ระบบจะบันทึก Audit Trail</div>':'')+
             (caps.lifecycle==="ENDED"?(caps.canAssignCo?'<div class="alert warn"><b>กิจกรรมสิ้นสุดแล้ว</b><br>แก้ไขผู้จัดร่วมได้เฉพาะ ADMIN พร้อมเหตุผล และจะถูกบันทึกเป็น Administrative Override</div>':'<div class="alert bad"><b>กิจกรรมสิ้นสุดแล้ว</b><br>รายชื่อผู้จัดร่วมถูกล็อก ผู้ใช้ทั่วไปแก้ไขไม่ได้</div>'):'')+
-            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo)+
+            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount")+
             (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
             (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
-          '</div>'+
-          '<div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เป็นการมอบหมายเฉพาะกิจกรรม ไม่ใช่การเปลี่ยนบทบาทระบบถาวร</p>'+
-            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier)+
+          '</section>'+
+          '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
+            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount")+
             (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
-          '</div>'+
+          '</section>'+
         '</div>'+
-        '<hr><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3>'+
+        '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">เลือกขอบเขตผู้เข้าร่วมก่อน แล้วจึงเลือกรายชื่อหรือหน่วยงาน</p></div></div>'+
         '<div class="participation-modes">'+
           '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
           '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
           '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
         '</div>'+
-        '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants)+'</div>'+
+        '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants,"rosterSearch","rosterCount")+'</div>'+
         '<div id="groupBox"><h4>เลือกหน่วยงาน</h4><div class="assignment-list">'+depts.map(d=>
           '<label class="assignment-person"><input type="checkbox" class="groupDept" value="'+esc(d.code)+'" '+(allowedDepts.has(d.code)?"checked":"")+' '+(!caps.canManageParticipants?"disabled":"")+'>'+
           '<span><b>'+esc(d.name)+'</b><small>'+esc(d.code)+'</small></span></label>'
         ).join("")+'</div></div>'+
         (caps.canManageParticipants?'<div class="actions"><button class="btn primary" id="saveParticipation">บันทึกผู้เข้าร่วม</button></div>':'')+
-        '<div id="activityManageMsg"></div></div>';
+        '</section><div id="activityManageMsg"></div></div>';
+
+      const bindAssignmentTools=(searchId,className,countId)=>{
+        const input=document.getElementById(searchId);
+        const list=host.querySelector('.assignment-list[data-search-for="'+searchId+'"]');
+        const count=document.getElementById(countId);
+        const updateCount=()=>{
+          if(count) count.textContent='เลือก '+host.querySelectorAll('.'+className+':checked').length+' คน';
+        };
+        const applyFilter=()=>{
+          if(!input||!list)return;
+          const q=input.value.trim().toLowerCase();
+          list.querySelectorAll('.assignment-person').forEach(row=>{
+            row.style.display=!q||String(row.dataset.search||"").includes(q)?"flex":"none";
+          });
+        };
+        if(input) input.oninput=applyFilter;
+        host.querySelectorAll('.'+className).forEach(x=>x.onchange=updateCount);
+        updateCount();
+      };
+
+      bindAssignmentTools("coSearch","coAssign","coCount");
+      bindAssignmentTools("verifierSearch","verifierAssign","verifierCount");
+      bindAssignmentTools("rosterSearch","rosterPerson","rosterCount");
+
+      host.querySelectorAll(".clearAssignmentSelection").forEach(btn=>btn.onclick=()=>{
+        const cls=btn.dataset.target;
+        host.querySelectorAll("."+cls+":checked").forEach(x=>{x.checked=false;x.dispatchEvent(new Event("change"));});
+      });
 
       const updateMode=()=>{
         const mode=host.querySelector('input[name="participationMode"]:checked')?.value||"OPEN";
