@@ -2209,11 +2209,19 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
     orderBy: { riskProbability: "desc" },
   });
 
+  const ranked = predictions.map((prediction, index) => ({
+    ...prediction,
+    priorityRank: index + 1,
+    riskPercent: Math.round(Number(prediction.riskProbability) * 100),
+    modelFlaggedForReview: prediction.predictedLabel === "REVIEW_REQUIRED",
+  }));
+
   res.json({
     ok: true,
     deployedModel: deployed,
     decisionSupportOnly: true,
-    records: predictions,
+    rankingBasis: "deployed_model_risk_probability_desc",
+    records: ranked,
   });
 });
 
@@ -2286,5 +2294,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.3.3 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.7.0 server running on http://localhost:" + port);
 });
