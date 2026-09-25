@@ -108,6 +108,7 @@ model User {
   activityPermissionGrants UserActivityPermission[] @relation("ActivityPermissionGrantedBy")
   activityPermissionRevokes UserActivityPermission[] @relation("ActivityPermissionRevokedBy")
   organizedActivities Activity[]           @relation("ActivityOrganizer")
+  pilotClosedActivities Activity[]          @relation("ActivityPilotCloser")
   activityRoleAssignments ActivityRoleAssignment[] @relation("ActivityAssignedUser")
   activityAssignmentsGranted ActivityRoleAssignment[] @relation("ActivityAssignmentAssignedBy")
   activityParticipants ActivityParticipant[] @relation("ActivityParticipantUser")
@@ -179,6 +180,13 @@ model Activity {
   qrTokens         QrToken[]
   attendanceRecords AttendanceRecord[]
   assignmentsUpdatedAt DateTime?
+  pilotClosedAt       DateTime?
+  pilotClosedById     String?
+  pilotClosedBy       User?              @relation("ActivityPilotCloser", fields: [pilotClosedById], references: [id])
+  pilotClosureNote    String?
+  pilotClosureVersion String?
+  pilotClosureHash    String?
+  pilotClosureSnapshot Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 }
