@@ -1220,15 +1220,20 @@
       items.map(row).join("")+'</tbody></table></div><div class="activity-cards">'+cards+'</div>';
   }
 
-  function assignmentChecks(users, selectedIds, className, disabled, searchId, countId) {
+  function assignmentChecks(users, selectedIds, className, disabled, searchId, countId, exampleCode) {
     const selected=new Set(selectedIds||[]);
+    const selectedUsers=users.filter(u=>selected.has(u.id));
+    const selectedText=selectedUsers.length
+      ? selectedUsers.map(u=>u.employeeId+" • "+u.name).join(", ")
+      : "ยังไม่ได้เลือกใคร";
     return '<div class="assignment-tools">'+
-      '<div class="field"><label>ค้นหารายชื่อ</label><input id="'+searchId+'" class="assignment-search" placeholder="พิมพ์รหัสหรือชื่อ เช่น STF001"></div>'+
+      '<div class="field"><label>ค้นหาเพื่อเลือกรายชื่อ</label><input id="'+searchId+'" class="assignment-search" placeholder="พิมพ์รหัสหรือชื่อ เช่น '+esc(exampleCode||"P001")+'"></div>'+
       '<div class="assignment-selection-bar"><span id="'+countId+'" class="status s-info">เลือก '+selected.size+' คน</span>'+
       (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+className+'">ล้างที่เลือก</button>':'')+
       '</div></div>'+
+      '<div id="'+countId+'Names" class="assignment-selected-summary"><b>รายชื่อที่เลือกจริง:</b> '+esc(selectedText)+'</div>'+
       '<div class="assignment-list" data-search-for="'+searchId+'">'+users.map(u=>
-      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
+      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
       '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
     ).join("")+'</div>';
   }
@@ -1259,12 +1264,12 @@
             '</div>'+
             (caps.lifecycle==="ACTIVE"?'<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ การเปลี่ยนผู้จัดร่วมทำได้เฉพาะผู้มีสิทธิ์และต้องระบุเหตุผล ระบบจะบันทึก Audit Trail</div>':'')+
             (caps.lifecycle==="ENDED"?(caps.canAssignCo?'<div class="alert warn"><b>กิจกรรมสิ้นสุดแล้ว</b><br>แก้ไขผู้จัดร่วมได้เฉพาะ ADMIN พร้อมเหตุผล และจะถูกบันทึกเป็น Administrative Override</div>':'<div class="alert bad"><b>กิจกรรมสิ้นสุดแล้ว</b><br>รายชื่อผู้จัดร่วมถูกล็อก ผู้ใช้ทั่วไปแก้ไขไม่ได้</div>'):'')+
-            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount")+
+            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount","ORG001")+
             (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
             (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
           '</section>'+
           '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
-            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount")+
+            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount","STF001")+
             (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
           '</section>'+
         '</div>'+
@@ -1274,7 +1279,7 @@
           '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
           '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
         '</div>'+
-        '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants,"rosterSearch","rosterCount")+'</div>'+
+        '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants,"rosterSearch","rosterCount","P001")+'</div>'+
         '<div id="groupBox"><h4>เลือกหน่วยงาน</h4><div class="assignment-list">'+depts.map(d=>
           '<label class="assignment-person"><input type="checkbox" class="groupDept" value="'+esc(d.code)+'" '+(allowedDepts.has(d.code)?"checked":"")+' '+(!caps.canManageParticipants?"disabled":"")+'>'+
           '<span><b>'+esc(d.name)+'</b><small>'+esc(d.code)+'</small></span></label>'
@@ -1286,8 +1291,14 @@
         const input=document.getElementById(searchId);
         const list=host.querySelector('.assignment-list[data-search-for="'+searchId+'"]');
         const count=document.getElementById(countId);
+        const summary=document.getElementById(countId+"Names");
         const updateCount=()=>{
-          if(count) count.textContent='เลือก '+host.querySelectorAll('.'+className+':checked').length+' คน';
+          const checked=[...host.querySelectorAll('.'+className+':checked')];
+          if(count) count.textContent='เลือก '+checked.length+' คน';
+          if(summary){
+            const labels=checked.map(x=>x.dataset.label||x.value);
+            summary.textContent='รายชื่อที่เลือกจริง: '+(labels.length?labels.join(", "):"ยังไม่ได้เลือกใคร");
+          }
         };
         const applyFilter=()=>{
           if(!input||!list)return;
