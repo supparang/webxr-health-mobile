@@ -347,6 +347,20 @@ V0.3:
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
 
 
+## V0.8.0 — Verified Analytics & Management Dashboard
+- เพิ่ม endpoint `GET /api/analytics/verified` สำหรับ ADMIN/STAFF
+- ส่งเฉพาะข้อมูล aggregate และระบุ `containsPII: false`
+- Outcome metrics ใช้เฉพาะรายการที่ผ่าน Human Decision แล้ว
+- แยก unresolved workload ออกจาก verified/rejected outcomes
+- เพิ่ม Finalization Rate, Verified Outcome Rate, review duration และ resolution time
+- เพิ่ม activity comparison และ exception pattern จาก case ที่ผ่าน Human Decision
+- แยก Research Snapshot ออกจาก operational outcomes อย่างชัดเจน
+- Research Snapshot เปรียบเทียบ deployed-model prediction กับ locked ground truth เท่านั้น
+- เพิ่ม reviewer agreement snapshot สำหรับ double-labeled ground-truth cases
+- Participant ไม่สามารถเข้าถึง organization analytics endpoint
+- Demo Mode มี analytics shape เดียวกับ Server Mode
+- CI smoke test ตรวจ aggregate/no-PII/access-control และ research snapshot
+
 ## V0.7.0 — AI Risk Prioritization in Human Review Queue
 - เชื่อม deployed AI/XAI prediction เข้ากับ Human Review Queue เดิมโดยตรง
 - Pending cases ถูกจัดลำดับด้วย risk probability จากมากไปน้อย เมื่อมี deployed model/prediction
