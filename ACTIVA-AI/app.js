@@ -2082,7 +2082,7 @@
       (!evaluated?'<div class="alert warn"><b>ยังประเมินหลักฐานไม่ได้</b><br>กลับไปหน้า “หลักฐาน” และประเมินรายการนี้ก่อนการตรวจสอบโดยมนุษย์</div>':'')+
       (evaluated&&blockers.length?'<div class="alert warn"><b>รับรองปกติไม่ได้</b><br>'+esc(evidenceReasonText(blockers))+
         '<details class="tech-inline"><summary>ดูรหัสทางเทคนิค</summary><code>'+esc(blockers.join(" • "))+'</code></details></div>':'')+
-      '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ</label><textarea id="rvReason" placeholder="จำเป็นสำหรับ ขอหลักฐานเพิ่ม / ส่งกลับ / ไม่รับรอง / Manual Override"></textarea></div>'+
+      '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ <span class="required">*</span></label><textarea id="rvReason" placeholder="ระบุเหตุผลทุกครั้ง เพื่อให้ตรวจสอบย้อนหลังได้"></textarea><small class="muted">บังคับกรอกสำหรับทุกผลตัดสิน รวมถึง “รับรองปกติ”</small></div>'+
       '<div class="actions">'+
         '<button class="btn ok" data-dec="VERIFY" '+(!canNormalVerify?'disabled':'')+'>รับรองปกติ</button>'+
         '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
@@ -2094,11 +2094,11 @@
     box.querySelectorAll("[data-dec]").forEach(btn=>btn.onclick=async()=>{
       const decision=btn.dataset.dec;
       const reason=document.getElementById("rvReason").value.trim();
+      if(reason.length<3){
+        document.getElementById("rvMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลการตัดสินใจทุกครั้ง เพื่อให้ตรวจสอบย้อนหลังได้</div>';return;
+      }
       if(decision==="OVERRIDE_VERIFY"&&reason.length<10){
         document.getElementById("rvMsg").innerHTML='<div class="alert warn">การรับรองเป็นกรณีพิเศษต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';return;
-      }
-      if(["CORRECT","REQUEST_EVIDENCE","REJECT"].includes(decision)&&reason.length<3){
-        document.getElementById("rvMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลการตัดสินใจ</div>';return;
       }
       const seconds=Math.max(1,Math.round((Date.now()-new Date(started).getTime())/1000));
       try{
