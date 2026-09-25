@@ -254,14 +254,14 @@ app.get("/api/health", async (_req, res) => {
     });
     res.json({
       ok: true,
-      version: "0.8.0",
+      version: "0.9.0",
       database: "connected",
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
     });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.8.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.9.0", database: "unavailable", error: error.message });
   }
 });
 
@@ -2238,6 +2238,215 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   });
 });
 
+app.get("/api/operations/pilot-readiness", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+  const now = new Date();
+  const nowMs = now.getTime();
+  const configuredTarget = Number(process.env.REVIEW_TARGET_HOURS || 24);
+  const reviewTargetHours = Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 24;
+  const terminalStatuses = new Set(["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"]);
+
+  const [rows, activities, deployedModel] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: { isVoided: false },
+      include: {
+        activity: {
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            startAt: true,
+            endAt: true,
+            checkoutCloseAt: true,
+            policy: true,
+          },
+        },
+        consistencyResult: true,
+        humanReviews: { orderBy: { reviewedAt: "desc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.activity.findMany({
+      include: { policy: true },
+      orderBy: { endAt: "desc" },
+    }),
+    prisma.modelRun.findFirst({
+      where: { status: "DEPLOYED" },
+      orderBy: { deployedAt: "desc" },
+      select: { version: true, modelFamily: true, deployedAt: true },
+    }),
+  ]);
+
+  const alertMap = new Map();
+  const activityCriticalCounts = new Map();
+  const addAlert = (code, severity, activityId = null) => {
+    const key = severity + "::" + code;
+    const current = alertMap.get(key) || { code, severity, count: 0 };
+    current.count += 1;
+    alertMap.set(key, current);
+    if (severity === "CRITICAL" && activityId) {
+      activityCriticalCounts.set(activityId, (activityCriticalCounts.get(activityId) || 0) + 1);
+    }
+  };
+
+  const duplicateMap = new Map();
+  rows.forEach((r) => {
+    const key = r.activityId + "::" + r.userId;
+    if (!duplicateMap.has(key)) duplicateMap.set(key, []);
+    duplicateMap.get(key).push(r);
+  });
+  duplicateMap.forEach((group) => {
+    if (group.length > 1) addAlert("DUPLICATE_NONVOID_ATTENDANCE", "CRITICAL", group[0].activityId);
+  });
+
+  rows.forEach((r) => {
+    const latestReview = r.humanReviews[0] || null;
+    const blockers = [
+      ...(Array.isArray(r.consistencyResult?.missingCodes) ? r.consistencyResult.missingCodes : []),
+      ...(Array.isArray(r.consistencyResult?.reasonCodes) ? r.consistencyResult.reasonCodes : []),
+    ];
+    if (r.checkinAt && r.checkoutAt && new Date(r.checkoutAt) < new Date(r.checkinAt)) {
+      addAlert("CHECKOUT_BEFORE_CHECKIN", "CRITICAL", r.activityId);
+    }
+    if (terminalStatuses.has(r.finalEvidenceStatus) && !latestReview) {
+      addAlert("FINAL_STATUS_WITHOUT_HUMAN_REVIEW", "CRITICAL", r.activityId);
+    }
+    if (r.finalEvidenceStatus === "VERIFIED" &&
+        (!r.consistencyResult || r.consistencyResult.status !== "COMPLETE" || blockers.length > 0)) {
+      addAlert("NORMAL_VERIFY_WITH_SYSTEM_BLOCKERS", "CRITICAL", r.activityId);
+    }
+    if (latestReview && String(latestReview.reason || "").trim().length < 3) {
+      addAlert("HUMAN_REVIEW_REASON_MISSING", "WARNING", r.activityId);
+    }
+    const activityEnded = new Date(r.activity?.endAt || 0).getTime() < nowMs;
+    if (activityEnded && !terminalStatuses.has(r.finalEvidenceStatus) && !r.consistencyResult) {
+      addAlert("ENDED_ACTIVITY_RECORD_NOT_EVALUATED", "WARNING", r.activityId);
+    }
+  });
+
+  const backlogRows = rows.map((r) => {
+    if (terminalStatuses.has(r.finalEvidenceStatus)) return null;
+    const activityEnded = new Date(r.activity?.endAt || 0).getTime() < nowMs;
+    if (!r.consistencyResult && !activityEnded) return null;
+    const queueStartedAt = r.consistencyResult?.evaluatedAt || r.activity?.endAt || r.createdAt;
+    const ageHours = Math.max(0, (nowMs - new Date(queueStartedAt).getTime()) / 3600000);
+    return {
+      activityId: r.activityId,
+      queueStartedAt,
+      ageHours,
+      systemEvidenceStatus: r.consistencyResult?.status || "NOT_EVALUATED",
+    };
+  }).filter(Boolean);
+
+  const aging = {
+    under4h: backlogRows.filter((x) => x.ageHours < 4).length,
+    h4to24: backlogRows.filter((x) => x.ageHours >= 4 && x.ageHours < 24).length,
+    h24to48: backlogRows.filter((x) => x.ageHours >= 24 && x.ageHours < 48).length,
+    over48h: backlogRows.filter((x) => x.ageHours >= 48).length,
+  };
+  const overTargetCount = backlogRows.filter((x) => x.ageHours >= reviewTargetHours).length;
+  const oldestBacklogHours = backlogRows.length
+    ? Math.max(...backlogRows.map((x) => x.ageHours))
+    : null;
+
+  const activityRows = new Map();
+  rows.forEach((r) => {
+    if (!activityRows.has(r.activityId)) activityRows.set(r.activityId, []);
+    activityRows.get(r.activityId).push(r);
+  });
+
+  const endedActivities = activities
+    .filter((a) => new Date(a.endAt).getTime() < nowMs)
+    .map((a) => {
+      const records = activityRows.get(a.id) || [];
+      const unevaluatedCount = records.filter((r) => !r.consistencyResult).length;
+      const unresolvedCount = records.filter((r) => !terminalStatuses.has(r.finalEvidenceStatus)).length;
+      const criticalDataQualityCount = activityCriticalCounts.get(a.id) || 0;
+      const checklist = [
+        { key: "ACTIVITY_ENDED", passed: true },
+        { key: "ALL_RECORDS_EVALUATED", passed: unevaluatedCount === 0 },
+        { key: "NO_UNRESOLVED_HUMAN_REVIEW", passed: unresolvedCount === 0 },
+        { key: "NO_CRITICAL_DATA_QUALITY", passed: criticalDataQualityCount === 0 },
+      ];
+      return {
+        activityId: a.id,
+        title: a.title,
+        category: a.category,
+        endedAt: a.endAt,
+        recordCount: records.length,
+        unevaluatedCount,
+        unresolvedCount,
+        criticalDataQualityCount,
+        closeReady: checklist.every((x) => x.passed),
+        checklist,
+      };
+    });
+
+  const alerts = [...alertMap.values()]
+    .sort((a, b) =>
+      (a.severity === b.severity ? b.count - a.count : a.severity === "CRITICAL" ? -1 : 1) ||
+      a.code.localeCompare(b.code)
+    );
+  const criticalAlertCount = alerts
+    .filter((x) => x.severity === "CRITICAL")
+    .reduce((sum, x) => sum + x.count, 0);
+  const warningAlertCount = alerts
+    .filter((x) => x.severity === "WARNING")
+    .reduce((sum, x) => sum + x.count, 0);
+  const endedNotCloseReadyCount = endedActivities.filter((x) => !x.closeReady).length;
+
+  let pilotStatus = "READY";
+  const blockers = [];
+  const warnings = [];
+  if (criticalAlertCount > 0) {
+    pilotStatus = "BLOCKED";
+    blockers.push("CRITICAL_DATA_QUALITY");
+  }
+  if (pilotStatus !== "BLOCKED" && (overTargetCount > 0 || warningAlertCount > 0 || endedNotCloseReadyCount > 0)) {
+    pilotStatus = "WATCH";
+  }
+  if (overTargetCount > 0) warnings.push("REVIEW_BACKLOG_OVER_TARGET");
+  if (warningAlertCount > 0) warnings.push("DATA_QUALITY_WARNINGS");
+  if (endedNotCloseReadyCount > 0) warnings.push("ENDED_ACTIVITIES_NOT_CLOSE_READY");
+
+  res.json({
+    ok: true,
+    aggregated: true,
+    containsPII: false,
+    generatedAt: now.toISOString(),
+    pilotStatus,
+    blockers,
+    warnings,
+    governance: {
+      humanFinalDecisionRequired: true,
+      aiAutonomousDecision: false,
+      groundTruthBlindedFromAiDuringLabeling: true,
+      analyticsAggregateOnly: true,
+      deployedModel: deployedModel || null,
+      aiRequiredForPilot: false,
+    },
+    reviewMonitoring: {
+      targetHours: reviewTargetHours,
+      targetType: "OPERATIONAL_MONITORING_TARGET_NOT_PERSONNEL_SCORE",
+      backlogCount: backlogRows.length,
+      overTargetCount,
+      oldestBacklogHours,
+      aging,
+    },
+    dataQuality: {
+      criticalAlertCount,
+      warningAlertCount,
+      alerts,
+    },
+    activityClosing: {
+      endedActivityCount: endedActivities.length,
+      closeReadyCount: endedActivities.filter((x) => x.closeReady).length,
+      notCloseReadyCount: endedNotCloseReadyCount,
+      activities: endedActivities,
+      note: "closeReady is a checklist result only; V0.9 does not mutate or lock activity records.",
+    },
+  });
+});
+
 app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   const deployed = await prisma.modelRun.findFirst({
     where: { status: "DEPLOYED" },
@@ -2461,5 +2670,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.8.0 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.9.0 server running on http://localhost:" + port);
 });
