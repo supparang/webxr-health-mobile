@@ -347,6 +347,20 @@ V0.3:
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
 
 
+## V0.9.0 — Pilot Readiness & Operational Monitoring
+- เพิ่ม endpoint `GET /api/operations/pilot-readiness` สำหรับ ADMIN/STAFF
+- เพิ่มสถานะ `READY / WATCH / BLOCKED` สำหรับ readiness ของกระบวนการ Pilot
+- เพิ่ม Review Backlog Aging: <4h, 4–24h, 24–48h, ≥48h
+- รองรับ `REVIEW_TARGET_HOURS` (ค่าเริ่มต้น 24 ชั่วโมง) เป็น operational monitoring target ไม่ใช่ personnel score
+- เพิ่ม Data Quality rules: duplicate non-void attendance, checkout ก่อน check-in, final status ที่ไม่มี Human Review, normal verify ทั้งที่ยังมี blocker, legacy review reason ไม่ครบ และ ended activity ที่ยังไม่ evaluate
+- เพิ่ม Activity Closing Checklist โดยไม่เปลี่ยนสถานะถาวรของกิจกรรม
+- Close-ready ต้องผ่าน: activity ended, records evaluated ครบ, ไม่มี unresolved Human Review และไม่มี critical data-quality issue
+- AI ไม่เป็น prerequisite ของ Pilot; ระบบยังยึด Evidence + Human Review + Audit Trail เป็นแกน
+- API ส่ง aggregate-only และ `containsPII: false`
+- Participant เข้า endpoint ไม่ได้
+- Demo Mode รองรับ shape เดียวกับ Server Mode
+- CI smoke test ตรวจ governance, no-PII, access control, monitoring target และ closing checklist
+
 ## V0.8.0 — Verified Analytics & Management Dashboard
 - เพิ่ม endpoint `GET /api/analytics/verified` สำหรับ ADMIN/STAFF
 - ส่งเฉพาะข้อมูล aggregate และระบุ `containsPII: false`
