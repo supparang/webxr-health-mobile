@@ -347,6 +347,17 @@ V0.3:
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
 
 
+## V0.7.0 — AI Risk Prioritization in Human Review Queue
+- เชื่อม deployed AI/XAI prediction เข้ากับ Human Review Queue เดิมโดยตรง
+- Pending cases ถูกจัดลำดับด้วย risk probability จากมากไปน้อย เมื่อมี deployed model/prediction
+- API ส่ง priorityRank, riskPercent และ modelFlaggedForReview เพื่อใช้เป็น decision-support metadata
+- Review Queue แสดง AI Priority พร้อม workflow status โดยไม่แทนที่ rule-based evidence status
+- Review Case แสดง model version, risk probability, prediction และ local explanation ก่อน Human Decision
+- หากไม่มี AI prediction ระบบยังทำงานจาก Evidence + Human Review ได้ตามปกติ
+- Ground Truth workspace ยังคง blind ต่อ AI/rule recommendation
+- AI prediction ไม่เปลี่ยน finalEvidenceStatus อัตโนมัติ
+- Smoke test ใช้สอง prediction (84% และ 32%) ตรวจว่าความเสี่ยงสูงกว่ามี priorityRank ก่อนหน้า
+
 ## V0.6.2 — Human Review Audit Hardening
 - บังคับระบุเหตุผลสำหรับ Human Review ทุกผลตัดสิน รวมถึง VERIFY
 - Audit log ของการตรวจสอบเก็บ reviewId, reviewerId, previousFinalStatus → finalEvidenceStatus, systemEvidenceStatus, blockers และ review timing
