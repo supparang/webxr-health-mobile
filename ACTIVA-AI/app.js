@@ -117,6 +117,7 @@
       audit:"Audit Trail",
       analytics:"Verified Analytics",
       operations:"Pilot Readiness",
+      release:"V1 Release Gate",
       research:"Research Export"
     })[activeView] || "ACTIVA-AI";
   }
@@ -134,7 +135,7 @@
     const verify = [["evidence","หลักฐาน"]];
     if (can("ADMIN","STAFF")) verify.push(["review","ตรวจสอบโดยมนุษย์"]);
     if (can("ADMIN")) verify.push(["audit","Audit Trail"]);
-    if (can("ADMIN","STAFF")) verify.push(["analytics","Verified Analytics"],["operations","Pilot Readiness"]);
+    if (can("ADMIN","STAFF")) verify.push(["analytics","Verified Analytics"],["operations","Pilot Readiness"],["release","V1 Release Gate"]);
     groups.push({key:"verification",label:"การตรวจสอบ",items:verify});
 
     const research = [];
@@ -201,7 +202,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.9.0 • Pilot Readiness + Operational Monitoring</div>'+
+        '<div class="version">V1.0.0 • Pilot Release Gate + Immutable Closure</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -281,6 +282,7 @@
       else if (activeView === "audit") await renderAudit(v);
       else if (activeView === "analytics") await renderVerifiedAnalytics(v);
       else if (activeView === "operations") await renderPilotReadiness(v);
+      else if (activeView === "release") await renderReleaseGate(v);
       else if (activeView === "research") await renderResearch(v);
     } catch (error) {
       v.innerHTML = '<div class="panel">'+errorBox(error)+'</div>';
@@ -290,7 +292,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.9.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -569,6 +571,139 @@
       '<div class="panel"><h2>Activity Closing Checklist</h2>'+
       '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>Records</th><th>ยังไม่ Evaluate</th><th>ค้าง Review</th><th>Critical</th><th>Checklist</th></tr></thead><tbody>'+activityRows+'</tbody></table></div>'+
       '<p class="muted">V0.9 คำนวณ Close-ready เท่านั้น ยังไม่ lock/close activity จริง เพื่อป้องกันการเปลี่ยนสถานะถาวรก่อนผ่าน Pilot acceptance</p></div>';
+  }
+
+
+  function releaseGateBadge(gate) {
+    const go=gate==="GO";
+    return '<span class="status '+(go?"s-ok":"s-bad")+'">'+(go?"GO — ผ่าน Release Gate":"HOLD — ยังไม่พร้อม Release")+'</span>';
+  }
+
+  function releaseScenarioLabel(status) {
+    return '<span class="status '+(status==="PASS"?"s-ok":"s-warn")+'">'+esc(status)+'</span>';
+  }
+
+  async function renderReleaseGate(v) {
+    if(!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data=await api("/api/operations/release-gate");
+    const closure=data.activityClosure||{};
+    const recovery=data.backupRecovery||{};
+    const security=data.security||{};
+    const scenarios=data.scenarios||[];
+    const activities=closure.activities||[];
+
+    const blockers=(data.blockers||[]).length
+      ? '<div class="alert bad"><b>Release blockers</b><br>'+(data.blockers||[]).map(x=>'• '+esc(x)).join("<br>")+'</div>'
+      : '<div class="alert ok"><b>ไม่มี Release blocker จาก runtime gate</b></div>';
+
+    const scenarioRows=scenarios.length
+      ? scenarios.map(s=>'<tr><td><b>'+esc(s.title||s.id)+'</b><div class="audit-code">'+esc(s.id)+'</div></td><td>'+releaseScenarioLabel(s.status)+'</td><td><code>'+esc(JSON.stringify(s.evidence||{}))+'</code></td></tr>').join("")
+      : '<tr><td colspan="3">ยังไม่มี acceptance scenario</td></tr>';
+
+    const activityRows=activities.length
+      ? activities.map(a=>{
+          const closed=Boolean(a.alreadyClosed||a.pilotClosedAt);
+          const checklist=(a.checklist||[]).map(x=>'<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key))+'</span>').join(" ");
+          return '<tr>'+
+            '<td><b>'+esc(a.title||a.activityId)+'</b><br><span class="muted">'+esc(a.category||"")+'</span></td>'+
+            '<td>'+(closed?'<span class="status s-ok">Immutable Closed</span>':(a.closeReady?'<span class="status s-info">Close-ready</span>':'<span class="status s-warn">ยังปิดไม่ได้</span>'))+'</td>'+
+            '<td>'+esc(a.unresolvedCount||0)+'</td>'+
+            '<td>'+esc(a.unevaluatedCount||0)+'</td>'+
+            '<td>'+checklist+'</td>'+
+            '<td>'+(can("ADMIN")&&!closed&&a.closeReady?'<button class="btn mini warn closePilotActivity" data-id="'+esc(a.id||a.activityId)+'" data-title="'+esc(a.title||"")+'">ปิดกิจกรรมแบบ Immutable</button>':(closed?'<code>'+esc(a.pilotClosureHash||"")+'</code>':'—'))+'</td>'+
+          '</tr>';
+        }).join("")
+      : '<tr><td colspan="6">ยังไม่มีกิจกรรมที่สิ้นสุด</td></tr>';
+
+    const latest=data.latestReleaseDecision;
+    v.innerHTML=
+      (data.syntheticDemo?'<div class="alert warn"><b>DEMO / SYNTHETIC</b> — Demo Mode ถูกบังคับให้ HOLD เสมอ และไม่สามารถอนุมัติ Production GO ได้</div>':'')+
+      '<div class="panel"><div class="section-head"><div><h2>ACTIVA-AI V1.0 Pilot Release Gate</h2>'+
+      '<p class="muted">Release Gate ตรวจ readiness ของระบบและกระบวนการ ไม่ใช่คะแนนบุคลากร และ AI ไม่มีสิทธิ์อนุมัติ GO เอง</p></div>'+releaseGateBadge(data.gate)+'</div>'+
+      blockers+
+      '<div class="grid cards">'+
+        card("Release version",data.releaseVersion||"—")+
+        card("กิจกรรมจบแล้ว",closure.endedActivityCount||0)+
+        card("Immutable closed",closure.closedCount||0)+
+        card("ยังไม่ closed",closure.notClosedCount||0)+
+        card("Backlog เกิน target",data.reviewMonitoring?.overTargetCount||0)+
+        card("Recovery check",recovery.passed?"PASS":"REQUIRED")+
+      '</div>'+
+      '<div class="hint"><b>Security config:</b> QR signing '+(security.qrSigningReady?"✓":"✕")+' • Research hash salt '+(security.researchSaltReady?"✓":"✕")+
+      '<br><b>AI:</b> ไม่เป็น prerequisite ของ Pilot; Human Final Decision + Audit Trail ยังคงเป็นแกนของระบบ</div></div>'+
+
+      '<div class="panel"><h2>Acceptance Scenarios</h2>'+
+      '<div class="table-wrap"><table><thead><tr><th>Scenario</th><th>Status</th><th>Evidence</th></tr></thead><tbody>'+scenarioRows+'</tbody></table></div></div>'+
+
+      '<div class="panel"><h2>Immutable Activity Closure</h2>'+
+      '<p class="muted">เมื่อปิดแล้ว ระบบจะ block การแก้ operational evidence, check-in/out, staff verification, void, re-evaluate และ Human Review ของกิจกรรมนั้น</p>'+
+      '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>สถานะ</th><th>ค้าง Review</th><th>ยังไม่ Evaluate</th><th>Checklist</th><th>Action / Hash</th></tr></thead><tbody>'+activityRows+'</tbody></table></div></div>'+
+
+      '<div class="split"><div class="panel"><h2>Backup & Recovery Verification</h2>'+
+      '<p class="muted">Production backup มี PII และต้องเก็บในที่ปลอดภัย ระบบไม่รวม QR cryptographic credentials เพื่อให้ credential เดิมใช้ไม่ได้หลัง disaster recovery</p>'+
+      (can("ADMIN")?'<div class="actions"><button class="btn primary" id="downloadPilotBackup">ดาวน์โหลด Backup JSON</button></div>'+
+      '<div class="field" style="margin-top:12px"><label>ตรวจไฟล์ Backup</label><input id="recoveryFile" type="file" accept=".json,application/json"></div>'+
+      '<div class="actions"><button class="btn secondary" id="verifyRecovery">Recovery Check</button></div>':'<div class="hint">เฉพาะ ADMIN สามารถ export/verify backup ได้</div>')+
+      '<div id="recoveryMsg"></div>'+
+      '<p><b>ล่าสุด:</b> '+esc(recovery.lastPassedAt?fmt(recovery.lastPassedAt):"ยังไม่มี recovery check ที่ใช้ได้")+'</p></div>'+
+
+      '<div class="panel"><h2>Final GO / HOLD Decision</h2>'+
+      (latest?'<div class="hint"><b>Decision ล่าสุด:</b> '+esc(latest.action)+' • '+fmt(latest.createdAt)+'<br>'+esc(latest.metadata?.reason||"")+'</div>':'<div class="hint">ยังไม่มีการบันทึก release decision</div>')+
+      (can("ADMIN")?'<div class="field"><label>เหตุผลการตัดสินใจ</label><textarea id="releaseReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>'+
+      '<div class="actions"><button class="btn bad" id="recordHold">บันทึก HOLD</button><button class="btn ok" id="recordGo" '+(data.gate==="GO"?"":"disabled")+'>บันทึก GO</button></div>':'<div class="hint">STAFF ดู gate ได้ แต่ ADMIN เป็นผู้บันทึก release decision</div>')+
+      '<div id="releaseMsg"></div></div></div>';
+
+    document.querySelectorAll(".closePilotActivity").forEach(btn=>btn.onclick=async()=>{
+      const reason=prompt("เหตุผลการปิดกิจกรรม “"+(btn.dataset.title||"")+"” แบบ Immutable (อย่างน้อย 10 ตัวอักษร)");
+      if(reason===null)return;
+      try{
+        await api("/api/operations/activities/"+encodeURIComponent(btn.dataset.id)+"/close",{method:"POST",body:JSON.stringify({reason})});
+        await renderReleaseGate(v);
+      }catch(e){v.insertAdjacentHTML("afterbegin",errorBox(e));}
+    });
+
+    const backupBtn=document.getElementById("downloadPilotBackup");
+    if(backupBtn) backupBtn.onclick=async()=>{
+      const host=document.getElementById("recoveryMsg");
+      try{
+        host.innerHTML='<div class="alert">กำลังสร้าง backup…</div>';
+        const result=await api("/api/operations/backup");
+        const blob=new Blob([JSON.stringify(result.backup,null,2)],{type:"application/json"});
+        const href=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        a.href=href;
+        a.download="ACTIVA-AI-"+String(result.backup.releaseVersion||"V1").replace(/[^A-Za-z0-9._-]/g,"-")+"-backup.json";
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(href),1000);
+        host.innerHTML='<div class="alert ok">สร้าง backup แล้ว • checksum '+esc(result.backup.checksum)+'</div>';
+      }catch(e){host.innerHTML=errorBox(e);}
+    };
+
+    const verifyBtn=document.getElementById("verifyRecovery");
+    if(verifyBtn) verifyBtn.onclick=async()=>{
+      const host=document.getElementById("recoveryMsg");
+      const file=document.getElementById("recoveryFile").files?.[0];
+      if(!file)return host.innerHTML='<div class="alert warn">กรุณาเลือกไฟล์ Backup JSON ก่อน</div>';
+      try{
+        const backup=JSON.parse(await file.text());
+        const result=await api("/api/operations/recovery-check",{method:"POST",body:JSON.stringify({backup})});
+        host.innerHTML='<div class="alert ok">Recovery Check ผ่าน • checksum '+esc(result.checksum)+' • ไม่ได้เขียนทับฐานข้อมูลจริง</div>';
+        setTimeout(()=>renderReleaseGate(v),400);
+      }catch(e){host.innerHTML=errorBox(e);}
+    };
+
+    const submitDecision=async(decision)=>{
+      const host=document.getElementById("releaseMsg");
+      const reason=document.getElementById("releaseReason")?.value.trim()||"";
+      try{
+        const result=await api("/api/operations/release-decision",{method:"POST",body:JSON.stringify({decision,reason})});
+        host.innerHTML='<div class="alert '+(result.decision==="GO"?"ok":"warn")+'">บันทึก '+esc(result.decision)+' แล้ว</div>';
+        setTimeout(()=>renderReleaseGate(v),350);
+      }catch(e){host.innerHTML=errorBox(e);}
+    };
+    const hold=document.getElementById("recordHold");if(hold)hold.onclick=()=>submitDecision("HOLD");
+    const go=document.getElementById("recordGo");if(go)go.onclick=()=>submitDecision("GO");
   }
 
   function field(label,id,placeholder,type,value) {
