@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { prisma } from "./db.js";
-import { createEventToken, verifyEventToken } from "./qr.js";
+import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef } from "./auth.js";
 
@@ -247,9 +247,9 @@ function inferenceFeatureRow(r) {
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
-    res.json({ ok: true, version: "0.6.0", database: "connected", ai: "disabled-until-ground-truth" });
+    res.json({ ok: true, version: "0.6.1", database: "connected", ai: "disabled-until-ground-truth" });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.6.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "0.6.1", database: "unavailable", error: error.message });
   }
 });
 
@@ -278,6 +278,78 @@ app.get("/api/me", async (req, res) => {
       activityAssignments,
     },
   });
+});
+
+app.get("/api/personal-qr/me", async (req, res) => {
+  let credential = await prisma.personalQrCredential.findFirst({
+    where:{userId:req.activaUser.id,revokedAt:null},
+    orderBy:{issuedAt:"desc"},
+  });
+  if(!credential){
+    credential=await prisma.personalQrCredential.create({data:{userId:req.activaUser.id}});
+    await audit(req,"PERSONAL_QR_ISSUED","User",req.activaUser.id,{credentialId:credential.id});
+  }
+  const issued=createPersonalToken(credential.id);
+  res.json({
+    ok:true,
+    token:issued.token,
+    credentialId:credential.id,
+    issuedAt:credential.issuedAt,
+    reusableAcrossActivities:true,
+    containsDirectPII:false,
+  });
+});
+
+app.post("/api/personal-qr/reissue", async (req,res)=>{
+  await prisma.personalQrCredential.updateMany({
+    where:{userId:req.activaUser.id,revokedAt:null},
+    data:{revokedAt:new Date()},
+  });
+  const credential=await prisma.personalQrCredential.create({data:{userId:req.activaUser.id}});
+  const issued=createPersonalToken(credential.id);
+  await audit(req,"PERSONAL_QR_REISSUED","User",req.activaUser.id,{credentialId:credential.id});
+  res.status(201).json({
+    ok:true,token:issued.token,credentialId:credential.id,issuedAt:credential.issuedAt,
+    reusableAcrossActivities:true,containsDirectPII:false,
+  });
+});
+
+app.post("/api/personal-qr/resolve", requireRoles("ADMIN","STAFF"), async (req,res)=>{
+  const verified=verifyPersonalToken(req.body?.token);
+  if(!verified.ok) return res.status(400).json({ok:false,error:verified.reason});
+
+  const credential=await prisma.personalQrCredential.findUnique({
+    where:{id:verified.payload.credentialId},
+    include:{user:{select:{id:true,employeeId:true,name:true,status:true,role:true}}},
+  });
+  if(!credential || credential.revokedAt){
+    return res.status(410).json({ok:false,error:"PERSONAL_QR_REVOKED_OR_UNKNOWN"});
+  }
+  if(credential.user.status!=="ACTIVE"){
+    return res.status(409).json({ok:false,error:"PERSONAL_QR_USER_INACTIVE"});
+  }
+
+  const activityId=String(req.body?.activityId||"").trim()||null;
+  const rows=await prisma.attendanceRecord.findMany({
+    where:{
+      userId:credential.userId,
+      isVoided:false,
+      ...(activityId?{activityId}:{}),
+    },
+    include:{
+      user:{select:{id:true,employeeId:true,name:true}},
+      activity:{select:{id:true,title:true,category:true,startAt:true,endAt:true,policy:true}},
+      staffVerification:true,
+      consistencyResult:true,
+      humanReviews:{orderBy:{reviewedAt:"desc"},take:1},
+    },
+    orderBy:{createdAt:"desc"},
+  });
+
+  await audit(req,"PERSONAL_QR_RESOLVED","User",credential.userId,{
+    activityId,attendanceMatches:rows.length,
+  });
+  res.json({ok:true,user:credential.user,attendance:rows});
 });
 
 app.get("/api/users", personnelDirectoryGuard, async (_req, res) => {

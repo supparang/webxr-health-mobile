@@ -87,6 +87,26 @@
     }catch{return null;}
   }
 
+  function createDemoPersonalToken(credentialId){
+    return "ACTIVAPERSON1."+encodeBase64UrlUtf8(JSON.stringify({v:1,c:credentialId}));
+  }
+
+  function decodeDemoPersonalToken(token){
+    if(typeof token!=="string"||!token.startsWith("ACTIVAPERSON1.")) return null;
+    try{
+      const payload=JSON.parse(decodeBase64UrlUtf8(token.slice("ACTIVAPERSON1.".length)));
+      return payload?.v===1&&payload.c?payload:null;
+    }catch{return null;}
+  }
+
+  function ensureDemoPersonalCredential(u){
+    if(!u.personalQrCredential){
+      u.personalQrCredential={id:uid("DEMO-PC"),issuedAt:iso(),revokedAt:null};
+      save();
+    }
+    return u.personalQrCredential;
+  }
+
   function materializePortableActivity(payload){
     let a=activity(payload.id);
     if(a) return a;
@@ -543,7 +563,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.6.0-demo",database:"demo-local",mode:"DEMO",synthetic:true};
+      return {ok:true,version:"0.6.1-demo",database:"demo-local",mode:"DEMO",synthetic:true};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -551,6 +571,49 @@
       return {ok:true,user:{...userPublic(who),activityPermissions:effectiveActivityPermissions(who),activityAssignments:state.activities.flatMap(a=>(a.roleAssignments||[]).filter(x=>x.userId===who.id).map(x=>({activityId:a.id,role:x.role})))}};
     }
     if (!who || who.status !== "ACTIVE") err("DEMO_LOGIN_REQUIRED",401);
+
+    if (p === "/api/personal-qr/me" && method === "GET") {
+      const credential=ensureDemoPersonalCredential(who);
+      return {
+        ok:true,
+        token:createDemoPersonalToken(credential.id),
+        credentialId:credential.id,
+        issuedAt:credential.issuedAt,
+        reusableAcrossActivities:true,
+        containsDirectPII:false,
+        demo:true
+      };
+    }
+
+    if (p === "/api/personal-qr/reissue" && method === "POST") {
+      const previous=who.personalQrCredential?.id||null;
+      who.personalQrCredential={id:uid("DEMO-PC"),issuedAt:iso(),revokedAt:null};
+      save();
+      audit(who.id,"PERSONAL_QR_REISSUED","User",who.id,{demo:true,previousCredentialId:previous,credentialId:who.personalQrCredential.id});
+      return {
+        ok:true,
+        token:createDemoPersonalToken(who.personalQrCredential.id),
+        credentialId:who.personalQrCredential.id,
+        issuedAt:who.personalQrCredential.issuedAt,
+        reusableAcrossActivities:true,
+        containsDirectPII:false,
+        demo:true
+      };
+    }
+
+    if (p === "/api/personal-qr/resolve" && method === "POST") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const payload=decodeDemoPersonalToken(b.token);
+      if(!payload) err("INVALID_PERSONAL_QR",400);
+      const u=state.users.find(x=>x.personalQrCredential?.id===payload.c);
+      if(!u) err("PERSONAL_QR_REVOKED_OR_UNKNOWN",410);
+      if(u.status!=="ACTIVE") err("PERSONAL_QR_USER_INACTIVE",409);
+      const activityId=String(b.activityId||"").trim()||null;
+      let matches=state.attendance.filter(r=>!r.isVoided&&r.userId===u.id&&(activityId?r.activityId===activityId:true));
+      matches=matches.map(hydrateAttendance);
+      audit(who.id,"PERSONAL_QR_RESOLVED","User",u.id,{demo:true,activityId,attendanceMatches:matches.length});
+      return {ok:true,user:userPublic(u),attendance:matches};
+    }
 
     if (p === "/api/demo/latest-qr" && method === "GET") {
       const purpose=String(url.searchParams.get("purpose")||"CHECKIN").toUpperCase();

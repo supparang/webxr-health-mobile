@@ -116,6 +116,7 @@ model User {
   voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
   staffVerifications StaffVerification[]   @relation("StaffVerifier")
   humanReviews      HumanReview[]           @relation("HumanReviewer")
+  personalQrCredentials PersonalQrCredential[] @relation("PersonalQrUser")
   groundTruthLabels        GroundTruthLabel[] @relation("GroundTruthReviewer")
   groundTruthAdjudications GroundTruthCase[]  @relation("GroundTruthAdjudicator")
   auditLogs                AuditLog[]         @relation("AuditActor")
@@ -143,6 +144,17 @@ model UserActivityPermission {
   @@unique([userId, permission])
   @@index([userId, revokedAt])
   @@index([permission, revokedAt])
+}
+
+model PersonalQrCredential {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation("PersonalQrUser", fields: [userId], references: [id], onDelete: Cascade)
+  issuedAt  DateTime @default(now())
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, revokedAt])
 }
 
 model Activity {

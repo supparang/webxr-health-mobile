@@ -4,6 +4,7 @@
   const SESSION_KEY = "activa_ai_v034_session";
   const MODE_KEY = "activa_ai_mode";
   const NAV_GROUP_KEY = "activa_ai_nav_groups";
+  const SELECTED_ACTIVITY_KEY = "activa_ai_selected_activity";
   let appMode = sessionStorage.getItem(MODE_KEY) || "server";
   let session = readSession();
   let activeView = "dashboard";
@@ -102,6 +103,7 @@
   function viewTitle() {
     return ({
       dashboard:"ภาพรวม",
+      myqr:"QR ประจำตัวของฉัน",
       users:"บุคลากร / ผู้ใช้งาน",
       activities:"กิจกรรมและนโยบายหลักฐาน",
       qr:"Dynamic QR",
@@ -120,7 +122,7 @@
   function navGroups() {
     const groups = [];
 
-    const work = [["dashboard","ภาพรวม"]];
+    const work = [["dashboard","ภาพรวม"],["myqr","QR ประจำตัวของฉัน"]];
     if (can("ADMIN")) work.push(["users","บุคลากร"]);
     if (canManageActivities()) work.push(["activities","กิจกรรม"]);
     if (can("ADMIN") || hasActivityPermission("CAN_CREATE_ACTIVITY") || hasActivityPermission("CAN_EDIT_OWN_ACTIVITY") || hasActivityPermission("CAN_MANAGE_ALL_ACTIVITIES")) work.push(["qr","Dynamic QR"]);
@@ -196,7 +198,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.6.0 • Dual Dynamic QR Check-in/out</div>'+
+        '<div class="version">V0.6.1 • Activity Center + Review Queue + Personal QR</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -262,6 +264,7 @@
     const v = document.getElementById("view");
     try {
       if (activeView === "dashboard") await renderDashboard(v);
+      else if (activeView === "myqr") await renderPersonalQr(v);
       else if (activeView === "users") await renderUsersAdmin(v);
       else if (activeView === "activities") await renderActivities(v);
       else if (activeView === "qr") await renderQr(v);
@@ -282,7 +285,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.6.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.6.1</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -335,6 +338,33 @@
 
   function card(label, value) {
     return '<div class="card"><div class="label">'+esc(label)+'</div><div class="n">'+esc(value)+'</div></div>';
+  }
+
+  async function renderPersonalQr(v) {
+    showLoading(v);
+    const data=await api("/api/personal-qr/me");
+    v.innerHTML=
+      '<div class="panel personal-qr-panel"><div class="section-head"><div><h2>QR ประจำตัวของฉัน</h2>'+
+      '<p class="muted">ใช้เพื่อระบุตัวบุคคลและเรียก record เมื่อต้องตรวจสอบ ไม่ใช่การรับรองผล Human Review อัตโนมัติ</p></div></div>'+
+      '<div class="personal-qr-layout"><div id="personalQrCode" class="qr personal-qr"></div><div>'+
+      '<p><b>'+esc(session.employeeId+" • "+session.name)+'</b></p>'+
+      '<p class="muted">ใช้ QR นี้ข้ามกิจกรรมได้ ตราบใดที่บัญชียัง Active และ QR ยังไม่ถูกออกใหม่</p>'+
+      '<div class="token">'+esc(data.token)+'</div>'+
+      '<div class="actions"><button class="btn warn" id="reissuePersonalQr">ออก Personal QR ใหม่</button></div>'+
+      '<div class="hint">'+(appMode==="demo"
+        ? '<b>Demo Mode:</b> ใช้ token สาธิตใน browser ไม่ใช่ลายมือชื่อ production'
+        : '<b>Server Mode:</b> QR ใช้ signed opaque credential และไม่บรรจุชื่อ/รหัสบุคลากรโดยตรง')+
+      '<br>หาก QR รั่วหรือสงสัยว่าถูกคัดลอก ให้กดออก QR ใหม่ ซึ่งจะยกเลิก credential เดิม</div></div></div></div>';
+    if(window.QRCode)new QRCode(document.getElementById("personalQrCode"),{
+      text:data.token,width:260,height:260,correctLevel:QRCode.CorrectLevel.M
+    });
+    document.getElementById("reissuePersonalQr").onclick=async()=>{
+      if(!confirm("ออก Personal QR ใหม่? QR เดิมจะใช้ไม่ได้อีก"))return;
+      try{
+        await api("/api/personal-qr/reissue",{method:"POST"});
+        await renderPersonalQr(v);
+      }catch(e){v.insertAdjacentHTML("afterbegin",errorBox(e));}
+    };
   }
 
   async function renderDashboard(v) {
@@ -628,7 +658,11 @@
   async function renderActivities(v) {
     if (!canManageActivities()) throw new Error("FORBIDDEN");
     showLoading(v);
-    const [activities, users] = await Promise.all([loadActivities(), can("ADMIN") ? loadUsers() : Promise.resolve([])]);
+    const [activities, users, activityAttendance] = await Promise.all([
+      loadActivities(),
+      can("ADMIN") ? loadUsers() : Promise.resolve([]),
+      loadAttendance().catch(()=>[])
+    ]);
     const mayCreate = hasActivityPermission("CAN_CREATE_ACTIVITY");
     const eligibleOrganizers = users.filter(u =>
       u.status === "ACTIVE" &&
@@ -662,13 +696,103 @@
         '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'
       : '<div class="panel"><div class="hint"><b>สิทธิ์ปัจจุบัน:</b> คุณจัดการกิจกรรมที่ได้รับสิทธิ์ได้ แต่ไม่มีสิทธิ์สร้างกิจกรรมใหม่</div></div>';
 
-    v.innerHTML = createPanel+
-      '<div class="panel"><h2>กิจกรรมทั้งหมด</h2>'+activitiesTable(activities)+'</div>'+
+    v.innerHTML =
+      '<div class="panel"><div id="activityCenter"></div></div>'+
+      createPanel+
       '<div id="activityManager"></div>';
 
-    document.querySelectorAll(".manageActivity").forEach(btn=>btn.onclick=()=>{
-      renderActivityManagement(document.getElementById("activityManager"),btn.dataset.id);
-    });
+    const activityState={filter:"RELEVANT",search:"",page:1,pageSize:20};
+
+    function activityLifecycleClient(a,now=Date.now()){
+      const start=new Date(a.startAt).getTime(),end=new Date(a.endAt).getTime();
+      if(now<start)return "UPCOMING";
+      if(now>end)return "ENDED";
+      return "ACTIVE";
+    }
+    function activityReviewCount(activityId){
+      return activityAttendance.filter(r=>(r.activity?.id||r.activityId)===activityId&&
+        ["REVIEW_REQUIRED","INCOMPLETE","INCONSISTENT"].includes(evidenceStatusOf(r))&&
+        !["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(finalStatusOf(r))).length;
+    }
+    function activityMatchesFilter(a,filter){
+      const now=Date.now();
+      const start=new Date(a.startAt).getTime(),end=new Date(a.endAt).getTime();
+      const ci=clientCheckinWindowState(a);
+      if(filter==="ACTIVE")return now>=start&&now<=end;
+      if(filter==="CHECKIN")return ci.ok;
+      if(filter==="TODAY")return new Date(a.startAt).toDateString()===new Date().toDateString();
+      if(filter==="UPCOMING")return start>now;
+      if(filter==="REVIEW")return activityReviewCount(a.id)>0;
+      if(filter==="ENDED")return end<now;
+      if(filter==="RELEVANT")return end>=now-24*60*60*1000;
+      return true;
+    }
+    function renderActivityCenter(){
+      const host=document.getElementById("activityCenter");if(!host)return;
+      const term=activityState.search.trim().toLowerCase();
+      let filtered=activities.filter(a=>activityMatchesFilter(a,activityState.filter)).filter(a=>{
+        if(!term)return true;
+        return [a.title,a.category,a.location,a.organizer?.name,a.organizer?.employeeId]
+          .filter(Boolean).join(" ").toLowerCase().includes(term);
+      });
+      filtered.sort((a,b)=>{
+        const al=activityLifecycleClient(a),bl=activityLifecycleClient(b);
+        const rank={ACTIVE:0,UPCOMING:1,ENDED:2};
+        if(rank[al]!==rank[bl])return rank[al]-rank[bl];
+        return al==="ENDED"?new Date(b.startAt)-new Date(a.startAt):new Date(a.startAt)-new Date(b.startAt);
+      });
+      const pages=Math.max(1,Math.ceil(filtered.length/activityState.pageSize));
+      activityState.page=Math.min(Math.max(1,activityState.page),pages);
+      const pageRows=filtered.slice((activityState.page-1)*activityState.pageSize,activityState.page*activityState.pageSize);
+      const filters=[
+        ["RELEVANT","ที่เกี่ยวข้อง"],
+        ["ACTIVE","กำลังดำเนินอยู่"],
+        ["CHECKIN","เปิด Check-in"],
+        ["TODAY","วันนี้"],
+        ["UPCOMING","กำลังจะมาถึง"],
+        ["REVIEW","มีรายการต้องตรวจ"],
+        ["ENDED","สิ้นสุดแล้ว"],
+        ["ALL","ประวัติทั้งหมด"]
+      ];
+
+      host.innerHTML=
+        '<div class="section-head"><div><h2>ศูนย์กิจกรรม</h2><p class="muted">ค้นหาและกรองก่อน ไม่ต้องไล่ dropdown เมื่อมีกิจกรรมจำนวนมาก</p></div></div>'+
+        '<div class="event-toolbar"><div class="field"><label>ค้นหากิจกรรม</label><input id="actSearch" value="'+esc(activityState.search)+'" placeholder="ชื่อกิจกรรม / ประเภท / สถานที่ / ผู้จัด"></div>'+
+        '<div class="field"><label>สถานะ</label><select id="actFilter">'+filters.map(([k,l])=>'<option value="'+k+'" '+(activityState.filter===k?'selected':'')+'>'+l+'</option>').join("")+'</select></div></div>'+
+        '<div class="result-meta">พบ '+filtered.length+' กิจกรรม • แสดง '+pageRows.length+' รายการในหน้านี้</div>'+
+        '<div class="activity-center-list">'+(pageRows.length?pageRows.map(a=>{
+          const life=activityLifecycleClient(a);
+          const reviewCount=activityReviewCount(a.id);
+          const lifecycleLabel=life==="ACTIVE"?"กำลังดำเนินอยู่":life==="UPCOMING"?"กำลังจะมาถึง":"สิ้นสุดแล้ว";
+          return '<article class="activity-center-row">'+
+            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+'</small></div>'+
+            '<div class="activity-center-status"><span class="status '+(life==="ACTIVE"?"s-ok":life==="UPCOMING"?"s-info":"s-warn")+'">'+lifecycleLabel+'</span>'+
+              (reviewCount?'<span class="status s-bad">ต้องตรวจ '+reviewCount+'</span>':'')+'</div>'+
+            '<div class="activity-center-actions">'+
+              '<button class="btn mini secondary openAttendanceActivity" data-id="'+esc(a.id)+'">ผู้เข้าร่วม</button>'+
+              '<button class="btn mini secondary openQrActivity" data-id="'+esc(a.id)+'">QR</button>'+
+              (canManageActivityClient(a)?'<button class="btn mini primary manageActivity" data-id="'+esc(a.id)+'">จัดการ</button>':'')+
+            '</div></article>';
+        }).join(""):'<div class="empty">ไม่พบกิจกรรมตามเงื่อนไข</div>')+'</div>'+
+        '<div class="pagination"><button class="btn mini secondary" id="actPrev" '+(activityState.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+activityState.page+' / '+pages+'</span><button class="btn mini secondary" id="actNext" '+(activityState.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
+
+      const search=document.getElementById("actSearch");
+      search.oninput=e=>{activityState.search=e.target.value;activityState.page=1;renderActivityCenter();const n=document.getElementById("actSearch");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+      document.getElementById("actFilter").onchange=e=>{activityState.filter=e.target.value;activityState.page=1;renderActivityCenter();};
+      document.getElementById("actPrev").onclick=()=>{activityState.page--;renderActivityCenter();};
+      document.getElementById("actNext").onclick=()=>{activityState.page++;renderActivityCenter();};
+
+      host.querySelectorAll(".manageActivity").forEach(btn=>btn.onclick=()=>{
+        renderActivityManagement(document.getElementById("activityManager"),btn.dataset.id);
+      });
+      host.querySelectorAll(".openAttendanceActivity").forEach(btn=>btn.onclick=()=>{
+        sessionStorage.setItem(SELECTED_ACTIVITY_KEY,btn.dataset.id);setView("attendance");
+      });
+      host.querySelectorAll(".openQrActivity").forEach(btn=>btn.onclick=()=>{
+        sessionStorage.setItem(SELECTED_ACTIVITY_KEY,btn.dataset.id);setView("qr");
+      });
+    }
+    renderActivityCenter();
 
     const createBtn=document.getElementById("createAct");
     if(!createBtn) return;
@@ -934,6 +1058,10 @@
           ? '<b>Demo Mode:</b> QR แบบ portable สำหรับทดสอบข้ามอุปกรณ์ ไม่ใช่ลายมือชื่อ HMAC จริง'
           : '<b>Server Mode:</b> Token ลงลายมือชื่อ HMAC-SHA256 มี nonce, purpose และวันหมดอายุ')+
         '<br><b>CHECKIN</b> ใช้ได้เฉพาะ Check-in Window • <b>CHECKOUT</b> ใช้ได้เฉพาะ Check-out Window • QR คนละ purpose ใช้แทนกันไม่ได้</div></div>';
+
+    const storedActivityId=sessionStorage.getItem(SELECTED_ACTIVITY_KEY);
+    const qrSelect=document.getElementById("qrAct");
+    if(storedActivityId&&[...qrSelect.options].some(o=>o.value===storedActivityId)) qrSelect.value=storedActivityId;
 
     const selectedActivity=()=>activities.find(a=>a.id===document.getElementById("qrAct").value);
     const selectedPurpose=()=>document.getElementById("qrPurpose").value;
@@ -1243,6 +1371,12 @@
       ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><div id="attendanceDashboard"></div></div>';
 
+
+    const storedAttendanceActivity=sessionStorage.getItem(SELECTED_ACTIVITY_KEY);
+    const ciActivitySelect=document.getElementById("ciAct");
+    if(storedAttendanceActivity&&ciActivitySelect&&[...ciActivitySelect.options].some(o=>o.value===storedAttendanceActivity)){
+      ciActivitySelect.value=storedAttendanceActivity;
+    }
 
     const dashboardState={
       activityId:document.getElementById("ciAct")?.value || activities[0]?.id || "",
@@ -1769,18 +1903,163 @@
     };
   }
 
+  function reviewWorkflowStatus(r){
+    const latest=(r.humanReviews||[])[0]||null;
+    if(finalStatusOf(r)==="VERIFIED")return "VERIFIED";
+    if(finalStatusOf(r)==="OVERRIDE_VERIFIED")return "OVERRIDE_VERIFIED";
+    if(finalStatusOf(r)==="REJECTED")return "REJECTED";
+    if(latest?.decision==="REQUEST_EVIDENCE")return "WAIT_PARTICIPANT";
+    if(latest?.decision==="CORRECT")return "RETURNED";
+    const c=r.consistencyResult;
+    if(!c)return "NOT_READY";
+    const blockers=[...(c.missingCodes||[]),...(c.reasonCodes||[])];
+    if(blockers.length)return "PENDING_REVIEW";
+    return "READY_DECISION";
+  }
+
+  function reviewWorkflowLabel(status){
+    return ({
+      PENDING_REVIEW:"รอตรวจ",
+      WAIT_PARTICIPANT:"รอข้อมูลจากผู้เข้าร่วม",
+      RETURNED:"ส่งกลับแก้ไข",
+      READY_DECISION:"พร้อมตัดสิน",
+      VERIFIED:"รับรองแล้ว",
+      OVERRIDE_VERIFIED:"รับรองกรณีพิเศษ",
+      REJECTED:"ไม่รับรอง",
+      NOT_READY:"รอประเมินหลักฐาน"
+    })[status]||status;
+  }
+
   async function renderReview(v) {
     if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
     showLoading(v);
-    const rows=await loadAttendance();
+    const [rows,activities]=await Promise.all([loadAttendance(),loadActivities()]);
+    const state={activityId:"ALL",filter:"PENDING",search:"",page:1,pageSize:20};
+    const stored=sessionStorage.getItem(SELECTED_ACTIVITY_KEY);
+    if(stored&&activities.some(a=>a.id===stored))state.activityId=stored;
+    let personalScanner=null,personalScannerBusy=false;
+
     v.innerHTML=
-      '<div class="panel"><h2>ศูนย์ตรวจสอบโดยมนุษย์</h2><div class="hint">รับรองปกติได้เฉพาะเมื่อผลตรวจหลักฐานของระบบไม่มีหลักฐานบังคับที่ขาดและไม่มีข้อผิดปกติ หากจำเป็นต้องรับรองทั้งที่ยังมีข้อที่ต้องตรวจ ต้องเป็นผู้ดูแลระบบและใช้การรับรองเป็นกรณีพิเศษ พร้อมเหตุผลและประวัติการตรวจสอบ</div>'+
-      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th><th>เหตุผล</th><th></th></tr></thead><tbody>'+
-      rows.map(r=>{const c=r.consistencyResult;const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td><td>'+esc(r.activity?.title||"")+'</td><td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td><td>'+esc(evidenceReasonText(reasons)||"—")+'</td><td><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></td></tr>';}).join("")+
-      '</tbody></table></div>'+
-      '<div class="attendance-cards">'+rows.map(r=>'<article class="attendance-card"><div class="attendance-card-head"><b>'+esc(r.user?.employeeId||"")+'</b>'+statusBadge(evidenceStatusOf(r))+'</div><div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div><div>ผลตัดสิน '+statusBadge(finalStatusOf(r))+'</div><button class="btn secondary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></article>').join("")+'</div>'+
-      '</div><div id="reviewDetail"></div>';
-    document.querySelectorAll(".rvOpen").forEach(btn=>btn.onclick=()=>showReviewDetail(btn.dataset.id,rows));
+      '<div class="panel"><div class="section-head"><div><h2>Human Review Queue</h2>'+
+      '<p class="muted">Review Queue เป็นวิธีหลัก • Personal QR ใช้เพียงค้นหา/เปิด case เมื่อบุคคลอยู่ตรงหน้า ไม่ต้องสแกนครบทุกคน</p></div>'+
+      '<div class="actions"><button class="btn primary" id="scanPersonalQrBtn">📷 สแกน Personal QR</button><button class="btn secondary" id="manualPersonalQrBtn">วาง Personal QR Token</button></div></div>'+
+      '<div id="personalScanPanel" class="scanner-panel" hidden><div class="scanner-head"><div><b>สแกน Personal QR</b><br><span class="muted">ระบบจะค้นหา record ของบุคคลใน Review Queue</span></div><button class="btn secondary mini" id="stopPersonalQrBtn">ปิดกล้อง</button></div><div id="personalQrReader" class="qr-reader"></div><div id="personalScanMsg"></div></div>'+
+      '<div id="personalTokenField" class="field" hidden><label>Personal QR Token</label><textarea id="personalQrToken" placeholder="วาง token จาก QR ประจำตัว"></textarea><div class="actions"><button class="btn secondary" id="resolvePersonalQrBtn">ค้นหา Case</button></div></div>'+
+      '<div id="reviewQueue"></div></div><div id="reviewDetail"></div>';
+
+    function pendingStatus(s){return ["PENDING_REVIEW","WAIT_PARTICIPANT","RETURNED","READY_DECISION"].includes(s);}
+    function renderQueue(){
+      const host=document.getElementById("reviewQueue");
+      const term=state.search.trim().toLowerCase();
+      let filtered=rows.filter(r=>state.activityId==="ALL"||(r.activity?.id||r.activityId)===state.activityId)
+        .filter(r=>{
+          const s=reviewWorkflowStatus(r);
+          if(state.filter==="PENDING")return pendingStatus(s);
+          if(state.filter==="HISTORY")return ["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(s);
+          if(state.filter==="WAIT_PARTICIPANT")return s==="WAIT_PARTICIPANT";
+          if(state.filter==="NOT_READY")return s==="NOT_READY";
+          return true;
+        }).filter(r=>{
+          if(!term)return true;
+          return [r.user?.employeeId,r.user?.name,r.activity?.title].filter(Boolean).join(" ").toLowerCase().includes(term);
+        });
+      filtered.sort((a,b)=>{
+        const rank={PENDING_REVIEW:0,WAIT_PARTICIPANT:1,RETURNED:2,READY_DECISION:3,NOT_READY:4,REJECTED:5,OVERRIDE_VERIFIED:6,VERIFIED:7};
+        return (rank[reviewWorkflowStatus(a)]??9)-(rank[reviewWorkflowStatus(b)]??9)||new Date(b.checkinAt||0)-new Date(a.checkinAt||0);
+      });
+      const pages=Math.max(1,Math.ceil(filtered.length/state.pageSize));
+      state.page=Math.min(Math.max(1,state.page),pages);
+      const pageRows=filtered.slice((state.page-1)*state.pageSize,state.page*state.pageSize);
+      const pendingCount=rows.filter(r=>pendingStatus(reviewWorkflowStatus(r))).length;
+
+      host.innerHTML=
+        '<div class="event-summary-grid review-summary"><div class="event-stat alert-stat"><b>'+pendingCount+'</b><span>รอดำเนินการ</span></div>'+
+        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="WAIT_PARTICIPANT").length+'</b><span>รอข้อมูล</span></div>'+
+        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
+        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
+        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
+        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>ค้นหา</label><input id="reviewSearch" value="'+esc(state.search)+'" placeholder="รหัส / ชื่อ / กิจกรรม"></div></div>'+
+        '<div class="filter-chips">'+[
+          ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
+        ].map(([k,l])=>'<button class="filter-chip '+(state.filter===k?'active':'')+'" data-rvf="'+k+'">'+l+'</button>').join("")+'</div>'+
+        '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' case • Human Review แบบ Exception-first</div>'+
+        '<div class="compact-list">'+(pageRows.length?pageRows.map(r=>{
+          const c=r.consistencyResult;
+          const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
+          const status=reviewWorkflowStatus(r);
+          return '<details class="attendance-compact review-case"><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
+            '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span></span></summary>'+
+            '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span></div>'+
+            '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
+            '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></div></div></details>';
+        }).join(""):'<div class="empty">ไม่มี case ตามตัวกรอง</div>')+'</div>'+
+        '<div class="pagination"><button class="btn secondary mini" id="rvPrev" '+(state.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+state.page+' / '+pages+'</span><button class="btn secondary mini" id="rvNext" '+(state.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
+
+      document.getElementById("reviewActivity").onchange=e=>{state.activityId=e.target.value;state.page=1;renderQueue();};
+      document.getElementById("reviewSearch").oninput=e=>{state.search=e.target.value;state.page=1;renderQueue();const n=document.getElementById("reviewSearch");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+      host.querySelectorAll("[data-rvf]").forEach(b=>b.onclick=()=>{state.filter=b.dataset.rvf;state.page=1;renderQueue();});
+      document.getElementById("rvPrev").onclick=()=>{state.page--;renderQueue();};
+      document.getElementById("rvNext").onclick=()=>{state.page++;renderQueue();};
+      host.querySelectorAll(".rvOpen").forEach(btn=>btn.onclick=()=>showReviewDetail(btn.dataset.id,rows));
+    }
+    renderQueue();
+
+    async function resolvePersonalToken(token){
+      const msg=document.getElementById("personalScanMsg");
+      if(!token){msg.innerHTML='<div class="alert warn">ยังไม่มี Personal QR Token</div>';return;}
+      try{
+        const data=await api("/api/personal-qr/resolve",{
+          method:"POST",
+          body:JSON.stringify({token:String(token).trim(),activityId:state.activityId==="ALL"?null:state.activityId})
+        });
+        const matches=(data.attendance||[]).filter(x=>rows.some(r=>r.id===x.id));
+        const preferred=matches.find(r=>pendingStatus(reviewWorkflowStatus(r)))||matches[0];
+        if(!preferred){
+          msg.innerHTML='<div class="alert warn"><b>'+esc(data.user?.employeeId+" • "+data.user?.name)+'</b><br>ไม่พบ case ในขอบเขตกิจกรรมที่เลือก ใช้ Review Queue ค้นหาย้อนหลังได้</div>';
+          return;
+        }
+        state.search=data.user?.employeeId||"";
+        state.filter="ALL";
+        state.page=1;
+        renderQueue();
+        msg.innerHTML='<div class="alert ok">พบ '+esc(data.user?.employeeId+" • "+data.user?.name)+' และเปิด case ที่ตรงกันแล้ว</div>';
+        showReviewDetail(preferred.id,rows);
+        document.getElementById("reviewDetail")?.scrollIntoView({behavior:"smooth",block:"start"});
+        await stopPersonalScanner();
+      }catch(e){msg.innerHTML=errorBox(e);}
+    }
+
+    async function stopPersonalScanner(){
+      if(!personalScanner)return;
+      try{const s=personalScanner.getState?personalScanner.getState():null;if(s!==1)await personalScanner.stop();}catch{}
+      try{await personalScanner.clear();}catch{}
+      personalScanner=null;personalScannerBusy=false;
+      const panel=document.getElementById("personalScanPanel");if(panel)panel.hidden=true;
+    }
+
+    document.getElementById("manualPersonalQrBtn").onclick=()=>{
+      const f=document.getElementById("personalTokenField");f.hidden=!f.hidden;if(!f.hidden)document.getElementById("personalQrToken").focus();
+    };
+    document.getElementById("resolvePersonalQrBtn").onclick=()=>resolvePersonalToken(document.getElementById("personalQrToken").value);
+    document.getElementById("stopPersonalQrBtn").onclick=stopPersonalScanner;
+    document.getElementById("scanPersonalQrBtn").onclick=async()=>{
+      const panel=document.getElementById("personalScanPanel"),msg=document.getElementById("personalScanMsg");
+      panel.hidden=false;
+      if(!window.isSecureContext){msg.innerHTML='<div class="alert bad">กล้องต้องเปิดผ่าน HTTPS หรือ localhost</div>';return;}
+      if(!window.Html5Qrcode){msg.innerHTML='<div class="alert bad">โหลดตัวอ่าน QR ไม่สำเร็จ</div>';return;}
+      if(personalScannerBusy)return;
+      personalScannerBusy=true;msg.innerHTML='<div class="alert">กำลังเปิดกล้อง…</div>';
+      try{
+        personalScanner=new Html5Qrcode("personalQrReader");
+        await personalScanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250},aspectRatio:1.0},async decoded=>{
+          if(!personalScannerBusy)return;personalScannerBusy=false;
+          msg.innerHTML='<div class="alert ok">อ่าน Personal QR สำเร็จ กำลังค้นหา case…</div>';
+          await resolvePersonalToken(decoded);
+        },()=>{});
+        msg.innerHTML='<div class="alert ok">กล้องพร้อมแล้ว — สแกน QR ประจำตัวของบุคลากร</div>';
+      }catch(e){personalScannerBusy=false;personalScanner=null;msg.innerHTML='<div class="alert bad"><b>เปิดกล้องไม่สำเร็จ</b><br>'+esc(e?.message||e)+'</div>';}
+    };
   }
 
   function showReviewDetail(id, rows) {
@@ -1797,8 +2076,9 @@
     box.innerHTML=
       '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
-      '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
+      '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
+      '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
       (!evaluated?'<div class="alert warn"><b>ยังประเมินหลักฐานไม่ได้</b><br>กลับไปหน้า “หลักฐาน” และประเมินรายการนี้ก่อนการตรวจสอบโดยมนุษย์</div>':'')+
       (evaluated&&blockers.length?'<div class="alert warn"><b>รับรองปกติไม่ได้</b><br>'+esc(evidenceReasonText(blockers))+
         '<details class="tech-inline"><summary>ดูรหัสทางเทคนิค</summary><code>'+esc(blockers.join(" • "))+'</code></details></div>':'')+

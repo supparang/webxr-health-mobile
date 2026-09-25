@@ -78,3 +78,40 @@ export function verifyEventToken(token) {
     return { ok: false, reason: "TOKEN_VALIDATION_ERROR" };
   }
 }
+
+
+export function createPersonalToken(credentialId) {
+  const payload = {
+    typ: "ACTIVA_PERSON_QR",
+    credentialId: String(credentialId),
+    kv: 1,
+  };
+  const encoded = b64url(JSON.stringify(payload));
+  const signature = sign(encoded);
+  return { token: encoded + "." + signature, payload };
+}
+
+export function verifyPersonalToken(token) {
+  try {
+    const parts = String(token || "").split(".");
+    if (parts.length !== 2) return { ok: false, reason: "MALFORMED_PERSONAL_QR" };
+
+    const encoded = parts[0];
+    const supplied = parts[1];
+    const expected = sign(encoded);
+
+    const a = Buffer.from(supplied);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return { ok: false, reason: "INVALID_PERSONAL_QR_SIGNATURE" };
+    }
+
+    const payload = JSON.parse(fromB64url(encoded));
+    if (payload.typ !== "ACTIVA_PERSON_QR" || !payload.credentialId) {
+      return { ok: false, reason: "INVALID_PERSONAL_QR_TYPE" };
+    }
+    return { ok: true, payload };
+  } catch {
+    return { ok: false, reason: "PERSONAL_QR_VALIDATION_ERROR" };
+  }
+}

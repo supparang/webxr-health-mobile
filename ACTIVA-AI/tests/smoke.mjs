@@ -337,6 +337,28 @@ await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
   },
 });
 
+const personalQr=await req("/api/personal-qr/me",{actor:"P001"});
+assert(personalQr.token&&personalQr.reusableAcrossActivities===true,"personal QR issuance failed");
+
+const resolvedPersonal=await req("/api/personal-qr/resolve",{
+  actor:"STF001",method:"POST",body:{token:personalQr.token}
+});
+assert(resolvedPersonal.user?.employeeId==="P001","personal QR resolve failed");
+assert((resolvedPersonal.attendance||[]).some(r=>r.id===attendanceId),"personal QR should retrieve attendance records");
+
+const reissuedPersonal=await req("/api/personal-qr/reissue",{actor:"P001",method:"POST"});
+assert(reissuedPersonal.token&&reissuedPersonal.token!==personalQr.token,"personal QR reissue failed");
+
+const oldPersonal=await reqError("/api/personal-qr/resolve",{
+  actor:"STF001",method:"POST",body:{token:personalQr.token}
+});
+assert(oldPersonal.status===410&&oldPersonal.data?.error==="PERSONAL_QR_REVOKED_OR_UNKNOWN","old personal QR should be revoked");
+
+const resolvedReissued=await req("/api/personal-qr/resolve",{
+  actor:"STF001",method:"POST",body:{token:reissuedPersonal.token}
+});
+assert(resolvedReissued.user?.employeeId==="P001","reissued personal QR should resolve");
+
 const staffMe = await req("/api/me", { actor: "STF001" });
 
 await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {

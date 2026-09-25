@@ -345,3 +345,14 @@ V0.3:
 - Staff-assisted/legacy checkout ที่ไม่มี Dynamic Checkout QR จะถูก Evidence Engine flag เพื่อ Human Review
 - AttendanceRecord เพิ่ม checkoutQrValid, checkoutMethod, checkoutExceptionReason
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
+
+
+## V0.6.1 — Activity Center + Exception Review Queue + Personal QR
+- เพิ่ม Activity Center สำหรับกรณีกิจกรรมจำนวนมาก: search, filter, status, review-count และ pagination 20 รายการ
+- กดจาก Activity Center ไปดูผู้เข้าร่วม/QR ของกิจกรรมนั้นได้โดยไม่ต้องไล่ dropdown
+- เพิ่ม Personal QR สำหรับบัญชี Active ใช้ข้ามกิจกรรม และออกใหม่เพื่อยกเลิก credential เดิมได้
+- Personal QR ไม่ใช่ Final Verification; ใช้ Identify & Retrieve เท่านั้น
+- Human Review เปลี่ยนเป็น Exception-first Review Queue พร้อมกิจกรรม/search/status/pagination
+- Review Queue เป็นวิธีหลัก แม้บุคคลกลับไปแล้วก็ยังเปิด case จากหลักฐานได้
+- เพิ่ม Scan Personal QR / paste token ใน Human Review เพื่อค้นหา case อย่างรวดเร็วเมื่อบุคคลอยู่ตรงหน้า
+- แยก workflow status: รอตรวจ / รอข้อมูลจากผู้เข้าร่วม / ส่งกลับแก้ไข / พร้อมตัดสิน / รับรอง / รับรองกรณีพิเศษ / ไม่รับรอง
