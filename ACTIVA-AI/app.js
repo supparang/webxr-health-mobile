@@ -116,6 +116,7 @@
       xai:"AI/XAI Review",
       audit:"Audit Trail",
       analytics:"Verified Analytics",
+      operations:"Pilot Readiness",
       research:"Research Export"
     })[activeView] || "ACTIVA-AI";
   }
@@ -133,7 +134,7 @@
     const verify = [["evidence","หลักฐาน"]];
     if (can("ADMIN","STAFF")) verify.push(["review","ตรวจสอบโดยมนุษย์"]);
     if (can("ADMIN")) verify.push(["audit","Audit Trail"]);
-    if (can("ADMIN","STAFF")) verify.push(["analytics","Verified Analytics"]);
+    if (can("ADMIN","STAFF")) verify.push(["analytics","Verified Analytics"],["operations","Pilot Readiness"]);
     groups.push({key:"verification",label:"การตรวจสอบ",items:verify});
 
     const research = [];
@@ -200,7 +201,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V0.8.0 • Verified Analytics + AI Review Priority</div>'+
+        '<div class="version">V0.9.0 • Pilot Readiness + Operational Monitoring</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -279,6 +280,7 @@
       else if (activeView === "xai") await renderXai(v);
       else if (activeView === "audit") await renderAudit(v);
       else if (activeView === "analytics") await renderVerifiedAnalytics(v);
+      else if (activeView === "operations") await renderPilotReadiness(v);
       else if (activeView === "research") await renderResearch(v);
     } catch (error) {
       v.innerHTML = '<div class="panel">'+errorBox(error)+'</div>';
@@ -288,7 +290,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.8.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.9.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -467,6 +469,106 @@
       '</div>'+
       '<div class="table-wrap"><table><thead><tr><th>TP</th><th>FP</th><th>TN</th><th>FN</th></tr></thead><tbody><tr><td>'+esc(cm.tp||0)+'</td><td>'+esc(cm.fp||0)+'</td><td>'+esc(cm.tn||0)+'</td><td>'+esc(cm.fn||0)+'</td></tr></tbody></table></div>'+
       '<p class="muted">Positive class = REVIEW_REQUIRED • การเปรียบเทียบใช้ deployed-model prediction กับ locked ground truth เท่านั้น</p></div></div>';
+  }
+
+
+  function pilotStatusBadge(status) {
+    const cls=status==="READY"?"s-ok":status==="WATCH"?"s-warn":"s-bad";
+    const label=status==="READY"?"พร้อมทดลองใช้":status==="WATCH"?"พร้อมแบบมีจุดต้องเฝ้าระวัง":"ยังไม่ควรเปิด Pilot";
+    return '<span class="status '+cls+'">'+label+'</span>';
+  }
+
+  function pilotAlertLabel(code) {
+    return ({
+      DUPLICATE_NONVOID_ATTENDANCE:"พบ attendance ซ้ำในกิจกรรมเดียวกัน",
+      CHECKOUT_BEFORE_CHECKIN:"เวลา Check-out อยู่ก่อน Check-in",
+      FINAL_STATUS_WITHOUT_HUMAN_REVIEW:"มีผลสุดท้ายแต่ไม่พบ Human Review",
+      NORMAL_VERIFY_WITH_SYSTEM_BLOCKERS:"รับรองปกติทั้งที่ Evidence Engine ยังมี blocker",
+      HUMAN_REVIEW_REASON_MISSING:"Human Review เดิมไม่มีเหตุผลที่เพียงพอ",
+      ENDED_ACTIVITY_RECORD_NOT_EVALUATED:"กิจกรรมจบแล้วแต่มี record ยังไม่ประเมินหลักฐาน"
+    })[code]||code;
+  }
+
+  function pilotChecklistLabel(key) {
+    return ({
+      ACTIVITY_ENDED:"กิจกรรมสิ้นสุดแล้ว",
+      ALL_RECORDS_EVALUATED:"ประเมินหลักฐานครบทุก record",
+      NO_UNRESOLVED_HUMAN_REVIEW:"ไม่มี case ค้าง Human Review",
+      NO_CRITICAL_DATA_QUALITY:"ไม่มีปัญหา Data Quality ระดับวิกฤต"
+    })[key]||key;
+  }
+
+  async function renderPilotReadiness(v) {
+    if(!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data=await api("/api/operations/pilot-readiness");
+    const review=data.reviewMonitoring||{};
+    const dq=data.dataQuality||{};
+    const closing=data.activityClosing||{};
+    const governance=data.governance||{};
+    const aging=review.aging||{};
+    const alerts=dq.alerts||[];
+    const activities=closing.activities||[];
+
+    const alertRows=alerts.length
+      ? alerts.map(x=>'<tr><td>'+esc(x.severity)+'</td><td>'+esc(pilotAlertLabel(x.code))+'<div class="audit-code">'+esc(x.code)+'</div></td><td><b>'+esc(x.count)+'</b></td></tr>').join("")
+      : '<tr><td colspan="3">ไม่พบ Data Quality alert จากกฎ V0.9</td></tr>';
+
+    const activityRows=activities.length
+      ? activities.map(a=>{
+          const checks=(a.checklist||[]).map(x=>
+            '<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key))+'</span>'
+          ).join(" ");
+          return '<tr>'+
+            '<td><b>'+esc(a.title||a.activityId)+'</b><br><span class="muted">'+esc(a.category||"")+'</span></td>'+
+            '<td>'+esc(a.recordCount||0)+'</td>'+
+            '<td>'+esc(a.unevaluatedCount||0)+'</td>'+
+            '<td>'+esc(a.unresolvedCount||0)+'</td>'+
+            '<td>'+esc(a.criticalDataQualityCount||0)+'</td>'+
+            '<td>'+(a.closeReady?'<span class="status s-ok">Close-ready</span>':'<span class="status s-warn">ยังไม่พร้อมปิด</span>')+'<div style="margin-top:6px">'+checks+'</div></td>'+
+          '</tr>';
+        }).join("")
+      : '<tr><td colspan="6">ยังไม่มีกิจกรรมที่สิ้นสุดสำหรับตรวจ checklist</td></tr>';
+
+    v.innerHTML=
+      (data.syntheticDemo?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ตรวจ workflow เท่านั้น ไม่ใช่สถานะระบบจริง</div>':'')+
+      '<div class="panel"><div class="section-head"><div><h2>Pilot Readiness & Operational Monitoring</h2>'+
+      '<p class="muted">ใช้เพื่อตรวจความพร้อมของกระบวนการ ไม่ใช้เป็นคะแนนรายบุคคล และ endpoint นี้ส่งเฉพาะข้อมูล aggregate</p></div>'+
+      '<div>'+pilotStatusBadge(data.pilotStatus)+'</div></div>'+
+      '<div class="grid cards">'+
+        card("Review backlog",review.backlogCount||0)+
+        card("เกินเป้าหมาย "+esc(review.targetHours||24)+" ชม.",review.overTargetCount||0)+
+        card("Critical data alerts",dq.criticalAlertCount||0)+
+        card("Warning data alerts",dq.warningAlertCount||0)+
+        card("กิจกรรม Close-ready",closing.closeReadyCount||0)+
+        card("กิจกรรมยังปิดไม่ได้",closing.notCloseReadyCount||0)+
+      '</div>'+
+      '<div class="hint"><b>เกณฑ์ Pilot:</b> CRITICAL data-quality issue → BLOCKED • backlog เกิน target / warning / กิจกรรมจบแล้วยังปิดไม่ได้ → WATCH • ไม่มีเงื่อนไขดังกล่าว → READY<br>'+
+      '<b>Review target:</b> '+esc(review.targetHours||24)+' ชั่วโมง เป็นเป้าหมายการติดตามเชิงปฏิบัติการ ไม่ใช่ performance score ของผู้ตรวจ</div></div>'+
+
+      '<div class="split"><div class="panel"><h2>Review Backlog Aging</h2>'+
+      '<div class="grid cards">'+
+        card("< 4 ชม.",aging.under4h||0)+
+        card("4–24 ชม.",aging.h4to24||0)+
+        card("24–48 ชม.",aging.h24to48||0)+
+        card("≥ 48 ชม.",aging.over48h||0)+
+      '</div>'+
+      '<p><b>Oldest backlog:</b> '+(review.oldestBacklogHours==null?"—":analyticsNumber(review.oldestBacklogHours,1)+" ชม.")+'</p>'+
+      '<p class="muted">Queue age เริ่มจาก Evidence Evaluation; หากกิจกรรมจบแล้วยังไม่ประเมิน จะเริ่มนับจากเวลาสิ้นสุดกิจกรรม</p></div>'+
+      '<div class="panel"><h2>Governance Gate</h2>'+
+      '<p>'+statusBadge(governance.humanFinalDecisionRequired?"VERIFIED":"REVIEW_REQUIRED")+' Human final decision required</p>'+
+      '<p>'+statusBadge(governance.aiAutonomousDecision?"REVIEW_REQUIRED":"VERIFIED")+' AI autonomous decision = '+esc(String(Boolean(governance.aiAutonomousDecision)))+'</p>'+
+      '<p>'+statusBadge(governance.groundTruthBlindedFromAiDuringLabeling?"VERIFIED":"REVIEW_REQUIRED")+' Ground Truth blinded from AI</p>'+
+      '<p>'+statusBadge(governance.analyticsAggregateOnly?"VERIFIED":"REVIEW_REQUIRED")+' Aggregate analytics only</p>'+
+      '<p><b>Deployed model:</b> '+esc(governance.deployedModel?.version||"ไม่มี — Pilot ยังทำงานได้โดยไม่ใช้ AI")+'</p>'+
+      '<p class="muted">AI ไม่ใช่ prerequisite ของ Pilot เพราะแกนหลักคือ Evidence + Human Review + Audit Trail</p></div></div>'+
+
+      '<div class="panel"><h2>Data Quality Alerts</h2>'+
+      '<div class="table-wrap"><table><thead><tr><th>ระดับ</th><th>รายการตรวจพบ</th><th>จำนวน</th></tr></thead><tbody>'+alertRows+'</tbody></table></div></div>'+
+
+      '<div class="panel"><h2>Activity Closing Checklist</h2>'+
+      '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>Records</th><th>ยังไม่ Evaluate</th><th>ค้าง Review</th><th>Critical</th><th>Checklist</th></tr></thead><tbody>'+activityRows+'</tbody></table></div>'+
+      '<p class="muted">V0.9 คำนวณ Close-ready เท่านั้น ยังไม่ lock/close activity จริง เพื่อป้องกันการเปลี่ยนสถานะถาวรก่อนผ่าน Pilot acceptance</p></div>';
   }
 
   function field(label,id,placeholder,type,value) {
