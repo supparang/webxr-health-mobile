@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>CSAI2601 Analytics Suite</title>
+  <style>
+    :root{--bg:#071225;--panel:#0e1d36;--panel2:#132746;--line:#294160;--text:#eef5ff;--muted:#a9bad2;--good:#58d7ad;--warn:#ffc767;--bad:#ff8291;--accent:#73a8ff}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#071225,#0a1730);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:1500px;margin:auto;padding:18px}.top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.title{font-size:24px;font-weight:800}.muted{color:var(--muted)}.filters,.tabs,.cards,.grid{display:flex;gap:10px;flex-wrap:wrap}.filters{margin:16px 0}.filters input,.filters select,.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.btn{cursor:pointer;font-weight:700}.btn:hover,.tab.active{border-color:var(--accent);box-shadow:0 0 0 2px #73a8ff22}.tabs{position:sticky;top:0;background:#071225e8;backdrop-filter:blur(8px);z-index:4;padding:10px 0}.tab{flex:1;min-width:190px}.pane{display:none}.pane.active{display:block}.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:14px;min-width:170px;flex:1}.metric{font-size:28px;font-weight:800}.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden}th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{position:sticky;top:58px;background:#142846;z-index:2}.table-wrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:12px}.pill{display:inline-block;padding:2px 7px;border-radius:999px;background:#243b5f;margin:2px;font-size:12px}.pill.bad{background:#5b2630}.pill.warn{background:#5b4825}.pill.good{background:#1d4e42}.bar{height:8px;border-radius:999px;background:#243650;overflow:hidden}.bar>i{display:block;height:100%;background:currentColor}.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}.empty{padding:28px;text-align:center;color:var(--muted)}.note{border-left:4px solid var(--warn);padding:10px 12px;background:#332b1d;border-radius:8px;margin:12px 0}@media(max-width:850px){.split{grid-template-columns:1fr}.tab{min-width:145px}.wrap{padding:10px}th{top:104px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div><div class="title">CSAI2601 • UX Quest Analytics Suite</div><div class="muted" id="meta">กำลังโหลดข้อมูลจาก Google Sheet…</div></div><button class="btn" onclick="loadAll()">↻ Refresh</button></div>
+  <div class="filters">
+    <select id="section"><option value="">ทุก Section</option></select>
+    <input id="mission" placeholder="Mission เช่น W1 หรือ B1">
+    <input id="dateFrom" type="date"><input id="dateTo" type="date">
+    <button class="btn" onclick="loadAll()">ใช้ตัวกรอง</button>
+    <button class="btn" onclick="clearFilters()">ล้าง</button>
+  </div>
+  <div class="tabs">
+    <button class="btn tab active" data-tab="question">1. Question Analytics</button>
+    <button class="btn tab" data-tab="prediction">2. Learning Prediction</button>
+    <button class="btn tab" data-tab="comparison">3. Section Comparison</button>
+    <button class="btn tab" data-tab="research">4. Research Dashboard</button>
+  </div>
+
+  <section id="question" class="pane active"><div id="qCards" class="cards"></div><h3>วิเคราะห์รายข้อ</h3><div id="qTable" class="table-wrap"></div></section>
+  <section id="prediction" class="pane"><div class="note">Prediction ใช้เพื่อช่วยสอนล่วงหน้า ไม่ใช่คะแนนหรือคำตัดสินทางวินัย และทุก Risk Score ต้องมีเหตุผลอธิบายได้</div><div id="pCards" class="cards"></div><h3>ลำดับผู้เรียนที่ควรช่วยก่อน</h3><div id="pTable" class="table-wrap"></div></section>
+  <section id="comparison" class="pane"><div id="cCards" class="cards"></div><h3>Section side-by-side</h3><div id="cTable" class="table-wrap"></div><h3>Pairwise Effect Size</h3><div id="pairTable" class="table-wrap"></div></section>
+  <section id="research" class="pane"><div id="rCards" class="cards"></div><div class="filters"><select id="exportKind"><option value="research_wide">Student-level wide CSV</option><option value="attempt_long">Attempt-level long CSV</option><option value="item_long">Item-response long CSV</option><option value="reflection_coded">Reflection-coded CSV</option><option value="question_analysis">Question analysis CSV</option><option value="prediction">Prediction CSV</option><option value="section_comparison">Section comparison CSV</option></select><button class="btn" onclick="exportCsv()">ดาวน์โหลด CSV</button></div><h3>Research-ready participant dataset</h3><div id="rTable" class="table-wrap"></div><h3>Codebook</h3><div id="codebook" class="table-wrap"></div></section>
+</div>
+<script>
+(function(){'use strict';
+var state={data:null};
+var $=function(id){return document.getElementById(id)};
+document.querySelectorAll('.tab').forEach(function(b){b.onclick=function(){document.querySelectorAll('.tab,.pane').forEach(function(x){x.classList.remove('active')});b.classList.add('active');$(b.dataset.tab).classList.add('active')}});
+window.clearFilters=function(){['section','mission','dateFrom','dateTo'].forEach(function(id){$(id).value=''});loadAll()};
+function filters(){return{section:$('section').value,mission:$('mission').value.trim(),dateFrom:$('dateFrom').value,dateTo:$('dateTo').value}}
+window.loadAll=function(){ $('meta').textContent='กำลังอ่านและคำนวณข้อมูล…'; google.script.run.withSuccessHandler(render).withFailureHandler(fail).UXQA_getDashboardData(filters()) };
+function fail(e){$('meta').textContent='เกิดข้อผิดพลาด: '+(e&&e.message?e.message:e);['qTable','pTable','cTable','pairTable','rTable','codebook'].forEach(function(id){$(id).innerHTML='<div class="empty">ไม่สามารถโหลดข้อมูลได้</div>'})}
+function pct(v){return v==null?'—':(v*100).toFixed(1)+'%'} function num(v,d){return v==null||!isFinite(v)?'—':Number(v).toFixed(d==null?1:d)} function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function cards(id,items){$(id).innerHTML=items.map(function(x){return'<div class="card"><div class="muted">'+esc(x[0])+'</div><div class="metric '+(x[2]||'')+'">'+esc(x[1])+'</div></div>'}).join('')}
+function table(id,cols,rows){if(!rows||!rows.length){$(id).innerHTML='<div class="empty">ยังไม่มีข้อมูลเพียงพอ</div>';return}$(id).innerHTML='<table><thead><tr>'+cols.map(function(c){return'<th>'+esc(c[0])+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return'<tr>'+cols.map(function(c){var v=typeof c[1]==='function'?c[1](r):r[c[1]];return'<td>'+v+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table>'}
+function pills(a){return(a||[]).map(function(x){var cls=/NEGATIVE|HIGH|TOO|DEAD|RAPID/.test(x)?'bad':'warn';return'<span class="pill '+cls+'">'+esc(x)+'</span>'}).join('')||'<span class="pill good">OK</span>'}
+function render(d){state.data=d;$('meta').textContent='Engine '+d.version+' • อัปเดต '+d.generatedAt+' • Sheet เป็นแหล่งข้อมูลหลัก';fillSections(d.sectionComparison.sections||[]);renderQ(d.questionAnalytics);renderP(d.learningPrediction);renderC(d.sectionComparison);renderR(d.research)}
+function fillSections(rows){var current=$('section').value;var opts=['<option value="">ทุก Section</option>'].concat(rows.map(function(r){return'<option value="'+esc(r.section)+'">'+esc(r.section)+'</option>'}));$('section').innerHTML=opts.join('');$('section').value=current}
+function renderQ(q){cards('qCards',[['Questions',q.summary.questions],['Responses',q.summary.responses],['Flagged',q.summary.flagged,'bad'],['Mean difficulty',pct(q.summary.meanDifficulty)],['Mean discrimination',num(q.summary.meanDiscrimination,2)],['Mean Reason Gap',pct(q.summary.meanReasonGap),'warn']]);table('qTable',[
+['Question',function(r){return'<b>'+esc(r.questionId)+'</b><div class="muted">'+esc(r.missionId)+' • v'+esc(r.questionVersion)+' • '+esc(r.concept)+'</div>'}],['N','n'],['Difficulty',function(r){return pct(r.difficulty)+'<div class="muted">'+esc(r.difficultyBand)+'</div>'}],['Discrimination',function(r){return num(r.discrimination,2)+'<div class="muted">'+esc(r.discriminationBand)+'</div>'}],['Reason Gap',function(r){return pct(r.reasonGap)}],['Rapid',function(r){return pct(r.rapidGuessRate)}],['Distractors',function(r){return(r.distractors||[]).map(function(o){return'<div><b>'+esc(o.option)+'</b> '+pct(o.percent)+(o.option===o.correctOption?' ✓':'')+'</div>'}).join('')}],['Flags',function(r){return pills(r.flags)}]
+],q.questions)}
+function renderP(p){cards('pCards',[['Learners',p.summary.learners],['Critical',p.summary.critical,'bad'],['High',p.summary.high,'bad'],['Watch',p.summary.watch,'warn'],['Boss risk',p.summary.bossRisk,'warn'],['Dropout risk',p.summary.dropoutRisk,'bad']]);table('pTable',[
+['Learner',function(r){return'<b>'+esc(r.studentName||r.studentId)+'</b><div class="muted">'+esc(r.studentId)+' • Sec '+esc(r.section)+'</div>'}],['Risk',function(r){return'<b class="'+(r.riskLevel==='LOW'?'good':r.riskLevel==='WATCH'?'warn':'bad')+'">'+esc(r.riskLevel)+' '+r.riskScore+'</b>'}],['Evidence',function(r){return(r.riskReasons||[]).map(function(x){return'<div>• '+esc(x)+'</div>'}).join('')||'—'}],['Mean',function(r){return num(r.meanScore)}],['Slope',function(r){return num(r.scoreSlope,2)}],['Inactive',function(r){return r.inactiveDays+' วัน'}],['Reason Gap',function(r){return pct(r.reasonGap)}],['Recommended action',function(r){return esc(r.recommendedAction)}]
+],p.learners)}
+function renderC(c){var ss=c.sections||[];cards('cCards',[['Sections',ss.length],['Learners',ss.reduce(function(s,r){return s+r.learners},0)],['Attempts',ss.reduce(function(s,r){return s+r.attempts},0)],['Overall mean',num(ss.length?ss.reduce(function(s,r){return s+(r.meanScore||0)},0)/ss.length:null)]]);table('cTable',[
+['Section',function(r){return'<b>'+esc(r.section)+'</b>'}],['Learners','learners'],['Attempts','attempts'],['Mean',function(r){return num(r.meanScore)}],['Median',function(r){return num(r.medianScore)}],['Pass',function(r){return pct(r.passRate)}],['Reason Gap',function(r){return pct(r.reasonGap)}],['Median time',function(r){return num(r.medianTimeSec,0)+' sec'}],['Reflection Q',function(r){return num(r.reflectionQuality,2)}],['Completeness',function(r){return pct(r.dataCompleteness)}]
+],ss);table('pairTable',[["A",'sectionA'],["B",'sectionB'],['Mean diff',function(r){return num(r.meanDifference,2)}],['Hedges g',function(r){return num(r.hedgesG,2)}],['Caution',function(r){return pills(r.caution?[r.caution]:[])}]],c.pairwise||[])}
+function renderR(r){cards('rCards',[['Participants',r.summary.participants],['Mean first',num(r.summary.meanFirst)],['Mean latest',num(r.summary.meanLatest)],['Mean gain',num(r.summary.meanRawGain)],['Normalized gain',num(r.summary.meanNormalizedGain,3)],['Paired dz',num(r.summary.pairedEffectDz,2)]]);table('rTable',[
+['Participant key','participantKey'],['Section','section'],['Attempts','attempts'],['First',function(x){return num(x.firstScore)}],['Latest',function(x){return num(x.latestScore)}],['Best',function(x){return num(x.bestScore)}],['Gain',function(x){return num(x.rawGain)}],['g',function(x){return num(x.normalizedGain,3)}],['Retry pattern','retryPattern'],['Reflection Q',function(x){return num(x.reflectionQuality,2)}],['Time',function(x){return num(x.timeOnTaskSec,0)+' sec'}]
+],r.participants);table('codebook',[["Variable",'variable'],['Label','label'],['Level','level']],r.codebook)}
+window.exportCsv=function(){google.script.run.withSuccessHandler(function(r){var blob=new Blob([r.content],{type:r.mimeType+';charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=r.filename;a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)}).withFailureHandler(fail).UXQA_exportDataset($('exportKind').value,filters())};
+loadAll();
+})();
+</script>
+</body>
+</html>
