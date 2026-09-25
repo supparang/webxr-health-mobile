@@ -1155,16 +1155,21 @@
       if(b.decision==="OVERRIDE_VERIFY"){
         if(who.role!=="ADMIN") err("ADMIN_ONLY_MANUAL_OVERRIDE",403);
         if(!blockers.length) err("OVERRIDE_NOT_NEEDED",409);
-        if(reason.length<10) err("OVERRIDE_REASON_REQUIRED",400);
       }
-      if(["CORRECT","REQUEST_EVIDENCE","REJECT"].includes(b.decision) && reason.length<3) err("REVIEW_REASON_REQUIRED",400);
+      if(reason.length<3) err("REVIEW_REASON_REQUIRED",400);
+      if(b.decision==="OVERRIDE_VERIFY"&&reason.length<10) err("OVERRIDE_REASON_REQUIRED",400);
+      const previousFinalStatus=r.finalEvidenceStatus||null;
       const review={id:uid("DEMO-RV"),attendanceId:r.id,reviewerId:who.id,decision:b.decision,reason,
         reviewStartedAt:b.reviewStartedAt||null,reviewedAt:iso(),reviewDurationSeconds:b.reviewDurationSeconds||null,
         override:b.decision==="OVERRIDE_VERIFY",blockersAtDecision:blockers};
       state.reviews.push(review);
       r.finalEvidenceStatus=b.decision==="VERIFY"?"VERIFIED":b.decision==="OVERRIDE_VERIFY"?"OVERRIDE_VERIFIED":b.decision==="REJECT"?"REJECTED":"REVIEW_REQUIRED";
-      save(); audit(who.id,b.decision==="OVERRIDE_VERIFY"?"MANUAL_OVERRIDE_VERIFIED":"HUMAN_REVIEW","AttendanceRecord",r.id,{demo:true,decision:b.decision,reason,blockers});
-      return {ok:true,review,finalEvidenceStatus:r.finalEvidenceStatus,systemEvidenceStatus:r.consistencyResult.status};
+      save(); audit(who.id,b.decision==="OVERRIDE_VERIFY"?"MANUAL_OVERRIDE_VERIFIED":"HUMAN_REVIEW","AttendanceRecord",r.id,{
+        demo:true,reviewId:review.id,reviewerId:who.id,decision:b.decision,reason,previousFinalStatus,
+        finalEvidenceStatus:r.finalEvidenceStatus,systemEvidenceStatus:r.consistencyResult.status,blockers,
+        reviewStartedAt:review.reviewStartedAt,reviewedAt:review.reviewedAt,reviewDurationSeconds:review.reviewDurationSeconds
+      });
+      return {ok:true,review,previousFinalStatus,finalEvidenceStatus:r.finalEvidenceStatus,systemEvidenceStatus:r.consistencyResult.status,blockers};
     }
 
     if (p === "/api/ground-truth/queue" && method==="GET") {
