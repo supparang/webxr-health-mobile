@@ -1267,10 +1267,12 @@
             assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount","ORG001")+
             (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
             (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
+            '<div id="coAssignMsg"></div>'+
           '</section>'+
           '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
             assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount","STF001")+
             (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
+            '<div id="verifierAssignMsg"></div>'+
           '</section>'+
         '</div>'+
         '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">เลือกขอบเขตผู้เข้าร่วมก่อน แล้วจึงเลือกรายชื่อหรือหน่วยงาน</p></div></div>'+
@@ -1285,7 +1287,7 @@
           '<span><b>'+esc(d.name)+'</b><small>'+esc(d.code)+'</small></span></label>'
         ).join("")+'</div></div>'+
         (caps.canManageParticipants?'<div class="actions"><button class="btn primary" id="saveParticipation">บันทึกผู้เข้าร่วม</button></div>':'')+
-        '</section><div id="activityManageMsg"></div></div>';
+        '<div id="participantAssignMsg"></div></section></div>';
 
       const bindAssignmentTools=(searchId,className,countId)=>{
         const input=document.getElementById(searchId);
@@ -1331,8 +1333,8 @@
       document.getElementById("closeActivityManager").onclick=()=>{host.innerHTML="";};
 
       const checkedValues=(selector)=>[...host.querySelectorAll(selector+":checked")].map(x=>x.value);
-      async function saveAssignments(payload,message){
-        const msg=document.getElementById("activityManageMsg");
+      async function saveAssignments(payload,message,msgId){
+        const msg=document.getElementById(msgId);
         try{
           await api("/api/activities/"+encodeURIComponent(activityId)+"/assignments",{method:"PUT",body:JSON.stringify(payload)});
           msg.innerHTML='<div class="alert ok">'+esc(message)+'</div>';
@@ -1342,10 +1344,10 @@
       if(document.getElementById("saveCo")) document.getElementById("saveCo").onclick=async()=>{
         const reason=document.getElementById("coChangeReason")?.value.trim()||"";
         if(caps.coChangeReasonRequired&&reason.length<10){
-          document.getElementById("activityManageMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';
+          document.getElementById("coAssignMsg").innerHTML='<div class="alert warn">กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';
           return;
         }
-        const msg=document.getElementById("activityManageMsg");
+        const msg=document.getElementById("coAssignMsg");
         try{
           const result=await api("/api/activities/"+encodeURIComponent(activityId)+"/assignments",{
             method:"PUT",
@@ -1357,9 +1359,9 @@
           if(!result.noChange) setTimeout(()=>renderActivityManagement(host,activityId),350);
         }catch(e){msg.innerHTML=errorBox(e);}
       };
-      if(document.getElementById("saveVerifier")) document.getElementById("saveVerifier").onclick=()=>saveAssignments({verifierIds:checkedValues(".verifierAssign")},"บันทึกผู้ตรวจสอบหลักฐานแล้ว");
+      if(document.getElementById("saveVerifier")) document.getElementById("saveVerifier").onclick=()=>saveAssignments({verifierIds:checkedValues(".verifierAssign")},"บันทึกผู้ตรวจสอบหลักฐานแล้ว","verifierAssignMsg");
       if(document.getElementById("saveParticipation")) document.getElementById("saveParticipation").onclick=async()=>{
-        const msg=document.getElementById("activityManageMsg");
+        const msg=document.getElementById("participantAssignMsg");
         const mode=host.querySelector('input[name="participationMode"]:checked')?.value||"OPEN";
         try{
           await api("/api/activities/"+encodeURIComponent(activityId)+"/participants",{method:"PUT",body:JSON.stringify({
