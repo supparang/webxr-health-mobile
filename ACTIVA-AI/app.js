@@ -285,7 +285,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.6.1</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.7.0</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1930,10 +1930,28 @@
     })[status]||status;
   }
 
+  function reviewAiRisk(prediction){
+    const value=Number(prediction?.riskProbability);
+    return Number.isFinite(value)?Math.max(0,Math.min(1,value)):null;
+  }
+
+  function reviewAiBadge(prediction){
+    const risk=reviewAiRisk(prediction);
+    if(risk===null)return '<span class="muted">ยังไม่มี AI score</span>';
+    const flagged=prediction?.modelFlaggedForReview===true||prediction?.predictedLabel==="REVIEW_REQUIRED";
+    return '<span class="status '+(flagged?"s-warn":"s-info")+'">AI Priority '+Math.round(risk*100)+'%</span>';
+  }
+
   async function renderReview(v) {
     if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
     showLoading(v);
-    const [rows,activities]=await Promise.all([loadAttendance(),loadActivities()]);
+    const [rows,activities,xaiData]=await Promise.all([
+      loadAttendance(),
+      loadActivities(),
+      api("/api/xai/queue").catch(()=>({deployedModel:null,records:[],decisionSupportOnly:true}))
+    ]);
+    const deployedModel=xaiData?.deployedModel||null;
+    const riskByAttendance=new Map((xaiData?.records||[]).map(p=>[p.attendanceId,p]));
     const state={activityId:"ALL",filter:"PENDING",search:"",page:1,pageSize:20};
     const stored=sessionStorage.getItem(SELECTED_ACTIVITY_KEY);
     if(stored&&activities.some(a=>a.id===stored))state.activityId=stored;
@@ -1942,6 +1960,7 @@
     v.innerHTML=
       '<div class="panel"><div class="section-head"><div><h2>Human Review Queue</h2>'+
       '<p class="muted">Review Queue เป็นวิธีหลัก • Personal QR ใช้เพียงค้นหา/เปิด case เมื่อบุคคลอยู่ตรงหน้า ไม่ต้องสแกนครบทุกคน</p></div>'+
+      '<div class="hint">'+(deployedModel?'<b>AI prioritization:</b> ใช้ '+esc(deployedModel.version)+' เรียงลำดับ case ที่รอดำเนินการตาม risk probability เท่านั้น — AI ไม่ตัดสินผลแทนผู้ตรวจ':'<b>AI prioritization:</b> ยังไม่มี deployed model หรือ prediction ที่พร้อมใช้ Queue จะทำงานจาก workflow/evidence ตามปกติ')+'</div>'+
       '<div class="actions"><button class="btn primary" id="scanPersonalQrBtn">📷 สแกน Personal QR</button><button class="btn secondary" id="manualPersonalQrBtn">วาง Personal QR Token</button></div></div>'+
       '<div id="personalScanPanel" class="scanner-panel" hidden><div class="scanner-head"><div><b>สแกน Personal QR</b><br><span class="muted">ระบบจะค้นหา record ของบุคคลใน Review Queue</span></div><button class="btn secondary mini" id="stopPersonalQrBtn">ปิดกล้อง</button></div><div id="personalQrReader" class="qr-reader"></div><div id="personalScanMsg"></div></div>'+
       '<div id="personalTokenField" class="field" hidden><label>Personal QR Token</label><textarea id="personalQrToken" placeholder="วาง token จาก QR ประจำตัว"></textarea><div class="actions"><button class="btn secondary" id="resolvePersonalQrBtn">ค้นหา Case</button></div></div>'+
@@ -1964,8 +1983,19 @@
           return [r.user?.employeeId,r.user?.name,r.activity?.title].filter(Boolean).join(" ").toLowerCase().includes(term);
         });
       filtered.sort((a,b)=>{
+        const sa=reviewWorkflowStatus(a),sb=reviewWorkflowStatus(b);
+        const pa=pendingStatus(sa),pb=pendingStatus(sb);
+        if(pa!==pb)return pa?-1:1;
+        if(pa&&pb){
+          const ra=reviewAiRisk(riskByAttendance.get(a.id));
+          const rb=reviewAiRisk(riskByAttendance.get(b.id));
+          if(ra!==null||rb!==null){
+            const diff=(rb??-1)-(ra??-1);
+            if(Math.abs(diff)>1e-12)return diff;
+          }
+        }
         const rank={PENDING_REVIEW:0,WAIT_PARTICIPANT:1,RETURNED:2,READY_DECISION:3,NOT_READY:4,REJECTED:5,OVERRIDE_VERIFIED:6,VERIFIED:7};
-        return (rank[reviewWorkflowStatus(a)]??9)-(rank[reviewWorkflowStatus(b)]??9)||new Date(b.checkinAt||0)-new Date(a.checkinAt||0);
+        return (rank[sa]??9)-(rank[sb]??9)||new Date(b.checkinAt||0)-new Date(a.checkinAt||0);
       });
       const pages=Math.max(1,Math.ceil(filtered.length/state.pageSize));
       state.page=Math.min(Math.max(1,state.page),pages);
@@ -1983,14 +2013,15 @@
         '<div class="filter-chips">'+[
           ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
         ].map(([k,l])=>'<button class="filter-chip '+(state.filter===k?'active':'')+'" data-rvf="'+k+'">'+l+'</button>').join("")+'</div>'+
-        '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' case • Human Review แบบ Exception-first</div>'+
+        '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' case • Human Review แบบ Exception-first'+(deployedModel?' • Pending queue เรียงตาม AI risk จากมากไปน้อย':'')+'</div>'+
         '<div class="compact-list">'+(pageRows.length?pageRows.map(r=>{
           const c=r.consistencyResult;
           const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
           const status=reviewWorkflowStatus(r);
+          const prediction=riskByAttendance.get(r.id)||null;
           return '<details class="attendance-compact review-case"><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
-            '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span></span></summary>'+
-            '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span></div>'+
+            '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
+            '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
             '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></div></div></details>';
         }).join(""):'<div class="empty">ไม่มี case ตามตัวกรอง</div>')+'</div>'+
@@ -2001,7 +2032,7 @@
       host.querySelectorAll("[data-rvf]").forEach(b=>b.onclick=()=>{state.filter=b.dataset.rvf;state.page=1;renderQueue();});
       document.getElementById("rvPrev").onclick=()=>{state.page--;renderQueue();};
       document.getElementById("rvNext").onclick=()=>{state.page++;renderQueue();};
-      host.querySelectorAll(".rvOpen").forEach(btn=>btn.onclick=()=>showReviewDetail(btn.dataset.id,rows));
+      host.querySelectorAll(".rvOpen").forEach(btn=>btn.onclick=()=>showReviewDetail(btn.dataset.id,rows,riskByAttendance,deployedModel));
     }
     renderQueue();
 
@@ -2024,7 +2055,7 @@
         state.page=1;
         renderQueue();
         msg.innerHTML='<div class="alert ok">พบ '+esc(data.user?.employeeId+" • "+data.user?.name)+' และเปิด case ที่ตรงกันแล้ว</div>';
-        showReviewDetail(preferred.id,rows);
+        showReviewDetail(preferred.id,rows,riskByAttendance,deployedModel);
         document.getElementById("reviewDetail")?.scrollIntoView({behavior:"smooth",block:"start"});
         await stopPersonalScanner();
       }catch(e){msg.innerHTML=errorBox(e);}
@@ -2062,8 +2093,9 @@
     };
   }
 
-  function showReviewDetail(id, rows) {
+  function showReviewDetail(id, rows, riskByAttendance=new Map(), deployedModel=null) {
     const r=rows.find(x=>x.id===id); if(!r)return;
+    const prediction=riskByAttendance.get(r.id)||null;
     const c=r.consistencyResult;
     const missing=[].concat(c?.missingCodes||[]);
     const reasons=[].concat(c?.reasonCodes||[]);
@@ -2076,6 +2108,7 @@
     box.innerHTML=
       '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
+      (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
       '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
@@ -2444,12 +2477,12 @@
       '<div class="panel"><h2>AI/XAI Review Workspace</h2>'+
       '<div class="hint"><b>Decision support only:</b> AI จัดลำดับความเสี่ยงและแสดงเหตุผลเพื่อช่วยตรวจสอบเท่านั้น ไม่เปลี่ยนสถานะบุคลากรโดยอัตโนมัติ</div>'+
       '<p><b>Deployed Model:</b> '+esc(model.version)+' • '+esc(model.modelFamily)+' • '+statusBadge(model.status)+'</p>'+
-      '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>Risk</th><th>Prediction</th><th>คำอธิบาย</th><th>Human Decision</th></tr></thead><tbody>'+
+      '<div class="table-wrap"><table><thead><tr><th>Priority</th><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>Risk</th><th>Prediction</th><th>คำอธิบาย</th><th>Human Decision</th></tr></thead><tbody>'+
       records.map(p => {
         const r = p.attendance || {};
         const explanation = formatExplanation(p.explanation);
         const decision = r.humanReviews?.[0]?.decision || "ยังไม่ตัดสิน";
-        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        return '<tr><td><b>#'+esc(p.priorityRank||"—")+'</b></td><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
           '<td>'+esc(r.activity?.title||r.activityId||"")+'</td>'+
           '<td><b>'+Math.round(Number(p.riskProbability)*100)+'%</b></td>'+
           '<td>'+statusBadge(p.predictedLabel)+'</td>'+
