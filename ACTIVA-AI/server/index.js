@@ -289,6 +289,134 @@ async function activityCloseAssessment(activityId) {
   };
 }
 
+
+function releaseSecurityStatus() {
+  const qrSecret = String(process.env.QR_SIGNING_SECRET || "");
+  const researchSalt = String(process.env.RESEARCH_HASH_SALT || "");
+  const qrSigningReady =
+    qrSecret.length >= 32 &&
+    !/change-this|demo|example/i.test(qrSecret);
+  const researchSaltReady =
+    researchSalt.length >= 16 &&
+    !/change-this|demo|example|ACTIVA-DEMO-SALT/i.test(researchSalt);
+  return {
+    qrSigningReady,
+    researchSaltReady,
+    ready: qrSigningReady && researchSaltReady,
+    secretsExposed: false,
+  };
+}
+
+async function buildOperationalBackup() {
+  const [
+    departments,
+    users,
+    userActivityPermissions,
+    activities,
+    activityPolicies,
+    activityRoleAssignments,
+    activityParticipants,
+    attendanceRecords,
+    staffVerifications,
+    consistencyResults,
+    humanReviews,
+    groundTruthLabels,
+    groundTruthCases,
+    modelRuns,
+    aiPredictions,
+    auditLogs,
+  ] = await prisma.$transaction([
+    prisma.department.findMany({ orderBy: { code: "asc" } }),
+    prisma.user.findMany({ orderBy: { employeeId: "asc" } }),
+    prisma.userActivityPermission.findMany({ orderBy: { grantedAt: "asc" } }),
+    prisma.activity.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.activityPolicy.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.activityRoleAssignment.findMany({ orderBy: { assignedAt: "asc" } }),
+    prisma.activityParticipant.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.attendanceRecord.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.staffVerification.findMany({ orderBy: { verifiedAt: "asc" } }),
+    prisma.consistencyResult.findMany({ orderBy: { evaluatedAt: "asc" } }),
+    prisma.humanReview.findMany({ orderBy: { reviewedAt: "asc" } }),
+    prisma.groundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.groundTruthCase.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.modelRun.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.aIPrediction.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.auditLog.findMany({ orderBy: { createdAt: "asc" } }),
+  ]);
+
+  const payload = {
+    departments,
+    users,
+    userActivityPermissions,
+    activities,
+    activityPolicies,
+    activityRoleAssignments,
+    activityParticipants,
+    attendanceRecords,
+    staffVerifications,
+    consistencyResults,
+    humanReviews,
+    groundTruthLabels,
+    groundTruthCases,
+    modelRuns,
+    aiPredictions,
+    auditLogs,
+  };
+  const serialized = JSON.stringify(payload);
+  const checksum = crypto.createHash("sha256").update(serialized).digest("hex");
+  const counts = Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => [key, Array.isArray(value) ? value.length : 0])
+  );
+
+  return {
+    format: BACKUP_FORMAT,
+    releaseVersion: RELEASE_VERSION,
+    generatedAt: new Date().toISOString(),
+    containsPII: true,
+    containsSecrets: false,
+    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential"],
+    checksumAlgorithm: "SHA-256",
+    checksum,
+    counts,
+    payload,
+  };
+}
+
+function validateOperationalBackup(backup) {
+  if (!backup || backup.format !== BACKUP_FORMAT || !backup.payload || !backup.checksum) {
+    return { valid: false, error: "INVALID_BACKUP_FORMAT" };
+  }
+  const requiredCollections = [
+    "departments","users","activities","attendanceRecords","humanReviews",
+    "consistencyResults","groundTruthCases","modelRuns","aiPredictions","auditLogs"
+  ];
+  const missingCollections = requiredCollections.filter((key) => !Array.isArray(backup.payload[key]));
+  if (missingCollections.length) {
+    return { valid: false, error: "BACKUP_COLLECTIONS_MISSING", missingCollections };
+  }
+  const checksum = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(backup.payload))
+    .digest("hex");
+  if (checksum !== backup.checksum) {
+    return { valid: false, error: "BACKUP_CHECKSUM_MISMATCH", expected: backup.checksum, actual: checksum };
+  }
+  const countMismatches = Object.entries(backup.counts || {}).filter(([key, expected]) =>
+    Array.isArray(backup.payload[key]) && backup.payload[key].length !== Number(expected)
+  );
+  if (countMismatches.length) {
+    return { valid: false, error: "BACKUP_COUNT_MISMATCH", countMismatches };
+  }
+  return {
+    valid: true,
+    checksum,
+    releaseVersion: backup.releaseVersion || null,
+    currentReleaseVersionMatch: backup.releaseVersion === RELEASE_VERSION,
+    containsPII: Boolean(backup.containsPII),
+    containsSecrets: Boolean(backup.containsSecrets),
+  };
+}
+
 function toIso(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) throw new Error("INVALID_DATE");
@@ -2332,6 +2460,371 @@ app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
     decisionSupportOnly: true,
     rankingBasis: "deployed_model_risk_probability_desc",
     records: ranked,
+  });
+});
+
+app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+  const now = new Date();
+  const security = releaseSecurityStatus();
+  const configuredTarget = Number(process.env.REVIEW_TARGET_HOURS || 24);
+  const reviewTargetHours = Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 24;
+  const terminal = new Set(["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"]);
+
+  const [endedActivities, unresolvedRows, recoveryLogs, releaseLogs] = await Promise.all([
+    prisma.activity.findMany({
+      where: { endAt: { lt: now } },
+      select: {
+        id: true, title: true, category: true, endAt: true,
+        pilotClosedAt: true, pilotClosureHash: true, pilotClosureVersion: true,
+      },
+      orderBy: { endAt: "desc" },
+    }),
+    prisma.attendanceRecord.findMany({
+      where: {
+        isVoided: false,
+        OR: [
+          { finalEvidenceStatus: null },
+          { finalEvidenceStatus: { notIn: ["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"] } },
+        ],
+      },
+      include: {
+        activity: { select: { id: true, endAt: true } },
+        consistencyResult: true,
+      },
+    }),
+    prisma.auditLog.findMany({
+      where: { action: "BACKUP_RECOVERY_CHECK_PASSED" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.auditLog.findMany({
+      where: { action: { in: ["PILOT_RELEASE_GO", "PILOT_RELEASE_HOLD"] } },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    }),
+  ]);
+
+  const activityAssessments = await Promise.all(
+    endedActivities.map(async (activity) => {
+      if (activity.pilotClosedAt) {
+        return {
+          ...activity,
+          closeReady: true,
+          alreadyClosed: true,
+          unresolvedCount: 0,
+          unevaluatedCount: 0,
+          criticalIssues: [],
+          checklist: [{ key: "IMMUTABLE_CLOSURE_RECORDED", passed: true }],
+        };
+      }
+      const assessment = await activityCloseAssessment(activity.id);
+      return {
+        ...activity,
+        closeReady: Boolean(assessment?.closeReady),
+        alreadyClosed: false,
+        unresolvedCount: assessment?.unresolvedCount ?? 0,
+        unevaluatedCount: assessment?.unevaluatedCount ?? 0,
+        criticalIssues: assessment?.criticalIssues || [],
+        checklist: assessment?.checklist || [],
+      };
+    })
+  );
+
+  const criticalIssues = [...new Set(activityAssessments.flatMap((x) => x.criticalIssues || []))];
+  const endedNotClosed = activityAssessments.filter((x) => !x.alreadyClosed);
+
+  const backlog = unresolvedRows.map((row) => {
+    const activityEnded = new Date(row.activity?.endAt || 0).getTime() < now.getTime();
+    if (!row.consistencyResult && !activityEnded) return null;
+    const queueStartedAt = row.consistencyResult?.evaluatedAt || row.activity?.endAt || row.createdAt;
+    return {
+      ageHours: Math.max(0, (now.getTime() - new Date(queueStartedAt).getTime()) / 3600000),
+    };
+  }).filter(Boolean);
+  const overTargetCount = backlog.filter((x) => x.ageHours >= reviewTargetHours).length;
+
+  const recoveryPass = recoveryLogs.find((log) =>
+    log.metadata?.backupReleaseVersion === RELEASE_VERSION &&
+    log.metadata?.valid === true
+  ) || null;
+  const recoveryFresh = recoveryPass
+    ? (now.getTime() - new Date(recoveryPass.createdAt).getTime()) <= 24 * 3600000
+    : false;
+
+  const blockers = [];
+  if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
+  if (criticalIssues.length) blockers.push("CRITICAL_DATA_QUALITY");
+  if (endedNotClosed.length) blockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
+  if (overTargetCount > 0) blockers.push("REVIEW_BACKLOG_OVER_TARGET");
+  if (!recoveryFresh) blockers.push("RECENT_BACKUP_RECOVERY_CHECK_REQUIRED");
+
+  const gate = blockers.length ? "HOLD" : "GO";
+  const scenarios = [
+    {
+      id: "SECURITY_CONFIG",
+      title: "Production signing and research hashing configuration",
+      status: security.ready ? "PASS" : "HOLD",
+      evidence: { qrSigningReady: security.qrSigningReady, researchSaltReady: security.researchSaltReady },
+    },
+    {
+      id: "HUMAN_FINAL_DECISION",
+      title: "Human decision remains final authority",
+      status: "PASS",
+      evidence: { aiAutonomousDecision: false, humanFinalDecisionRequired: true },
+    },
+    {
+      id: "ACTIVITY_IMMUTABILITY",
+      title: "Ended activities are immutably closed before release",
+      status: endedNotClosed.length === 0 ? "PASS" : "HOLD",
+      evidence: { endedActivityCount: endedActivities.length, notClosedCount: endedNotClosed.length },
+    },
+    {
+      id: "BACKLOG_TARGET",
+      title: "Review backlog is within operational target",
+      status: overTargetCount === 0 ? "PASS" : "HOLD",
+      evidence: { targetHours: reviewTargetHours, overTargetCount },
+    },
+    {
+      id: "DATA_QUALITY",
+      title: "No critical operational data-quality issue remains",
+      status: criticalIssues.length === 0 ? "PASS" : "HOLD",
+      evidence: { criticalIssues },
+    },
+    {
+      id: "BACKUP_RECOVERY",
+      title: "Current-release backup has passed recovery verification within 24 hours",
+      status: recoveryFresh ? "PASS" : "HOLD",
+      evidence: {
+        passedAt: recoveryPass?.createdAt || null,
+        backupChecksum: recoveryPass?.metadata?.checksum || null,
+      },
+    },
+  ];
+
+  res.json({
+    ok: true,
+    releaseVersion: RELEASE_VERSION,
+    gate,
+    blockers,
+    generatedAt: now.toISOString(),
+    containsPII: false,
+    security,
+    reviewMonitoring: {
+      targetHours: reviewTargetHours,
+      backlogCount: backlog.length,
+      overTargetCount,
+    },
+    activityClosure: {
+      endedActivityCount: endedActivities.length,
+      closedCount: activityAssessments.filter((x) => x.alreadyClosed).length,
+      notClosedCount: endedNotClosed.length,
+      activities: activityAssessments,
+    },
+    backupRecovery: {
+      required: true,
+      freshnessHours: 24,
+      passed: recoveryFresh,
+      lastPassedAt: recoveryPass?.createdAt || null,
+    },
+    scenarios,
+    latestReleaseDecision: releaseLogs[0]
+      ? {
+          action: releaseLogs[0].action,
+          createdAt: releaseLogs[0].createdAt,
+          metadata: releaseLogs[0].metadata,
+        }
+      : null,
+    note: "GO/HOLD is a release-process gate. It is not a personnel evaluation and does not make autonomous participation decisions.",
+  });
+});
+
+app.post("/api/operations/activities/:activityId/close", requireRoles("ADMIN"), async (req, res) => {
+  const assessment = await activityCloseAssessment(req.params.activityId);
+  if (!assessment) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (assessment.activity.pilotClosedAt) {
+    return res.json({
+      ok: true,
+      idempotent: true,
+      activityId: assessment.activity.id,
+      pilotClosedAt: assessment.activity.pilotClosedAt,
+      pilotClosureHash: assessment.activity.pilotClosureHash,
+      pilotClosureVersion: assessment.activity.pilotClosureVersion,
+    });
+  }
+  if (!assessment.closeReady) {
+    return res.status(409).json({
+      ok: false,
+      error: "ACTIVITY_NOT_CLOSE_READY",
+      checklist: assessment.checklist,
+      unevaluatedCount: assessment.unevaluatedCount,
+      unresolvedCount: assessment.unresolvedCount,
+      criticalIssues: assessment.criticalIssues,
+    });
+  }
+
+  const note = String(req.body?.reason || "").trim();
+  if (note.length < 10) {
+    return res.status(400).json({ ok: false, error: "ACTIVITY_CLOSURE_REASON_REQUIRED" });
+  }
+
+  const snapshot = {
+    releaseVersion: RELEASE_VERSION,
+    activityId: assessment.activity.id,
+    title: assessment.activity.title,
+    category: assessment.activity.category,
+    startAt: assessment.activity.startAt,
+    endAt: assessment.activity.endAt,
+    policy: assessment.activity.policy,
+    checklist: assessment.checklist,
+    recordCount: assessment.recordCount,
+    records: assessment.activity.attendanceRecords.map((row) => ({
+      attendanceId: row.id,
+      systemEvidenceStatus: row.consistencyResult?.status || null,
+      finalEvidenceStatus: row.finalEvidenceStatus || null,
+      latestHumanReview: row.humanReviews[0]
+        ? {
+            reviewId: row.humanReviews[0].id,
+            decision: row.humanReviews[0].decision,
+            reviewedAt: row.humanReviews[0].reviewedAt,
+          }
+        : null,
+    })),
+  };
+  const closureHash = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(snapshot))
+    .digest("hex");
+  const closedAt = new Date();
+
+  const activity = await prisma.activity.update({
+    where: { id: assessment.activity.id },
+    data: {
+      pilotClosedAt: closedAt,
+      pilotClosedById: req.activaUser.id,
+      pilotClosureNote: note,
+      pilotClosureVersion: RELEASE_VERSION,
+      pilotClosureHash: closureHash,
+      pilotClosureSnapshot: snapshot,
+    },
+  });
+
+  await audit(req, "ACTIVITY_PILOT_CLOSED", "Activity", activity.id, {
+    releaseVersion: RELEASE_VERSION,
+    closureHash,
+    note,
+    recordCount: assessment.recordCount,
+    checklist: assessment.checklist,
+  });
+
+  res.status(201).json({
+    ok: true,
+    immutableOperationalClosure: true,
+    activityId: activity.id,
+    pilotClosedAt: activity.pilotClosedAt,
+    pilotClosureHash: activity.pilotClosureHash,
+    pilotClosureVersion: activity.pilotClosureVersion,
+  });
+});
+
+app.get("/api/operations/backup", requireRoles("ADMIN"), async (req, res) => {
+  const backup = await buildOperationalBackup();
+  await audit(req, "BACKUP_EXPORTED", "System", RELEASE_VERSION, {
+    releaseVersion: RELEASE_VERSION,
+    checksum: backup.checksum,
+    counts: backup.counts,
+    containsPII: true,
+    containsSecrets: false,
+  });
+  res.json({
+    ok: true,
+    warning: "ADMIN-ONLY backup contains PII. Store it securely. Cryptographic QR credentials are intentionally excluded and must be reissued after disaster recovery.",
+    backup,
+  });
+});
+
+app.post("/api/operations/recovery-check", requireRoles("ADMIN"), async (req, res) => {
+  const result = validateOperationalBackup(req.body?.backup);
+  await audit(
+    req,
+    result.valid ? "BACKUP_RECOVERY_CHECK_PASSED" : "BACKUP_RECOVERY_CHECK_FAILED",
+    "System",
+    RELEASE_VERSION,
+    {
+      valid: result.valid,
+      checksum: result.checksum || req.body?.backup?.checksum || null,
+      backupReleaseVersion: req.body?.backup?.releaseVersion || null,
+      currentReleaseVersionMatch: Boolean(result.currentReleaseVersionMatch),
+      error: result.error || null,
+    }
+  );
+  if (!result.valid) return res.status(422).json({ ok: false, ...result });
+  res.json({
+    ok: true,
+    restorableStructureVerified: true,
+    destructiveRestorePerformed: false,
+    ...result,
+    note: "This check validates backup structure, counts, and checksum. It intentionally does not overwrite the live database.",
+  });
+});
+
+app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, res) => {
+  const decision = String(req.body?.decision || "").toUpperCase();
+  const reason = String(req.body?.reason || "").trim();
+  if (!["GO", "HOLD"].includes(decision)) {
+    return res.status(400).json({ ok: false, error: "INVALID_RELEASE_DECISION" });
+  }
+  if (reason.length < 10) {
+    return res.status(400).json({ ok: false, error: "RELEASE_DECISION_REASON_REQUIRED" });
+  }
+
+  const security = releaseSecurityStatus();
+  const endedActivities = await prisma.activity.findMany({
+    where: { endAt: { lt: new Date() } },
+    select: { id: true, pilotClosedAt: true },
+  });
+  const notClosedCount = endedActivities.filter((x) => !x.pilotClosedAt).length;
+  const recoveryLogs = await prisma.auditLog.findMany({
+    where: { action: "BACKUP_RECOVERY_CHECK_PASSED" },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  const recoveryPass = recoveryLogs.find((log) =>
+    log.metadata?.backupReleaseVersion === RELEASE_VERSION &&
+    log.metadata?.valid === true &&
+    Date.now() - new Date(log.createdAt).getTime() <= 24 * 3600000
+  );
+  const hardBlockers = [];
+  if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
+  if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
+  if (!recoveryPass) hardBlockers.push("RECENT_BACKUP_RECOVERY_CHECK_REQUIRED");
+
+  if (decision === "GO" && hardBlockers.length) {
+    return res.status(409).json({
+      ok: false,
+      error: "RELEASE_GATE_HOLD",
+      blockers: hardBlockers,
+    });
+  }
+
+  const action = decision === "GO" ? "PILOT_RELEASE_GO" : "PILOT_RELEASE_HOLD";
+  await audit(req, action, "System", RELEASE_VERSION, {
+    releaseVersion: RELEASE_VERSION,
+    decision,
+    reason,
+    blockersAtDecision: hardBlockers,
+    security,
+    endedActivityCount: endedActivities.length,
+    notClosedCount,
+    recoveryCheckPassedAt: recoveryPass?.createdAt || null,
+  });
+
+  res.status(201).json({
+    ok: true,
+    releaseVersion: RELEASE_VERSION,
+    decision,
+    reason,
+    blockersAtDecision: hardBlockers,
+    recordedAt: new Date().toISOString(),
   });
 });
 
