@@ -563,7 +563,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.8.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"0.9.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1282,6 +1282,91 @@
       return {
         ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,
         rankingBasis:"deployed_model_risk_probability_desc",records
+      };
+    }
+
+    if (p === "/api/operations/pilot-readiness" && method==="GET") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const nowMs=Date.now(), terminal=new Set(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"]);
+      const reviewTargetHours=24;
+      const rows=state.attendance.filter(r=>!r.isVoided);
+      const alerts=new Map(),activityCritical=new Map();
+      const addAlert=(code,severity,activityId=null)=>{
+        const key=severity+"::"+code;
+        const item=alerts.get(key)||{code,severity,count:0};item.count++;alerts.set(key,item);
+        if(severity==="CRITICAL"&&activityId)activityCritical.set(activityId,(activityCritical.get(activityId)||0)+1);
+      };
+      const dup=new Map();
+      rows.forEach(r=>{const key=r.activityId+"::"+r.userId;if(!dup.has(key))dup.set(key,[]);dup.get(key).push(r);});
+      dup.forEach(group=>{if(group.length>1)addAlert("DUPLICATE_NONVOID_ATTENDANCE","CRITICAL",group[0].activityId);});
+
+      rows.forEach(r=>{
+        const reviews=state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)));
+        const latest=reviews[0]||null;
+        const blockers=[...(r.consistencyResult?.missingCodes||[]),...(r.consistencyResult?.reasonCodes||[])];
+        if(r.checkinAt&&r.checkoutAt&&new Date(r.checkoutAt)<new Date(r.checkinAt))addAlert("CHECKOUT_BEFORE_CHECKIN","CRITICAL",r.activityId);
+        if(terminal.has(r.finalEvidenceStatus)&&!latest)addAlert("FINAL_STATUS_WITHOUT_HUMAN_REVIEW","CRITICAL",r.activityId);
+        if(r.finalEvidenceStatus==="VERIFIED"&&(!r.consistencyResult||r.consistencyResult.status!=="COMPLETE"||blockers.length)){
+          addAlert("NORMAL_VERIFY_WITH_SYSTEM_BLOCKERS","CRITICAL",r.activityId);
+        }
+        if(latest&&String(latest.reason||"").trim().length<3)addAlert("HUMAN_REVIEW_REASON_MISSING","WARNING",r.activityId);
+        const a=activity(r.activityId),ended=new Date(a?.endAt||0).getTime()<nowMs;
+        if(ended&&!terminal.has(r.finalEvidenceStatus)&&!r.consistencyResult)addAlert("ENDED_ACTIVITY_RECORD_NOT_EVALUATED","WARNING",r.activityId);
+      });
+
+      const backlog=rows.map(r=>{
+        if(terminal.has(r.finalEvidenceStatus))return null;
+        const a=activity(r.activityId),ended=new Date(a?.endAt||0).getTime()<nowMs;
+        if(!r.consistencyResult&&!ended)return null;
+        const queueStartedAt=r.consistencyResult?.evaluatedAt||a?.endAt||r.createdAt||iso();
+        const ageHours=Math.max(0,(nowMs-new Date(queueStartedAt).getTime())/3600000);
+        return {activityId:r.activityId,queueStartedAt,ageHours,systemEvidenceStatus:r.consistencyResult?.status||"NOT_EVALUATED"};
+      }).filter(Boolean);
+      const aging={
+        under4h:backlog.filter(x=>x.ageHours<4).length,
+        h4to24:backlog.filter(x=>x.ageHours>=4&&x.ageHours<24).length,
+        h24to48:backlog.filter(x=>x.ageHours>=24&&x.ageHours<48).length,
+        over48h:backlog.filter(x=>x.ageHours>=48).length
+      };
+      const overTargetCount=backlog.filter(x=>x.ageHours>=reviewTargetHours).length;
+      const oldestBacklogHours=backlog.length?Math.max(...backlog.map(x=>x.ageHours)):null;
+
+      const byActivity=new Map();
+      rows.forEach(r=>{if(!byActivity.has(r.activityId))byActivity.set(r.activityId,[]);byActivity.get(r.activityId).push(r);});
+      const endedActivities=state.activities.filter(a=>new Date(a.endAt).getTime()<nowMs).map(a=>{
+        const records=byActivity.get(a.id)||[];
+        const unevaluatedCount=records.filter(r=>!r.consistencyResult).length;
+        const unresolvedCount=records.filter(r=>!terminal.has(r.finalEvidenceStatus)).length;
+        const criticalDataQualityCount=activityCritical.get(a.id)||0;
+        const checklist=[
+          {key:"ACTIVITY_ENDED",passed:true},
+          {key:"ALL_RECORDS_EVALUATED",passed:unevaluatedCount===0},
+          {key:"NO_UNRESOLVED_HUMAN_REVIEW",passed:unresolvedCount===0},
+          {key:"NO_CRITICAL_DATA_QUALITY",passed:criticalDataQualityCount===0}
+        ];
+        return {activityId:a.id,title:a.title,category:a.category,endedAt:a.endAt,recordCount:records.length,
+          unevaluatedCount,unresolvedCount,criticalDataQualityCount,closeReady:checklist.every(x=>x.passed),checklist};
+      });
+      const alertRows=[...alerts.values()].sort((a,b)=>(a.severity===b.severity?b.count-a.count:a.severity==="CRITICAL"?-1:1)||a.code.localeCompare(b.code));
+      const criticalAlertCount=alertRows.filter(x=>x.severity==="CRITICAL").reduce((s,x)=>s+x.count,0);
+      const warningAlertCount=alertRows.filter(x=>x.severity==="WARNING").reduce((s,x)=>s+x.count,0);
+      const notCloseReadyCount=endedActivities.filter(x=>!x.closeReady).length;
+      let pilotStatus="READY";const blockers=[],warnings=[];
+      if(criticalAlertCount>0){pilotStatus="BLOCKED";blockers.push("CRITICAL_DATA_QUALITY");}
+      if(pilotStatus!=="BLOCKED"&&(overTargetCount>0||warningAlertCount>0||notCloseReadyCount>0))pilotStatus="WATCH";
+      if(overTargetCount>0)warnings.push("REVIEW_BACKLOG_OVER_TARGET");
+      if(warningAlertCount>0)warnings.push("DATA_QUALITY_WARNINGS");
+      if(notCloseReadyCount>0)warnings.push("ENDED_ACTIVITIES_NOT_CLOSE_READY");
+      const deployed=state.models.find(x=>x.status==="DEPLOYED")||null;
+      return {
+        ok:true,aggregated:true,containsPII:false,syntheticDemo:true,generatedAt:iso(),pilotStatus,blockers,warnings,
+        governance:{humanFinalDecisionRequired:true,aiAutonomousDecision:false,groundTruthBlindedFromAiDuringLabeling:true,
+          analyticsAggregateOnly:true,deployedModel:deployed?{version:deployed.version,modelFamily:deployed.modelFamily,deployedAt:deployed.deployedAt}:null,aiRequiredForPilot:false},
+        reviewMonitoring:{targetHours:reviewTargetHours,targetType:"OPERATIONAL_MONITORING_TARGET_NOT_PERSONNEL_SCORE",
+          backlogCount:backlog.length,overTargetCount,oldestBacklogHours,aging},
+        dataQuality:{criticalAlertCount,warningAlertCount,alerts:alertRows},
+        activityClosing:{endedActivityCount:endedActivities.length,closeReadyCount:endedActivities.filter(x=>x.closeReady).length,
+          notCloseReadyCount,activities:endedActivities,note:"DEMO checklist only; does not mutate or lock activities."}
       };
     }
 
