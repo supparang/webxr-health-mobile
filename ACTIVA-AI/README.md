@@ -347,6 +347,12 @@ V0.3:
 - Evidence UI แสดง Check-in QR และ Check-out QR แยกกัน
 
 
+## V0.6.2 — Human Review Audit Hardening
+- บังคับระบุเหตุผลสำหรับ Human Review ทุกผลตัดสิน รวมถึง VERIFY
+- Audit log ของการตรวจสอบเก็บ reviewId, reviewerId, previousFinalStatus → finalEvidenceStatus, systemEvidenceStatus, blockers และ review timing
+- API ตอบ previousFinalStatus กลับเพื่อรองรับ traceability และการทดสอบ
+- Smoke test ตรวจทั้ง reason gate และ audit metadata ของ Human Review
+
 ## V0.6.1 — Activity Center + Exception Review Queue + Personal QR
 - เพิ่ม Activity Center สำหรับกรณีกิจกรรมจำนวนมาก: search, filter, status, review-count และ pagination 20 รายการ
 - กดจาก Activity Center ไปดูผู้เข้าร่วม/QR ของกิจกรรมนั้นได้โดยไม่ต้องไล่ dropdown
