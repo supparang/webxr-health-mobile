@@ -192,6 +192,103 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
+const RELEASE_VERSION = "ACTIVA-AI-1.0.0";
+const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
+
+async function ensureActivityOperationallyMutable(res, activityId) {
+  const activity = await prisma.activity.findUnique({
+    where: { id: activityId },
+    select: { id: true, pilotClosedAt: true, pilotClosureHash: true, pilotClosureVersion: true },
+  });
+  if (!activity) {
+    res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+    return false;
+  }
+  if (activity.pilotClosedAt) {
+    res.status(423).json({
+      ok: false,
+      error: "ACTIVITY_PILOT_CLOSED_IMMUTABLE",
+      pilotClosedAt: activity.pilotClosedAt,
+      pilotClosureHash: activity.pilotClosureHash,
+      pilotClosureVersion: activity.pilotClosureVersion,
+    });
+    return false;
+  }
+  return true;
+}
+
+async function activityCloseAssessment(activityId) {
+  const activity = await prisma.activity.findUnique({
+    where: { id: activityId },
+    include: {
+      policy: true,
+      attendanceRecords: {
+        where: { isVoided: false },
+        include: {
+          consistencyResult: true,
+          humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!activity) return null;
+
+  const terminal = new Set(["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"]);
+  const records = activity.attendanceRecords;
+  const criticalIssues = [];
+  const duplicateMap = new Map();
+
+  records.forEach((row) => {
+    if (!duplicateMap.has(row.userId)) duplicateMap.set(row.userId, []);
+    duplicateMap.get(row.userId).push(row);
+  });
+  duplicateMap.forEach((group) => {
+    if (group.length > 1) criticalIssues.push("DUPLICATE_NONVOID_ATTENDANCE");
+  });
+
+  records.forEach((row) => {
+    const blockers = [
+      ...(Array.isArray(row.consistencyResult?.missingCodes) ? row.consistencyResult.missingCodes : []),
+      ...(Array.isArray(row.consistencyResult?.reasonCodes) ? row.consistencyResult.reasonCodes : []),
+    ];
+    if (row.checkinAt && row.checkoutAt && row.checkoutAt < row.checkinAt) {
+      criticalIssues.push("CHECKOUT_BEFORE_CHECKIN");
+    }
+    if (terminal.has(row.finalEvidenceStatus) && !row.humanReviews[0]) {
+      criticalIssues.push("FINAL_STATUS_WITHOUT_HUMAN_REVIEW");
+    }
+    if (
+      row.finalEvidenceStatus === "VERIFIED" &&
+      (!row.consistencyResult || row.consistencyResult.status !== "COMPLETE" || blockers.length > 0)
+    ) {
+      criticalIssues.push("NORMAL_VERIFY_WITH_SYSTEM_BLOCKERS");
+    }
+  });
+
+  const unevaluatedCount = records.filter((row) => !row.consistencyResult).length;
+  const unresolvedCount = records.filter((row) => !terminal.has(row.finalEvidenceStatus)).length;
+  const ended = activity.endAt.getTime() < Date.now();
+  const uniqueCriticalIssues = [...new Set(criticalIssues)];
+  const checklist = [
+    { key: "ACTIVITY_ENDED", passed: ended },
+    { key: "ALL_RECORDS_EVALUATED", passed: unevaluatedCount === 0 },
+    { key: "NO_UNRESOLVED_HUMAN_REVIEW", passed: unresolvedCount === 0 },
+    { key: "NO_CRITICAL_DATA_QUALITY", passed: uniqueCriticalIssues.length === 0 },
+  ];
+
+  return {
+    activity,
+    ended,
+    recordCount: records.length,
+    unevaluatedCount,
+    unresolvedCount,
+    criticalIssues: uniqueCriticalIssues,
+    closeReady: checklist.every((item) => item.passed),
+    checklist,
+  };
+}
+
 function toIso(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) throw new Error("INVALID_DATE");
@@ -254,14 +351,14 @@ app.get("/api/health", async (_req, res) => {
     });
     res.json({
       ok: true,
-      version: "0.9.0",
+      version: "1.0.0",
       database: "connected",
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
     });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "0.9.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "1.0.0", database: "unavailable", error: error.message });
   }
 });
 
@@ -843,7 +940,7 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
 
 app.put("/api/activities/:activityId/assignments", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
-  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
 
   const hasCoPayload = Array.isArray(req.body?.coOrganizerIds);
   const hasVerifierPayload = Array.isArray(req.body?.verifierIds);
@@ -994,7 +1091,7 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
 
 app.put("/api/activities/:activityId/participants", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
-  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
   if (!(await canManageActivity(req, activity))) {
     return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
   }
@@ -1059,7 +1156,7 @@ app.put("/api/activities/:activityId/participants", async (req, res) => {
 
 app.post("/api/activities/:activityId/qr", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where: { id: req.params.activityId } });
-  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
   if (!(await canManageActivity(req, activity))) {
     return res.status(403).json({ ok: false, error: "ACTIVITY_MANAGEMENT_FORBIDDEN" });
   }
@@ -1137,7 +1234,7 @@ app.post("/api/attendance/checkin", async (req, res) => {
     where: { id: activityId },
     include: { policy: true },
   });
-  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
 
   const windowState = checkinWindowState(activity);
   if (!windowState.ok) {
@@ -1212,7 +1309,7 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     where: { id: req.params.attendanceId },
     include: { activity: true },
   });
-  if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (req.activaUser.role === "PARTICIPANT" && current.userId !== req.activaUser.id) {
     return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
@@ -1298,7 +1395,7 @@ app.post("/api/attendance/:attendanceId/checkout-assist", requireRoles("ADMIN", 
     where:{id:req.params.attendanceId},
     include:{activity:true},
   });
-  if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});
+  if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});\n  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ok:false,error:"ATTENDANCE_VOIDED"});
   if (!current.checkinAt) return res.status(409).json({ok:false,error:"CHECKIN_REQUIRED"});
   if (current.checkoutAt) return res.status(409).json({ok:false,error:"ALREADY_CHECKED_OUT",checkoutAt:current.checkoutAt});
@@ -1349,7 +1446,7 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
     where: { id: req.params.attendanceId },
     include: { staffVerification: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (attendance.staffVerification) {
     return res.json({ ok: true, verification: attendance.staffVerification, idempotent: true });
@@ -1381,7 +1478,7 @@ app.post("/api/attendance/:attendanceId/void", requireRoles("ADMIN", "STAFF"), a
     where: { id: req.params.attendanceId },
     include: { groundTruthCase: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.json({ ok: true, attendance, idempotent: true });
   if (attendance.groundTruthCase?.status === "LOCKED") {
     return res.status(409).json({ ok: false, error: "LOCKED_GROUND_TRUTH_CANNOT_BE_VOIDED" });
@@ -1413,7 +1510,7 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
       staffVerification: true,
     },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.activity.policy) return res.status(409).json({ ok: false, error: "POLICY_NOT_CONFIGURED" });
 
@@ -1485,7 +1582,7 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
     where: { id: req.params.attendanceId },
     include: { consistencyResult: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.consistencyResult) {
     return res.status(409).json({ ok: false, error: "EVIDENCE_EVALUATION_REQUIRED" });
@@ -2670,5 +2767,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.9.0 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V1.0.0 server running on http://localhost:" + port);
 });
