@@ -293,12 +293,14 @@ async function activityCloseAssessment(activityId) {
 function releaseSecurityStatus() {
   const qrSecret = String(process.env.QR_SIGNING_SECRET || "");
   const researchSalt = String(process.env.RESEARCH_HASH_SALT || "");
+  const unsafeMarker = /change-this|demo|example|not-for-production|^ci-|test/i;
   const qrSigningReady =
     qrSecret.length >= 32 &&
-    !/change-this|demo|example/i.test(qrSecret);
+    !unsafeMarker.test(qrSecret);
   const researchSaltReady =
     researchSalt.length >= 16 &&
-    !/change-this|demo|example|ACTIVA-DEMO-SALT/i.test(researchSalt);
+    !unsafeMarker.test(researchSalt) &&
+    !/ACTIVA-DEMO-SALT/i.test(researchSalt);
   return {
     qrSigningReady,
     researchSaltReady,
@@ -2787,25 +2789,55 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
     return res.status(400).json({ ok: false, error: "RELEASE_DECISION_REASON_REQUIRED" });
   }
 
+  const now = new Date();
   const security = releaseSecurityStatus();
-  const endedActivities = await prisma.activity.findMany({
-    where: { endAt: { lt: new Date() } },
-    select: { id: true, pilotClosedAt: true },
-  });
+  const configuredTarget = Number(process.env.REVIEW_TARGET_HOURS || 24);
+  const reviewTargetHours = Number.isFinite(configuredTarget) && configuredTarget > 0 ? configuredTarget : 24;
+
+  const [endedActivities, unresolvedRows, recoveryLogs] = await Promise.all([
+    prisma.activity.findMany({
+      where: { endAt: { lt: now } },
+      select: { id: true, pilotClosedAt: true },
+    }),
+    prisma.attendanceRecord.findMany({
+      where: {
+        isVoided: false,
+        OR: [
+          { finalEvidenceStatus: null },
+          { finalEvidenceStatus: { notIn: ["VERIFIED", "OVERRIDE_VERIFIED", "REJECTED"] } },
+        ],
+      },
+      include: {
+        activity: { select: { endAt: true } },
+        consistencyResult: true,
+      },
+    }),
+    prisma.auditLog.findMany({
+      where: { action: "BACKUP_RECOVERY_CHECK_PASSED" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+  ]);
+
   const notClosedCount = endedActivities.filter((x) => !x.pilotClosedAt).length;
-  const recoveryLogs = await prisma.auditLog.findMany({
-    where: { action: "BACKUP_RECOVERY_CHECK_PASSED" },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
   const recoveryPass = recoveryLogs.find((log) =>
     log.metadata?.backupReleaseVersion === RELEASE_VERSION &&
     log.metadata?.valid === true &&
-    Date.now() - new Date(log.createdAt).getTime() <= 24 * 3600000
+    now.getTime() - new Date(log.createdAt).getTime() <= 24 * 3600000
   );
+
+  const backlog = unresolvedRows.map((row) => {
+    const activityEnded = new Date(row.activity?.endAt || 0).getTime() < now.getTime();
+    if (!row.consistencyResult && !activityEnded) return null;
+    const queueStartedAt = row.consistencyResult?.evaluatedAt || row.activity?.endAt || row.createdAt;
+    return Math.max(0, (now.getTime() - new Date(queueStartedAt).getTime()) / 3600000);
+  }).filter((ageHours) => ageHours !== null);
+  const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
+
   const hardBlockers = [];
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
+  if (overTargetCount > 0) hardBlockers.push("REVIEW_BACKLOG_OVER_TARGET");
   if (!recoveryPass) hardBlockers.push("RECENT_BACKUP_RECOVERY_CHECK_REQUIRED");
 
   if (decision === "GO" && hardBlockers.length) {
@@ -2825,6 +2857,8 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
     security,
     endedActivityCount: endedActivities.length,
     notClosedCount,
+    reviewTargetHours,
+    overTargetCount,
     recoveryCheckPassedAt: recoveryPass?.createdAt || null,
   });
 
