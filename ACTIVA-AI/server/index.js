@@ -1516,9 +1516,6 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
     if (blockers.length === 0) {
       return res.status(409).json({ ok: false, error: "OVERRIDE_NOT_NEEDED" });
     }
-    if (reason.length < 10) {
-      return res.status(400).json({ ok: false, error: "OVERRIDE_REASON_REQUIRED" });
-    }
   }
 
   if (reason.length < 3) {
@@ -1527,6 +1524,10 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
       error: "REVIEW_REASON_REQUIRED",
       note: "Every human decision must carry an explicit rationale for auditability.",
     });
+  }
+
+  if (b.decision === "OVERRIDE_VERIFY" && reason.length < 10) {
+    return res.status(400).json({ ok: false, error: "OVERRIDE_REASON_REQUIRED" });
   }
 
   const previousFinalStatus = attendance.finalEvidenceStatus || null;
