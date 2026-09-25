@@ -1068,7 +1068,8 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
 
 app.put("/api/activities/:activityId/assignments", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
-  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
 
   const hasCoPayload = Array.isArray(req.body?.coOrganizerIds);
   const hasVerifierPayload = Array.isArray(req.body?.verifierIds);
@@ -1219,7 +1220,8 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
 
 app.put("/api/activities/:activityId/participants", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where:{id:req.params.activityId} });
-  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
   if (!(await canManageActivity(req, activity))) {
     return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
   }
@@ -1284,7 +1286,8 @@ app.put("/api/activities/:activityId/participants", async (req, res) => {
 
 app.post("/api/activities/:activityId/qr", async (req, res) => {
   const activity = await prisma.activity.findUnique({ where: { id: req.params.activityId } });
-  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
   if (!(await canManageActivity(req, activity))) {
     return res.status(403).json({ ok: false, error: "ACTIVITY_MANAGEMENT_FORBIDDEN" });
   }
@@ -1362,7 +1365,8 @@ app.post("/api/attendance/checkin", async (req, res) => {
     where: { id: activityId },
     include: { policy: true },
   });
-  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });\n  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
+  if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
 
   const windowState = checkinWindowState(activity);
   if (!windowState.ok) {
@@ -1437,7 +1441,8 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
     where: { id: req.params.attendanceId },
     include: { activity: true },
   });
-  if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
+  if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (req.activaUser.role === "PARTICIPANT" && current.userId !== req.activaUser.id) {
     return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
@@ -1523,7 +1528,8 @@ app.post("/api/attendance/:attendanceId/checkout-assist", requireRoles("ADMIN", 
     where:{id:req.params.attendanceId},
     include:{activity:true},
   });
-  if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});\n  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
+  if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});
+  if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ok:false,error:"ATTENDANCE_VOIDED"});
   if (!current.checkinAt) return res.status(409).json({ok:false,error:"CHECKIN_REQUIRED"});
   if (current.checkoutAt) return res.status(409).json({ok:false,error:"ALREADY_CHECKED_OUT",checkoutAt:current.checkoutAt});
@@ -1574,7 +1580,8 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
     where: { id: req.params.attendanceId },
     include: { staffVerification: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (attendance.staffVerification) {
     return res.json({ ok: true, verification: attendance.staffVerification, idempotent: true });
@@ -1606,7 +1613,8 @@ app.post("/api/attendance/:attendanceId/void", requireRoles("ADMIN", "STAFF"), a
     where: { id: req.params.attendanceId },
     include: { groundTruthCase: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.json({ ok: true, attendance, idempotent: true });
   if (attendance.groundTruthCase?.status === "LOCKED") {
     return res.status(409).json({ ok: false, error: "LOCKED_GROUND_TRUTH_CANNOT_BE_VOIDED" });
@@ -1638,7 +1646,8 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
       staffVerification: true,
     },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.activity.policy) return res.status(409).json({ ok: false, error: "POLICY_NOT_CONFIGURED" });
 
@@ -1710,7 +1719,8 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
     where: { id: req.params.attendanceId },
     include: { consistencyResult: true },
   });
-  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });\n  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.consistencyResult) {
     return res.status(409).json({ ok: false, error: "EVIDENCE_EVALUATION_REQUIRED" });
