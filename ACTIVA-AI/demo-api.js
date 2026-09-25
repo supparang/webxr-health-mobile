@@ -563,7 +563,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"0.7.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"0.8.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1282,6 +1282,106 @@
       return {
         ok:true,deployedModel:model,decisionSupportOnly:true,syntheticDemo:true,
         rankingBasis:"deployed_model_risk_probability_desc",records
+      };
+    }
+
+    if (p === "/api/analytics/verified" && method==="GET") {
+      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
+      const rows=state.attendance.filter(r=>!r.isVoided);
+      const terminal=new Set(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"]);
+      const finalized=rows.filter(r=>terminal.has(r.finalEvidenceStatus));
+      const unresolved=rows.filter(r=>!terminal.has(r.finalEvidenceStatus));
+      const verified=finalized.filter(r=>["VERIFIED","OVERRIDE_VERIFIED"].includes(r.finalEvidenceStatus));
+      const override=finalized.filter(r=>r.finalEvidenceStatus==="OVERRIDE_VERIFIED");
+      const rejected=finalized.filter(r=>r.finalEvidenceStatus==="REJECTED");
+      const mean=values=>values.length?values.reduce((s,x)=>s+x,0)/values.length:null;
+
+      const reviewDurations=finalized.map(r=>{
+        const rv=state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))[0];
+        return Number.isFinite(Number(rv?.reviewDurationSeconds))?Number(rv.reviewDurationSeconds):null;
+      }).filter(x=>x!==null&&x>=0);
+
+      const resolutionHours=finalized.map(r=>{
+        const rv=state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))[0];
+        if(!rv?.reviewedAt||!r.createdAt)return null;
+        const delta=new Date(rv.reviewedAt).getTime()-new Date(r.createdAt).getTime();
+        return delta>=0?delta/3600000:null;
+      }).filter(x=>x!==null&&Number.isFinite(x));
+
+      const exceptionMap=new Map();
+      finalized.forEach(r=>{
+        const codes=[...(r.consistencyResult?.missingCodes||[]),...(r.consistencyResult?.reasonCodes||[])];
+        [...new Set(codes.map(String))].forEach(code=>exceptionMap.set(code,(exceptionMap.get(code)||0)+1));
+      });
+
+      const activityMap=new Map();
+      rows.forEach(r=>{
+        const a=activity(r.activityId)||{};
+        if(!activityMap.has(r.activityId)) activityMap.set(r.activityId,{
+          activityId:r.activityId,title:a.title||"",category:a.category||"",
+          recordCount:0,finalizedCount:0,verifiedCount:0,overrideVerifiedCount:0,rejectedCount:0,unresolvedCount:0
+        });
+        const x=activityMap.get(r.activityId);x.recordCount++;
+        if(terminal.has(r.finalEvidenceStatus))x.finalizedCount++;else x.unresolvedCount++;
+        if(["VERIFIED","OVERRIDE_VERIFIED"].includes(r.finalEvidenceStatus))x.verifiedCount++;
+        if(r.finalEvidenceStatus==="OVERRIDE_VERIFIED")x.overrideVerifiedCount++;
+        if(r.finalEvidenceStatus==="REJECTED")x.rejectedCount++;
+      });
+      const byActivity=[...activityMap.values()].map(x=>({...x,
+        finalizationRate:x.recordCount?x.finalizedCount/x.recordCount:0,
+        verifiedOutcomeRate:x.finalizedCount?x.verifiedCount/x.finalizedCount:null
+      })).sort((a,b)=>b.recordCount-a.recordCount||a.title.localeCompare(b.title));
+
+      const deployed=state.models.find(x=>x.status==="DEPLOYED")||null;
+      const locked=state.groundTruthCases.filter(x=>x.status==="LOCKED"&&x.finalTarget);
+      const comparable=locked.map(gt=>({
+        gt,
+        prediction:deployed?state.predictions.find(p=>p.attendanceId===gt.attendanceId&&p.modelVersion===deployed.version):null
+      })).filter(x=>x.prediction);
+      let tp=0,fp=0,tn=0,fn=0,agree=0;
+      comparable.forEach(({gt,prediction})=>{
+        const actual=gt.finalTarget,pred=prediction.predictedLabel;
+        if(actual===pred)agree++;
+        if(actual==="REVIEW_REQUIRED"&&pred==="REVIEW_REQUIRED")tp++;
+        else if(actual==="NO_REVIEW_REQUIRED"&&pred==="REVIEW_REQUIRED")fp++;
+        else if(actual==="NO_REVIEW_REQUIRED"&&pred==="NO_REVIEW_REQUIRED")tn++;
+        else if(actual==="REVIEW_REQUIRED"&&pred==="NO_REVIEW_REQUIRED")fn++;
+      });
+
+      const labelGroups=new Map();
+      state.groundTruthLabels.forEach(l=>{
+        if(!labelGroups.has(l.attendanceId))labelGroups.set(l.attendanceId,[]);
+        labelGroups.get(l.attendanceId).push(l);
+      });
+      const doubleLabeled=[...labelGroups.values()].filter(xs=>xs.length>=2);
+      const reviewerAgree=doubleLabeled.filter(xs=>new Set(xs.map(x=>x.target)).size===1).length;
+
+      return {
+        ok:true,aggregated:true,containsPII:false,scope:"ORGANIZATION",syntheticDemo:true,generatedAt:iso(),
+        operational:{
+          recordCount:rows.length,finalizedCount:finalized.length,unresolvedCount:unresolved.length,
+          verifiedCount:verified.length,overrideVerifiedCount:override.length,rejectedCount:rejected.length,
+          finalizationRate:rows.length?finalized.length/rows.length:0,
+          verifiedOutcomeRate:finalized.length?verified.length/finalized.length:null,
+          averageReviewDurationSeconds:mean(reviewDurations),
+          averageResolutionHours:mean(resolutionHours),
+          turnaroundDefinition:"attendance_record_created_at_to_latest_terminal_human_review",
+          exceptionPatterns:[...exceptionMap.entries()].map(([code,count])=>({code,count})).sort((a,b)=>b.count-a.count||a.code.localeCompare(b.code)),
+          byActivity
+        },
+        researchSnapshot:{
+          separatedFromOperationalOutcomes:true,
+          deployedModel:deployed?{id:deployed.id,version:deployed.version,modelFamily:deployed.modelFamily,deployedAt:deployed.deployedAt}:null,
+          lockedGroundTruthCount:locked.length,
+          comparableModelGroundTruthCount:comparable.length,
+          modelGroundTruthAgreementCount:agree,
+          modelGroundTruthAgreementRate:comparable.length?agree/comparable.length:null,
+          confusionMatrix:{tp,fp,tn,fn},
+          doubleLabeledCaseCount:doubleLabeled.length,
+          reviewerAgreementCount:reviewerAgree,
+          reviewerAgreementRate:doubleLabeled.length?reviewerAgree/doubleLabeled.length:null,
+          note:"DEMO/SYNTHETIC research snapshot; not personnel performance scores."
+        }
       };
     }
 
