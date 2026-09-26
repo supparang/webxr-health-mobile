@@ -593,7 +593,7 @@
     if (!a || !r.checkinAt || !r.checkoutAt) return {minutes:null,percentage:null,ratio:null};
     const actual = Math.max(0, Math.round((new Date(r.checkoutAt)-new Date(r.checkinAt))/60000));
     const expected = Math.max(1, Math.round((new Date(a.endAt)-new Date(a.startAt))/60000));
-    return {minutes:actual,percentage:Math.min(100,(actual/expected)*100),ratio:actual/expected};
+    return {minutes:actual,percentage:Math.min(100,(actual/expected)*100),ratio:Math.min(1,actual/expected)};
   }
   function evalEvidence(r) {
     const a = activity(r.activityId);
