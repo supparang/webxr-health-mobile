@@ -5,11 +5,20 @@
   const MODE_KEY = "activa_ai_mode";
   const NAV_GROUP_KEY = "activa_ai_nav_groups";
   const SELECTED_ACTIVITY_KEY = "activa_ai_selected_activity";
+  const DEMO_STORAGE_KEY = "activa_ai_demo_v034";
   let appMode = sessionStorage.getItem(MODE_KEY) || "server";
   let session = readSession();
   let activeView = "dashboard";
   let qrTimer = null;
   let qrState = null;
+  let demoCrossTabRefreshTimer = null;
+
+  window.addEventListener("storage",(event)=>{
+    if(appMode!=="demo" || !session || event.key!==DEMO_STORAGE_KEY) return;
+    if(activeView!=="attendance") return;
+    clearTimeout(demoCrossTabRefreshTimer);
+    demoCrossTabRefreshTimer=setTimeout(()=>render(),180);
+  });
 
   const ACTIVITY_PERMISSION_DEFS = [
     ["CAN_CREATE_ACTIVITY","สร้างกิจกรรม","สร้างกิจกรรมใหม่และเป็นผู้จัดกิจกรรมหลักของกิจกรรมที่สร้าง"],
@@ -1744,7 +1753,15 @@
       '<div class="field token-fallback" id="tokenField" hidden style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จาก Dynamic QR"></textarea></div>'+
       '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
       '<div class="panel" id="recordActionsPanel"><h2>Check-out / Staff Verification</h2>'+
-      '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+
+        (rows.length
+          ? rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")
+          : '<option value="">ยังไม่มีรายการ Check-in ใน Demo storage นี้</option>')+
+      '</select></div>'+
+      '<div class="actions"><button class="btn secondary mini" id="refreshAttendanceRows">↻ รีเฟรชรายการ Check-in</button></div>'+
+      (!rows.length && appMode==="demo"
+        ? '<div class="alert warn"><b>ยังไม่พบรายการสำหรับ Check-out</b><br>ถ้าเพิ่ง Check-in ในอีกแท็บของเบราว์เซอร์เดียวกัน ระบบจะรีเฟรชให้อัตโนมัติ หรือกด “รีเฟรชรายการ Check-in” ได้ทันที<br><br><b>ถ้า Check-in จากอีกอุปกรณ์:</b> Demo Mode เก็บ attendance ไว้ใน browser ของเครื่องที่สแกน จึงไม่ sync กลับมาที่เครื่องผู้จัด แม้ QR จะใช้ข้ามอุปกรณ์ได้ หากต้องการข้อมูลร่วมกันจริงให้ใช้ Server Mode + PostgreSQL</div>'
+        : '')+
       '<div class="actions checkout-actions">'+
         '<button class="btn primary" id="coScanQrBtn">📷 สแกน Check-out QR</button>'+
         (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceCheckoutTestBtn">🧪 ทดสอบ Check-out QR</button>':'')+
@@ -2127,6 +2144,13 @@
       }
       if(voidBtn)voidBtn.disabled=!selected;
     }
+    const refreshAttendanceRows=document.getElementById("refreshAttendanceRows");
+    if(refreshAttendanceRows)refreshAttendanceRows.onclick=async()=>{
+      refreshAttendanceRows.disabled=true;
+      refreshAttendanceRows.textContent="กำลังรีเฟรช…";
+      await renderAttendance(v);
+    };
+
     document.getElementById("coRecord").onchange=syncRecordActions;
     syncRecordActions();
 
