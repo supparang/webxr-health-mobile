@@ -2323,6 +2323,10 @@
         if(!term)return true;
         return [r.user?.employeeId,r.user?.name,r.activity?.title].filter(Boolean).join(" ").toLowerCase().includes(term);
       });
+      const activityForRow=(r)=>activities.find(a=>a.id===(r.activity?.id||r.activityId))||r.activity||null;
+      const isImmutableClosed=(r)=>Boolean(activityForRow(r)?.pilotClosedAt);
+      const mutableFilteredRows=filteredRows.filter(r=>!isImmutableClosed(r));
+      const immutableFilteredRows=filteredRows.filter(r=>isImmutableClosed(r));
 
       const rowHtml = filteredRows.map(r => {
         const c=r.consistencyResult;
@@ -2332,7 +2336,9 @@
           '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
           '<td>'+(r.checkoutQrValid?"✓":"✕")+'</td><td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
           '<td>'+statusBadge(evidenceStatusOf(r))+'</td><td>'+statusBadge(finalStatusOf(r))+'</td><td>'+esc(evidenceReasonText(reasons)||"—")+'</td>'+
-          '<td>'+(can("ADMIN","ORGANIZER","STAFF")?'<button class="btn secondary mini evalOneEvidence" data-id="'+esc(r.id)+'">ประเมินรายการนี้</button>':'—')+'</td></tr>';
+          '<td>'+(can("ADMIN","ORGANIZER","STAFF")?(isImmutableClosed(r)
+            ?'<button class="btn secondary mini" disabled title="กิจกรรมปิดแบบ Immutable แล้ว">ปิดกิจกรรมแล้ว • ประเมินซ้ำไม่ได้</button>'
+            :'<button class="btn secondary mini evalOneEvidence" data-id="'+esc(r.id)+'">ประเมินรายการนี้</button>'):'—')+'</td></tr>';
       }).join("");
 
       const cards=filteredRows.map(r=>{
@@ -2346,7 +2352,10 @@
           '<span>ระยะเวลา <b>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</b></span><span>Staff <b>'+(r.staffVerification?"✓":"✕")+'</b></span></div>'+
           '<div class="evidence-final">ผลตัดสินสุดท้าย '+statusBadge(finalStatusOf(r))+'</div>'+
           '<div class="muted">'+esc(evidenceReasonText(reasons)||"ยังไม่มีเหตุผลผิดปกติ")+'</div>'+
-          (can("ADMIN","ORGANIZER","STAFF")?'<div class="actions"><button class="btn secondary mini evalOneEvidence" data-id="'+esc(r.id)+'">ประเมินเฉพาะรายการนี้</button></div>':'')+
+          (can("ADMIN","ORGANIZER","STAFF")?'<div class="actions">'+(isImmutableClosed(r)
+            ?'<button class="btn secondary mini" disabled title="กิจกรรมปิดแบบ Immutable แล้ว">ปิดกิจกรรมแล้ว • ประเมินซ้ำไม่ได้</button>'
+            :'<button class="btn secondary mini evalOneEvidence" data-id="'+esc(r.id)+'">ประเมินเฉพาะรายการนี้</button>')+'</div>':'')+
+          (isImmutableClosed(r)?'<div class="alert info"><b>กิจกรรมนี้ปิดแบบ Immutable แล้ว</b><br>ระบบล็อกการประเมินหลักฐานซ้ำ การแก้ Check-in/Check-out, Staff Verification และ Human Review เพื่อคง Audit Trail ของผลที่ปิดแล้ว</div>':'')+
           '</article>';
       }).join("");
 
@@ -2357,7 +2366,10 @@
           '<div class="field"><label>ค้นหารหัส/ชื่อบุคลากร</label><input id="evidenceSearch" value="'+esc(state.search)+'" placeholder="เช่น P001 หรือชื่อบุคลากร"></div>'+
         '</div>'+
         '<div class="result-meta">แสดง '+filteredRows.length+' จาก '+activityRows.length+' รายการในขอบเขตที่เลือก</div>'+
-        (can("ADMIN","ORGANIZER","STAFF")?'<div class="actions"><button class="btn primary" id="evalFiltered" '+(!filteredRows.length||duplicateCount>0?'disabled':'')+'>ประเมินรายการที่กรองอยู่ ('+filteredRows.length+')</button></div>':'')+
+        (can("ADMIN","ORGANIZER","STAFF")?'<div class="actions"><button class="btn primary" id="evalFiltered" '+(!mutableFilteredRows.length||duplicateCount>0?'disabled':'')+'>'+(
+          mutableFilteredRows.length?'ประเมินรายการที่กรองอยู่ ('+mutableFilteredRows.length+')':'ไม่มีรายการที่ประเมินซ้ำได้'
+        )+'</button></div>':'')+
+        (immutableFilteredRows.length?'<div class="alert info"><b>ล็อกแล้ว '+immutableFilteredRows.length+' รายการ</b><br>กิจกรรมถูกปิดแบบ Immutable จึงไม่สามารถประเมินหลักฐานซ้ำหรือแก้ผลย้อนหลังได้</div>':'')+
         (duplicateCount>0?'<div class="alert warn"><b>พบข้อมูลซ้ำ '+duplicateCount+' รายการในกิจกรรมที่เลือก</b><br>กรุณาไปเมนู “เข้า–ออก” แล้วใช้ “ยกเลิกรายการผิด” ก่อนประเมินหลักฐาน เพื่อไม่ให้ข้อมูลซ้ำเข้าสู่ Ground Truth/งานวิจัย</div>':'')+
         '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>กิจกรรม</th><th>Check-in QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>Check-out QR</th><th>ระยะเวลา</th><th>เจ้าหน้าที่</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th><th>เหตุผล</th><th>ประเมิน</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
         '<div class="attendance-cards">'+(cards||'<div class="empty">ไม่พบรายการตามตัวกรอง</div>')+'</div></div>';
@@ -2384,6 +2396,12 @@
           await api("/api/evidence/"+encodeURIComponent(btn.dataset.id)+"/evaluate",{method:"POST"});
           await renderEvidence(v);
         }catch(e){
+          if(e.message==="ACTIVITY_PILOT_CLOSED_IMMUTABLE"){
+            btn.disabled=true;
+            btn.textContent="ปิดกิจกรรมแล้ว • ประเมินซ้ำไม่ได้";
+            alert("กิจกรรมนี้ถูกปิดแบบ Immutable แล้ว จึงไม่สามารถประเมินหลักฐานซ้ำหรือแก้ไขย้อนหลังได้");
+            return;
+          }
           btn.disabled=false;
           btn.textContent="ประเมินเฉพาะรายการนี้";
           alert(e.message);
@@ -2394,8 +2412,8 @@
       const evalFiltered=document.getElementById("evalFiltered");
       if(evalFiltered)evalFiltered.onclick=async()=>{
         evalFiltered.disabled=true;
-        evalFiltered.textContent="กำลังประเมิน "+filteredRows.length+" รายการ…";
-        for(const r of filteredRows){try{await api("/api/evidence/"+encodeURIComponent(r.id)+"/evaluate",{method:"POST"});}catch{}}
+        evalFiltered.textContent="กำลังประเมิน "+mutableFilteredRows.length+" รายการ…";
+        for(const r of mutableFilteredRows){try{await api("/api/evidence/"+encodeURIComponent(r.id)+"/evaluate",{method:"POST"});}catch{}}
         await renderEvidence(v);
       };
     }
