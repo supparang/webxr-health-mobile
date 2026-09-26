@@ -1488,13 +1488,21 @@
       const closeAt=purpose==="CHECKOUT"?qrState.checkoutCloseAt:qrState.checkinCloseAt;
       const label=purpose==="CHECKOUT"?"CHECK-OUT QR":"CHECK-IN QR";
       area.innerHTML=
-        '<div class="qrbox" style="margin-top:18px"><div id="qrcode" class="qr"></div><div>'+
-        '<p><b>'+label+'</b> • หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
-        '<p class="muted">'+(purpose==="CHECKOUT"?"Check-out":"Check-in")+' ได้ถึง '+esc(fmt(closeAt))+'</p>'+
-        '<div class="token">'+esc(qrState.token)+'</div></div></div>';
-      if(window.QRCode)new QRCode(document.getElementById("qrcode"),{
-        text:qrState.token,width:240,height:240,correctLevel:QRCode.CorrectLevel.L
-      });
+        '<div class="qrbox" style="margin-top:18px">'+
+          '<div class="qr-visual"><div id="qrcode" class="qr" aria-label="'+esc(label)+'"></div></div>'+
+          '<div class="qr-meta">'+
+            '<p class="qr-title"><b>'+label+'</b> • หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
+            '<p class="muted">'+(purpose==="CHECKOUT"?"Check-out":"Check-in")+' ได้ถึง '+esc(fmt(closeAt))+'</p>'+
+            '<details class="qr-token-details"><summary>แสดง Token สำหรับทดสอบ</summary><div class="token">'+esc(qrState.token)+'</div></details>'+
+          '</div>'+
+        '</div>';
+      if(window.QRCode){
+        const qrHost=document.getElementById("qrcode");
+        const available=Math.max(180,Math.min(240,(area.clientWidth||280)-32));
+        new QRCode(qrHost,{
+          text:qrState.token,width:available,height:available,correctLevel:QRCode.CorrectLevel.L
+        });
+      }
     }
 
     function qrError(e){
