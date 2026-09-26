@@ -214,6 +214,81 @@
     };
   }
 
+  function ensureSyntheticQaCases() {
+    const batchId="SYNTHETIC-QA-GT-001";
+    const existing=state?.attendance?.filter(r=>r.syntheticQaBatchId===batchId)||[];
+    if(existing.length){
+      return {ok:true,idempotent:true,batchId,activityId:existing[0].activityId,created:0,total:existing.length,syntheticDemo:true};
+    }
+
+    const activityId="DEMO-QA-GT-001";
+    let a=state.activities.find(x=>x.id===activityId);
+    if(!a){
+      a={
+        id:activityId,
+        title:"ชุดทดสอบ Ground Truth (Synthetic QA)",
+        category:"QA / Research Workflow",
+        description:"ข้อมูลสังเคราะห์สำหรับทดสอบ Evidence → Ground Truth เท่านั้น ไม่ใช่ข้อมูลวิจัยจริง",
+        location:"DEMO / SYNTHETIC",
+        startAt:todayAt(9,0),
+        endAt:todayAt(16,0),
+        checkinOpenAt:todayAt(8,30),
+        checkinCloseAt:todayAt(9,30),
+        checkoutOpenAt:todayAt(15,30),
+        checkoutCloseAt:todayAt(16,30),
+        organizerId:"ORG001",
+        participationMode:"OPEN",
+        allowedDepartmentCodes:[],
+        roleAssignments:[],
+        participants:[],
+        policy:{
+          qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
+          durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.75
+        },
+        qr:null,qrByPurpose:{},
+        syntheticQa:true,syntheticQaBatchId:batchId,
+        assignmentsUpdatedAt:null
+      };
+      state.activities.push(a);
+    }
+
+    const at=(h,m)=>todayAt(h,m);
+    const staff=(note)=>({verified:true,verifiedById:"STF001",verifiedAt:at(15,55),note});
+    const specs=[
+      {userId:"P002",checkinAt:at(9,0),checkoutAt:at(16,0),checkoutQrValid:true,checkoutMethod:"QR",staffVerification:staff("Synthetic QA complete evidence"),scanAttempts:1,scenario:"COMPLETE"},
+      {userId:"P003",checkinAt:at(9,5),checkoutAt:at(15,55),checkoutQrValid:false,checkoutMethod:"STAFF_ASSISTED",staffVerification:staff("Synthetic QA staff-assisted checkout"),scanAttempts:1,scenario:"STAFF_ASSISTED_CHECKOUT"},
+      {userId:"T001",checkinAt:at(9,0),checkoutAt:at(11,0),checkoutQrValid:true,checkoutMethod:"QR",staffVerification:staff("Synthetic QA short duration"),scanAttempts:1,scenario:"SHORT_DURATION"},
+      {userId:"T002",checkinAt:at(9,0),checkoutAt:at(16,0),checkoutQrValid:true,checkoutMethod:"QR",staffVerification:null,scanAttempts:1,scenario:"MISSING_STAFF_VERIFICATION"},
+      {userId:"T003",checkinAt:at(9,0),checkoutAt:null,checkoutQrValid:false,checkoutMethod:null,staffVerification:staff("Synthetic QA missing checkout"),scanAttempts:1,scenario:"MISSING_CHECKOUT"},
+      {userId:"T004",checkinAt:at(9,0),checkoutAt:at(16,0),checkoutQrValid:true,checkoutMethod:"QR",staffVerification:staff("Synthetic QA duplicate scan attempts"),scanAttempts:3,scenario:"MULTIPLE_SCAN_ATTEMPTS"}
+    ];
+
+    const created=[];
+    for(const spec of specs){
+      if(!actor(spec.userId)) continue;
+      const r={
+        id:uid("DEMO-QA-ATT"),activityId:a.id,userId:spec.userId,createdAt:at(9,0),
+        checkinAt:spec.checkinAt,checkoutAt:spec.checkoutAt,
+        attendanceStatus:spec.checkoutAt?"COMPLETED":"CHECKED_IN",
+        qrValid:true,identityVerified:true,signatureVerified:false,
+        scanAttempts:spec.scanAttempts,staffVerification:spec.staffVerification,
+        consistencyResult:null,finalEvidenceStatus:null,
+        checkoutQrValid:spec.checkoutQrValid,checkoutMethod:spec.checkoutMethod,
+        checkoutExceptionReason:spec.checkoutMethod==="STAFF_ASSISTED"?"SYNTHETIC_QA_STAFF_ASSISTED":null,
+        captureSource:"SYNTHETIC_QA_GENERATOR",syntheticTest:true,
+        syntheticQa:true,syntheticQaBatchId:batchId,syntheticQaScenario:spec.scenario
+      };
+      state.attendance.unshift(r);
+      created.push(r);
+      audit("ADM001","SYNTHETIC_QA_CASE_CREATED","AttendanceRecord",r.id,{
+        demo:true,syntheticQa:true,batchId,scenario:spec.scenario,excludedFromRealResearch:true
+      });
+    }
+    save();
+    return {ok:true,idempotent:false,batchId,activityId:a.id,created:created.length,total:created.length,syntheticDemo:true,
+      warning:"Synthetic QA only. These cases must not be reported as real research observations."};
+  }
+
   function migrateLegacyState(data) {
     if (!data || !Array.isArray(data.attendance)) return data;
 
@@ -1034,6 +1109,11 @@
         checkinOpenAt:windowState.checkinOpenAt,checkinCloseAt:windowState.checkinCloseAt,
         checkoutOpenAt:windowState.checkoutOpenAt,checkoutCloseAt:windowState.checkoutCloseAt
       };
+    }
+
+    if (p === "/api/demo/qa-cases" && method === "POST") {
+      if(who.role!=="ADMIN") err("ADMIN_ONLY_SYNTHETIC_QA_GENERATOR",403);
+      return ensureSyntheticQaCases();
     }
 
     if (p === "/api/attendance" && method === "GET") {
