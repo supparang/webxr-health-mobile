@@ -13,7 +13,8 @@ async function main() {
   const demoUsers = [
     { employeeId: "ADM001", name: "ผู้ดูแลระบบตัวอย่าง", role: "ADMIN" },
     { employeeId: "ORG001", name: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)", role: "ORGANIZER" },
-    { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง", role: "STAFF" },
+    { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1", role: "STAFF" },
+    { employeeId: "STF002", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2", role: "STAFF" },
     { employeeId: "P001", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 1", role: "PARTICIPANT" },
     { employeeId: "P002", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 2", role: "PARTICIPANT" },
     { employeeId: "P003", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 3", role: "PARTICIPANT" },
@@ -117,7 +118,7 @@ async function main() {
   }
 
   console.log("ACTIVA-AI demo seed completed.");
-  console.log("Use x-activa-user-id headers: ADM001, ORG001, STF001, P001, P002, P003");
+  console.log("Use x-activa-user-id headers: ADM001, ORG001, STF001, STF002, P001, P002, P003");
 }
 
 main()
