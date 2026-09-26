@@ -500,13 +500,20 @@
     })[code]||code;
   }
 
-  function pilotChecklistLabel(key) {
-    return ({
+  function pilotChecklistLabel(key, passed=true) {
+    const passLabels={
       ACTIVITY_ENDED:"กิจกรรมสิ้นสุดแล้ว",
       ALL_RECORDS_EVALUATED:"ประเมินหลักฐานครบทุก record",
       NO_UNRESOLVED_HUMAN_REVIEW:"ไม่มี case ค้าง Human Review",
       NO_CRITICAL_DATA_QUALITY:"ไม่มีปัญหา Data Quality ระดับวิกฤต"
-    })[key]||key;
+    };
+    const failLabels={
+      ACTIVITY_ENDED:"กิจกรรมยังไม่สิ้นสุด",
+      ALL_RECORDS_EVALUATED:"ยังมี record ที่ยังไม่ประเมินหลักฐาน",
+      NO_UNRESOLVED_HUMAN_REVIEW:"ยังมี case ค้าง Human Review",
+      NO_CRITICAL_DATA_QUALITY:"มีปัญหา Data Quality ระดับวิกฤต"
+    };
+    return (passed?passLabels:failLabels)[key]||passLabels[key]||key;
   }
 
   async function renderPilotReadiness(v) {
@@ -528,7 +535,7 @@
     const activityRows=activities.length
       ? activities.map(a=>{
           const checks=(a.checklist||[]).map(x=>
-            '<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key))+'</span>'
+            '<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key,x.passed))+'</span>'
           ).join(" ");
           return '<tr>'+
             '<td><b>'+esc(a.title||a.activityId)+'</b><br><span class="muted">'+esc(a.category||"")+'</span></td>'+
@@ -545,7 +552,7 @@
       ? activities.map(a=>{
           const failed=(a.checklist||[]).filter(x=>!x.passed);
           const failedText=failed.length
-            ? failed.map(x=>pilotChecklistLabel(x.key)).join(" • ")
+            ? failed.map(x=>pilotChecklistLabel(x.key,x.passed)).join(" • ")
             : "ผ่านทุกเงื่อนไข";
           return '<article class="attendance-card">'+
             '<div class="attendance-card-head"><div><b>'+esc(a.title||a.activityId)+'</b><div class="muted">'+esc(a.category||"")+'</div></div>'+
@@ -634,7 +641,7 @@
     const activityRows=activities.length
       ? activities.map(a=>{
           const closed=Boolean(a.alreadyClosed||a.pilotClosedAt);
-          const checklist=(a.checklist||[]).map(x=>'<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key))+'</span>').join(" ");
+          const checklist=(a.checklist||[]).map(x=>'<span class="status '+(x.passed?"s-ok":"s-warn")+'">'+(x.passed?"✓ ":"• ")+esc(pilotChecklistLabel(x.key,x.passed))+'</span>').join(" ");
           return '<tr>'+
             '<td><b>'+esc(a.title||a.activityId)+'</b><br><span class="muted">'+esc(a.category||"")+'</span></td>'+
             '<td>'+(closed?'<span class="status s-ok">Immutable Closed</span>':(a.closeReady?'<span class="status s-info">Close-ready</span>':'<span class="status s-warn">ยังปิดไม่ได้</span>'))+'</td>'+
