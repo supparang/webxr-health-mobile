@@ -1212,6 +1212,7 @@
     m = p.match(/^\/api\/reviews\/([^/]+)$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      ensureDemoActivityMutable(activity(r.activityId));
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(!r.consistencyResult) err("EVIDENCE_EVALUATION_REQUIRED",409);
       const allowed=["VERIFY","OVERRIDE_VERIFY","CORRECT","REQUEST_EVIDENCE","REJECT"];
