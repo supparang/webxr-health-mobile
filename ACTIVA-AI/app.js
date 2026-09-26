@@ -2390,11 +2390,29 @@
       };
 
       const evaluateOne=async(btn)=>{
+        const attendanceId=btn.dataset.id;
         btn.disabled=true;
         btn.textContent="กำลังประเมิน…";
         try{
-          await api("/api/evidence/"+encodeURIComponent(btn.dataset.id)+"/evaluate",{method:"POST"});
+          const evaluated=await api("/api/evidence/"+encodeURIComponent(attendanceId)+"/evaluate",{method:"POST"});
+          const status=evaluated?.result?.status||"";
           await renderEvidence(v);
+
+          const feedback=document.createElement("div");
+          feedback.id="evidenceEvalFeedback";
+          feedback.className="alert "+(status==="COMPLETE"?"ok":"warn");
+          const statusText=status==="COMPLETE"
+            ?"หลักฐานครบ — ขั้นต่อไปให้ผู้ตรวจสอบบันทึก Human Review"
+            :status==="REVIEW_REQUIRED"
+              ?"ต้องตรวจสอบโดยมนุษย์ — มีเงื่อนไขที่ระบบไม่ควรรับรองอัตโนมัติ"
+              :status==="INCOMPLETE"
+                ?"หลักฐานยังไม่ครบ — ให้ผู้ตรวจสอบเปิด case เพื่อตัดสินใจ/ขอหลักฐานเพิ่ม"
+                :"ประเมินหลักฐานเรียบร้อยแล้ว";
+          feedback.innerHTML="<b>ประเมินรายการแล้ว</b><br>"+esc(statusText)+
+            (can("ADMIN","STAFF")?'<div class="actions"><button class="btn primary mini" id="goHumanReviewFromEvidence">ไปตรวจสอบโดยมนุษย์</button></div>':"");
+          v.prepend(feedback);
+          document.getElementById("goHumanReviewFromEvidence")?.addEventListener("click",()=>setView("review"));
+          feedback.scrollIntoView({behavior:"smooth",block:"center"});
         }catch(e){
           if(e.message==="ACTIVITY_PILOT_CLOSED_IMMUTABLE"){
             btn.disabled=true;
