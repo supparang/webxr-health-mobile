@@ -173,7 +173,8 @@
       users: [
         {id:"ADM001",employeeId:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",role:"ADMIN",status:"ACTIVE"},
         {id:"ORG001",employeeId:"ORG001",name:"บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
-        {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง",role:"STAFF",status:"ACTIVE"},
+        {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 1",role:"STAFF",status:"ACTIVE"},
+        {id:"STF002",employeeId:"STF002",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 2",role:"STAFF",status:"ACTIVE"},
         {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"},
@@ -230,6 +231,28 @@
       changed = true;
     }
 
+    if (!data.demoSecondReviewer100Migrated) {
+      if (!Array.isArray(data.users)) data.users = [];
+      if (!data.users.some(u => u.employeeId === "STF002" || u.id === "STF002")) {
+        data.users.push({
+          id:"STF002",
+          employeeId:"STF002",
+          name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 2",
+          role:"STAFF",
+          status:"ACTIVE",
+          activityPermissions:[]
+        });
+        changed = true;
+      }
+      const firstReviewer = data.users.find(u => u.employeeId === "STF001" || u.id === "STF001");
+      if (firstReviewer && firstReviewer.name !== "ผู้ตรวจสอบหลักฐานตัวอย่าง 1") {
+        firstReviewer.name = "ผู้ตรวจสอบหลักฐานตัวอย่าง 1";
+        changed = true;
+      }
+      data.demoSecondReviewer100Migrated = true;
+      changed = true;
+    }
+
     for (const u of (data.users || [])) {
       if (!Array.isArray(u.activityPermissions)) {
         u.activityPermissions = u.role === "ORGANIZER"
@@ -246,7 +269,8 @@
     if (!data.terminology051Migrated) {
       const demoNames = {
         ORG001: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",
-        STF001: "ผู้ตรวจสอบหลักฐานตัวอย่าง",
+        STF001: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1",
+        STF002: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2",
         P001: "บุคลากรผู้เข้าร่วมตัวอย่าง 1",
         P002: "บุคลากรผู้เข้าร่วมตัวอย่าง 2",
         P003: "บุคลากรผู้เข้าร่วมตัวอย่าง 3",
