@@ -541,6 +541,26 @@
         }).join("")
       : '<tr><td colspan="6">ยังไม่มีกิจกรรมที่สิ้นสุดสำหรับตรวจ checklist</td></tr>';
 
+    const activityCards=activities.length
+      ? activities.map(a=>{
+          const failed=(a.checklist||[]).filter(x=>!x.passed);
+          const failedText=failed.length
+            ? failed.map(x=>pilotChecklistLabel(x.key)).join(" • ")
+            : "ผ่านทุกเงื่อนไข";
+          return '<article class="attendance-card">'+
+            '<div class="attendance-card-head"><div><b>'+esc(a.title||a.activityId)+'</b><div class="muted">'+esc(a.category||"")+'</div></div>'+
+            (a.closeReady?'<span class="status s-ok">Close-ready</span>':'<span class="status s-warn">ยังไม่พร้อมปิด</span>')+'</div>'+
+            '<div class="attendance-meta">'+
+              '<div><span>Records</span><b>'+esc(a.recordCount||0)+'</b></div>'+
+              '<div><span>ยังไม่ Evaluate</span><b>'+esc(a.unevaluatedCount||0)+'</b></div>'+
+              '<div><span>ค้าง Review</span><b>'+esc(a.unresolvedCount||0)+'</b></div>'+
+              '<div><span>Critical</span><b>'+esc(a.criticalDataQualityCount||0)+'</b></div>'+
+            '</div>'+
+            '<div class="'+(a.closeReady?'alert ok':'alert warn')+'"><b>'+(a.closeReady?'พร้อมปิดกิจกรรม':'เหตุผลที่ยังปิดไม่ได้')+'</b><br>'+esc(failedText)+'</div>'+
+          '</article>';
+        }).join("")
+      : '<div class="empty">ยังไม่มีกิจกรรมที่สิ้นสุดสำหรับตรวจ checklist</div>';
+
     v.innerHTML=
       (data.syntheticDemo?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ตรวจ workflow เท่านั้น ไม่ใช่สถานะระบบจริง</div>':'')+
       '<div class="panel"><div class="section-head"><div><h2>Pilot Readiness & Operational Monitoring</h2>'+
@@ -578,7 +598,8 @@
       '<div class="table-wrap"><table><thead><tr><th>ระดับ</th><th>รายการตรวจพบ</th><th>จำนวน</th></tr></thead><tbody>'+alertRows+'</tbody></table></div></div>'+
 
       '<div class="panel"><h2>Activity Closing Checklist</h2>'+
-      '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>Records</th><th>ยังไม่ Evaluate</th><th>ค้าง Review</th><th>Critical</th><th>Checklist</th></tr></thead><tbody>'+activityRows+'</tbody></table></div>'+
+      '<div class="table-wrap desktop-attendance"><table><thead><tr><th>กิจกรรม</th><th>Records</th><th>ยังไม่ Evaluate</th><th>ค้าง Review</th><th>Critical</th><th>Checklist</th></tr></thead><tbody>'+activityRows+'</tbody></table></div>'+
+      '<div class="attendance-cards">'+activityCards+'</div>'+
       '<p class="muted">V0.9 คำนวณ Close-ready เท่านั้น ยังไม่ lock/close activity จริง เพื่อป้องกันการเปลี่ยนสถานะถาวรก่อนผ่าน Pilot acceptance</p></div>';
   }
 
