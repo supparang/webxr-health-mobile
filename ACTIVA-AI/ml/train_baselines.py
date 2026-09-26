@@ -82,6 +82,44 @@ def load_dataset(path: Path) -> pd.DataFrame:
         raise ValueError("No locked binary ground-truth records found.")
     if df["target"].nunique() < 2:
         raise ValueError("Both REVIEW_REQUIRED and NO_REVIEW_REQUIRED are required.")
+
+    # Dataset quality gate: fail before model fitting when exported evidence is unsafe.
+    if df["record_id"].astype(str).duplicated().any():
+        raise ValueError("Duplicate record_id values found in locked ML dataset.")
+
+    binary_features = [
+        "qr_valid", "identity_verified", "checkin_present", "checkout_present",
+        "staff_verified", "signature_verified",
+    ]
+    for feature in binary_features:
+        values = pd.to_numeric(df[feature], errors="coerce")
+        invalid = values.notna() & ~values.isin([0, 1])
+        if invalid.any():
+            raise ValueError(f"{feature} must contain only 0/1/null values.")
+
+    ratio = pd.to_numeric(df["duration_ratio"], errors="coerce")
+    invalid_ratio = ratio.notna() & ((ratio < 0) | (ratio > 1))
+    if invalid_ratio.any():
+        bad = df.loc[invalid_ratio, ["record_id", "duration_ratio"]].to_dict("records")
+        raise ValueError(
+            "duration_ratio must represent participation coverage in [0,1]. "
+            f"Invalid rows: {bad[:10]}"
+        )
+
+    attempts = pd.to_numeric(df["scan_attempts"], errors="coerce")
+    if (attempts.dropna() < 0).any():
+        raise ValueError("scan_attempts cannot be negative.")
+
+    # These columns may be exported for provenance/audit, but are intentionally
+    # excluded from FEATURES to prevent target or identity leakage.
+    leakage_columns = {
+        "final_target", "reason_codes", "locked_at", "record_id",
+        "participant_hash", "event_id",
+    }
+    leaked = sorted(leakage_columns.intersection(FEATURES))
+    if leaked:
+        raise ValueError(f"Target/identity leakage detected in model FEATURES: {leaked}")
+
     return df
 
 
