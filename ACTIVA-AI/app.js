@@ -2442,7 +2442,8 @@
     function renderQueue(){
       const host=document.getElementById("reviewQueue");
       const term=state.search.trim().toLowerCase();
-      let filtered=rows.filter(r=>state.activityId==="ALL"||(r.activity?.id||r.activityId)===state.activityId)
+      const scopedRows=rows.filter(r=>state.activityId==="ALL"||(r.activity?.id||r.activityId)===state.activityId);
+      let filtered=scopedRows
         .filter(r=>{
           const s=reviewWorkflowStatus(r);
           if(state.filter==="PENDING")return pendingStatus(s);
@@ -2472,14 +2473,15 @@
       const pages=Math.max(1,Math.ceil(filtered.length/state.pageSize));
       state.page=Math.min(Math.max(1,state.page),pages);
       const pageRows=filtered.slice((state.page-1)*state.pageSize,state.page*state.pageSize);
-      const pendingCount=rows.filter(r=>pendingStatus(reviewWorkflowStatus(r))).length;
+      const pendingCount=scopedRows.filter(r=>pendingStatus(reviewWorkflowStatus(r))).length;
 
       host.innerHTML=
+        '<div class="result-meta"><b>สรุปตามกิจกรรมที่เลือก:</b> '+(state.activityId==="ALL"?"ทุกกิจกรรม":esc(activities.find(a=>a.id===state.activityId)?.title||"กิจกรรมที่เลือก"))+'</div>'+
         '<div class="event-summary-grid review-summary"><div class="event-stat alert-stat"><b>'+pendingCount+'</b><span>รอดำเนินการ</span></div>'+
-        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="WAIT_PARTICIPANT").length+'</b><span>รอข้อมูล</span></div>'+
-        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
-        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
-        '<div class="event-stat"><b>'+rows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
+        '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="WAIT_PARTICIPANT").length+'</b><span>รอข้อมูล</span></div>'+
+        '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
+        '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
+        '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
         '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ค้นหา</label><input id="reviewSearch" value="'+esc(state.search)+'" placeholder="รหัส / ชื่อ / กิจกรรม"></div></div>'+
         '<div class="filter-chips">'+[
