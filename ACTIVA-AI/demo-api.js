@@ -595,8 +595,9 @@
     r.consistencyResult = {
       id:"DEMO-CR-"+r.id,attendanceId:r.id,status,
       completenessRatio: Math.max(0,1-(missing.length/7)),
-      missingCodes:missing,reasonCodes:reasons,durationRatio:d.ratio,
-      ruleVersion:"DEMO-RULES-0.3.9",evaluatedAt:iso()
+      missingCodes:missing,reasonCodes:reasons,
+      durationRatio:d.ratio==null?null:Math.max(0,Math.min(1,d.ratio)),
+      ruleVersion:"DEMO-RULES-0.3.10",evaluatedAt:iso()
     };
     return r.consistencyResult;
   }
