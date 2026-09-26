@@ -2543,7 +2543,7 @@
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
             '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
-            '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">เปิดตรวจสอบ</button></div></div></details>';
+            '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">'+(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(status)?"ดูประวัติการตัดสิน":"เปิดตรวจสอบ")+'</button></div></div></details>';
         }).join(""):'<div class="empty">ไม่มี case ตามตัวกรอง</div>')+'</div>'+
         '<div class="pagination"><button class="btn secondary mini" id="rvPrev" '+(state.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+state.page+' / '+pages+'</span><button class="btn secondary mini" id="rvNext" '+(state.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
 
@@ -2622,27 +2622,51 @@
     const blockers=[...missing,...reasons];
     const evaluated=Boolean(c);
     const canNormalVerify=evaluated&&blockers.length===0&&c.status==="COMPLETE";
+    const workflowStatus=reviewWorkflowStatus(r);
+    const readOnlyHistory=["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(workflowStatus);
+    const latestReview=(r.humanReviews||[])[0]||null;
+    const decisionLabel=({
+      VERIFY:"รับรองปกติ",
+      OVERRIDE_VERIFY:"รับรองเป็นกรณีพิเศษ",
+      CORRECT:"แก้ไข/ส่งกลับ",
+      REQUEST_EVIDENCE:"ขอหลักฐานเพิ่ม",
+      REJECT:"ไม่รับรอง"
+    })[latestReview?.decision]||latestReview?.decision||"—";
     const box=document.getElementById("reviewDetail");
+    if(!box)return;
     const started=new Date().toISOString();
 
     box.innerHTML=
-      '<div class="panel"><h2>ตรวจสอบรายการ</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
+      '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
       '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
-      (!evaluated?'<div class="alert warn"><b>ยังประเมินหลักฐานไม่ได้</b><br>กลับไปหน้า “หลักฐาน” และประเมินรายการนี้ก่อนการตรวจสอบโดยมนุษย์</div>':'')+
-      (evaluated&&blockers.length?'<div class="alert warn"><b>รับรองปกติไม่ได้</b><br>'+esc(evidenceReasonText(blockers))+
-        '<details class="tech-inline"><summary>ดูรหัสทางเทคนิค</summary><code>'+esc(blockers.join(" • "))+'</code></details></div>':'')+
-      '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ <span class="required">*</span></label><textarea id="rvReason" placeholder="ระบุเหตุผลทุกครั้ง เพื่อให้ตรวจสอบย้อนหลังได้"></textarea><small class="muted">บังคับกรอกสำหรับทุกผลตัดสิน รวมถึง “รับรองปกติ”</small></div>'+
-      '<div class="actions">'+
-        '<button class="btn ok" data-dec="VERIFY" '+(!canNormalVerify?'disabled':'')+'>รับรองปกติ</button>'+
-        '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
-        '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
-        '<button class="btn bad" data-dec="REJECT" '+(!evaluated?'disabled':'')+'>ไม่รับรอง</button>'+
-        (can("ADMIN")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY">รับรองเป็นกรณีพิเศษ</button>':'')+
-      '</div><div id="rvMsg"></div></div>';
+      (readOnlyHistory
+        ? '<div class="alert ok"><b>เคสนี้มีผลตัดสินสุดท้ายแล้ว — อ่านอย่างเดียว</b><br>ระบบไม่แสดงปุ่มตัดสินซ้ำในหน้า History เพื่อรักษาความถูกต้องของ Audit Trail</div>'+
+          '<div class="timeline review-history-detail">'+
+            '<div><b>การตัดสินล่าสุด</b> — '+esc(decisionLabel)+'</div>'+
+            '<div><b>ผู้ตรวจสอบ</b> — '+esc(latestReview?.reviewerId||"—")+'</div>'+
+            '<div><b>เวลาตัดสิน</b> — '+fmt(latestReview?.reviewedAt)+'</div>'+
+            '<div><b>เหตุผล</b> — '+esc(latestReview?.reason||"—")+'</div>'+
+          '</div>'
+        : (!evaluated?'<div class="alert warn"><b>ยังประเมินหลักฐานไม่ได้</b><br>กลับไปหน้า “หลักฐาน” และประเมินรายการนี้ก่อนการตรวจสอบโดยมนุษย์</div>':'')+
+          (evaluated&&blockers.length?'<div class="alert warn"><b>รับรองปกติไม่ได้</b><br>'+esc(evidenceReasonText(blockers))+
+            '<details class="tech-inline"><summary>ดูรหัสทางเทคนิค</summary><code>'+esc(blockers.join(" • "))+'</code></details></div>':'')+
+          '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ <span class="required">*</span></label><textarea id="rvReason" placeholder="ระบุเหตุผลทุกครั้ง เพื่อให้ตรวจสอบย้อนหลังได้"></textarea><small class="muted">บังคับกรอกสำหรับทุกผลตัดสิน รวมถึง “รับรองปกติ”</small></div>'+
+          '<div class="actions">'+
+            '<button class="btn ok" data-dec="VERIFY" '+(!canNormalVerify?'disabled':'')+'>รับรองปกติ</button>'+
+            '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
+            '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
+            '<button class="btn bad" data-dec="REJECT" '+(!evaluated?'disabled':'')+'>ไม่รับรอง</button>'+
+            (can("ADMIN")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY">รับรองเป็นกรณีพิเศษ</button>':'')+
+          '</div><div id="rvMsg"></div>')+
+      '</div>';
+
+    box.scrollIntoView({behavior:"smooth",block:"start"});
+
+    if(readOnlyHistory)return;
 
     box.querySelectorAll("[data-dec]").forEach(btn=>btn.onclick=async()=>{
       const decision=btn.dataset.dec;
