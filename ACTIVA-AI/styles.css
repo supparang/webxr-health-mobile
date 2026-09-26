@@ -27,8 +27,8 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
 .policy{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.check{display:flex;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fbfdff}
 .qrbox{display:grid;grid-template-columns:minmax(220px,auto) minmax(0,1fr);gap:24px;align-items:start;max-width:100%}
 .qr-visual{display:flex;justify-content:center;min-width:0}
-.qr{width:auto;height:auto;max-width:100%;background:#fff;border:12px solid #fff;box-shadow:0 5px 24px rgba(0,0,0,.08);line-height:0}
-.qr canvas,.qr img{display:block;max-width:100%;height:auto!important}
+.qr{width:240px;height:240px;box-sizing:content-box;max-width:100%;background:#fff;border:12px solid #fff;box-shadow:0 5px 24px rgba(0,0,0,.08);line-height:0;overflow:hidden}
+.qr canvas,.qr img{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;object-fit:contain}
 .qr-meta{min-width:0}
 .qr-title{margin-top:0}
 .qr-token-details{margin-top:10px}
@@ -48,10 +48,11 @@ button,input,select,textarea{font:inherit} button{cursor:pointer}
   .nav{grid-template-columns:repeat(2,1fr)}
   .cards,.form-grid,.policy,.split{grid-template-columns:1fr}
   .topbar{align-items:flex-start;flex-direction:column}
-  .qrbox{grid-template-columns:1fr;gap:14px}
-  .qr-visual{justify-content:center}
-  .qr-meta{text-align:left}
-  .qr-title{font-size:16px;line-height:1.4}
+  .qrbox{grid-template-columns:1fr;gap:16px}
+  .qr-visual{justify-content:center;min-height:min(264px,calc(100vw - 72px))}
+  .qr{width:min(240px,calc(100vw - 96px));height:min(240px,calc(100vw - 96px))}
+  .qr-meta{position:relative;z-index:1;text-align:left;background:#fff;padding-top:2px}
+  .qr-title{font-size:16px;line-height:1.4;margin:0 0 6px}
 }
 .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .badge.danger{background:#fde8e7;color:#a1261e}
