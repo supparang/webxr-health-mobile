@@ -2705,7 +2705,7 @@
     });
   }
 
-  async function renderGroundTruth(v) {
+  async function renderGroundTruth(v, preferredRecordId = null) {
     if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
     showLoading(v);
     const data = await api("/api/ground-truth/queue");
@@ -2735,6 +2735,21 @@
       '</div>';
 
     if (!rows.length) return;
+
+    const recordSelect = document.getElementById("gtRecord");
+    if (preferredRecordId && rows.some(x => x.id === preferredRecordId)) {
+      recordSelect.value = preferredRecordId;
+    }
+
+    const verifyGroundTruthState = async (attendanceId, expectedStatus) => {
+      const fresh = await api("/api/ground-truth/queue");
+      const saved = (fresh.records || []).find(x => x.id === attendanceId);
+      if (!saved) throw new Error("GROUND_TRUTH_RECORD_NOT_FOUND_AFTER_SAVE");
+      if (expectedStatus && saved.groundTruthCase?.status !== expectedStatus) {
+        throw new Error("GROUND_TRUTH_STATE_NOT_PERSISTED");
+      }
+      return saved;
+    };
 
     const renderForm = () => {
       const r = rows.find(x => x.id === document.getElementById("gtRecord").value);
@@ -2810,8 +2825,11 @@
               notes:document.getElementById("gtNotes").value.trim()
             })
           });
-          document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึก independent label แล้ว</div>';
-          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
+          const saved = await verifyGroundTruthState(r.id, null);
+          const savedMine = (saved.groundTruthLabels || []).find(x => x.reviewerId === session.id);
+          if (!savedMine) throw new Error("GROUND_TRUTH_LABEL_NOT_PERSISTED");
+          document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึก Independent Label แล้ว และตรวจสอบข้อมูลที่บันทึกสำเร็จ</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view"), r.id), 350);
         } catch (e) { document.getElementById("gtMsg").innerHTML = errorBox(e); }
       };
 
@@ -2827,8 +2845,9 @@
               notes:document.getElementById("adjNotes").value.trim()
             })
           });
-          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">Adjudication สำเร็จ พร้อมสำหรับการ Lock</div>';
-          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
+          await verifyGroundTruthState(r.id, "ADJUDICATED");
+          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">Adjudication บันทึกสำเร็จและตรวจสอบสถานะแล้ว พร้อมสำหรับการ Lock</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view"), r.id), 350);
         } catch (e) { document.getElementById("adjMsg").innerHTML = errorBox(e); }
       };
 
@@ -2837,8 +2856,9 @@
         if (!confirm("ยืนยัน Lock Ground Truth? หลัง Lock จะไม่แก้ label/adjudication ใน prototype นี้")) return;
         try {
           await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/lock", {method:"POST"});
-          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">LOCK Ground Truth แล้ว</div>';
-          setTimeout(() => renderGroundTruth(document.getElementById("view")), 350);
+          await verifyGroundTruthState(r.id, "LOCKED");
+          document.getElementById("adjMsg").innerHTML = '<div class="alert ok">LOCK Ground Truth สำเร็จ และตรวจสอบสถานะ LOCKED จากข้อมูลที่บันทึกแล้ว</div>';
+          setTimeout(() => renderGroundTruth(document.getElementById("view"), r.id), 350);
         } catch (e) { document.getElementById("adjMsg").innerHTML = errorBox(e); }
       };
     };
