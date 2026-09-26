@@ -2367,6 +2367,7 @@
           '<div class="field"><label>ค้นหารหัส/ชื่อบุคลากร</label><input id="evidenceSearch" value="'+esc(state.search)+'" placeholder="เช่น P001 หรือชื่อบุคลากร"></div>'+
         '</div>'+
         '<div class="result-meta">แสดง '+filteredRows.length+' จาก '+activityRows.length+' รายการในขอบเขตที่เลือก</div>'+
+        (appMode==="demo"&&can("ADMIN")?'<div class="alert info"><b>ชุดทดสอบ Synthetic QA</b><br>ใช้สร้าง P002/P003 และเคสทดสอบหลายรูปแบบสำหรับตรวจ workflow เท่านั้น ข้อมูลชุดนี้ไม่ใช่ข้อมูลวิจัยจริงและไม่แก้รายการที่ Lock แล้ว<div class="actions"><button class="btn secondary" id="seedSyntheticQa">สร้างเคสทดสอบ Ground Truth</button></div><div id="seedSyntheticQaMsg"></div></div>':'')+
         (can("ADMIN","ORGANIZER","STAFF")?'<div class="actions"><button class="btn primary" id="evalFiltered" '+(!mutableFilteredRows.length||duplicateCount>0?'disabled':'')+'>'+(
           mutableFilteredRows.length?'ประเมินรายการที่กรองอยู่ ('+mutableFilteredRows.length+')':'ไม่มีรายการที่ประเมินซ้ำได้'
         )+'</button></div>':'')+
@@ -2374,6 +2375,23 @@
         (duplicateCount>0?'<div class="alert warn"><b>พบข้อมูลซ้ำ '+duplicateCount+' รายการในกิจกรรมที่เลือก</b><br>กรุณาไปเมนู “เข้า–ออก” แล้วใช้ “ยกเลิกรายการผิด” ก่อนประเมินหลักฐาน เพื่อไม่ให้ข้อมูลซ้ำเข้าสู่ Ground Truth/งานวิจัย</div>':'')+
         '<div class="table-wrap desktop-attendance"><table><thead><tr><th>บุคลากร</th><th>กิจกรรม</th><th>Check-in QR</th><th>ตัวตน</th><th>เข้า</th><th>ออก</th><th>Check-out QR</th><th>ระยะเวลา</th><th>เจ้าหน้าที่</th><th>ผลตรวจหลักฐานของระบบ</th><th>ผลตัดสินสุดท้าย</th><th>เหตุผล</th><th>ประเมิน</th></tr></thead><tbody>'+rowHtml+'</tbody></table></div>'+
         '<div class="attendance-cards">'+(cards||'<div class="empty">ไม่พบรายการตามตัวกรอง</div>')+'</div></div>';
+
+      const seedSyntheticQa=document.getElementById("seedSyntheticQa");
+      if(seedSyntheticQa)seedSyntheticQa.onclick=async()=>{
+        const msg=document.getElementById("seedSyntheticQaMsg");
+        seedSyntheticQa.disabled=true;
+        seedSyntheticQa.textContent="กำลังสร้างเคสทดสอบ…";
+        try{
+          const result=await api("/api/demo/qa-cases",{method:"POST"});
+          if(msg)msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบแล้ว</b><br>'+(result.idempotent?'ชุด Synthetic QA มีอยู่แล้ว ไม่สร้างซ้ำ':'สร้าง '+result.created+' เคสเรียบร้อย')+' • ไม่กระทบ Ground Truth ที่ Lock แล้ว</div>';
+          sessionStorage.setItem(SELECTED_ACTIVITY_KEY,result.activityId);
+          setTimeout(()=>renderEvidence(v),350);
+        }catch(e){
+          seedSyntheticQa.disabled=false;
+          seedSyntheticQa.textContent="สร้างเคสทดสอบ Ground Truth";
+          if(msg)msg.innerHTML=errorBox(e);
+        }
+      };
 
       const activitySelect=document.getElementById("evidenceActivity");
       if(activitySelect)activitySelect.onchange=e=>{
