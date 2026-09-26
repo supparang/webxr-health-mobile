@@ -441,7 +441,7 @@ function inferenceFeatureRow(r) {
       ? Math.max(0, Math.round((r.checkoutAt.getTime() - r.checkinAt.getTime()) / 60000))
       : null;
   const durationRatio =
-    actualMinutes === null ? null : actualMinutes / scheduledMinutes;
+    actualMinutes === null ? null : Math.min(1, actualMinutes / scheduledMinutes);
   const checkinOffsetMinutes = r.checkinAt
     ? Math.round((r.checkinAt.getTime() - a.startAt.getTime()) / 60000)
     : null;
