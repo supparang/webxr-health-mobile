@@ -307,7 +307,8 @@
       '<div class="demo-account-list">'+
         '<div><b>ADM001</b><span>ผู้ดูแลระบบ</span></div>'+
         '<div><b>ORG001</b><span>บุคลากรตัวอย่าง • ได้รับสิทธิ์จัดกิจกรรม</span></div>'+
-        '<div><b>STF001</b><span>ผู้ตรวจสอบหลักฐาน</span></div>'+
+        '<div><b>STF001</b><span>ผู้ตรวจสอบหลักฐานคนที่ 1</span></div>'+
+        '<div><b>STF002</b><span>ผู้ตรวจสอบหลักฐานคนที่ 2</span></div>'+
         '<div><b>P001</b><span>บุคลากรผู้เข้าร่วมกิจกรรม</span></div>'+
         '<div><b>T001–T010</b><span>บุคลากรทดลองสำหรับทดสอบหลายคน</span></div>'+
       '</div>'+
@@ -337,7 +338,7 @@
         if (mode === "demo" && error?.message === "DEMO_USER_NOT_FOUND") {
           msg.innerHTML =
             '<div class="alert bad"><b>ไม่พบรหัส '+esc(id)+' ในบัญชี Demo</b><br>'+
-            'ใช้ ADM001, ORG001, STF001, P001–P003 หรือ T001–T010 ได้ทันที</div>';
+            'ใช้ ADM001, ORG001, STF001, STF002, P001–P003 หรือ T001–T010 ได้ทันที</div>';
         } else {
           msg.innerHTML = errorBox(error);
         }
