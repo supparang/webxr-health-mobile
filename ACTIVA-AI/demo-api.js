@@ -301,6 +301,7 @@
 
     for (const r of data.attendance) {
       if (r.isVoided === undefined) { r.isVoided = false; changed = true; }
+      if (!r.createdAt && r.checkinAt) { r.createdAt = r.checkinAt; changed = true; }
 
       if (r.finalEvidenceStatus === "VERIFIED") {
         const a = (data.activities || []).find(x => x.id === r.activityId);
@@ -1077,7 +1078,8 @@
         };
         throw e;
       }
-      const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,checkinAt:iso(),checkoutAt:null,
+      const createdAt=iso();
+      const r = {id:uid("DEMO-ATT"),activityId:a.id,userId:u.id,createdAt,checkinAt:createdAt,checkoutAt:null,
         attendanceStatus:"CHECKED_IN",qrValid:true,identityVerified:true,signatureVerified:false,
         scanAttempts:1,staffVerification:null,consistencyResult:null,finalEvidenceStatus:null,
         checkoutQrValid:false,checkoutMethod:null,checkoutExceptionReason:null,
