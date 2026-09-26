@@ -2552,12 +2552,12 @@
           ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
         ].map(([k,l])=>'<button class="filter-chip '+(state.filter===k?'active':'')+'" data-rvf="'+k+'">'+l+'</button>').join("")+'</div>'+
         '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' case • Human Review แบบ Exception-first'+(deployedModel?' • Pending queue เรียงตาม AI risk จากมากไปน้อย':'')+'</div>'+
-        '<div class="compact-list">'+(pageRows.length?pageRows.map(r=>{
+        '<div class="compact-list">'+(pageRows.length?pageRows.map((r,rowIndex)=>{
           const c=r.consistencyResult;
           const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
           const status=reviewWorkflowStatus(r);
           const prediction=riskByAttendance.get(r.id)||null;
-          return '<details class="attendance-compact review-case"><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
+          return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
             '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
