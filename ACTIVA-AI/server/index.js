@@ -2034,9 +2034,10 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
-  const [labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
+  const [labelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
     prisma.groundTruthLabel.count(),
     prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
+    prisma.groundTruthCase.count({ where: { adjudicatedAt: { not: null } } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "REVIEW_REQUIRED" } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "NO_REVIEW_REQUIRED" } }),
@@ -2057,7 +2058,7 @@ app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
     note: empiricalDeployed
       ? "A deployed empirical model is available for decision support only; human review remains final."
       : "AI remains disabled until an evaluated and approved empirical model is deployed.",
-    counts: { labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked },
+    counts: { labelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked },
     modelReadiness: {
       modelCount: models.length,
       evaluatedCount: evaluatedModels.length,
