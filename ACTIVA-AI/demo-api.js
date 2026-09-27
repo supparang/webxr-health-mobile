@@ -1350,7 +1350,7 @@
       const reason=String(b.reason||"").trim();
       if(b.decision==="VERIFY" && blockers.length) err("REVIEW_BLOCKERS_PRESENT",409);
       if(b.decision==="OVERRIDE_VERIFY"){
-        if(who.role!=="ADMIN") err("ADMIN_ONLY_MANUAL_OVERRIDE",403);
+        if(!["ADMIN","STAFF"].includes(who.role)) err("AUTHORIZED_REVIEWER_REQUIRED",403);
         if(!blockers.length) err("OVERRIDE_NOT_NEEDED",409);
       }
       if(reason.length<3) err("REVIEW_REASON_REQUIRED",400);
