@@ -206,6 +206,7 @@
       }],
       attendance: [],
       reviews: [],
+      participantResponses: [],
       groundTruthLabels: [],
       groundTruthCases: [],
       models: [],
@@ -443,10 +444,15 @@
     return data;
   }
 
+  function ensureParticipantResponseState(data) {
+    if(!Array.isArray(data.participantResponses)) data.participantResponses=[];
+    return data;
+  }
+
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-      return migrateLegacyState(data && data.users ? data : seed());
+      return ensureParticipantResponseState(migrateLegacyState(data && data.users ? data : seed()));
     } catch {
       return seed();
     }
@@ -459,7 +465,7 @@
       const raw=localStorage.getItem(STORAGE_KEY);
       if(!raw) return state;
       const parsed=JSON.parse(raw);
-      if(parsed && parsed.users) state=migrateLegacyState(parsed);
+      if(parsed && parsed.users) state=ensureParticipantResponseState(migrateLegacyState(parsed));
     } catch {}
     return state;
   }
@@ -709,7 +715,8 @@
       attendancePercentage:d.percentage,
       user:userPublic(actor(r.userId)),
       activity:activity(r.activityId),
-      humanReviews:state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))
+      humanReviews:state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt))),
+      participantResponse:(state.participantResponses||[]).filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)))[0]||null
     };
   }
   function hashDemo(s) {
@@ -1311,6 +1318,24 @@
       }
       save(); audit(who.id,"EVIDENCE_EVALUATED","AttendanceRecord",r.id,{demo:true,status:result.status});
       return {ok:true,result,note:"DEMO rule-based result; not AI probability."};
+    }
+
+    m = p.match(/^\/api\/participant-response\/([^/]+)$/);
+    if (m && method==="POST") {
+      if(who.role!=="PARTICIPANT") err("PARTICIPANT_ONLY",403);
+      const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      if(r.userId!==who.id) err("PARTICIPANT_RESPONSE_FORBIDDEN",403);
+      ensureDemoActivityMutable(activity(r.activityId));
+      const latest=state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))[0]||null;
+      if(latest?.decision!=="REQUEST_EVIDENCE") err("PARTICIPANT_RESPONSE_NOT_REQUESTED",409);
+      const response=String(b.response||"").trim();
+      if(response.length<3) err("PARTICIPANT_RESPONSE_REQUIRED",400);
+      const item={id:uid("DEMO-PR"),attendanceId:r.id,userId:who.id,response,submittedAt:iso(),requestReviewId:latest.id};
+      state.participantResponses.push(item);
+      r.finalEvidenceStatus="REVIEW_REQUIRED";
+      save();
+      audit(who.id,"PARTICIPANT_EVIDENCE_RESPONSE","AttendanceRecord",r.id,{demo:true,response,requestReviewId:latest.id,submittedAt:item.submittedAt});
+      return {ok:true,participantResponse:item,workflowStatus:"READY_DECISION"};
     }
 
     m = p.match(/^\/api\/reviews\/([^/]+)$/);
