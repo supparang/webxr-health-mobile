@@ -282,6 +282,7 @@ model AttendanceRecord {
   staffVerification     StaffVerification?
   consistencyResult     ConsistencyResult?
   humanReviews          HumanReview[]
+  participantResponses  ParticipantResponse[] @relation("ParticipantResponseUser")
   groundTruthLabels     GroundTruthLabel[]
   groundTruthCase       GroundTruthCase?
   aiPredictions         AIPrediction[]
@@ -328,6 +329,20 @@ model HumanReview {
   reviewDurationSeconds Int?
 
   @@index([attendanceId, reviewedAt])
+}
+
+model ParticipantResponse {
+  id              String           @id @default(cuid())
+  attendanceId    String
+  attendance      AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User             @relation("ParticipantResponseUser", fields: [userId], references: [id])
+  response        String
+  requestReviewId String?
+  submittedAt     DateTime         @default(now())
+
+  @@index([attendanceId, submittedAt])
+  @@index([userId, submittedAt])
 }
 
 model GroundTruthLabel {
