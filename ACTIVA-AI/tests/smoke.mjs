@@ -422,8 +422,19 @@ const blockedVerify = await reqError("/api/reviews/" + encodeURIComponent(attend
 assert(blockedVerify.status === 409, "ordinary VERIFY must be blocked when evidence blockers exist");
 assert(blockedVerify.data?.error === "REVIEW_BLOCKERS_PRESENT", "wrong blocker error for VERIFY");
 
+const unauthorizedOverride = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
+  actor: "P001",
+  method: "POST",
+  body: {
+    decision: "OVERRIDE_VERIFY",
+    reason: "Participant must never be allowed to override a review blocker",
+    reviewDurationSeconds: 1,
+  },
+});
+assert(unauthorizedOverride.status === 403, "participant must not perform special-case override");
+
 const missingReasonReview = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
-  actor: "ADM001",
+  actor: "STF001",
   method: "POST",
   body: {
     decision: "OVERRIDE_VERIFY",
@@ -435,11 +446,11 @@ assert(missingReasonReview.status === 400, "every human review decision must req
 assert(missingReasonReview.data?.error === "REVIEW_REASON_REQUIRED", "wrong missing-reason review error");
 
 const overrideReview = await req("/api/reviews/" + encodeURIComponent(attendanceId), {
-  actor: "ADM001",
+  actor: "STF001",
   method: "POST",
   body: {
     decision: "OVERRIDE_VERIFY",
-    reason: "CI manual override with explicit documented justification",
+    reason: "CI authorized reviewer override with explicit documented justification",
     reviewDurationSeconds: 1,
   },
 });
