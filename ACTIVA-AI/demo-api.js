@@ -1399,6 +1399,7 @@
         counts:{
           labelCount:state.groundTruthLabels.length,
           adjudicatedCount:state.groundTruthCases.filter(x=>x.status==="ADJUDICATED").length,
+          adjudicatedEverCount:state.groundTruthCases.filter(x=>Boolean(x.adjudicatedAt)).length,
           lockedCount:locked.length,
           reviewLocked:locked.filter(x=>x.finalTarget==="REVIEW_REQUIRED").length,
           noReviewLocked:locked.filter(x=>x.finalTarget==="NO_REVIEW_REQUIRED").length
