@@ -1832,6 +1832,30 @@
     '</details>';
   }
 
+  function participantResponsePanel(rows) {
+    if(!can("PARTICIPANT")) return "";
+    const waiting=rows.filter(r=>reviewWorkflowStatus(r)==="WAIT_PARTICIPANT");
+    const sent=rows.filter(r=>{
+      const latest=(r.humanReviews||[])[0]||null;
+      if(latest?.decision!=="REQUEST_EVIDENCE" || !r.participantResponse?.submittedAt) return false;
+      return new Date(r.participantResponse.submittedAt).getTime()>new Date(latest.reviewedAt||0).getTime();
+    });
+    if(!waiting.length && !sent.length) return "";
+    return '<div class="panel"><div class="section-head"><div><h2>ข้อมูลที่ผู้ตรวจสอบขอจากฉัน</h2>'+
+      '<p class="muted">ตอบเฉพาะรายการที่ขึ้น “รอข้อมูลจากผู้เข้าร่วม” ข้อมูลที่ส่งจะกลับเข้าคิว Human Review และบันทึก Audit Trail</p></div></div>'+
+      waiting.map(r=>{
+        const latest=(r.humanReviews||[])[0]||{};
+        return '<div class="alert warn participant-response-card"><b>'+esc(r.activity?.title||"กิจกรรม")+'</b>'+
+          '<p><b>ผู้ตรวจสอบขอข้อมูลเพิ่ม:</b> '+esc(latest.reason||"กรุณาส่งข้อมูลเพิ่มเติม")+'</p>'+
+          '<div class="field"><label>คำชี้แจง / หลักฐานเพิ่มเติม <span class="required">*</span></label>'+
+          '<textarea data-participant-response="'+esc(r.id)+'" placeholder="อธิบายข้อมูลเพิ่มเติมที่ผู้ตรวจสอบขอ"></textarea></div>'+
+          '<div class="actions"><button class="btn primary submitParticipantResponse" data-id="'+esc(r.id)+'">ส่งข้อมูลให้ผู้ตรวจสอบ</button></div>'+
+          '<div id="participantResponseMsg-'+esc(r.id)+'"></div></div>';
+      }).join("")+
+      sent.map(r=>'<div class="alert ok"><b>'+esc(r.activity?.title||"กิจกรรม")+'</b><br>ส่งข้อมูลเพิ่มเติมแล้ว • รอผู้ตรวจสอบประเมินอีกครั้ง</div>').join("")+
+      '</div>';
+  }
+
   async function renderAttendance(v) {
     showLoading(v);
     const [activities, users, rows] = await Promise.all([loadActivities(), loadUsers(), loadAttendance()]);
@@ -1842,6 +1866,7 @@
     let checkoutScannerBusy = false;
 
     v.innerHTML =
+      participantResponsePanel(rows)+
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
       '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select></div>'+
@@ -1887,6 +1912,20 @@
       ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><div id="attendanceDashboard"></div></div>';
 
+
+    v.querySelectorAll(".submitParticipantResponse").forEach(btn=>btn.onclick=async()=>{
+      const id=btn.dataset.id;
+      const input=v.querySelector('[data-participant-response="'+CSS.escape(id)+'"]');
+      const msg=document.getElementById("participantResponseMsg-"+id);
+      const response=String(input?.value||"").trim();
+      if(response.length<3){ if(msg)msg.innerHTML='<div class="alert warn">กรุณาระบุคำชี้แจงหรือหลักฐานเพิ่มเติม</div>'; return; }
+      btn.disabled=true; btn.textContent="กำลังส่ง…";
+      try{
+        await api("/api/participant-response/"+encodeURIComponent(id),{method:"POST",body:JSON.stringify({response})});
+        if(msg)msg.innerHTML='<div class="alert ok">ส่งข้อมูลแล้ว รายการถูกส่งกลับเข้าคิวผู้ตรวจสอบ</div>';
+        setTimeout(()=>renderAttendance(v),350);
+      }catch(e){ if(msg)msg.innerHTML=errorBox(e); btn.disabled=false; btn.textContent="ส่งข้อมูลให้ผู้ตรวจสอบ"; }
+    });
 
     const storedAttendanceActivity=sessionStorage.getItem(SELECTED_ACTIVITY_KEY);
     const ciActivitySelect=document.getElementById("ciAct");
@@ -2540,7 +2579,11 @@
     if(finalStatusOf(r)==="VERIFIED")return "VERIFIED";
     if(finalStatusOf(r)==="OVERRIDE_VERIFIED")return "OVERRIDE_VERIFIED";
     if(finalStatusOf(r)==="REJECTED")return "REJECTED";
-    if(latest?.decision==="REQUEST_EVIDENCE")return "WAIT_PARTICIPANT";
+    if(latest?.decision==="REQUEST_EVIDENCE"){
+      const respondedAt=r.participantResponse?.submittedAt ? new Date(r.participantResponse.submittedAt).getTime() : 0;
+      const requestedAt=latest?.reviewedAt ? new Date(latest.reviewedAt).getTime() : 0;
+      return respondedAt>requestedAt ? "READY_DECISION" : "WAIT_PARTICIPANT";
+    }
     if(latest?.decision==="CORRECT")return "RETURNED";
     const c=r.consistencyResult;
     if(!c)return "NOT_READY";
@@ -2756,6 +2799,10 @@
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
+      (r.participantResponse?.submittedAt
+        ? '<div class="alert ok"><b>ข้อมูลเพิ่มเติมจากผู้เข้าร่วม</b><br>'+esc(r.participantResponse.response||"")+
+          '<br><small>ส่งเมื่อ '+fmt(r.participantResponse.submittedAt)+'</small></div>'
+        : (workflowStatus==="WAIT_PARTICIPANT"?'<div class="alert warn"><b>กำลังรอข้อมูลจากผู้เข้าร่วม</b></div>':""))+
       '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
       (readOnlyHistory
         ? '<div class="alert ok"><b>เคสนี้มีผลตัดสินสุดท้ายแล้ว — อ่านอย่างเดียว</b><br>ระบบไม่แสดงปุ่มตัดสินซ้ำในหน้า History เพื่อรักษาความถูกต้องของ Audit Trail</div>'+
