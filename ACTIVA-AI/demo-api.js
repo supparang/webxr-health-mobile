@@ -1391,13 +1391,29 @@
 
     if (p === "/api/ml/readiness" && method==="GET") {
       const locked=state.groundTruthCases.filter(x=>x.status==="LOCKED");
-      return {ok:true,aiEnabled:false,note:"DEMO counts only",counts:{
-        labelCount:state.groundTruthLabels.length,
-        adjudicatedCount:state.groundTruthCases.filter(x=>x.status==="ADJUDICATED").length,
-        lockedCount:locked.length,
-        reviewLocked:locked.filter(x=>x.finalTarget==="REVIEW_REQUIRED").length,
-        noReviewLocked:locked.filter(x=>x.finalTarget==="NO_REVIEW_REQUIRED").length
-      }};
+      const evaluated=state.models.filter(x=>["EVALUATED","APPROVED","DEPLOYED","RETIRED"].includes(x.status));
+      const approved=state.models.filter(x=>["APPROVED","DEPLOYED","RETIRED"].includes(x.status));
+      const deployed=state.models.find(x=>x.status==="DEPLOYED")||null;
+      return {ok:true,aiEnabled:false,syntheticDemo:true,
+        note:"DEMO/SYNTHETIC readiness only. A demo model never enables production AI.",
+        counts:{
+          labelCount:state.groundTruthLabels.length,
+          adjudicatedCount:state.groundTruthCases.filter(x=>x.status==="ADJUDICATED").length,
+          lockedCount:locked.length,
+          reviewLocked:locked.filter(x=>x.finalTarget==="REVIEW_REQUIRED").length,
+          noReviewLocked:locked.filter(x=>x.finalTarget==="NO_REVIEW_REQUIRED").length
+        },
+        modelReadiness:{
+          modelCount:state.models.length,
+          evaluatedCount:evaluated.length,
+          approvedCount:approved.length,
+          offlineEvaluationPassed:evaluated.length>0,
+          deploymentReviewPassed:false,
+          deployedModel:deployed,
+          latestModel:state.models[0]||null,
+          demoDeploymentOnly:Boolean(deployed)
+        }
+      };
     }
 
     if (p === "/api/ml/dataset" && method==="GET") {
