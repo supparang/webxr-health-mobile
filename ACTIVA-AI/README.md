@@ -1,5 +1,13 @@
 # ACTIVA-AI
 
+## V1.0.1 — Reviewer Special Decision Authority
+- ผู้ตรวจสอบหลักฐาน (STAFF) และผู้ดูแลระบบ (ADMIN) สามารถใช้ `OVERRIDE_VERIFY` เมื่อเคสมี blocker และ Evidence Evaluation แล้ว
+- การรับรองเป็นกรณีพิเศษต้องมีเหตุผลอย่างน้อย 10 ตัวอักษร และบันทึก `MANUAL_OVERRIDE_VERIFIED` ใน Audit Trail
+- ผู้เข้าร่วมกิจกรรมไม่สามารถใช้ special-case override ได้
+- System Evidence Status ยังคงแยกจาก Final Human Decision; special-case override ไม่เปลี่ยนหลักฐานที่ขาดให้เป็น COMPLETE
+- UI แสดงปุ่ม “รับรองเป็นกรณีพิเศษ” ให้ผู้ตรวจสอบหลักฐานในเคสที่เข้าเงื่อนไข และ Role Guide ระบุหน้าที่นี้ชัดเจน
+
+
 **Policy-Aware Multi-Source Evidence Framework for Trustworthy Employee Activity Participation Verification**
 
 ต้นแบบเชิงวิจัยสำหรับตรวจสอบความน่าเชื่อถือของหลักฐานการเข้าร่วมกิจกรรมของบุคลากร โดยแยก "การบันทึกการเข้าร่วม" ออกจาก "การรับรองการเข้าร่วมที่เชื่อถือได้"
