@@ -33,8 +33,21 @@
 2. บันทึกเป็น JSON
 3. ติดตั้ง:
    pip install -r ml/requirements.txt
-4. ฝึก:
-   python ml/train_baselines.py --input locked_dataset.json --output-dir ml/out
+4. ฝึกจากข้อมูล empirical ที่ผ่าน protocol/sample planning แล้ว:
+   python ml/train_baselines.py \
+     --input locked_dataset.json \
+     --output-dir ml/out \
+     --model-version ACTIVA-ML-v1 \
+     --data-provenance EMPIRICAL_LOCKED_GROUND_TRUTH
+
+สำหรับ DEMO/SYNTHETIC ใช้ได้เฉพาะ QA/CI ของ pipeline:
+   python ml/train_baselines.py \
+     --input locked_dataset.json \
+     --output-dir ml/out-demo \
+     --model-version ACTIVA-DEMO-v1 \
+     --data-provenance SYNTHETIC_CI_ONLY
+
+หมายเหตุ: ชุด demo ขนาดเล็กอาจถูก quality/split gate ปฏิเสธโดยตั้งใจ และต้องไม่ลดเกณฑ์เพื่อบังคับให้โมเดลฝึกผ่าน
 
 ## ข้อห้ามเชิงวิจัย
 - ห้าม train จาก Ground Truth ที่ยังไม่ LOCKED
