@@ -117,6 +117,7 @@ model User {
   voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
   staffVerifications StaffVerification[]   @relation("StaffVerifier")
   humanReviews      HumanReview[]           @relation("HumanReviewer")
+  participantResponses ParticipantResponse[] @relation("ParticipantResponseUser")
   personalQrCredentials PersonalQrCredential[] @relation("PersonalQrUser")
   groundTruthLabels        GroundTruthLabel[] @relation("GroundTruthReviewer")
   groundTruthAdjudications GroundTruthCase[]  @relation("GroundTruthAdjudicator")
@@ -282,7 +283,7 @@ model AttendanceRecord {
   staffVerification     StaffVerification?
   consistencyResult     ConsistencyResult?
   humanReviews          HumanReview[]
-  participantResponses  ParticipantResponse[] @relation("ParticipantResponseUser")
+  participantResponses  ParticipantResponse[]
   groundTruthLabels     GroundTruthLabel[]
   groundTruthCase       GroundTruthCase?
   aiPredictions         AIPrediction[]
