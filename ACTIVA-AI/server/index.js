@@ -919,10 +919,15 @@ app.get("/api/attendance", async (req, res) => {
       staffVerification: true,
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+      participantResponses: { orderBy: { submittedAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
   });
-  res.json({ ok: true, attendance: rows });
+  res.json({ ok: true, attendance: rows.map((row)=>({
+    ...row,
+    participantResponse: row.participantResponses?.[0] || null,
+    participantResponses: undefined,
+  })) });
 });
 
 app.get("/api/activities", async (_req, res) => {
@@ -1705,6 +1710,44 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
       attendance.finalEvidenceStatus === "VERIFIED" && stored.status !== "COMPLETE",
     note: "Rule-based result; not AI risk probability.",
   });
+});
+
+app.post("/api/participant-response/:attendanceId", requireRoles("PARTICIPANT"), async (req, res) => {
+  const attendance = await prisma.attendanceRecord.findUnique({
+    where: { id: req.params.attendanceId },
+    include: { humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 } },
+  });
+  if (!attendance) return res.status(404).json({ ok:false, error:"ATTENDANCE_NOT_FOUND" });
+  if (attendance.userId !== req.activaUser.id) {
+    return res.status(403).json({ ok:false, error:"PARTICIPANT_RESPONSE_FORBIDDEN" });
+  }
+  if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
+  const latest = attendance.humanReviews[0] || null;
+  if (latest?.decision !== "REQUEST_EVIDENCE") {
+    return res.status(409).json({ ok:false, error:"PARTICIPANT_RESPONSE_NOT_REQUESTED" });
+  }
+  const response = String(req.body?.response || "").trim();
+  if (response.length < 3) {
+    return res.status(400).json({ ok:false, error:"PARTICIPANT_RESPONSE_REQUIRED" });
+  }
+  const item = await prisma.participantResponse.create({
+    data: {
+      attendanceId: attendance.id,
+      userId: req.activaUser.id,
+      response,
+      requestReviewId: latest.id,
+    },
+  });
+  await prisma.attendanceRecord.update({
+    where: { id: attendance.id },
+    data: { finalEvidenceStatus: "REVIEW_REQUIRED" },
+  });
+  await audit(req, "PARTICIPANT_EVIDENCE_RESPONSE", "AttendanceRecord", attendance.id, {
+    requestReviewId: latest.id,
+    participantResponseId: item.id,
+    submittedAt: item.submittedAt,
+  });
+  res.status(201).json({ ok:true, participantResponse:item, workflowStatus:"READY_DECISION" });
 });
 
 app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (req, res) => {
