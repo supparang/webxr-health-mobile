@@ -2892,6 +2892,7 @@
     const c = data.counts || {};
     const mr = data.modelReadiness || {};
     const locked = Number(c.lockedCount || 0);
+    const adjudicatedEver = Number(c.adjudicatedEverCount || c.adjudicatedCount || 0);
     const positive = Number(c.reviewLocked || 0);
     const negative = Number(c.noReviewLocked || 0);
     const offlinePassed = Boolean(mr.offlineEvaluationPassed);
@@ -2910,7 +2911,8 @@
     v.innerHTML =
       '<div class="grid cards">'+
         card("Independent Labels",c.labelCount||0)+
-        card("Adjudicated",c.adjudicatedCount||0)+
+        card("Adjudicated (ทั้งหมด)",adjudicatedEver)+
+        card("รอ Lock",c.adjudicatedCount||0)+
         card("Locked",locked)+
         card("REVIEW_REQUIRED",positive)+
         card("NO_REVIEW_REQUIRED",negative)+
@@ -2918,7 +2920,7 @@
       '<div class="panel"><h2>AI Readiness Gate</h2>'+
         '<div class="research-gate">'+
           gate("1","Independent Labels",Number(c.labelCount||0)>0)+
-          gate("2","Adjudication",Number(c.adjudicatedCount||0)>0)+
+          gate("2","Adjudication",adjudicatedEver>0)+
           gate("3","Ground Truth Lock",locked>0)+
           gate("4","มีข้อมูลทั้ง 2 classes",positive>0 && negative>0)+
           gate("5","Offline ML Evaluation",offlinePassed)+
