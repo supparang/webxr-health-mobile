@@ -2890,9 +2890,22 @@
     showLoading(v);
     const data = await api("/api/ml/readiness");
     const c = data.counts || {};
+    const mr = data.modelReadiness || {};
     const locked = Number(c.lockedCount || 0);
     const positive = Number(c.reviewLocked || 0);
     const negative = Number(c.noReviewLocked || 0);
+    const offlinePassed = Boolean(mr.offlineEvaluationPassed);
+    const deploymentPassed = Boolean(mr.deploymentReviewPassed);
+    const latestModel = mr.latestModel || null;
+    const deployedModel = mr.deployedModel || null;
+    const modelSummary = latestModel
+      ? '<div class="hint"><b>Model Registry:</b> '+esc(latestModel.version||"-")+' · '+esc(latestModel.modelFamily||"-")+' · '+esc(latestModel.status||"-")+' · '+esc(latestModel.dataProvenance||"-")+'</div>'
+      : '<div class="hint"><b>Model Registry:</b> ยังไม่มีผล Offline ML Evaluation ที่นำเข้าระบบ</div>';
+    const aiNotice = data.syntheticDemo
+      ? '<div class="alert warn"><b>DEMO / SYNTHETIC:</b> Gate 5 สามารถสะท้อนการทดสอบ pipeline ได้ แต่ Gate 6 จะไม่เปิด Production AI จากข้อมูลสังเคราะห์</div>'
+      : (data.aiEnabled
+          ? '<div class="alert ok"><b>AI decision support พร้อมใช้งาน</b> จากโมเดล empirical ที่ผ่าน Evaluation → Approval → Deployment โดยผลตัดสินสุดท้ายยังเป็นของมนุษย์</div>'
+          : '<div class="hint"><b>AI ยังไม่เปิดใช้งานในระบบสด</b> ต้องมี empirical model ที่ผ่าน Evaluation → Approval → Deployment ก่อน</div>');
 
     v.innerHTML =
       '<div class="grid cards">'+
@@ -2908,10 +2921,11 @@
           gate("2","Adjudication",Number(c.adjudicatedCount||0)>0)+
           gate("3","Ground Truth Lock",locked>0)+
           gate("4","มีข้อมูลทั้ง 2 classes",positive>0 && negative>0)+
-          gate("5","Offline ML Evaluation",false)+
-          gate("6","Deployment Review",false)+
+          gate("5","Offline ML Evaluation",offlinePassed)+
+          gate("6","Deployment Review",deploymentPassed)+
         '</div>'+
-        '<div class="hint"><b>AI ยังไม่เปิดใช้งานในระบบสด</b> หน้านี้เป็น readiness dashboard เท่านั้น จำนวน record ที่เพียงพอสำหรับงานวิจัยต้องกำหนดจาก protocol/sample planning ไม่ใช่จากตัวเลขคงที่ในระบบ</div>'+
+        aiNotice+modelSummary+
+        '<div class="hint">จำนวน record ที่เพียงพอสำหรับงานวิจัยต้องกำหนดจาก protocol/sample planning ไม่ใช่จากตัวเลขคงที่ในระบบ</div>'+
         '<div class="actions"><button class="btn primary" id="mlDownload" '+(locked? "":"disabled")+'>ดาวน์โหลด Locked ML Dataset (JSON)</button></div>'+
         '<div id="mlMsg"></div>'+
       '</div>'+
