@@ -1419,11 +1419,16 @@
     if (p === "/api/ml/dataset" && method==="GET") {
       const records=state.groundTruthCases.filter(x=>x.status==="LOCKED").map(c=>{
         const r=attendance(c.attendanceId),a=activity(r.activityId),d=durationInfo(r);
+        const scheduledMinutes=Math.max(1,Math.round((new Date(a.endAt).getTime()-new Date(a.startAt).getTime())/60000));
+        const actualMinutes=r.checkinAt&&r.checkoutAt?Math.max(0,Math.round((new Date(r.checkoutAt).getTime()-new Date(r.checkinAt).getTime())/60000)):null;
+        const checkinOffsetMinutes=r.checkinAt?Math.round((new Date(r.checkinAt).getTime()-new Date(a.startAt).getTime())/60000):null;
+        const checkoutOffsetMinutes=r.checkoutAt?Math.round((new Date(r.checkoutAt).getTime()-new Date(a.endAt).getTime())/60000):null;
         return {record_id:r.id,participant_hash:hashDemo(r.userId),event_id:r.activityId,activity_type:a.category,
           qr_valid:Number(r.qrValid),identity_verified:Number(r.identityVerified),checkin_present:Number(Boolean(r.checkinAt)),
-          checkout_present:Number(Boolean(r.checkoutAt)),duration_ratio:d.ratio,staff_verified:Number(Boolean(r.staffVerification)),
-          signature_verified:Number(r.signatureVerified),scan_attempts:r.scanAttempts,final_target:c.finalTarget,
-          reason_codes:c.reasonCodes,locked_at:c.lockedAt};
+          checkout_present:Number(Boolean(r.checkoutAt)),scheduled_duration_minutes:scheduledMinutes,actual_duration_minutes:actualMinutes,
+          duration_ratio:d.ratio,checkin_offset_minutes:checkinOffsetMinutes,checkout_offset_minutes:checkoutOffsetMinutes,
+          staff_verified:Number(Boolean(r.staffVerification)),signature_verified:Number(r.signatureVerified),scan_attempts:r.scanAttempts,
+          final_target:c.finalTarget,reason_codes:c.reasonCodes,locked_at:c.lockedAt};
       });
       return {ok:true,datasetStatus:"DEMO_LOCKED_GROUND_TRUTH_ONLY",syntheticDemo:true,deidentified:true,records};
     }
