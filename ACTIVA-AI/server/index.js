@@ -2034,19 +2034,39 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
-  const [labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked] = await Promise.all([
+  const [labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
     prisma.groundTruthLabel.count(),
     prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "REVIEW_REQUIRED" } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "NO_REVIEW_REQUIRED" } }),
+    prisma.modelRun.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { id: true, version: true, modelFamily: true, status: true, dataProvenance: true, createdAt: true, approvedAt: true, deployedAt: true },
+    }),
   ]);
+
+  const evaluatedModels = models.filter((m) => ["EVALUATED", "APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
+  const approvedModels = models.filter((m) => ["APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
+  const deployedModel = models.find((m) => m.status === "DEPLOYED") || null;
+  const empiricalDeployed = Boolean(deployedModel && deployedModel.dataProvenance !== "SYNTHETIC_CI_ONLY");
 
   res.json({
     ok: true,
-    aiEnabled: false,
-    note: "Readiness counts only; model training remains offline until locked ground truth is adequate.",
+    aiEnabled: empiricalDeployed,
+    note: empiricalDeployed
+      ? "A deployed empirical model is available for decision support only; human review remains final."
+      : "AI remains disabled until an evaluated and approved empirical model is deployed.",
     counts: { labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked },
+    modelReadiness: {
+      modelCount: models.length,
+      evaluatedCount: evaluatedModels.length,
+      approvedCount: approvedModels.length,
+      offlineEvaluationPassed: evaluatedModels.length > 0,
+      deploymentReviewPassed: empiricalDeployed,
+      deployedModel,
+      latestModel: models[0] || null,
+    },
   });
 });
 
