@@ -416,3 +416,14 @@ V0.3:
 - Review Queue เป็นวิธีหลัก แม้บุคคลกลับไปแล้วก็ยังเปิด case จากหลักฐานได้
 - เพิ่ม Scan Personal QR / paste token ใน Human Review เพื่อค้นหา case อย่างรวดเร็วเมื่อบุคคลอยู่ตรงหน้า
 - แยก workflow status: รอตรวจ / รอข้อมูลจากผู้เข้าร่วม / ส่งกลับแก้ไข / พร้อมตัดสิน / รับรอง / รับรองกรณีพิเศษ / ไม่รับรอง
+
+
+## V1.0.1 — Role Responsibility & Next-Action UX
+- ล็อก Role Responsibility Matrix สำหรับ PARTICIPANT / STAFF / ORGANIZER / ADMIN
+- หน้า “ภาพรวม” แสดง “หน้าที่ของฉัน” ตาม login พร้อมขั้นตอนและปุ่ม “ไปทำงานของฉัน”
+- Participant ถูกนำไปหน้า เข้า–ออก และอธิบายชัดว่าเมื่อหลักฐานครบแต่รอ Staff ไม่ต้องสแกนซ้ำ
+- STAFF ถูกนำไป Human Review แบบ Exception-first
+- ORGANIZER ถูกนำไป Activity management ตาม permission/assignment
+- ADMIN ถูกนำไปจัดการบุคลากร/สิทธิ์ และยังแยก Release Gate ออกจากผล participation รายบุคคล
+- ย้ำ separation of duties: AI เป็น decision support, Evidence Engine เป็น rule-based, Human Review เป็น final authority สำหรับ exception
+- เอกสาร canonical: `docs/v1.0.1-role-responsibility.md`
