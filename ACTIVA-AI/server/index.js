@@ -1790,8 +1790,8 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
   }
 
   if (b.decision === "OVERRIDE_VERIFY") {
-    if (req.activaUser.role !== "ADMIN") {
-      return res.status(403).json({ ok: false, error: "ADMIN_ONLY_MANUAL_OVERRIDE" });
+    if (!["ADMIN", "STAFF"].includes(req.activaUser.role)) {
+      return res.status(403).json({ ok: false, error: "AUTHORIZED_REVIEWER_REQUIRED" });
     }
     if (blockers.length === 0) {
       return res.status(409).json({ ok: false, error: "OVERRIDE_NOT_NEEDED" });
