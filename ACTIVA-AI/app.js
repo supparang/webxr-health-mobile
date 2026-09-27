@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.0 • Pilot Release Gate + Immutable Closure</div>'+
+        '<div class="version">V1.0.1 • Reviewer Special Decision + Immutable Closure</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.0</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.1</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -406,7 +406,7 @@
           ["1","เปิดคิว Human Review","เริ่มจาก case ที่ต้องตรวจสอบ ไม่ไล่ตรวจทุกคน"],
           ["2","ตรวจ Evidence","Check-in, ตัวตน, Check-out, ระยะเวลา และเงื่อนไขกิจกรรม"],
           ["3","ยืนยัน/ช่วย Check-out เมื่อจำเป็น","Staff-assisted ต้องมีเหตุผล และไม่แทน Dynamic QR แบบปกติ"],
-          ["4","ตัดสินด้วยมนุษย์","รับรอง / ขอหลักฐานเพิ่ม / ส่งกลับแก้ไข / ไม่รับรอง พร้อมเหตุผล"],
+          ["4","ตัดสินด้วยมนุษย์","รับรอง / รับรองเป็นกรณีพิเศษ / ขอหลักฐานเพิ่ม / ส่งกลับแก้ไข / ไม่รับรอง พร้อมเหตุผล"],
           ["5","รักษา Audit Trail","ห้ามแก้หลักฐานย้อนหลังนอก workflow"]
         ],
         next:"เข้าเมนู “ตรวจสอบโดยมนุษย์” เพื่อทำรายการค้าง",
@@ -2821,7 +2821,7 @@
             '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
             '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
             '<button class="btn bad" data-dec="REJECT" '+(!evaluated?'disabled':'')+'>ไม่รับรอง</button>'+
-            (can("ADMIN")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY">รับรองเป็นกรณีพิเศษ</button>':'')+
+            (can("ADMIN","STAFF")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY" title="ใช้เมื่อยังมี blocker แต่ผู้ตรวจสอบมีหลักฐานและเหตุผลเพียงพอ">รับรองเป็นกรณีพิเศษ</button>':'')+
           '</div><div id="rvMsg"></div>')+
       '</div>';
 
