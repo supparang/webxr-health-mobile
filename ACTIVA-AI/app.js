@@ -384,12 +384,90 @@
     };
   }
 
+  function roleWorkGuide() {
+    const guides = {
+      PARTICIPANT: {
+        title:"หน้าที่ของฉัน — ผู้เข้าร่วมกิจกรรม",
+        intro:"ทำหลักฐานที่อยู่ในความรับผิดชอบของตนให้ครบ แล้วติดตามสถานะ โดยไม่แก้ผลตรวจของเจ้าหน้าที่หรือ Human Review",
+        steps:[
+          ["1","ยืนยันตัวตนและ Check-in","ใช้ Dynamic CHECKIN QR ของกิจกรรม"],
+          ["2","เข้าร่วมกิจกรรม","รักษาหลักฐานการเข้าร่วมตามเงื่อนไขกิจกรรม"],
+          ["3","Check-out","ใช้ Dynamic CHECKOUT QR ภายในช่วงเวลาที่กำหนด"],
+          ["4","ติดตามผล","หากขึ้น “รอเจ้าหน้าที่” ให้รอ ไม่ต้อง Check-out ซ้ำ"],
+          ["5","ตอบเมื่อถูกขอข้อมูล","ส่งข้อมูลเพิ่มเฉพาะเมื่อสถานะระบุว่ารอข้อมูลจากผู้เข้าร่วม"]
+        ],
+        next:"เข้าเมนู “เข้า–ออก” เพื่อตรวจรายการของฉัน",
+        view:"attendance"
+      },
+      STAFF: {
+        title:"หน้าที่ของฉัน — ผู้ตรวจสอบหลักฐาน",
+        intro:"รับงานที่ระบบส่งเข้าคิว ตรวจหลักฐานและเหตุผลของข้อยกเว้น แล้วบันทึกการยืนยันอย่างตรวจสอบย้อนหลังได้",
+        steps:[
+          ["1","เปิดคิว Human Review","เริ่มจาก case ที่ต้องตรวจสอบ ไม่ไล่ตรวจทุกคน"],
+          ["2","ตรวจ Evidence","Check-in, ตัวตน, Check-out, ระยะเวลา และเงื่อนไขกิจกรรม"],
+          ["3","ยืนยัน/ช่วย Check-out เมื่อจำเป็น","Staff-assisted ต้องมีเหตุผล และไม่แทน Dynamic QR แบบปกติ"],
+          ["4","ตัดสินด้วยมนุษย์","รับรอง / ขอหลักฐานเพิ่ม / ส่งกลับแก้ไข / ไม่รับรอง พร้อมเหตุผล"],
+          ["5","รักษา Audit Trail","ห้ามแก้หลักฐานย้อนหลังนอก workflow"]
+        ],
+        next:"เข้าเมนู “ตรวจสอบโดยมนุษย์” เพื่อทำรายการค้าง",
+        view:"review"
+      },
+      ORGANIZER: {
+        title:"หน้าที่ของฉัน — ผู้ได้รับสิทธิ์จัดกิจกรรม",
+        intro:"จัดกิจกรรมและ QR ตามสิทธิ์ที่ได้รับ ดูแลช่วงเวลา ผู้เข้าร่วม และผู้รับผิดชอบ แต่ไม่ตัดสิน Human Review เว้นแต่ได้รับสิทธิ์ตรวจสอบแยกต่างหาก",
+        steps:[
+          ["1","ตั้งค่ากิจกรรม","กำหนดเวลา Check-in/Check-out และนโยบายผู้เข้าร่วม"],
+          ["2","กำหนดผู้รับผิดชอบ","มอบหมายผู้จัดร่วม/ผู้ตรวจสอบตาม permission"],
+          ["3","เปิด Dynamic QR","CHECKIN และ CHECKOUT เป็นคนละ purpose ใช้แทนกันไม่ได้"],
+          ["4","ติดตามการเข้าร่วม","ดูสถานะและ exception โดยไม่เปลี่ยนผล Human Review"],
+          ["5","ส่งต่อข้อยกเว้น","ให้ Staff/Human Review เป็นผู้ตัดสินกรณีผิดปกติ"]
+        ],
+        next:"เข้าเมนู “กิจกรรม” เพื่อจัดการกิจกรรมที่ได้รับสิทธิ์",
+        view:"activities"
+      },
+      ADMIN: {
+        title:"หน้าที่ของฉัน — ผู้ดูแลระบบ",
+        intro:"กำกับสิทธิ์ โครงสร้างกิจกรรม Audit และ Release Gate โดยแยกหน้าที่ออกจากการตัดสินหลักฐานรายบุคคลให้ชัดเจน",
+        steps:[
+          ["1","จัดการบัญชีและสิทธิ์","กำหนด role และ Activity Permissions ตามหน้าที่จริง"],
+          ["2","กำกับกิจกรรม","ดูภาพรวม assignment, participant scope และ lifecycle"],
+          ["3","กำกับข้อยกเว้น","ตรวจ backlog และ data quality โดยไม่ให้ AI ตัดสินแทนมนุษย์"],
+          ["4","ตรวจ Audit/Closure","รักษาร่องรอยและ immutable closure"],
+          ["5","ตัดสิน Release Gate","GO/HOLD เป็นการตัดสินระดับระบบ ไม่ใช่ผลเข้าร่วมรายบุคคล"]
+        ],
+        next:"เข้าเมนู “บุคลากร” เพื่อตรวจ role และสิทธิ์",
+        view:"users"
+      }
+    };
+    return guides[session?.role] || guides.PARTICIPANT;
+  }
+
+  function roleGuideHtml() {
+    const g=roleWorkGuide();
+    const rows=g.steps.map(x=>
+      '<div class="role-step"><span class="role-step-no">'+esc(x[0])+'</span><div><b>'+esc(x[1])+'</b><p>'+esc(x[2])+'</p></div></div>'
+    ).join("");
+    return '<div class="panel role-guide"><div class="section-head"><div><h2>'+esc(g.title)+'</h2><p class="muted">'+esc(g.intro)+'</p></div>'+
+      '<span class="status s-info">'+esc(roleLabel(session.role))+'</span></div>'+
+      '<div class="role-step-list">'+rows+'</div>'+
+      '<div class="role-next"><b>สิ่งที่ควรทำต่อ:</b> '+esc(g.next)+'</div>'+
+      '<div class="actions"><button class="btn primary" id="roleNextAction" data-target="'+esc(g.view)+'">ไปทำงานของฉัน</button></div></div>';
+  }
+
   async function renderDashboard(v) {
     showLoading(v);
     const data = await api("/api/dashboard/summary");
     const s = data.summary;
     const scopeText = data.scope === "SELF" ? "ข้อมูลของฉัน" : "ภาพรวมหน่วยงาน";
+    const participantFlow = session?.role === "PARTICIPANT"
+      ? '<div class="panel"><h2>ขั้นตอนของรายการฉัน</h2><span class="status s-info">'+scopeText+'</span>'+
+        '<div class="workflow-line">Check-in → Check-out → ตรวจระยะเวลา → รอเจ้าหน้าที่ยืนยัน → Human Review (เมื่อมีข้อยกเว้น) → ผลสุดท้าย</div>'+
+        '<p class="muted">ถ้า Check-in/Check-out ครบแล้วแต่ยังขึ้น “หลักฐานไม่ครบ” หรือ “ต้องตรวจสอบ” ไม่ต้องสแกนซ้ำ ให้เปิดรายการเพื่อดูว่าใครเป็นผู้ดำเนินการขั้นถัดไป</p></div>'
+      : '<div class="panel"><h2>เส้นทางการตรวจสอบของระบบ</h2><span class="status s-info">'+scopeText+'</span>'+
+        '<div class="workflow-line">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
+        '<p class="muted">Evidence Engine เป็นกฎตรวจสอบ ส่วนผลสุดท้ายของกรณีที่ต้องตรวจยังเป็น Human Decision</p></div>';
     v.innerHTML =
+      roleGuideHtml()+
       '<div class="grid cards">'+
       card("กิจกรรม", s.activityCount)+
       card("รายการเข้าร่วม", s.recordCount)+
@@ -398,11 +476,10 @@
       card("ต้องตรวจสอบ", s.reviewRequiredCount)+
       card("หลักฐานไม่ครบ", s.incompleteCount)+
       '</div>'+
-      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>V0.5.3 ใช้คำเรียกบทบาทให้สอดคล้องกับ permission model โดย “สิทธิ์จัดกิจกรรม” ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
-      '<div class="panel"><h2>เส้นทางการตรวจสอบ</h2>'+
-      '<span class="status s-info">'+scopeText+'</span>'+
-      '<div class="hint">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
-      '<p class="muted">ผลจาก Evidence Engine ในระยะนี้เป็นกฎตรวจสอบ (rule-based) ไม่ใช่ค่าความน่าจะเป็นจาก AI</p></div>';
+      (appMode==="demo"?'<div class="alert warn"><b>DEMO / SYNTHETIC DATA</b> — ใช้ทดลองระบบเท่านั้น ห้ามนำไปอ้างเป็นผลวิจัยจริง<br>“สิทธิ์จัดกิจกรรม” เป็น permission/assignment ไม่ใช่ประเภทบุคลากรถาวร</div>':'')+
+      participantFlow;
+    const next=document.getElementById("roleNextAction");
+    if(next) next.onclick=()=>setView(next.dataset.target);
   }
 
   function analyticsPct(value) {
