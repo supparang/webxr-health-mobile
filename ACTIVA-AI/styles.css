@@ -378,3 +378,18 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .activity-center-status,.activity-center-actions{justify-content:flex-start}
   .review-summary{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* V1.0.1 Role Responsibility Guidance */
+.role-guide{border-top:4px solid #2f66d0}
+.role-step-list{display:grid;gap:10px;margin:16px 0}
+.role-step{display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start;padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc}
+.role-step-no{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e8f0ff;color:#2455ad;font-weight:800}
+.role-step p{margin:3px 0 0;color:#64748b}
+.role-next{padding:14px 16px;border-left:4px solid #2f66d0;border-radius:12px;background:#eef4ff;margin-top:14px}
+.workflow-line{margin-top:14px;padding:16px;border-radius:14px;background:#eef4ff;line-height:1.7;font-weight:650}
+@media (max-width:700px){
+  .role-guide .section-head{align-items:flex-start}
+  .role-step{grid-template-columns:34px 1fr}
+  .workflow-line{font-size:1rem}
+}
