@@ -77,6 +77,7 @@ jobs:
           node --check server/qr.js
           node --check prisma/seed.js
           node --check tests/smoke.mjs
+          node --check tests/demo-release-guard.mjs
 
       - name: Start ACTIVA-AI server
         run: |
@@ -96,6 +97,9 @@ jobs:
 
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
+
+      - name: Demo release guard regression test
+        run: node tests/demo-release-guard.mjs
 
       - name: Setup Python for ML pipeline
         uses: actions/setup-python@v5
