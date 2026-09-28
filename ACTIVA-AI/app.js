@@ -710,7 +710,7 @@
     const activities=closure.activities||[];
 
     const blockers=(data.blockers||[]).length
-      ? '<div class="alert bad release-blockers"><b>Release blockers</b><div class="release-blocker-list">'+(data.blockers||[]).map(x=>'<div class="release-blocker-code">• '+esc(x)+'</div>').join("")+'</div></div>'
+      ? '<div class="alert bad release-blockers"><b>Release blockers</b><div class="release-blocker-list">'+(data.blockers||[]).map(x=>'<div class="release-blocker-code">• '+esc(x).replaceAll("_","_<wbr>")+'</div>').join("")+'</div></div>'
       : '<div class="alert ok"><b>ไม่มี Release blocker จาก runtime gate</b></div>';
 
     const scenarioRows=scenarios.length
