@@ -1,5 +1,14 @@
 # ACTIVA-AI
 
+## V1.0.13 — Evidence Request Auto-Resolve
+- แก้ state conflict ที่เคสยังแสดง “กำลังรอข้อมูลจากผู้เข้าร่วม” ทั้งที่หลักฐานถูกปรับปรุงภายหลังและประเมินใหม่เป็น COMPLETE แล้ว
+- เมื่อ latest Human Review เป็น REQUEST_EVIDENCE ระบบจะถือว่าคำขอข้อมูลเดิมสิ้นสุด หากมี Evidence Evaluation ใหม่หลังคำขอและไม่มี blocker เหลืออยู่
+- Review Queue จะเปลี่ยนเป็น READY_DECISION / “พร้อมตัดสิน” โดยไม่ลบ Human Review เดิม
+- บันทึก Audit Trail action `INFO_REQUEST_RESOLVED_BY_EVIDENCE_UPDATE` เมื่อคำขอถูกปิดด้วยหลักฐานใหม่
+- ป้องกัน Participant ส่งคำตอบซ้ำหลัง request ถูก resolve แล้วด้วย `PARTICIPANT_RESPONSE_REQUEST_ALREADY_RESOLVED`
+- ครอบคลุมทั้ง Demo Mode และ PostgreSQL/server workflow
+
+
 ## V1.0.1 — Reviewer Special Decision Authority
 - ผู้ตรวจสอบหลักฐาน (STAFF) และผู้ดูแลระบบ (ADMIN) สามารถใช้ `OVERRIDE_VERIFY` เมื่อเคสมี blocker และ Evidence Evaluation แล้ว
 - การรับรองเป็นกรณีพิเศษต้องมีเหตุผลอย่างน้อย 10 ตัวอักษร และบันทึก `MANUAL_OVERRIDE_VERIFIED` ใน Audit Trail
