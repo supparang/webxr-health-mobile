@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.12 • Third Independent Reviewer</div>'+
+        '<div class="version">V1.0.13 • Evidence Request Auto-Resolve</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.12</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.13</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -2671,6 +2671,43 @@
     renderEvidenceList();
   }
 
+  function participantEvidenceRequestState(r){
+    const latest=(r.humanReviews||[])[0]||null;
+    if(latest?.decision!=="REQUEST_EVIDENCE"){
+      return {active:false,resolved:false,source:null,latest,participantResponse:null,requestedAt:0,respondedAt:0,evaluatedAt:0};
+    }
+
+    const requestedAt=latest.reviewedAt ? new Date(latest.reviewedAt).getTime() : 0;
+    const response=r.participantResponse||null;
+    const responseMatchesRequest=Boolean(
+      response && (!response.requestReviewId || response.requestReviewId===latest.id)
+    );
+    const respondedAt=responseMatchesRequest&&response?.submittedAt
+      ? new Date(response.submittedAt).getTime()
+      : 0;
+    const c=effectiveConsistencyResult(r);
+    const blockers=c?[...(c.missingCodes||[]),...(c.reasonCodes||[])]:[];
+    const evaluatedAt=c?.evaluatedAt ? new Date(c.evaluatedAt).getTime() : 0;
+    const resolvedByResponse=Boolean(requestedAt && respondedAt>requestedAt);
+    const resolvedByEvidence=Boolean(
+      requestedAt &&
+      c?.status==="COMPLETE" &&
+      blockers.length===0 &&
+      evaluatedAt>requestedAt
+    );
+
+    return {
+      active:true,
+      resolved:resolvedByResponse||resolvedByEvidence,
+      source:resolvedByResponse?"PARTICIPANT_RESPONSE":resolvedByEvidence?"EVIDENCE_UPDATE":null,
+      latest,
+      participantResponse:responseMatchesRequest?response:null,
+      requestedAt,
+      respondedAt,
+      evaluatedAt
+    };
+  }
+
   function reviewWorkflowStatus(r){
     if(r.checkinAt && !r.checkoutAt)return "ACTIVE";
     const latest=(r.humanReviews||[])[0]||null;
@@ -2678,9 +2715,8 @@
     if(finalStatusOf(r)==="OVERRIDE_VERIFIED")return "OVERRIDE_VERIFIED";
     if(finalStatusOf(r)==="REJECTED")return "REJECTED";
     if(latest?.decision==="REQUEST_EVIDENCE"){
-      const respondedAt=r.participantResponse?.submittedAt ? new Date(r.participantResponse.submittedAt).getTime() : 0;
-      const requestedAt=latest?.reviewedAt ? new Date(latest.reviewedAt).getTime() : 0;
-      return respondedAt>requestedAt ? "READY_DECISION" : "WAIT_PARTICIPANT";
+      const requestState=participantEvidenceRequestState(r);
+      return requestState.resolved ? "READY_DECISION" : "WAIT_PARTICIPANT";
     }
     if(latest?.decision==="CORRECT")return "RETURNED";
     const c=effectiveConsistencyResult(r);
@@ -2898,8 +2934,10 @@
     const selfReview=Boolean(session && (r.user?.id===session.id || r.userId===session.id));
     const canNormalVerify=evaluated&&blockers.length===0&&c.status==="COMPLETE"&&!selfReview;
     const workflowStatus=reviewWorkflowStatus(r);
+    const requestState=participantEvidenceRequestState(r);
     const readOnlyHistory=["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(workflowStatus);
     const latestReview=(r.humanReviews||[])[0]||null;
+    const responseForDisplay=requestState.participantResponse||(!requestState.active?r.participantResponse:null);
     const decisionLabel=({
       VERIFY:"รับรองปกติ",
       OVERRIDE_VERIFY:"รับรองเป็นกรณีพิเศษ",
@@ -2917,10 +2955,12 @@
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>Reviewer ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
-      (r.participantResponse?.submittedAt
-        ? '<div class="alert ok"><b>ข้อมูลเพิ่มเติมจากผู้เข้าร่วม</b><br>'+esc(r.participantResponse.response||"")+
-          '<br><small>ส่งเมื่อ '+fmt(r.participantResponse.submittedAt)+'</small></div>'
-        : (workflowStatus==="WAIT_PARTICIPANT"?'<div class="alert warn"><b>กำลังรอข้อมูลจากผู้เข้าร่วม</b></div>':""))+
+      (requestState.active&&requestState.source==="EVIDENCE_UPDATE"
+        ? '<div class="alert ok"><b>คำขอข้อมูลเดิมสิ้นสุดแล้ว</b><br>หลักฐานถูกปรับปรุงและประเมินใหม่จนหลักฐานครบหลังคำขอ จึงพร้อมตัดสินโดยไม่ต้องรอผู้เข้าร่วม</div>'
+        : (responseForDisplay?.submittedAt
+          ? '<div class="alert ok"><b>ข้อมูลเพิ่มเติมจากผู้เข้าร่วม</b><br>'+esc(responseForDisplay.response||"")+
+            '<br><small>ส่งเมื่อ '+fmt(responseForDisplay.submittedAt)+'</small></div>'
+          : (workflowStatus==="WAIT_PARTICIPANT"?'<div class="alert warn"><b>กำลังรอข้อมูลจากผู้เข้าร่วม</b></div>':"")))+
       '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
       (selfReview&&!readOnlyHistory?'<div class="alert bad"><b>เคสของคุณเอง — ห้าม Self-review</b><br>คุณยังเข้าร่วมกิจกรรมและมี Attendance ได้ตามปกติ แต่ต้องให้ Reviewer คนอื่นที่ได้รับมอบหมายเป็นผู้ยืนยัน/ตัดสินรายการนี้</div>':'')+
       (readOnlyHistory
