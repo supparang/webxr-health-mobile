@@ -336,6 +336,99 @@ const duplicateCheckin = await reqError("/api/attendance/checkin", {
 });
 assert(duplicateCheckin.status === 409, "duplicate active attendance should be blocked");
 
+// V1.0.13 regression: REQUEST_EVIDENCE must auto-resolve after evidence becomes COMPLETE
+const autoResolveActivity=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI evidence request auto-resolve",
+    category:"ทดสอบ",
+    location:"CI",
+    startAt:new Date(ciNow-20*60000).toISOString(),
+    endAt:new Date(ciNow+20*60000).toISOString(),
+    checkinOpenAt:new Date(ciNow-30*60000).toISOString(),
+    checkinCloseAt:new Date(ciNow+10*60000).toISOString(),
+    checkoutOpenAt:new Date(ciNow-10*60000).toISOString(),
+    checkoutCloseAt:new Date(ciNow+30*60000).toISOString(),
+    policy:{durationRequired:false,staffRequired:true,signatureRequired:false}
+  }
+});
+assert(autoResolveActivity.activity?.id,"V1.0.13 auto-resolve activity creation failed");
+
+await req("/api/activities/"+encodeURIComponent(autoResolveActivity.activity.id)+"/assignments",{
+  actor:"ORG001",
+  method:"PUT",
+  body:{
+    coOrganizerIds:[],
+    verifierIds:["STF001"],
+    changeReason:"CI assign reviewer for evidence auto-resolve regression"
+  }
+});
+
+const autoResolveCheckinQr=await req("/api/activities/"+encodeURIComponent(autoResolveActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST",body:{purpose:"CHECKIN"}
+});
+const autoResolveCheckoutQr=await req("/api/activities/"+encodeURIComponent(autoResolveActivity.activity.id)+"/qr",{
+  actor:"ORG001",method:"POST",body:{purpose:"CHECKOUT"}
+});
+const autoResolveCheckin=await req("/api/attendance/checkin",{
+  actor:"P003",method:"POST",body:{userId:"P003",token:autoResolveCheckinQr.token}
+});
+const autoResolveAttendanceId=autoResolveCheckin.attendance?.id;
+assert(autoResolveAttendanceId,"V1.0.13 auto-resolve check-in failed");
+
+await req("/api/attendance/"+encodeURIComponent(autoResolveAttendanceId)+"/checkout",{
+  actor:"P003",method:"POST",body:{token:autoResolveCheckoutQr.token}
+});
+
+const autoResolveBefore=await req("/api/evidence/"+encodeURIComponent(autoResolveAttendanceId)+"/evaluate",{
+  actor:"STF001",method:"POST"
+});
+assert(autoResolveBefore.result?.status==="INCOMPLETE","missing staff verification must be INCOMPLETE before request");
+assert((autoResolveBefore.result?.missingCodes||[]).includes("STAFF"),"STAFF blocker missing before request");
+
+await req("/api/reviews/"+encodeURIComponent(autoResolveAttendanceId),{
+  actor:"STF001",
+  method:"POST",
+  body:{
+    decision:"REQUEST_EVIDENCE",
+    reason:"CI request staff verification evidence before final decision",
+    reviewDurationSeconds:1
+  }
+});
+
+await req("/api/attendance/"+encodeURIComponent(autoResolveAttendanceId)+"/staff-verify",{
+  actor:"STF001",method:"POST"
+});
+
+const autoResolveAfter=await req("/api/evidence/"+encodeURIComponent(autoResolveAttendanceId)+"/evaluate",{
+  actor:"STF001",method:"POST"
+});
+assert(autoResolveAfter.result?.status==="COMPLETE","evidence should become COMPLETE after staff verification");
+assert((autoResolveAfter.result?.missingCodes||[]).length===0,"resolved evidence must have no missing required codes");
+assert((autoResolveAfter.result?.reasonCodes||[]).length===0,"resolved evidence must have no blockers");
+
+const lateParticipantResponse=await reqError("/api/participant-response/"+encodeURIComponent(autoResolveAttendanceId),{
+  actor:"P003",
+  method:"POST",
+  body:{response:"CI late response should be blocked because evidence already resolved the request"}
+});
+assert(lateParticipantResponse.status===409,"resolved request must reject a late participant response");
+assert(
+  lateParticipantResponse.data?.error==="PARTICIPANT_RESPONSE_REQUEST_ALREADY_RESOLVED",
+  "wrong resolved-request participant response error"
+);
+
+const autoResolveAudit=await req("/api/audit",{actor:"ADM001"});
+const autoResolveAuditEntry=autoResolveAudit.logs.find((x)=>
+  x.entityType==="AttendanceRecord" &&
+  x.entityId===autoResolveAttendanceId &&
+  x.action==="INFO_REQUEST_RESOLVED_BY_EVIDENCE_UPDATE"
+);
+assert(autoResolveAuditEntry,"V1.0.13 auto-resolve audit event missing");
+assert(autoResolveAuditEntry.metadata?.requestReviewId,"auto-resolve audit missing requestReviewId");
+assert(autoResolveAuditEntry.metadata?.resolvedBy==="EVIDENCE_UPDATE","auto-resolve audit missing resolvedBy evidence marker");
+
 const assistActivity=await req("/api/activities",{
   actor:"ORG001",method:"POST",
   body:{
