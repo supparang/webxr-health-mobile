@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.6";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.7";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
