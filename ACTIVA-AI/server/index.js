@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.9";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.10";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1971,19 +1971,49 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
   // Intentionally excludes aiPredictions and consistencyResult:
   // ground-truth reviewers see raw evidence, not AI/rule recommendations.
   // STAFF reviewers only receive their own labels to preserve independent labeling.
-  const safeRows = rows.map((row) => ({
+  const eligibleRows = rows.filter((row) => {
+    if (req.activaUser.role !== "ADMIN" && row.userId === req.activaUser.id) return false;
+    if (row.checkoutAt) return true;
+    return checkoutWindowState(row.activity).code === "QR_CHECKOUT_CLOSED";
+  });
+
+  const safeRows = eligibleRows.map((row) => ({
     ...row,
     groundTruthLabels:
       req.activaUser.role === "ADMIN"
         ? row.groundTruthLabels
         : row.groundTruthLabels.filter((label) => label.reviewerId === req.activaUser.id),
   }));
-  res.json({ ok: true, blinded: true, records: safeRows });
+  res.json({
+    ok: true,
+    blinded: true,
+    eligibility: "CHECKOUT_COMPLETE_OR_WINDOW_CLOSED",
+    noSelfLabeling: req.activaUser.role !== "ADMIN",
+    records: safeRows,
+  });
 });
 
 app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const reviewerId = actorId(req);
   if (!reviewerId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
+
+  const attendance = await prisma.attendanceRecord.findUnique({
+    where: { id: req.params.attendanceId },
+    include: { activity: true },
+  });
+  if (!attendance || attendance.isVoided) {
+    return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  }
+  if (req.activaUser.role !== "ADMIN" && attendance.userId === reviewerId) {
+    return res.status(409).json({ ok: false, error: "GROUND_TRUTH_SELF_LABEL_FORBIDDEN" });
+  }
+  if (!attendance.checkoutAt && checkoutWindowState(attendance.activity).code !== "QR_CHECKOUT_CLOSED") {
+    return res.status(409).json({
+      ok: false,
+      error: "GROUND_TRUTH_ATTENDANCE_NOT_MATURE",
+      note: "Wait until checkout is complete or the checkout window has closed.",
+    });
+  }
 
   const existingCase = await prisma.groundTruthCase.findUnique({
     where: { attendanceId: req.params.attendanceId },
