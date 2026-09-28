@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.10 • Ground Truth Eligibility Guard</div>'+
+        '<div class="version">V1.0.11 • Evidence Freshness Guard</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -1739,9 +1739,21 @@
     return '<span class="status '+cls+'" title="'+esc(s)+'" data-code="'+esc(s)+'">'+esc(statusLabel(s))+'</span>';
   }
 
+  function effectiveConsistencyResult(r) {
+    const result = r?.consistencyResult || null;
+    if (!result) return null;
+    const evaluatedAt = new Date(result.evaluatedAt || result.updatedAt || 0).getTime();
+    const changedAt = Math.max(
+      r?.checkoutAt ? new Date(r.checkoutAt).getTime() : 0,
+      r?.staffVerification?.verifiedAt ? new Date(r.staffVerification.verifiedAt).getTime() : 0
+    );
+    if (changedAt && (!evaluatedAt || evaluatedAt < changedAt)) return null;
+    return result;
+  }
+
   function evidenceStatusOf(r) {
     if (r.checkinAt && !r.checkoutAt) return "ACTIVE";
-    return r.consistencyResult?.status || "NOT_EVALUATED";
+    return effectiveConsistencyResult(r)?.status || "NOT_EVALUATED";
   }
 
   function finalStatusOf(r) {
@@ -1830,7 +1842,7 @@
 
   function compactAttendanceCard(r, actionButtons) {
     const u=r.user||{};
-    const c=r.consistencyResult;
+    const c=effectiveConsistencyResult(r);
     const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
     const pct=r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%";
     const timeText=(r.checkinAt?new Date(r.checkinAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}):"—")+
@@ -2525,7 +2537,7 @@
 
       const rowHtml = filteredRows.map(r => {
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
-        const c=active?null:r.consistencyResult;
+        const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
         return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
           '<td>'+esc(r.activity?.title||"")+'</td>'+
@@ -2541,7 +2553,7 @@
 
       const cards=filteredRows.map(r=>{
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
-        const c=active?null:r.consistencyResult;
+        const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
         return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc(r.user?.employeeId||"")+'</b><div>'+esc(r.user?.name||"")+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
           '<div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div>'+
@@ -2670,7 +2682,7 @@
       return respondedAt>requestedAt ? "READY_DECISION" : "WAIT_PARTICIPANT";
     }
     if(latest?.decision==="CORRECT")return "RETURNED";
-    const c=r.consistencyResult;
+    const c=effectiveConsistencyResult(r);
     if(!c)return "NOT_READY";
     const blockers=[...(c.missingCodes||[]),...(c.reasonCodes||[])];
     if(blockers.length)return "PENDING_REVIEW";
@@ -2796,7 +2808,7 @@
         ].map(([k,l])=>'<button class="filter-chip '+(state.filter===k?'active':'')+'" data-rvf="'+k+'">'+l+'</button>').join("")+'</div>'+
         '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' case • Human Review แบบ Exception-first'+(deployedModel?' • Pending queue เรียงตาม AI risk จากมากไปน้อย':'')+'</div>'+
         '<div class="compact-list">'+(pageRows.length?pageRows.map((r,rowIndex)=>{
-          const c=r.consistencyResult;
+          const c=effectiveConsistencyResult(r);
           const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
           const status=reviewWorkflowStatus(r);
           const prediction=riskByAttendance.get(r.id)||null;
@@ -2877,7 +2889,7 @@
   function showReviewDetail(id, rows, riskByAttendance=new Map(), deployedModel=null) {
     const r=rows.find(x=>x.id===id); if(!r)return;
     const prediction=riskByAttendance.get(r.id)||null;
-    const c=r.consistencyResult;
+    const c=effectiveConsistencyResult(r);
     const missing=[].concat(c?.missingCodes||[]);
     const reasons=[].concat(c?.reasonCodes||[]);
     const blockers=[...missing,...reasons];
