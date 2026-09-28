@@ -408,8 +408,20 @@ assert(resolvedReissued.user?.employeeId==="P001","reissued personal QR should r
 
 const staffMe = await req("/api/me", { actor: "STF001" });
 
-await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
+const oneLabelAdjudication = await reqError("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/adjudicate", {
   actor: "ADM001",
+  method: "POST",
+  body: {
+    finalTarget: "REVIEW_REQUIRED",
+    reasonCodes: ["SHORT_DURATION"],
+    notes: "Must be blocked with only one independent label",
+  },
+});
+assert(oneLabelAdjudication.status === 409, "admin adjudication must be blocked with one independent label");
+assert(oneLabelAdjudication.data?.error === "TWO_INDEPENDENT_LABELS_REQUIRED", "wrong one-label adjudication guard");
+
+await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
+  actor: "STF002",
   method: "POST",
   body: {
     target: "REVIEW_REQUIRED",
@@ -429,22 +441,24 @@ assert(
   "rule-result leakage into blinded ground-truth queue"
 );
 
-const adjudication = await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/adjudicate", {
+const agreeingAdjudication = await reqError("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/adjudicate", {
   actor: "ADM001",
   method: "POST",
   body: {
     finalTarget: "REVIEW_REQUIRED",
     reasonCodes: ["SHORT_DURATION"],
-    notes: "Two independent labels agree in CI",
+    notes: "Must be blocked because independent labels agree",
   },
 });
-assert(adjudication.groundTruthCase?.status === "ADJUDICATED", "ground-truth adjudication failed");
+assert(agreeingAdjudication.status === 409, "adjudication must be blocked when independent labels agree");
+assert(agreeingAdjudication.data?.error === "ADJUDICATION_REQUIRES_DISAGREEMENT", "wrong agreement adjudication guard");
 
 const locked = await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/lock", {
   actor: "ADM001",
   method: "POST",
 });
-assert(locked.groundTruthCase?.status === "LOCKED", "ground-truth lock failed");
+assert(locked.groundTruthCase?.status === "LOCKED", "ground-truth direct consensus lock failed");
+assert(locked.resolutionMode === "CONSENSUS", "agreeing labels must lock as CONSENSUS without adjudication");
 
 const readiness = await req("/api/ml/readiness", { actor: "ADM001" });
 assert(readiness.counts?.lockedCount >= 1, "ML readiness does not count locked case");
