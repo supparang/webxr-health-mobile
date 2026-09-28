@@ -20,7 +20,10 @@
     return url.origin + url.pathname.replace(/\/$/,"");
   }
 
-  let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || "");
+  const SAME_ORIGIN_API_BASE = (location.protocol==="http:"||location.protocol==="https:") && !location.hostname.endsWith("github.io")
+    ? location.origin
+    : "";
+  let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || SAME_ORIGIN_API_BASE);
   let appMode = sessionStorage.getItem(MODE_KEY) || "demo";
   let session = readSession();
   let activeView = "dashboard";
