@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.8 • Scoped Attendance Actions</div>'+
+        '<div class="version">V1.0.9 • Reviewer UI Clarity</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.8</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.9</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -420,7 +420,7 @@
           ["2","กำหนดผู้รับผิดชอบ","มอบหมายผู้จัดร่วม/ผู้ตรวจสอบตาม permission"],
           ["3","เปิด Dynamic QR","CHECKIN และ CHECKOUT เป็นคนละ purpose ใช้แทนกันไม่ได้"],
           ["4","ติดตามการเข้าร่วม","ดูสถานะและ exception โดยไม่เปลี่ยนผล Human Review"],
-          ["5","ส่งต่อข้อยกเว้น","ให้ Staff/Human Review เป็นผู้ตัดสินกรณีผิดปกติ"]
+          ["5","ส่งต่อข้อยกเว้น","ให้ Reviewer/Human Review เป็นผู้ตัดสินกรณีผิดปกติ"]
         ],
         next:"เข้าเมนู “กิจกรรม” เพื่อจัดการกิจกรรมที่ได้รับสิทธิ์",
         view:"activities"
@@ -461,10 +461,10 @@
     const scopeText = data.scope === "SELF" ? "ข้อมูลของฉัน" : "ภาพรวมหน่วยงาน";
     const participantFlow = session?.role === "PARTICIPANT"
       ? '<div class="panel"><h2>ขั้นตอนของรายการฉัน</h2><span class="status s-info">'+scopeText+'</span>'+
-        '<div class="workflow-line">Check-in → Check-out → ตรวจระยะเวลา → รอเจ้าหน้าที่ยืนยัน → Human Review (เมื่อมีข้อยกเว้น) → ผลสุดท้าย</div>'+
+        '<div class="workflow-line">Check-in → Check-out → ตรวจระยะเวลา → รอ Reviewer ยืนยัน → Human Review (เมื่อมีข้อยกเว้น) → ผลสุดท้าย</div>'+
         '<p class="muted">ถ้า Check-in/Check-out ครบแล้วแต่ยังขึ้น “หลักฐานไม่ครบ” หรือ “ต้องตรวจสอบ” ไม่ต้องสแกนซ้ำ ให้เปิดรายการเพื่อดูว่าใครเป็นผู้ดำเนินการขั้นถัดไป</p></div>'
       : '<div class="panel"><h2>เส้นทางการตรวจสอบของระบบ</h2><span class="status s-info">'+scopeText+'</span>'+
-        '<div class="workflow-line">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → เจ้าหน้าที่ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
+        '<div class="workflow-line">Dynamic QR → ยืนยันตัวตน → Check-in → Check-out/ระยะเวลา → Reviewer ยืนยัน → ตรวจความสอดคล้อง → Human Review → Verified Participation</div>'+
         '<p class="muted">Evidence Engine เป็นกฎตรวจสอบ ส่วนผลสุดท้ายของกรณีที่ต้องตรวจยังเป็น Human Decision</p></div>';
     v.innerHTML =
       roleGuideHtml()+
@@ -1130,7 +1130,7 @@
         '</div><h3>นโยบายหลักฐานของกิจกรรม</h3><div class="policy">'+
         check("pQr","QR กิจกรรม",true)+check("pId","ยืนยันตัวตน",true)+
         check("pIn","Check-in",true)+check("pOut","Check-out",true)+
-        check("pDur","ระยะเวลา",true)+check("pStaff","เจ้าหน้าที่ยืนยัน",true)+
+        check("pDur","ระยะเวลา",true)+check("pStaff","Reviewer ยืนยัน",true)+
         check("pSig","ลายเซ็น",false)+
         '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="pRatio" type="number" min="0" max="1" step=".05" value=".75"></div>'+
         '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'
@@ -1342,6 +1342,18 @@
       items.map(row).join("")+'</tbody></table></div><div class="activity-cards">'+cards+'</div>';
   }
 
+  function assignmentReadOnly(users, selectedIds, roleLabelText) {
+    const byId=new Map((users||[]).map(u=>[u.id,u]));
+    const selected=(selectedIds||[]).map(id=>byId.get(id)).filter(Boolean);
+    return '<div class="assignment-readonly">'+
+      '<div class="assignment-selected-summary"><b>'+esc(roleLabelText||"ผู้ได้รับมอบหมาย")+':</b> '+(selected.length?selected.length+" คน":"0 คน")+'</div>'+
+      '<div class="actions">'+
+        (selected.length
+          ? selected.map(u=>'<span class="status s-info">'+esc(u.employeeId+" • "+u.name)+'</span>').join("")
+          : '<span class="muted">ยังไม่มีผู้ได้รับมอบหมาย</span>')+
+      '</div><div class="hint">โหมดอ่านอย่างเดียว • บัญชีนี้ไม่มีสิทธิ์เปลี่ยน assignment ของกิจกรรมนี้</div></div>';
+  }
+
   function assignmentChecks(users, selectedIds, className, disabled, searchId, countId, exampleCode) {
     const selected=new Set(selectedIds||[]);
     const selectedUsers=users.filter(u=>selected.has(u.id));
@@ -1387,15 +1399,19 @@
             '</div>'+
             (caps.lifecycle==="ACTIVE"?'<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ การเปลี่ยนผู้จัดร่วมทำได้เฉพาะผู้มีสิทธิ์และต้องระบุเหตุผล ระบบจะบันทึก Audit Trail</div>':'')+
             (caps.lifecycle==="ENDED"?(caps.canAssignCo?'<div class="alert warn"><b>กิจกรรมสิ้นสุดแล้ว</b><br>แก้ไขผู้จัดร่วมได้เฉพาะ ADMIN พร้อมเหตุผล และจะถูกบันทึกเป็น Administrative Override</div>':'<div class="alert bad"><b>กิจกรรมสิ้นสุดแล้ว</b><br>รายชื่อผู้จัดร่วมถูกล็อก ผู้ใช้ทั่วไปแก้ไขไม่ได้</div>'):'')+
-            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId&&!verifierIds.includes(u.id)),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount","ORG001")+
+            (caps.canAssignCo
+              ? assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId&&!verifierIds.includes(u.id)),coIds,"coAssign",false,"coSearch","coCount","ORG001")
+              : assignmentReadOnly(users,coIds,"ผู้จัดกิจกรรมร่วม"))+
             (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
-            (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
+            (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'')+
             '<div id="coAssignMsg"></div>'+
           '</section>'+
           '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
             '<div class="alert info"><b>Reviewer ของกิจกรรม</b><br>เลือกได้เฉพาะบัญชี STAFF และสิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ผู้จัดกิจกรรม/ผู้จัดร่วมไม่ควรเป็นผู้ตัดสิน Human Review ของกิจกรรมเดียวกัน</div>'+
-            assignmentChecks(activeUsers.filter(u=>u.role==="STAFF"&&u.id!==a.organizerId&&!coIds.includes(u.id)),verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount","STF001")+
-            (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
+            (caps.canAssignVerifier
+              ? assignmentChecks(activeUsers.filter(u=>u.role==="STAFF"&&u.id!==a.organizerId&&!coIds.includes(u.id)),verifierIds,"verifierAssign",false,"verifierSearch","verifierCount","STF001")
+              : assignmentReadOnly(users,verifierIds,"Reviewer ของกิจกรรม"))+
+            (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'')+
             '<div id="verifierAssignMsg"></div>'+
           '</section>'+
         '</div>'+
@@ -1900,7 +1916,7 @@
       '</div>'+
       '<div class="field token-fallback" id="tokenField" hidden style="margin-top:10px"><label>Dynamic QR Token</label><textarea id="ciToken" placeholder="วาง token จาก Dynamic QR"></textarea></div>'+
       '<div class="actions"><button class="btn secondary" id="ciBtn">ยืนยัน Check-in จาก Token</button></div><div id="ciMsg"></div></div>'+
-      '<div class="panel" id="recordActionsPanel"><h2>Check-out / Staff Verification</h2>'+
+      '<div class="panel" id="recordActionsPanel"><h2>Check-out / Reviewer Verification</h2>'+
       '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+
         (rows.length
           ? rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")
@@ -2010,7 +2026,7 @@
           '<div class="event-stat"><b>'+summary.total+'</b><span>รายการทั้งหมด</span></div>'+
           '<div class="event-stat"><b>'+summary.active+'</b><span>กำลังเข้าร่วม</span></div>'+
           '<div class="event-stat"><b>'+summary.checkedOut+'</b><span>ออกแล้ว</span></div>'+
-          '<div class="event-stat"><b>'+summary.staff+'</b><span>เจ้าหน้าที่ยืนยัน</span></div>'+
+          '<div class="event-stat"><b>'+summary.staff+'</b><span>Reviewer ยืนยัน</span></div>'+
           '<div class="event-stat alert-stat"><b>'+summary.needsReview+'</b><span>ต้องตรวจสอบ</span></div>'+
           '<div class="event-stat"><b>'+summary.verified+'</b><span>รับรองแล้ว</span></div>'+
         '</div>'+
@@ -2119,7 +2135,7 @@
         if (e?.message === "ALREADY_CHECKED_IN") {
           msg.innerHTML = '<div class="alert warn"><b>Check-in แล้ว</b><br>กิจกรรมนี้มีรายการ Check-in อยู่แล้ว จึงไม่สร้างรายการซ้ำ</div>';
         } else if (e?.message === "ACTIVITY_ALREADY_COMPLETED") {
-          msg.innerHTML = '<div class="alert ok"><b>กิจกรรมนี้บันทึกเข้า–ออกแล้ว</b><br>ไม่ต้อง Check-in ซ้ำ ให้ดำเนินการ Staff Verification / Evidence Review ต่อ</div>';
+          msg.innerHTML = '<div class="alert ok"><b>กิจกรรมนี้บันทึกเข้า–ออกแล้ว</b><br>ไม่ต้อง Check-in ซ้ำ ให้ดำเนินการ Reviewer Verification / Evidence Review ต่อ</div>';
         } else if (e?.message === "CHECKIN_SELF_ONLY" || e?.message === "PARTICIPANT_CAN_ONLY_CHECKIN_SELF") {
           msg.innerHTML = '<div class="alert bad"><b>Check-in ได้เฉพาะตนเอง</b><br>บัญชีที่ Login อยู่ต้องตรงกับผู้เข้าร่วมที่กำลัง Check-in</div>';
         } else if (e?.message === "QR_CHECKIN_NOT_OPEN") {
@@ -2540,7 +2556,7 @@
             :(!canEvaluateNow(r)
               ?'<button class="btn secondary mini" disabled title="รอ Check-out ก่อนประเมินหลักฐาน">กำลังเข้าร่วม • รอ Check-out</button>'
               :'<button class="btn secondary mini evalOneEvidence" data-id="'+esc(r.id)+'">ประเมินเฉพาะรายการนี้</button>'))+'</div>':'')+
-          (isImmutableClosed(r)?'<div class="alert info"><b>กิจกรรมนี้ปิดแบบ Immutable แล้ว</b><br>ระบบล็อกการประเมินหลักฐานซ้ำ การแก้ Check-in/Check-out, Staff Verification และ Human Review เพื่อคง Audit Trail ของผลที่ปิดแล้ว</div>':'')+
+          (isImmutableClosed(r)?'<div class="alert info"><b>กิจกรรมนี้ปิดแบบ Immutable แล้ว</b><br>ระบบล็อกการประเมินหลักฐานซ้ำ การแก้ Check-in/Check-out, Reviewer Verification และ Human Review เพื่อคง Audit Trail ของผลที่ปิดแล้ว</div>':'')+
           '</article>';
       }).join("");
 
@@ -2756,6 +2772,15 @@
       state.page=Math.min(Math.max(1,state.page),pages);
       const pageRows=filtered.slice((state.page-1)*state.pageSize,state.page*state.pageSize);
       const pendingCount=scopedRows.filter(r=>pendingStatus(reviewWorkflowStatus(r))).length;
+      const emptyReviewMessage=(()=>{
+        if(term) return "ไม่พบ case ที่ตรงกับคำค้นหาในขอบเขตที่เลือก";
+        if(state.filter==="PENDING") return "ยังไม่มีรายการที่ต้อง Human Review ในกิจกรรมนี้";
+        if(state.filter==="WAIT_PARTICIPANT") return "ยังไม่มีรายการที่รอข้อมูลจากผู้เข้าร่วม";
+        if(state.filter==="NOT_READY") return "ยังไม่มีรายการที่รอประเมินหลักฐาน";
+        if(state.filter==="HISTORY") return "ยังไม่มีประวัติการตัดสินในขอบเขตที่เลือก";
+        if(!scopedRows.length) return "ยังไม่มี Attendance ในขอบเขตกิจกรรมที่เลือก";
+        return "ไม่มี case ตามตัวกรองที่เลือก";
+      })();
 
       host.innerHTML=
         '<div class="result-meta"><b>สรุปตามกิจกรรมที่เลือก:</b> '+(state.activityId==="ALL"?"ทุกกิจกรรม":esc(activities.find(a=>a.id===state.activityId)?.title||"กิจกรรมที่เลือก"))+'</div>'+
@@ -2777,10 +2802,10 @@
           const prediction=riskByAttendance.get(r.id)||null;
           return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
-            '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Staff</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
+            '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Reviewer</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
             '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">'+(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(status)?"ดูประวัติการตัดสิน":"เปิดตรวจสอบ")+'</button></div></div></details>';
-        }).join(""):'<div class="empty">ไม่มี case ตามตัวกรอง</div>')+'</div>'+
+        }).join(""):'<div class="empty">'+esc(emptyReviewMessage)+'</div>')+'</div>'+
         '<div class="pagination"><button class="btn secondary mini" id="rvPrev" '+(state.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+state.page+' / '+pages+'</span><button class="btn secondary mini" id="rvNext" '+(state.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
 
       document.getElementById("reviewActivity").onchange=e=>{state.activityId=e.target.value;state.page=1;renderQueue();};
@@ -2877,7 +2902,7 @@
       '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
-      '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>เจ้าหน้าที่ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
+      '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>Reviewer ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
       '<div><b>ข้อที่ต้องตรวจ</b> — '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div></div>'+
       (r.participantResponse?.submittedAt
         ? '<div class="alert ok"><b>ข้อมูลเพิ่มเติมจากผู้เข้าร่วม</b><br>'+esc(r.participantResponse.response||"")+
@@ -3384,7 +3409,7 @@
       CHECKIN:"เช็กอิน",
       CHECKOUT:"เช็กเอาต์",
       QR_ISSUED:"สร้าง Dynamic QR",
-      STAFF_VERIFIED:"เจ้าหน้าที่ยืนยัน",
+      STAFF_VERIFIED:"Reviewer ยืนยัน",
       EVIDENCE_EVALUATED:"ประเมินหลักฐาน",
       HUMAN_REVIEW:"บันทึกผลการตรวจสอบโดยมนุษย์",
       MANUAL_OVERRIDE_VERIFIED:"รับรองเป็นกรณีพิเศษ",
@@ -3424,7 +3449,7 @@
       MISSING_SIGNATURE:"ยังไม่มีหลักฐานลายเซ็น",
       DUPLICATE_SCAN:"พบการสแกนซ้ำ",
       TEMPORAL_CONFLICT:"ข้อมูลเวลาขัดแย้ง",
-      STAFF_WITHOUT_CHECKIN:"มี Staff Verification แต่ไม่มี Check-in"
+      STAFF_WITHOUT_CHECKIN:"มี Reviewer Verification แต่ไม่มี Check-in"
     };
     return map[code] || code;
   }
