@@ -509,7 +509,9 @@ app.get("/api/health", async (_req, res) => {
       autonomousDecision: false,
     });
   } catch (error) {
-    console.error("Database health check failed:", error);\n    res.status(503).json({ ok: false, version: "1.0.15",\n      releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
+    console.error("Database health check failed:", error);
+    res.status(503).json({ ok: false, version: "1.0.15",
+      releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
   }
 });
 
@@ -3689,7 +3691,8 @@ app.use((_req, res) => {
 
 app.use((error, _req, res, _next) => {
   console.error(error);
-  const status=Number(error?.status)||500;\n  const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";\n  res.status(status).json({ ok:false, error:code });
+  const status=Number(error?.status)||500;
+  const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";\n  res.status(status).json({ ok:false, error:code });
 });
 
 app.listen(port, () => {
