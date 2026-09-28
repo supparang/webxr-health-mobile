@@ -412,9 +412,11 @@
       host.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
       try {
         const health=await checkServerHealth();
-        host.innerHTML='<div class="alert ok"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
+        const authReady=health.authentication?.productionReady===true;
+        host.innerHTML='<div class="alert '+(authReady?'ok':'warn')+'"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
           'API: '+esc(base)+'<br>'+
-          'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected</div>';
+          'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected<br>'+
+          'Authentication: '+(authReady?'Production-ready':'ยังไม่พร้อมสำหรับข้อมูลจริง ('+esc(health.authentication?.mode||"DISABLED")+')')+'</div>';
         return health;
       } catch(error) {
         host.innerHTML=errorBox(error);
@@ -431,8 +433,15 @@
         if(!readApiInput()) {
           return msg.innerHTML='<div class="alert bad">ยังไม่ได้ตั้ง Backend API URL สำหรับ Pilot/API Mode</div>';
         }
-        msg.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
-        try { await checkServerHealth(); }
+        msg.innerHTML='<div class="alert">กำลังตรวจ Backend API, PostgreSQL และ Authentication…</div>';
+        try {
+          const health=await checkServerHealth();
+          if(health.authentication?.productionReady!==true) {
+            return msg.innerHTML='<div class="alert bad"><b>ยังไม่เปิด Pilot/API Login</b><br>'+
+              'Backend และ PostgreSQL เชื่อมต่อได้ แต่ Production Authentication ยังไม่พร้อม ('+
+              esc(health.authentication?.mode||"DISABLED")+')</div>';
+          }
+        }
         catch(error) { return msg.innerHTML=errorBox(error); }
       }
 
