@@ -14,7 +14,21 @@ const port = Number(process.env.PORT || 3000);
 const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
-app.use(cors());
+const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    const error = new Error("CORS_ORIGIN_NOT_ALLOWED");
+    error.status = 403;
+    return callback(error);
+  },
+}));
 app.use(express.json({ limit: "1mb" }));
 
 function actorId(req) {
@@ -198,7 +212,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.14";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.15";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -487,14 +501,16 @@ app.get("/api/health", async (_req, res) => {
     });
     res.json({
       ok: true,
-      version: "1.0.0",
+      version: "1.0.15",
+      releaseVersion: RELEASE_VERSION,
       database: "connected",
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
     });
   } catch (error) {
-    res.status(503).json({ ok: false, version: "1.0.0", database: "unavailable", error: error.message });
+    res.status(503).json({ ok: false, version: "1.0.15",
+      releaseVersion: RELEASE_VERSION, database: "unavailable", error: error.message });
   }
 });
 
