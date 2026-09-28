@@ -500,3 +500,9 @@ Conflict rules:
 - A Reviewer cannot use their broader review access to create or complete another person's normal attendance.
 - Operational exceptions remain separate from normal attendance evidence.
 - No-self-review from V1.0.4 remains enforced.
+
+
+## V1.0.7 — Active Evidence Guard
+- Active attendance (checked in but not checked out) is displayed as **กำลังเข้าร่วม** in Evidence Matrix.
+- Stale/incomplete evidence from an earlier test run is hidden while the attendance is still active.
+- Per-record and bulk evidence evaluation buttons stay disabled until checkout is complete, or the checkout window has closed.
