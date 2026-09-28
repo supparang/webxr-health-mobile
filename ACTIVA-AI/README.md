@@ -445,3 +445,25 @@ V0.3:
 - Reviewer ต้องแยกจาก Primary Organizer และ Co-organizer ของกิจกรรมเดียวกัน เพื่อลด conflict of interest
 - Human Review UI ของ STAFF แสดงเฉพาะกิจกรรมที่ได้รับมอบหมาย
 - ทุกการมอบหมายและการตัดสินยังคงบันทึก Audit Trail
+
+
+## V1.0.3 — Organizational Position / Base Role / Permission / Assignment Contract
+
+ACTIVA-AI แยกอำนาจออกเป็น 4 ชั้น:
+1. **Position** — ตำแหน่งในองค์กร เช่น คณบดี รองคณบดี ผู้ช่วยคณบดี หัวหน้าสำนักงาน หัวหน้างาน อาจารย์ เจ้าหน้าที่; ใช้เป็นข้อมูลบุคลากร ไม่ให้อำนาจระบบโดยอัตโนมัติ
+2. **Base Role** — ADMIN / ORGANIZER / STAFF / PARTICIPANT
+3. **Activity Permission** — เช่น CAN_CREATE_ACTIVITY, CAN_ASSIGN_CO_ORGANIZER, CAN_ASSIGN_VERIFIER, CAN_MANAGE_ALL_ACTIVITIES
+4. **Per-Activity Assignment** — CO_ORGANIZER / VERIFIER เฉพาะกิจกรรม
+
+Recommended mapping:
+- ผู้ดูแลระบบ IT → ADMIN
+- ผู้บริหารหรือผู้รับผิดชอบที่จัดกิจกรรมเป็นประจำ → ORGANIZER + permissions ตามขอบเขต
+- ผู้ที่มีคุณสมบัติเป็น reviewer → STAFF; ยังต้องถูก assign เป็น VERIFIER รายกิจกรรม
+- อาจารย์/เจ้าหน้าที่ทั่วไป → PARTICIPANT; สามารถเป็น CO_ORGANIZER รายกิจกรรมได้
+- ตำแหน่งบริหาร เช่น คณบดี ไม่ได้รับ ADMIN โดยอัตโนมัติ; หากต้องกำกับทุกกิจกรรมให้ใช้ CAN_MANAGE_ALL_ACTIVITIES ตาม governance
+
+Separation of duties:
+- ORG/ADMIN แต่งตั้ง VERIFIER
+- Co-organizer ไม่เป็น Reviewer ของกิจกรรมเดียวกัน
+- Reviewer ต้องเป็น STAFF ที่ได้รับ VERIFIER assignment
+- ADMIN เป็น governance override ไม่ใช่ reviewer ประจำกิจกรรม
