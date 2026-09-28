@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.11";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.13";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1727,6 +1727,9 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     include: {
       activity: { include: { policy: true } },
       staffVerification: true,
+      consistencyResult: true,
+      humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+      participantResponses: { orderBy: { submittedAt: "desc" }, take: 1 },
     },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
@@ -1743,6 +1746,42 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     });
   }
   if (!attendance.activity.policy) return res.status(409).json({ ok: false, error: "POLICY_NOT_CONFIGURED" });
+
+  const latestReview = attendance.humanReviews?.[0] || null;
+  const latestParticipantResponse = attendance.participantResponses?.[0] || null;
+  const requestedAt =
+    latestReview?.decision === "REQUEST_EVIDENCE" && latestReview.reviewedAt
+      ? new Date(latestReview.reviewedAt).getTime()
+      : 0;
+  const responseMatchesRequest = Boolean(
+    latestParticipantResponse &&
+    (!latestParticipantResponse.requestReviewId || latestParticipantResponse.requestReviewId === latestReview?.id)
+  );
+  const respondedAt =
+    responseMatchesRequest && latestParticipantResponse?.submittedAt
+      ? new Date(latestParticipantResponse.submittedAt).getTime()
+      : 0;
+  const previousConsistency = attendance.consistencyResult || null;
+  const previousBlockers = previousConsistency
+    ? [
+        ...(Array.isArray(previousConsistency.missingCodes) ? previousConsistency.missingCodes : []),
+        ...(Array.isArray(previousConsistency.reasonCodes) ? previousConsistency.reasonCodes : []),
+      ]
+    : [];
+  const previousEvaluatedAt = previousConsistency?.evaluatedAt
+    ? new Date(previousConsistency.evaluatedAt).getTime()
+    : 0;
+  const requestAlreadyResolved = Boolean(
+    requestedAt &&
+    (
+      respondedAt > requestedAt ||
+      (
+        previousConsistency?.status === "COMPLETE" &&
+        previousBlockers.length === 0 &&
+        previousEvaluatedAt > requestedAt
+      )
+    )
+  );
 
   const result = evaluateEvidence(
     attendance,
@@ -1789,9 +1828,32 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     ruleVersion,
   });
 
+  const storedBlockers = [
+    ...(Array.isArray(stored.missingCodes) ? stored.missingCodes : []),
+    ...(Array.isArray(stored.reasonCodes) ? stored.reasonCodes : []),
+  ];
+  const requestResolvedByEvidence = Boolean(
+    requestedAt &&
+    !requestAlreadyResolved &&
+    stored.status === "COMPLETE" &&
+    storedBlockers.length === 0 &&
+    new Date(stored.evaluatedAt).getTime() > requestedAt
+  );
+
+  if (requestResolvedByEvidence) {
+    await audit(req, "INFO_REQUEST_RESOLVED_BY_EVIDENCE_UPDATE", "AttendanceRecord", attendance.id, {
+      requestReviewId: latestReview?.id || null,
+      requestedAt: latestReview?.reviewedAt || null,
+      evaluatedAt: stored.evaluatedAt,
+      status: stored.status,
+    });
+  }
+
   res.json({
     ok: true,
     result: stored,
+    workflowStatus: requestResolvedByEvidence ? "READY_DECISION" : undefined,
+    infoRequestResolvedByEvidenceUpdate: requestResolvedByEvidence,
     finalDecisionInvalidated:
       attendance.finalEvidenceStatus === "VERIFIED" && stored.status !== "COMPLETE",
     note: "Rule-based result; not AI risk probability.",
@@ -1801,7 +1863,11 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
 app.post("/api/participant-response/:attendanceId", requireRoles("PARTICIPANT"), async (req, res) => {
   const attendance = await prisma.attendanceRecord.findUnique({
     where: { id: req.params.attendanceId },
-    include: { humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 } },
+    include: {
+      humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+      consistencyResult: true,
+      participantResponses: { orderBy: { submittedAt: "desc" }, take: 1 },
+    },
   });
   if (!attendance) return res.status(404).json({ ok:false, error:"ATTENDANCE_NOT_FOUND" });
   if (attendance.userId !== req.activaUser.id) {
@@ -1812,6 +1878,39 @@ app.post("/api/participant-response/:attendanceId", requireRoles("PARTICIPANT"),
   if (latest?.decision !== "REQUEST_EVIDENCE") {
     return res.status(409).json({ ok:false, error:"PARTICIPANT_RESPONSE_NOT_REQUESTED" });
   }
+
+  const requestedAt = latest.reviewedAt ? new Date(latest.reviewedAt).getTime() : 0;
+  const latestResponse = attendance.participantResponses?.[0] || null;
+  const responseMatchesRequest = Boolean(
+    latestResponse && (!latestResponse.requestReviewId || latestResponse.requestReviewId === latest.id)
+  );
+  const respondedAt =
+    responseMatchesRequest && latestResponse?.submittedAt
+      ? new Date(latestResponse.submittedAt).getTime()
+      : 0;
+  const c = attendance.consistencyResult || null;
+  const blockers = c
+    ? [
+        ...(Array.isArray(c.missingCodes) ? c.missingCodes : []),
+        ...(Array.isArray(c.reasonCodes) ? c.reasonCodes : []),
+      ]
+    : [];
+  const evaluatedAt = c?.evaluatedAt ? new Date(c.evaluatedAt).getTime() : 0;
+  const requestResolved = Boolean(
+    requestedAt &&
+    (
+      respondedAt > requestedAt ||
+      (c?.status === "COMPLETE" && blockers.length === 0 && evaluatedAt > requestedAt)
+    )
+  );
+  if (requestResolved) {
+    return res.status(409).json({
+      ok:false,
+      error:"PARTICIPANT_RESPONSE_REQUEST_ALREADY_RESOLVED",
+      workflowStatus:"READY_DECISION",
+    });
+  }
+
   const response = String(req.body?.response || "").trim();
   if (response.length < 3) {
     return res.status(400).json({ ok:false, error:"PARTICIPANT_RESPONSE_REQUIRED" });
