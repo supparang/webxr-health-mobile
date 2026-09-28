@@ -41,6 +41,7 @@ jobs:
       RULE_VERSION: ACTIVA-RULES-CI
       ALLOW_SYNTHETIC_CI: "true"
       PORT: "3000"
+      ALLOWED_ORIGINS: "https://pilot.example.test"
 
     steps:
       - name: Checkout
