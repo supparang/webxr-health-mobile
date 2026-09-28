@@ -81,6 +81,13 @@ jobs:
           node --check prisma/seed.js
           node --check tests/smoke.mjs
           node --check tests/demo-release-guard.mjs
+          node --check tests/auth-readiness.mjs
+
+      - name: Authentication readiness guard
+        run: node tests/auth-readiness.mjs
+
+      - name: Build production container
+        run: docker build -t activa-ai-v1.0.15-ci .
 
       - name: Start ACTIVA-AI server
         run: |
