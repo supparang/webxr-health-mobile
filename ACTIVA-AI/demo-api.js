@@ -621,7 +621,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.5";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.6";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +771,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.5-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.6-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1373,6 +1373,9 @@
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
+      const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      const checkoutState=checkoutWindowState(a);
+      if(!r.checkoutAt && checkoutState.code!=="QR_CHECKOUT_CLOSED") err("ATTENDANCE_STILL_ACTIVE",409);
       const result=evalEvidence(r);
       if(r.finalEvidenceStatus==="VERIFIED" && result.status!=="COMPLETE"){
         const previousFinal=r.finalEvidenceStatus;
