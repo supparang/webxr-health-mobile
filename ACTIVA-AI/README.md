@@ -467,3 +467,27 @@ Separation of duties:
 - Co-organizer ไม่เป็น Reviewer ของกิจกรรมเดียวกัน
 - Reviewer ต้องเป็น STAFF ที่ได้รับ VERIFIER assignment
 - ADMIN เป็น governance override ไม่ใช่ reviewer ประจำกิจกรรม
+
+
+## V1.0.4 — Final Activity Role Model
+
+Per activity, ACTIVA-AI uses two independent dimensions.
+
+Work assignment:
+- OWNER — primary organizer.
+- CO_ORGANIZER — operational assistant for that activity.
+- VERIFIER — independent evidence/Human Review reviewer.
+
+Participation:
+- PARTICIPANT is participation status, not a mutually-exclusive work role.
+- OWNER + PARTICIPANT is allowed.
+- CO_ORGANIZER + PARTICIPANT is allowed.
+- VERIFIER + PARTICIPANT is allowed.
+
+Conflict rules:
+- OWNER + VERIFIER for the same activity is forbidden.
+- CO_ORGANIZER + VERIFIER for the same activity is forbidden.
+- A reviewer must never staff-verify, void, or Human Review their own Attendance (SELF_REVIEW_FORBIDDEN).
+- A reviewer who participates must have their own attendance reviewed by another assigned reviewer.
+- Staff-assisted checkout is an operational Owner/Co-organizer action; the resulting exception is independently reviewed by a VERIFIER.
+- Participant roster intentionally does not exclude Owner/Co/Verifier.
