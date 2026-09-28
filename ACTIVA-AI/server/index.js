@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.0";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.4";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1561,12 +1561,19 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
   res.json({ ok: true, attendance: row });
 });
 
-app.post("/api/attendance/:attendanceId/checkout-assist", requireRoles("ADMIN", "STAFF"), async (req, res) => {
+app.post("/api/attendance/:attendanceId/checkout-assist", async (req, res) => {
   const current = await prisma.attendanceRecord.findUnique({
     where:{id:req.params.attendanceId},
     include:{activity:true},
   });
   if (!current) return res.status(404).json({ok:false,error:"ATTENDANCE_NOT_FOUND"});
+  if (!(req.activaUser?.role==="ADMIN" || await canManageActivity(req,current.activity))) {
+    return res.status(403).json({
+      ok:false,
+      error:"OPERATIONAL_ACTIVITY_ASSIGNMENT_REQUIRED",
+      note:"Staff-assisted checkout is an operational Owner/Co-organizer action; Reviewer assignment alone is not sufficient."
+    });
+  }
   if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ok:false,error:"ATTENDANCE_VOIDED"});
   if (!current.checkinAt) return res.status(409).json({ok:false,error:"CHECKIN_REQUIRED"});
@@ -1610,7 +1617,7 @@ app.post("/api/attendance/:attendanceId/checkout-assist", requireRoles("ADMIN", 
   res.json({ok:true,attendance:row,exception:true,windowState:windowState.code});
 });
 
-app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (req, res) => {
+app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const verifierId = actorId(req);
   if (!verifierId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
@@ -1619,6 +1626,13 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
     include: { staffVerification: true },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (attendance.userId === verifierId) {
+    return res.status(409).json({
+      ok:false,
+      error:"SELF_REVIEW_FORBIDDEN",
+      note:"A reviewer may participate in the activity, but another assigned reviewer must verify the reviewer's own attendance."
+    });
+  }
   if (!(await canReviewActivity(req, attendance.activityId))) {
     return res.status(403).json({
       ok:false,
@@ -1660,6 +1674,12 @@ app.post("/api/attendance/:attendanceId/void", requireRoles("ADMIN", "STAFF"), a
     include: { groundTruthCase: true },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await canReviewActivity(req, attendance.activityId))) {
+    return res.status(403).json({ok:false,error:"REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",activityId:attendance.activityId});
+  }
+  if (attendance.userId === req.activaUser.id) {
+    return res.status(409).json({ok:false,error:"SELF_REVIEW_FORBIDDEN"});
+  }
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.json({ ok: true, attendance, idempotent: true });
   if (attendance.groundTruthCase?.status === "LOCKED") {
@@ -1804,6 +1824,21 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
     include: { consistencyResult: true },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await canReviewActivity(req, attendance.activityId))) {
+    return res.status(403).json({
+      ok:false,
+      error:"REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",
+      activityId:attendance.activityId,
+      note:"STAFF must be assigned as VERIFIER for this activity. ADMIN may review as governance override."
+    });
+  }
+  if (attendance.userId === reviewerId) {
+    return res.status(409).json({
+      ok:false,
+      error:"SELF_REVIEW_FORBIDDEN",
+      note:"A reviewer may also be a participant, but cannot decide their own attendance record."
+    });
+  }
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (!attendance.consistencyResult) {
