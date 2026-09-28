@@ -621,7 +621,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.7";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.8";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +771,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.7-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.8-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
