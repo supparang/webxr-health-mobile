@@ -439,3 +439,30 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .release-closure-table td:nth-child(6) code{max-width:100%;word-break:break-all}
   .release-closure-table td:nth-child(6) .btn{width:100%;white-space:normal}
 }
+
+
+/* Release Gate mobile overflow hardening */
+.release-blockers{
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+}
+.release-blocker-list{
+  display:grid;
+  gap:6px;
+  margin-top:6px;
+  min-width:0;
+}
+.release-blocker-code{
+  display:block;
+  max-width:100%;
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.45;
+}
+@media(max-width:680px){
+  .release-blockers{padding:12px}
+  .release-blocker-code{font-size:15px}
+}
