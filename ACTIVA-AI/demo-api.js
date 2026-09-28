@@ -621,7 +621,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.0";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.4";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +771,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.3-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.4-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1310,13 +1310,13 @@
 
     m = p.match(/^\/api\/attendance\/([^/]+)\/checkout-assist$/);
     if (m && method==="POST") {
-      if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      if(!(who.role==="ADMIN"||canManageActivity(who,a))) err("OPERATIONAL_ACTIVITY_ASSIGNMENT_REQUIRED",403);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
       const reason=String(b.reason||"").trim();
       if(reason.length<10) err("CHECKOUT_EXCEPTION_REASON_REQUIRED",400);
-      const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
       const windowState=checkoutWindowState(a);
       const previousFinal=r.finalEvidenceStatus||null;
       r.checkoutAt=iso();
@@ -1334,6 +1334,11 @@
     m = p.match(/^\/api\/attendance\/([^/]+)\/staff-verify$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      const reviewActivity=activity(r.activityId);
+      if(!(who.role==="ADMIN" || (who.role==="STAFF" && isActivityAssignment(who,reviewActivity,"VERIFIER")))){
+        err("REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",403);
+      }
+      if(r.userId===who.id) err("SELF_REVIEW_FORBIDDEN",409);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(r.staffVerification) return {ok:true,verification:r.staffVerification,idempotent:true};
       const previousFinal=r.finalEvidenceStatus||null;
@@ -1349,6 +1354,11 @@
     if (m && method==="POST") {
       if(!["ADMIN","STAFF"].includes(who.role)) err("FORBIDDEN",403);
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
+      const reviewActivity=activity(r.activityId);
+      if(!(who.role==="ADMIN" || (who.role==="STAFF" && isActivityAssignment(who,reviewActivity,"VERIFIER")))){
+        err("REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",403);
+      }
+      if(r.userId===who.id) err("SELF_REVIEW_FORBIDDEN",409);
       if(r.isVoided) return {ok:true,attendance:hydrateAttendance(r),idempotent:true};
       const locked=state.groundTruthCases.find(x=>x.attendanceId===r.id&&x.status==="LOCKED");
       if(locked) err("LOCKED_GROUND_TRUTH_CANNOT_BE_VOIDED",409);
@@ -1398,6 +1408,7 @@
       if(!(who.role==="ADMIN" || (who.role==="STAFF" && isActivityAssignment(who,reviewActivity,"VERIFIER")))){
         err("REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",403);
       }
+      if(r.userId===who.id) err("SELF_REVIEW_FORBIDDEN",409);
       ensureDemoActivityMutable(reviewActivity);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(!r.consistencyResult) err("EVIDENCE_EVALUATION_REQUIRED",409);
