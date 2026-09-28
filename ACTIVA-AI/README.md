@@ -435,3 +435,13 @@ V0.3:
 - ADMIN ถูกนำไปจัดการบุคลากร/สิทธิ์ และยังแยก Release Gate ออกจากผล participation รายบุคคล
 - ย้ำ separation of duties: AI เป็น decision support, Evidence Engine เป็น rule-based, Human Review เป็น final authority สำหรับ exception
 - เอกสาร canonical: `docs/v1.0.1-role-responsibility.md`
+
+
+## V1.0.2 — Per-Activity Reviewer Governance
+- `STAFF` หมายถึง **reviewer-capable pool**; การมี role STAFF เพียงอย่างเดียวยังไม่ให้สิทธิ์ตัดสินทุกกิจกรรม
+- Primary Organizer หรือ ADMIN ที่มี `CAN_ASSIGN_VERIFIER` มอบหมาย reviewer ต่อกิจกรรมด้วย `ActivityRoleAssignment(role=VERIFIER)`
+- ผู้ตรวจ Human Review ต้องเป็น STAFF ที่ถูก assign เป็น VERIFIER ของกิจกรรมนั้น; ADMIN เป็น governance override
+- Co-organizer ไม่ได้สิทธิ์แต่งตั้ง reviewer โดยอัตโนมัติ
+- Reviewer ต้องแยกจาก Primary Organizer และ Co-organizer ของกิจกรรมเดียวกัน เพื่อลด conflict of interest
+- Human Review UI ของ STAFF แสดงเฉพาะกิจกรรมที่ได้รับมอบหมาย
+- ทุกการมอบหมายและการตัดสินยังคงบันทึก Audit Trail
