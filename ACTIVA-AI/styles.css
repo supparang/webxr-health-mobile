@@ -458,8 +458,8 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   max-width:100%;
   min-width:0;
   white-space:normal;
-  overflow-wrap:anywhere;
-  word-break:break-word;
+  overflow-wrap:break-word;
+  word-break:normal;
   line-height:1.45;
 }
 @media(max-width:680px){
