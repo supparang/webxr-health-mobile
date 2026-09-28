@@ -2236,16 +2236,30 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
     where: { attendanceId },
     orderBy: { createdAt: "asc" },
   });
-  if (labels.length < 2 && b.force !== true) {
+  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  if (reviewerCount < 2) {
     return res.status(409).json({
       ok: false,
       error: "TWO_INDEPENDENT_LABELS_REQUIRED",
       labelCount: labels.length,
+      reviewerCount,
     });
   }
 
-  const distinctTargets = [...new Set(labels.map((x) => x.target))];
-  if (distinctTargets.length > 1 && !String(b.notes || "").trim()) {
+  const labelSignature = (x) => JSON.stringify([
+    x.target || "",
+    [...new Set(Array.isArray(x.reasonCodes) ? x.reasonCodes.map(String) : [])].sort(),
+  ]);
+  const signatures = [...new Set(labels.map(labelSignature))];
+  if (signatures.length < 2) {
+    return res.status(409).json({
+      ok: false,
+      error: "ADJUDICATION_REQUIRES_DISAGREEMENT",
+      labelCount: labels.length,
+      reviewerCount,
+    });
+  }
+  if (!String(b.notes || "").trim()) {
     return res.status(400).json({
       ok: false,
       error: "DISAGREEMENT_REQUIRES_ADJUDICATION_NOTES",
@@ -2254,7 +2268,7 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
 
   const reasonCodes = Array.isArray(b.reasonCodes)
     ? [...new Set(b.reasonCodes.map(String))]
-    : [...new Set(labels.flatMap((x) => Array.isArray(x.reasonCodes) ? x.reasonCodes.map(String) : []))];
+    : [];
 
   const groundTruthCase = await prisma.groundTruthCase.upsert({
     where: { attendanceId },
@@ -2281,29 +2295,95 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
   await audit(req, "GROUND_TRUTH_ADJUDICATED", "AttendanceRecord", attendanceId, {
     finalTarget: b.finalTarget,
     labelCount: labels.length,
-    distinctTargets,
+    reviewerCount,
+    disagreement: true,
   });
 
-  res.json({ ok: true, groundTruthCase, labelCount: labels.length, distinctTargets });
+  res.json({ ok: true, groundTruthCase, labelCount: labels.length, reviewerCount });
 });
 
 app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (req, res) => {
   const attendanceId = req.params.attendanceId;
-  const current = await prisma.groundTruthCase.findUnique({ where: { attendanceId } });
-  if (!current || current.status !== "ADJUDICATED" || !current.finalTarget) {
-    return res.status(409).json({ ok: false, error: "ADJUDICATION_REQUIRED_BEFORE_LOCK" });
+  const labels = await prisma.groundTruthLabel.findMany({
+    where: { attendanceId },
+    orderBy: { createdAt: "asc" },
+  });
+  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  if (reviewerCount < 2) {
+    return res.status(409).json({
+      ok: false,
+      error: "TWO_INDEPENDENT_LABELS_REQUIRED",
+      labelCount: labels.length,
+      reviewerCount,
+    });
   }
 
-  const groundTruthCase = await prisma.groundTruthCase.update({
-    where: { attendanceId },
-    data: { status: "LOCKED", lockedAt: new Date() },
-  });
+  const labelSignature = (x) => JSON.stringify([
+    x.target || "",
+    [...new Set(Array.isArray(x.reasonCodes) ? x.reasonCodes.map(String) : [])].sort(),
+  ]);
+  const signatures = [...new Set(labels.map(labelSignature))];
+  const hasDisagreement = signatures.length > 1;
+  const current = await prisma.groundTruthCase.findUnique({ where: { attendanceId } });
+
+  let groundTruthCase;
+  if (hasDisagreement) {
+    if (!current || current.status !== "ADJUDICATED" || !current.finalTarget) {
+      return res.status(409).json({ ok: false, error: "ADJUDICATION_REQUIRED_BEFORE_LOCK" });
+    }
+    groundTruthCase = await prisma.groundTruthCase.update({
+      where: { attendanceId },
+      data: { status: "LOCKED", lockedAt: new Date() },
+    });
+  } else {
+    const consensus = labels[0];
+    const consensusReasonCodes = [...new Set(
+      Array.isArray(consensus.reasonCodes) ? consensus.reasonCodes.map(String) : []
+    )].sort();
+
+    if (current?.status === "ADJUDICATED" && current.finalTarget) {
+      groundTruthCase = await prisma.groundTruthCase.update({
+        where: { attendanceId },
+        data: { status: "LOCKED", lockedAt: new Date() },
+      });
+    } else {
+      groundTruthCase = await prisma.groundTruthCase.upsert({
+        where: { attendanceId },
+        create: {
+          attendanceId,
+          finalTarget: consensus.target,
+          reasonCodes: consensusReasonCodes,
+          status: "LOCKED",
+          adjudicatorId: null,
+          notes: "CONSENSUS_DIRECT_LOCK: Independent labels agreed; no adjudication required.",
+          adjudicatedAt: null,
+          lockedAt: new Date(),
+        },
+        update: {
+          finalTarget: consensus.target,
+          reasonCodes: consensusReasonCodes,
+          status: "LOCKED",
+          adjudicatorId: null,
+          notes: "CONSENSUS_DIRECT_LOCK: Independent labels agreed; no adjudication required.",
+          adjudicatedAt: null,
+          lockedAt: new Date(),
+        },
+      });
+    }
+  }
 
   await audit(req, "GROUND_TRUTH_LOCKED", "AttendanceRecord", attendanceId, {
     finalTarget: groundTruthCase.finalTarget,
+    labelCount: labels.length,
+    reviewerCount,
+    resolutionMode: hasDisagreement ? "ADJUDICATED" : "CONSENSUS",
   });
 
-  res.json({ ok: true, groundTruthCase });
+  res.json({
+    ok: true,
+    groundTruthCase,
+    resolutionMode: hasDisagreement ? "ADJUDICATED" : "CONSENSUS",
+  });
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
