@@ -280,6 +280,11 @@ const reviewerParticipantCheckin=await req("/api/attendance/checkin",{
 const reviewerOwnAttendanceId=reviewerParticipantCheckin.attendance?.id;
 assert(reviewerOwnAttendanceId,"assigned reviewer should be allowed to participate and check in as self");
 
+const activeEvidence=await reqError("/api/evidence/"+encodeURIComponent(reviewerOwnAttendanceId)+"/evaluate",{
+  actor:"ORG001",method:"POST"
+});
+assert(activeEvidence.status===409 && activeEvidence.data?.error==="ATTENDANCE_STILL_ACTIVE","active attendance must stay out of exception review before checkout");
+
 const selfStaffVerify=await reqError("/api/attendance/"+encodeURIComponent(reviewerOwnAttendanceId)+"/staff-verify",{
   actor:"STF001",method:"POST"
 });
