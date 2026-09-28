@@ -18,7 +18,7 @@ for person in range(80):
         checkout = int(rng.random() > 0.14)
         staff = int(rng.random() > 0.12)
         signature = int(rng.random() > 0.7)
-        ratio = float(np.clip(rng.normal(0.88, 0.18), 0, 1.2)) if checkin and checkout else None
+        ratio = float(np.clip(rng.normal(0.88, 0.18), 0, 1.0)) if checkin and checkout else None
         attempts = int(rng.integers(1, 5))
         review = (
             not qr
