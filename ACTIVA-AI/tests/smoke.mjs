@@ -208,6 +208,17 @@ const assignments = await req("/api/activities/" + encodeURIComponent(activity.i
 assert(assignments.assignments.some(x => x.role === "CO_ORGANIZER" && x.user?.employeeId === "P002"), "co-organizer assignment missing");
 assert(assignments.assignments.some(x => x.role === "VERIFIER" && x.user?.employeeId === "STF001"), "verifier assignment missing");
 
+const roleConflict = await reqError("/api/activities/" + encodeURIComponent(activity.id) + "/assignments", {
+  actor:"ORG001",
+  method:"PUT",
+  body:{
+    coOrganizerIds:["P002","STF001"],
+    verifierIds:["STF001"],
+    changeReason:"CI must reject co-organizer and reviewer conflict"
+  }
+});
+assert(roleConflict.status===409 && roleConflict.data?.error==="REVIEWER_CANNOT_BE_CO_ORGANIZER","co/reviewer conflict must be blocked");
+
 const coDirectory = await req("/api/users", { actor: "P002" });
 assert(coDirectory.users.some(u => u.employeeId === "P001"), "co-organizer should access personnel directory");
 
@@ -216,7 +227,7 @@ const roster = await req("/api/activities/" + encodeURIComponent(activity.id) + 
   method: "PUT",
   body: {
     mode: "ROSTER",
-    userIds: ["P001"],
+    userIds: ["P001","P002","STF001"],
     departmentCodes: [],
   },
 });
@@ -251,6 +262,28 @@ const checkin = await req("/api/attendance/checkin", {
 });
 const attendanceId = checkin.attendance?.id;
 assert(attendanceId, "check-in failed");
+
+// A Co-organizer and a Reviewer may also be participants.
+const coParticipantCheckin=await req("/api/attendance/checkin",{
+  actor:"P002",method:"POST",body:{userId:"P002",token:qr.token}
+});
+assert(coParticipantCheckin.attendance?.id,"co-organizer should be allowed to participate");
+
+const reviewerParticipantCheckin=await req("/api/attendance/checkin",{
+  actor:"STF001",method:"POST",body:{userId:"STF001",token:qr.token}
+});
+const reviewerOwnAttendanceId=reviewerParticipantCheckin.attendance?.id;
+assert(reviewerOwnAttendanceId,"assigned reviewer should be allowed to participate");
+
+const selfStaffVerify=await reqError("/api/attendance/"+encodeURIComponent(reviewerOwnAttendanceId)+"/staff-verify",{
+  actor:"STF001",method:"POST"
+});
+assert(selfStaffVerify.status===409 && selfStaffVerify.data?.error==="SELF_REVIEW_FORBIDDEN","reviewer must not staff-verify own attendance");
+
+const selfHumanReview=await reqError("/api/reviews/"+encodeURIComponent(reviewerOwnAttendanceId),{
+  actor:"STF001",method:"POST",body:{decision:"REQUEST_EVIDENCE",reason:"CI self-review must be rejected"}
+});
+assert(selfHumanReview.status===409 && selfHumanReview.data?.error==="SELF_REVIEW_FORBIDDEN","reviewer must not human-review own attendance");
 
 const checkoutWithoutQr=await reqError("/api/attendance/" + encodeURIComponent(attendanceId) + "/checkout", {
   actor:"P001",method:"POST"
@@ -313,8 +346,11 @@ const assistCheckinQr=await req("/api/activities/"+encodeURIComponent(assistActi
 const assistCheckin=await req("/api/attendance/checkin",{
   actor:"P002",method:"POST",body:{userId:"P002",token:assistCheckinQr.token}
 });
+await req("/api/activities/"+encodeURIComponent(assistActivity.activity.id)+"/assignments",{
+  actor:"ORG001",method:"PUT",body:{coOrganizerIds:["P002"],changeReason:"CI assign operational co-organizer"}
+});
 const assisted=await req("/api/attendance/"+encodeURIComponent(assistCheckin.attendance.id)+"/checkout-assist",{
-  actor:"STF001",method:"POST",body:{reason:"CI official duty early checkout exception"}
+  actor:"P002",method:"POST",body:{reason:"CI official duty early checkout exception"}
 });
 assert(assisted.attendance?.checkoutMethod==="STAFF_ASSISTED" && assisted.attendance?.checkoutQrValid===false,"staff-assisted checkout evidence missing");
 const assistedEvidence=await req("/api/evidence/"+encodeURIComponent(assistCheckin.attendance.id)+"/evaluate",{
