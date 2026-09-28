@@ -161,6 +161,7 @@
         id:"T"+n,
         employeeId:"T"+n,
         name:"บุคลากรทดลอง "+(i+1),
+        positionTitle:"บุคลากรทดลอง",
         role:"PARTICIPANT",
         status:"ACTIVE",
         activityPermissions:[]
@@ -171,13 +172,13 @@
   function seed() {
     return {
       users: [
-        {id:"ADM001",employeeId:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",role:"ADMIN",status:"ACTIVE"},
-        {id:"ORG001",employeeId:"ORG001",name:"บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
-        {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 1",role:"STAFF",status:"ACTIVE"},
-        {id:"STF002",employeeId:"STF002",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 2",role:"STAFF",status:"ACTIVE"},
-        {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",role:"PARTICIPANT",status:"ACTIVE"},
-        {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",role:"PARTICIPANT",status:"ACTIVE"},
-        {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",role:"PARTICIPANT",status:"ACTIVE"},
+        {id:"ADM001",employeeId:"ADM001",name:"ผู้ดูแลระบบตัวอย่าง",positionTitle:"ผู้ดูแลระบบ IT",role:"ADMIN",status:"ACTIVE"},
+        {id:"ORG001",employeeId:"ORG001",name:"บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",positionTitle:"ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
+        {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 1",positionTitle:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",role:"STAFF",status:"ACTIVE"},
+        {id:"STF002",employeeId:"STF002",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 2",positionTitle:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",role:"STAFF",status:"ACTIVE"},
+        {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
+        {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
+        {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
         ...demoParticipantRoster()
       ],
       activities: [{
@@ -680,7 +681,7 @@
   function attendance(id) { return state.attendance.find(r => r.id === id); }
   function userPublic(u) {
     return {
-      id:u.id,employeeId:u.employeeId,name:u.name,email:u.email||null,
+      id:u.id,employeeId:u.employeeId,name:u.name,email:u.email||null,positionTitle:u.positionTitle||null,
       role:u.role,status:u.status,department:u.department||null,
       activityPermissions:(u.activityPermissions||[]).map(p=>({...p}))
     };
@@ -750,7 +751,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.0-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.3-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -839,13 +840,14 @@
       if(state.users.some(u=>u.employeeId===employeeId)) err("EMPLOYEE_ID_ALREADY_EXISTS",409);
       const email=String(b.email||"").trim()||null;
       if(email && state.users.some(u=>String(u.email||"").toLowerCase()===email.toLowerCase())) err("EMAIL_ALREADY_EXISTS",409);
+      const positionTitle=String(b.positionTitle||"").trim()||null;
       const departmentName=String(b.department||"").trim();
       const user={
-        id:employeeId,employeeId,name,email,role,status:"ACTIVE",
+        id:employeeId,employeeId,name,email,positionTitle,role,status:"ACTIVE",
         department:departmentName?{code:"DEMO-"+uid("D").slice(-6).toUpperCase(),name:departmentName}:null
       };
       state.users.push(user);save();
-      audit(who.id,"USER_CREATED","User",user.id,{employeeId,role,department:departmentName||null});
+      audit(who.id,"USER_CREATED","User",user.id,{employeeId,positionTitle,role,department:departmentName||null});
       return {ok:true,user:userPublic(user)};
     }
 
@@ -859,9 +861,10 @@
       if(!["ADMIN","ORGANIZER","STAFF","PARTICIPANT"].includes(role)) err("INVALID_ROLE",400);
       const email=String(b.email||"").trim()||null;
       if(email && state.users.some(u=>u.id!==user.id&&String(u.email||"").toLowerCase()===email.toLowerCase())) err("EMAIL_ALREADY_EXISTS",409);
+      const positionTitle=Object.prototype.hasOwnProperty.call(b,"positionTitle")?(String(b.positionTitle||"").trim()||null):(user.positionTitle||null);
       const departmentName=String(b.department||"").trim();
-      Object.assign(user,{name,email,role,department:departmentName?{code:user.department?.code||"DEMO-"+uid("D").slice(-6).toUpperCase(),name:departmentName}:null});
-      save();audit(who.id,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,role,department:departmentName||null});
+      Object.assign(user,{name,email,positionTitle,role,department:departmentName?{code:user.department?.code||"DEMO-"+uid("D").slice(-6).toUpperCase(),name:departmentName}:null});
+      save();audit(who.id,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,positionTitle,role,department:departmentName||null});
       return {ok:true,user:userPublic(user)};
     }
 
@@ -930,7 +933,8 @@
           const email=String(raw.email||"").trim()||null;
           if(email && state.users.some(u=>String(u.email||"").toLowerCase()===email.toLowerCase())){errorCount++;errors.push({employeeId,error:"EMAIL_ALREADY_EXISTS"});continue;}
           const dept=String(raw.department||"").trim();
-          const user={id:employeeId,employeeId,name,email,role,status:"ACTIVE",department:dept?{code:"DEMO-"+uid("D").slice(-6).toUpperCase(),name:dept}:null};
+          const positionTitle=String(raw.positionTitle||"").trim()||null;
+          const user={id:employeeId,employeeId,name,email,positionTitle,role,status:"ACTIVE",department:dept?{code:"DEMO-"+uid("D").slice(-6).toUpperCase(),name:dept}:null};
           state.users.push(user);createdCount++;
         }catch(e){errorCount++;errors.push({employeeId:String(raw.employeeId||""),error:String(e.message||e)});}
       }
