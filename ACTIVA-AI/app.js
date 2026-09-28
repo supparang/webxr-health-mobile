@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.1 • Reviewer Special Decision + Immutable Closure</div>'+
+        '<div class="version">V1.0.2 • Per-Activity Reviewer Governance + Immutable Closure</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -1386,7 +1386,8 @@
             '<div id="coAssignMsg"></div>'+
           '</section>'+
           '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
-            assignmentChecks(activeUsers,verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount","STF001")+
+            '<div class="alert info"><b>Reviewer ของกิจกรรม</b><br>เลือกได้เฉพาะบัญชี STAFF และสิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ผู้จัดกิจกรรม/ผู้จัดร่วมไม่ควรเป็นผู้ตัดสิน Human Review ของกิจกรรมเดียวกัน</div>'+
+            assignmentChecks(activeUsers.filter(u=>u.role==="STAFF"&&u.id!==a.organizerId&&!coIds.includes(u.id)),verifierIds,"verifierAssign",!caps.canAssignVerifier,"verifierSearch","verifierCount","STF001")+
             (caps.canAssignVerifier?'<div class="actions"><button class="btn primary" id="saveVerifier">บันทึกผู้ตรวจสอบ</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้ตรวจสอบ</div>')+
             '<div id="verifierAssignMsg"></div>'+
           '</section>'+
@@ -2620,11 +2621,16 @@
   async function renderReview(v) {
     if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
     showLoading(v);
-    const [rows,activities,xaiData]=await Promise.all([
+    let [rows,activities,xaiData]=await Promise.all([
       loadAttendance(),
       loadActivities(),
       api("/api/xai/queue").catch(()=>({deployedModel:null,records:[],decisionSupportOnly:true}))
     ]);
+    if (can("STAFF")) {
+      activities=activities.filter(a=>(a.roleAssignments||[]).some(x=>x.role==="VERIFIER"&&x.userId===session.id));
+      const allowedActivityIds=new Set(activities.map(a=>a.id));
+      rows=rows.filter(r=>allowedActivityIds.has(r.activity?.id||r.activityId));
+    }
     const deployedModel=xaiData?.deployedModel||null;
     const riskByAttendance=new Map((xaiData?.records||[]).map(p=>[p.attendanceId,p]));
     const state={activityId:"ALL",filter:"PENDING",search:"",page:1,pageSize:20};
@@ -2634,7 +2640,11 @@
 
     v.innerHTML=
       '<div class="panel"><div class="section-head"><div><h2>Human Review Queue</h2>'+
-      '<p class="muted">Review Queue เป็นวิธีหลัก • Personal QR ใช้เพียงค้นหา/เปิด case เมื่อบุคคลอยู่ตรงหน้า ไม่ต้องสแกนครบทุกคน</p></div>'+
+      '<p class="muted">Review Queue เป็นวิธีหลัก • Personal QR ใช้เพียงค้นหา/เปิด case เมื่อบุคคลอยู่ตรงหน้า ไม่ต้องสแกนครบทุกคน</p>'+
+      (can("STAFF")
+        ? '<div class="alert info"><b>ขอบเขต Reviewer:</b> แสดงเฉพาะกิจกรรมที่ ORG/ADMIN มอบหมายบัญชีนี้เป็น VERIFIER เท่านั้น'+(activities.length?'':'<br><b>ขณะนี้ยังไม่มีกิจกรรมที่ได้รับมอบหมาย</b>')+'</div>'
+        : '<div class="alert info"><b>ADMIN:</b> มองเห็นทุกกิจกรรมและสามารถตรวจสอบในฐานะ governance override ได้</div>')+
+      '</div>'+
       '<div class="hint">'+(deployedModel?'<b>AI prioritization:</b> ใช้ '+esc(deployedModel.version)+' เรียงลำดับ case ที่รอดำเนินการตาม risk probability เท่านั้น — AI ไม่ตัดสินผลแทนผู้ตรวจ':'<b>AI prioritization:</b> ยังไม่มี deployed model หรือ prediction ที่พร้อมใช้ Queue จะทำงานจาก workflow/evidence ตามปกติ')+'</div>'+
       '<div class="actions"><button class="btn primary" id="scanPersonalQrBtn">📷 สแกน Personal QR</button><button class="btn secondary" id="manualPersonalQrBtn">วาง Personal QR Token</button></div></div>'+
       '<div id="personalScanPanel" class="scanner-panel" hidden><div class="scanner-head"><div><b>สแกน Personal QR</b><br><span class="muted">ระบบจะค้นหา record ของบุคคลใน Review Queue</span></div><button class="btn secondary mini" id="stopPersonalQrBtn">ปิดกล้อง</button></div><div id="personalQrReader" class="qr-reader"></div><div id="personalScanMsg"></div></div>'+
