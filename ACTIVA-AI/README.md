@@ -514,3 +514,10 @@ Conflict rules:
 - Reviewer verification requires VERIFIER assignment and is disabled for the reviewer's own Attendance.
 - Wrong-record cancellation follows the same assigned-reviewer and no-self-action boundary.
 - UI authorization now mirrors the backend rules introduced in V1.0.4–V1.0.7.
+
+
+## V1.0.9 — Reviewer UI Clarity
+- เปลี่ยนคำที่ผู้ใช้เห็นจาก Staff Verification เป็น Reviewer Verification ให้ตรงกับ per-activity VERIFIER model
+- Human Review Queue แยก empty state ให้ชัดระหว่าง “ยังไม่มีรายการที่ต้อง Human Review”, “รอข้อมูล”, “รอประเมิน”, “ประวัติ”, และ “ไม่พบคำค้นหา”
+- หน้า assignment แบบอ่านอย่างเดียวของ Co-organizer/Reviewer แสดงรายชื่อเป็น status chips แทน checkbox ที่กดไม่ได้
+- ไม่มีการเปลี่ยน business logic หรือ permission rules ใน release นี้
