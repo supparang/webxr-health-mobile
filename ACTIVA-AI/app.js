@@ -1392,7 +1392,7 @@
         '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b></p></div><button class="btn mini secondary" id="closeActivityManager">ปิด</button></div>'+
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
         '<div class="split assignment-role-grid">'+
-          '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน</p></div></div>'+
+          '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">'+(caps.canAssignCo?'เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน':'รายชื่อผู้จัดร่วมที่ได้รับมอบหมายในกิจกรรมนี้')+'</p></div></div>'+
             '<div class="assignment-governance">'+
               '<span class="status s-info">'+esc(activityLifecycleLabel(caps.lifecycle))+'</span>'+
               (a.assignmentsUpdatedAt?'<span class="muted">บันทึกล่าสุด '+esc(fmt(a.assignmentsUpdatedAt))+'</span>':'<span class="muted">ยังไม่เคยบันทึกการเปลี่ยนแปลงผู้รับผิดชอบ</span>')+
@@ -1402,12 +1402,12 @@
             (caps.canAssignCo
               ? assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId&&!verifierIds.includes(u.id)),coIds,"coAssign",false,"coSearch","coCount","ORG001")
               : assignmentReadOnly(users,coIds,"ผู้จัดกิจกรรมร่วม"))+
-            (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
+            (caps.canAssignCo&&caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
             (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'')+
             '<div id="coAssignMsg"></div>'+
           '</section>'+
-          '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001</p></div></div>'+
-            '<div class="alert info"><b>Reviewer ของกิจกรรม</b><br>เลือกได้เฉพาะบัญชี STAFF และสิทธิ์นี้มีผลเฉพาะกิจกรรมนี้ ผู้จัดกิจกรรม/ผู้จัดร่วมไม่ควรเป็นผู้ตัดสิน Human Review ของกิจกรรมเดียวกัน</div>'+
+          '<section class="assignment-section assignment-section-verifier"><div class="assignment-section-title"><span class="assignment-step">2</span><div><h3>ผู้ตรวจสอบหลักฐานของกิจกรรม</h3><p class="muted">'+(caps.canAssignVerifier?'เลือกผู้ที่จะตรวจ Evidence/Human Review ของกิจกรรมนี้ เช่น STF001':'รายชื่อ Reviewer ที่ได้รับมอบหมายในกิจกรรมนี้')+'</p></div></div>'+
+            '<div class="alert info"><b>Reviewer ของกิจกรรม</b><br>'+(caps.canAssignVerifier?'เลือกได้เฉพาะบัญชี STAFF และสิทธิ์นี้มีผลเฉพาะกิจกรรมนี้':'สิทธิ์ตรวจมีผลเฉพาะกิจกรรมนี้และแสดงแบบอ่านอย่างเดียวสำหรับบัญชีปัจจุบัน')+' ผู้จัดกิจกรรม/ผู้จัดร่วมไม่ควรเป็นผู้ตัดสิน Human Review ของกิจกรรมเดียวกัน</div>'+
             (caps.canAssignVerifier
               ? assignmentChecks(activeUsers.filter(u=>u.role==="STAFF"&&u.id!==a.organizerId&&!coIds.includes(u.id)),verifierIds,"verifierAssign",false,"verifierSearch","verifierCount","STF001")
               : assignmentReadOnly(users,verifierIds,"Reviewer ของกิจกรรม"))+
