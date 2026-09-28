@@ -9,8 +9,27 @@ export async function resolveUserRef(ref) {
   });
 }
 
+export function authenticationMode() {
+  return String(process.env.ACTIVA_AUTH_MODE || "DISABLED").trim().toUpperCase();
+}
+
+export function productionAuthenticationReady() {
+  const mode=authenticationMode();
+  return !["", "DISABLED", "DEMO_HEADER"].includes(mode);
+}
+
 export async function attachActor(req, res, next) {
   try {
+    const mode=authenticationMode();
+
+    if (mode !== "DEMO_HEADER") {
+      return res.status(503).json({
+        ok: false,
+        error: "PRODUCTION_AUTHENTICATION_NOT_CONFIGURED",
+        authenticationMode: mode || "DISABLED",
+      });
+    }
+
     const ref = req.header("x-activa-user-id");
     if (!ref) {
       return res.status(401).json({
