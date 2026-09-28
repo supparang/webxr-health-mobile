@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.10";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.11";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1540,18 +1540,22 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
   const expectedMinutes = Math.max(1, Math.round((current.activity.endAt.getTime() - current.activity.startAt.getTime()) / 60000));
   const attendancePercentage = Math.min(100, (durationMinutes / expectedMinutes) * 100);
 
-  const row = await prisma.attendanceRecord.update({
-    where: { id: current.id },
-    data: {
-      checkoutAt,
-      checkoutQrValid:true,
-      checkoutMethod:"DYNAMIC_QR",
-      checkoutExceptionReason:null,
-      durationMinutes,
-      attendancePercentage,
-      attendanceStatus: "CHECKED_OUT",
-      finalEvidenceStatus: null,
-    },
+  const row = await prisma.$transaction(async (tx) => {
+    const updated = await tx.attendanceRecord.update({
+      where: { id: current.id },
+      data: {
+        checkoutAt,
+        checkoutQrValid:true,
+        checkoutMethod:"DYNAMIC_QR",
+        checkoutExceptionReason:null,
+        durationMinutes,
+        attendancePercentage,
+        attendanceStatus: "CHECKED_OUT",
+        finalEvidenceStatus: null,
+      },
+    });
+    await tx.consistencyResult.deleteMany({ where: { attendanceId: current.id } });
+    return updated;
   });
 
   if (current.finalEvidenceStatus) {
@@ -1596,18 +1600,22 @@ app.post("/api/attendance/:attendanceId/checkout-assist", async (req, res) => {
   const attendancePercentage=Math.min(100,(durationMinutes/expectedMinutes)*100);
   const windowState=checkoutWindowState(current.activity,checkoutAt);
 
-  const row=await prisma.attendanceRecord.update({
-    where:{id:current.id},
-    data:{
-      checkoutAt,
-      checkoutQrValid:false,
-      checkoutMethod:"STAFF_ASSISTED",
-      checkoutExceptionReason:reason,
-      durationMinutes,
-      attendancePercentage,
-      attendanceStatus:"CHECKED_OUT",
-      finalEvidenceStatus:null,
-    },
+  const row=await prisma.$transaction(async (tx)=>{
+    const updated=await tx.attendanceRecord.update({
+      where:{id:current.id},
+      data:{
+        checkoutAt,
+        checkoutQrValid:false,
+        checkoutMethod:"STAFF_ASSISTED",
+        checkoutExceptionReason:reason,
+        durationMinutes,
+        attendancePercentage,
+        attendanceStatus:"CHECKED_OUT",
+        finalEvidenceStatus:null,
+      },
+    });
+    await tx.consistencyResult.deleteMany({where:{attendanceId:current.id}});
+    return updated;
   });
 
   if(current.finalEvidenceStatus){
@@ -1663,6 +1671,7 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ST
       where: { id: attendance.id },
       data: { finalEvidenceStatus: null },
     });
+    await tx.consistencyResult.deleteMany({ where: { attendanceId: attendance.id } });
     return verification;
   });
 

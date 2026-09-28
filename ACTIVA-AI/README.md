@@ -521,3 +521,10 @@ Conflict rules:
 - Human Review Queue แยก empty state ให้ชัดระหว่าง “ยังไม่มีรายการที่ต้อง Human Review”, “รอข้อมูล”, “รอประเมิน”, “ประวัติ”, และ “ไม่พบคำค้นหา”
 - หน้า assignment แบบอ่านอย่างเดียวของ Co-organizer/Reviewer แสดงรายชื่อเป็น status chips แทน checkbox ที่กดไม่ได้
 - ไม่มีการเปลี่ยน business logic หรือ permission rules ใน release นี้
+
+
+## V1.0.11 — Evidence Freshness Guard
+- Any change to raw attendance evidence (normal checkout, assisted checkout, or Reviewer Verification) invalidates the previous Rule Consistency result.
+- The UI ignores a rule result whose evaluation timestamp is older than the latest checkout or reviewer-verification evidence.
+- Demo migration clears stale persisted evaluations created by earlier releases.
+- Prevents impossible states such as showing a valid checkout time and duration while still displaying MISSING_CHECKOUT or MISSING_DURATION from an older evaluation.

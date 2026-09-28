@@ -346,6 +346,23 @@
       changed = true;
     }
 
+    if (!data.evidenceFreshness111Migrated) {
+      for (const row of (data.attendance || [])) {
+        const result=row.consistencyResult;
+        if(!result) continue;
+        const evaluatedAt=new Date(result.evaluatedAt||0).getTime();
+        const checkoutAt=row.checkoutAt?new Date(row.checkoutAt).getTime():0;
+        const verifiedAt=row.staffVerification?.verifiedAt?new Date(row.staffVerification.verifiedAt).getTime():0;
+        const changedAt=Math.max(checkoutAt,verifiedAt);
+        if(changedAt && (!evaluatedAt || evaluatedAt<changedAt)) {
+          row.consistencyResult=null;
+          changed=true;
+        }
+      }
+      data.evidenceFreshness111Migrated=true;
+      changed=true;
+    }
+
     if (!data.positionRoleContract103Migrated) {
       const demoPositions = {
         ADM001:"ผู้ดูแลระบบ IT",
@@ -621,7 +638,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.10";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.11";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +788,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.10-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.11-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1299,6 +1316,7 @@
       r.checkoutExceptionReason=null;
       r.checkoutCaptureSource=String(b.scanSource||"QR");
       r.checkoutSyntheticTest=Boolean(b.testMode);
+      r.consistencyResult=null;
       r.finalEvidenceStatus=null;
       save();
       if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"CHECKOUT_CHANGED"});
@@ -1324,6 +1342,7 @@
       r.checkoutQrValid=false;
       r.checkoutMethod="STAFF_ASSISTED";
       r.checkoutExceptionReason=reason;
+      r.consistencyResult=null;
       r.finalEvidenceStatus=null;
       save();
       if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"STAFF_ASSISTED_CHECKOUT"});
@@ -1343,6 +1362,7 @@
       if(r.staffVerification) return {ok:true,verification:r.staffVerification,idempotent:true};
       const previousFinal=r.finalEvidenceStatus||null;
       r.staffVerification={id:uid("DEMO-SV"),attendanceId:r.id,verifierId:who.id,verifiedAt:iso(),status:"VERIFIED_PRESENT"};
+      r.consistencyResult=null;
       r.finalEvidenceStatus=null;
       save();
       if(previousFinal) audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"STAFF_VERIFICATION_CHANGED"});
