@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.5 • Self Attendance + Activity Roles</div>'+
+        '<div class="version">V1.0.6 • Active Attendance Guard</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.5</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.6</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1773,6 +1773,7 @@
   }
 
   function attendanceNeedsReview(r) {
+    if (r.checkinAt && !r.checkoutAt) return false;
     const system=evidenceStatusOf(r);
     const final=finalStatusOf(r);
     return ["REVIEW_REQUIRED","INCOMPLETE","INCONSISTENT"].includes(system) || final==="REJECTED";
@@ -1789,9 +1790,9 @@
   }
 
   function attendanceStateBadge(r) {
+    if(r.checkinAt && !r.checkoutAt) return '<span class="status s-info">กำลังเข้าร่วม</span>';
     if(attendanceNeedsReview(r)) return statusBadge("REVIEW_REQUIRED");
     if(["VERIFIED","OVERRIDE_VERIFIED"].includes(finalStatusOf(r))) return statusBadge(finalStatusOf(r));
-    if(r.checkinAt && !r.checkoutAt) return '<span class="status s-info">กำลังเข้าร่วม</span>';
     if(r.checkoutAt && !r.staffVerification) return '<span class="status s-warn">รอเจ้าหน้าที่</span>';
     if(evidenceStatusOf(r)==="NOT_EVALUATED") return statusBadge("NOT_EVALUATED");
     return statusBadge(finalStatusOf(r));
@@ -1835,7 +1836,7 @@
         '<div class="compact-reason"><b>เหตุผล/ข้อสังเกต:</b> '+esc(evidenceReasonText(reasons)||"ไม่มี")+'</div>'+
         (actionButtons?'<div class="actions compact-actions">'+
           '<button class="btn mini secondary dashManageBtn" data-id="'+r.id+'">จัดการรายการ</button>'+
-          '<button class="btn mini primary dashEvalBtn" data-id="'+r.id+'" '+(r.staffVerification?"":"title=\"ยังไม่มีการยืนยันโดยเจ้าหน้าที่\"")+'>ประเมินหลักฐาน</button>'+
+          '<button class="btn mini primary dashEvalBtn" data-id="'+r.id+'" '+(!r.checkoutAt?'disabled title="รอ Check-out ก่อนประเมินหลักฐาน"':(r.staffVerification?"":"title=\"ยังไม่มีการยืนยันโดยเจ้าหน้าที่\""))+'>'+(!r.checkoutAt?'รอ Check-out':'ประเมินหลักฐาน')+'</button>'+
         '</div>':'')+
       '</div>'+
     '</details>';
@@ -2591,6 +2592,7 @@
   }
 
   function reviewWorkflowStatus(r){
+    if(r.checkinAt && !r.checkoutAt)return "ACTIVE";
     const latest=(r.humanReviews||[])[0]||null;
     if(finalStatusOf(r)==="VERIFIED")return "VERIFIED";
     if(finalStatusOf(r)==="OVERRIDE_VERIFIED")return "OVERRIDE_VERIFIED";
@@ -2617,7 +2619,8 @@
       VERIFIED:"รับรองแล้ว",
       OVERRIDE_VERIFIED:"รับรองกรณีพิเศษ",
       REJECTED:"ไม่รับรอง",
-      NOT_READY:"รอประเมินหลักฐาน"
+      NOT_READY:"รอประเมินหลักฐาน",
+      ACTIVE:"กำลังเข้าร่วม"
     })[status]||status;
   }
 
