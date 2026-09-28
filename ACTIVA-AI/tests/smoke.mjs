@@ -410,6 +410,18 @@ assert(mlRecord.participant_hash && mlRecord.participant_hash !== "P001", "ML da
 assert(mlRecord.final_target === "REVIEW_REQUIRED", "ML final target mismatch");
 assert(!Object.prototype.hasOwnProperty.call(mlRecord, "risk_probability"), "AI output leaked into training dataset");
 
+const unassignedReviewer = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
+  actor: "STF002",
+  method: "POST",
+  body: {
+    decision: "OVERRIDE_VERIFY",
+    reason: "CI unassigned reviewer must be blocked from this activity",
+    reviewDurationSeconds: 1,
+  },
+});
+assert(unassignedReviewer.status === 403, "unassigned STAFF must not review another activity");
+assert(unassignedReviewer.data?.error === "REVIEWER_NOT_ASSIGNED_TO_ACTIVITY", "wrong reviewer assignment error");
+
 const blockedVerify = await reqError("/api/reviews/" + encodeURIComponent(attendanceId), {
   actor: "STF001",
   method: "POST",
