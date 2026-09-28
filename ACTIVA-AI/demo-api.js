@@ -621,7 +621,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.9";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.10";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +771,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.9-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.10-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1441,19 +1441,28 @@
     }
 
     if (p === "/api/ground-truth/queue" && method==="GET") {
-      const rows=state.attendance.filter(r=>!r.isVoided).map(r=>{
+      const rows=state.attendance.filter(r=>!r.isVoided).filter(r=>{
+        if(who.role!=="ADMIN" && r.userId===who.id) return false;
+        if(r.checkoutAt) return true;
+        const a=activity(r.activityId);
+        return Boolean(a && checkoutWindowState(a).code==="QR_CHECKOUT_CLOSED");
+      }).map(r=>{
         const labels=state.groundTruthLabels.filter(x=>x.attendanceId===r.id);
         const safe=who.role==="ADMIN"?labels:labels.filter(x=>x.reviewerId===who.id);
         return {...hydrateAttendance(r),groundTruthLabels:safe,
           groundTruthCase:state.groundTruthCases.find(x=>x.attendanceId===r.id)||null,
           consistencyResult:undefined};
       });
-      return {ok:true,blinded:true,syntheticDemo:true,records:rows};
+      return {ok:true,blinded:true,syntheticDemo:true,eligibility:"CHECKOUT_COMPLETE_OR_WINDOW_CLOSED",noSelfLabeling:who.role!=="ADMIN",records:rows};
     }
 
     m=p.match(/^\/api\/ground-truth\/([^/]+)\/labels$/);
     if(m&&method==="POST"){
       const attendanceId=decodeURIComponent(m[1]);
+      const r=attendance(attendanceId); if(!r||r.isVoided) err("ATTENDANCE_NOT_FOUND",404);
+      if(who.role!=="ADMIN" && r.userId===who.id) err("GROUND_TRUTH_SELF_LABEL_FORBIDDEN",409);
+      const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
+      if(!r.checkoutAt && checkoutWindowState(a).code!=="QR_CHECKOUT_CLOSED") err("GROUND_TRUTH_ATTENDANCE_NOT_MATURE",409);
       const locked=state.groundTruthCases.find(x=>x.attendanceId===attendanceId&&x.status==="LOCKED");
       if(locked) err("GROUND_TRUTH_LOCKED_NO_MORE_LABEL_CHANGES",409);
       let label=state.groundTruthLabels.find(x=>x.attendanceId===attendanceId&&x.reviewerId===who.id);
