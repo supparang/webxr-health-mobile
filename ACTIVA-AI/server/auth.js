@@ -13,9 +13,10 @@ export function authenticationMode() {
   return String(process.env.ACTIVA_AUTH_MODE || "DISABLED").trim().toUpperCase();
 }
 
+const IMPLEMENTED_PRODUCTION_AUTH_MODES = new Set([]);
+
 export function productionAuthenticationReady() {
-  const mode=authenticationMode();
-  return !["", "DISABLED", "DEMO_HEADER"].includes(mode);
+  return IMPLEMENTED_PRODUCTION_AUTH_MODES.has(authenticationMode());
 }
 
 export async function attachActor(req, res, next) {
