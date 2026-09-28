@@ -11,13 +11,13 @@ async function main() {
   });
 
   const demoUsers = [
-    { employeeId: "ADM001", name: "ผู้ดูแลระบบตัวอย่าง", role: "ADMIN" },
-    { employeeId: "ORG001", name: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)", role: "ORGANIZER" },
-    { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1", role: "STAFF" },
-    { employeeId: "STF002", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2", role: "STAFF" },
-    { employeeId: "P001", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 1", role: "PARTICIPANT" },
-    { employeeId: "P002", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 2", role: "PARTICIPANT" },
-    { employeeId: "P003", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 3", role: "PARTICIPANT" },
+    { employeeId: "ADM001", name: "ผู้ดูแลระบบตัวอย่าง", positionTitle: "ผู้ดูแลระบบ IT", role: "ADMIN" },
+    { employeeId: "ORG001", name: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)", positionTitle: "ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)", role: "ORGANIZER" },
+    { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1", positionTitle: "บุคลากรผู้ได้รับมอบหมายตรวจสอบ", role: "STAFF" },
+    { employeeId: "STF002", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2", positionTitle: "บุคลากรผู้ได้รับมอบหมายตรวจสอบ", role: "STAFF" },
+    { employeeId: "P001", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 1", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
+    { employeeId: "P002", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 2", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
+    { employeeId: "P003", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 3", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
   ];
 
   const users = {};
@@ -26,6 +26,7 @@ async function main() {
       where: { employeeId: item.employeeId },
       update: {
         name: item.name,
+        positionTitle: item.positionTitle || null,
         role: item.role,
         departmentId: department.id,
         status: "ACTIVE",
@@ -33,6 +34,7 @@ async function main() {
       create: {
         employeeId: item.employeeId,
         name: item.name,
+        positionTitle: item.positionTitle || null,
         role: item.role,
         departmentId: department.id,
         status: "ACTIVE",
