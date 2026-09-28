@@ -491,3 +491,12 @@ Conflict rules:
 - A reviewer who participates must have their own attendance reviewed by another assigned reviewer.
 - Staff-assisted checkout is an operational Owner/Co-organizer action; the resulting exception is independently reviewed by a VERIFIER.
 - Participant roster intentionally does not exclude Owner/Co/Verifier.
+
+
+## V1.0.5 — Self Attendance for Every Activity Role
+- OWNER / CO_ORGANIZER / VERIFIER / PARTICIPANT may all have their own Attendance.
+- The normal Dynamic QR Check-in and Check-out flows are **self-only for every authenticated role**.
+- STAFF/Reviewer is no longer omitted from the Check-in user selector; the UI shows the logged-in account itself.
+- A Reviewer cannot use their broader review access to create or complete another person's normal attendance.
+- Operational exceptions remain separate from normal attendance evidence.
+- No-self-review from V1.0.4 remains enforced.
