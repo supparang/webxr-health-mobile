@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.9 • Reviewer UI Clarity</div>'+
+        '<div class="version">V1.0.10 • Ground Truth Eligibility Guard</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.9</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.10</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -2978,6 +2978,7 @@
       '</div>'+
       '<div class="panel"><h2>Ground Truth Workspace</h2>'+
       '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div>'+
+      '<div class="hint"><b>Eligibility guard:</b> แสดงเฉพาะ Attendance ที่พร้อมติดป้ายแล้ว — Check-out เสร็จ หรือพ้น Check-out Window แล้ว และผู้ประเมินจะไม่เห็น Attendance ของตนเอง</div>'+
       (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||r.userId)+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
       '</div>';
@@ -3012,7 +3013,7 @@
           '<span>ตัวตน '+(r.identityVerified?"✓":"✕")+'</span>'+
           '<span>เข้า '+(r.checkinAt?fmt(r.checkinAt):"—")+'</span>'+
           '<span>ออก '+(r.checkoutAt?fmt(r.checkoutAt):"—")+'</span>'+
-          '<span>Staff '+(r.staffVerification?"✓":"✕")+'</span>'+
+          '<span>Reviewer '+(r.staffVerification?"✓":"✕")+'</span>'+
           '<span>Scan '+esc(r.scanAttempts ?? 0)+' ครั้ง</span>'+
         '</div>';
 
