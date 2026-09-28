@@ -929,4 +929,4 @@ const holdDecision=await req("/api/operations/release-decision",{
 });
 assert(holdDecision.decision==="HOLD","release HOLD decision was not recorded");
 
-console.log("ACTIVA-AI V1.0.0 smoke test passed");
+console.log("ACTIVA-AI V1.0.14 smoke test passed");
