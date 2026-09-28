@@ -253,6 +253,22 @@
       state.activities.push(a);
     }
 
+    // Reviewer governance: STAFF is only reviewer-capable; assignment is per activity.
+    for (const verifierId of ["STF001","STF002"]) {
+      if (!(a.roleAssignments||[]).some(x=>x.role==="VERIFIER"&&x.userId===verifierId)) {
+        a.roleAssignments=a.roleAssignments||[];
+        a.roleAssignments.push({
+          id:uid("DEMO-ASG"),
+          userId:verifierId,
+          role:"VERIFIER",
+          assignedById:"ORG001",
+          assignedAt:iso()
+        });
+        a.assignmentsUpdatedAt=iso();
+      }
+    }
+    save();
+
     const at=(h,m)=>todayAt(h,m);
     const staff=(note)=>({verified:true,verifiedById:"STF001",verifiedAt:at(15,55),note});
     const specs=[
@@ -1034,9 +1050,22 @@
 
       if(hasVerifier){
         const users=resolveIds(b.verifierIds);
+        if(users.some(u=>u.role!=="STAFF")) err("VERIFIER_MUST_BE_STAFF",409);
+        if(users.some(u=>u.id===a.organizerId)) err("ORGANIZER_CANNOT_REVIEW_OWN_ACTIVITY",409);
+        const effectiveCoIds=new Set(
+          (hasCo?resolveIds(b.coOrganizerIds):(a.roleAssignments||[]).filter(x=>x.role==="CO_ORGANIZER").map(x=>({id:x.userId}))).map(x=>x.id)
+        );
+        const conflict=users.find(u=>effectiveCoIds.has(u.id));
+        if(conflict) err("REVIEWER_CANNOT_BE_CO_ORGANIZER",409);
         next=next.filter(x=>x.role!=="VERIFIER");
         next.push(...users.map(u=>({id:uid("DEMO-ASG"),userId:u.id,role:"VERIFIER",assignedById:who.id,assignedAt:iso()})));
         a.assignmentsUpdatedAt=iso();
+      }
+
+      if(hasCo&&!hasVerifier){
+        const effectiveVerifierIds=new Set((a.roleAssignments||[]).filter(x=>x.role==="VERIFIER").map(x=>x.userId));
+        const conflict=resolveIds(b.coOrganizerIds).find(u=>effectiveVerifierIds.has(u.id));
+        if(conflict) err("REVIEWER_CANNOT_BE_CO_ORGANIZER",409);
       }
 
       const noChange=hasCo&&coAdded.length===0&&coRemoved.length===0&&!hasVerifier;
@@ -1341,7 +1370,11 @@
     m = p.match(/^\/api\/reviews\/([^/]+)$/);
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
-      ensureDemoActivityMutable(activity(r.activityId));
+      const reviewActivity=activity(r.activityId);
+      if(!(who.role==="ADMIN" || (who.role==="STAFF" && isActivityAssignment(who,reviewActivity,"VERIFIER")))){
+        err("REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",403);
+      }
+      ensureDemoActivityMutable(reviewActivity);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
       if(!r.consistencyResult) err("EVIDENCE_EVALUATION_REQUIRED",409);
       const allowed=["VERIFY","OVERRIDE_VERIFY","CORRECT","REQUEST_EVIDENCE","REJECT"];
