@@ -44,6 +44,22 @@ const health = await req("/api/health");
 assert(health.ok && health.database === "connected", "health/database check failed");
 assert(health.version === "1.0.15", "health version must report ACTIVA-AI 1.0.15");
 
+const allowedOriginHealth = await fetch(base + "/api/health", {
+  headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
+});
+assert(allowedOriginHealth.status === 200, "configured frontend origin should be allowed");
+assert(
+  allowedOriginHealth.headers.get("access-control-allow-origin") === "https://pilot.example.test",
+  "allowed origin CORS header mismatch"
+);
+
+const blockedOriginHealth = await fetch(base + "/api/health", {
+  headers: { Origin: "https://unapproved.example.test", Accept: "application/json" },
+});
+const blockedOriginBody = await blockedOriginHealth.json();
+assert(blockedOriginHealth.status === 403, "unapproved frontend origin must be blocked");
+assert(blockedOriginBody.error === "CORS_ORIGIN_NOT_ALLOWED", "blocked origin error mismatch");
+
 const me = await req("/api/me", { actor: "ADM001" });
 assert(me.user?.employeeId === "ADM001", "admin identity check failed");
 
