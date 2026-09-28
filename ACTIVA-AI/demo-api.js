@@ -659,7 +659,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.12";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.13";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -782,6 +782,53 @@
     };
     return r.consistencyResult;
   }
+  function latestHumanReview(r) {
+    return state.reviews
+      .filter(x=>x.attendanceId===r.id)
+      .sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))[0]||null;
+  }
+
+  function latestParticipantResponse(r) {
+    return (state.participantResponses||[])
+      .filter(x=>x.attendanceId===r.id)
+      .sort((a,b)=>String(b.submittedAt).localeCompare(String(a.submittedAt)))[0]||null;
+  }
+
+  function participantEvidenceRequestState(r) {
+    const latest=latestHumanReview(r);
+    if(latest?.decision!=="REQUEST_EVIDENCE"){
+      return {active:false,resolved:false,source:null,latest,participantResponse:null,requestedAt:0,respondedAt:0,evaluatedAt:0};
+    }
+    const requestedAt=latest.reviewedAt ? new Date(latest.reviewedAt).getTime() : 0;
+    const response=latestParticipantResponse(r);
+    const responseMatchesRequest=Boolean(
+      response && (!response.requestReviewId || response.requestReviewId===latest.id)
+    );
+    const respondedAt=responseMatchesRequest&&response?.submittedAt
+      ? new Date(response.submittedAt).getTime()
+      : 0;
+    const c=r.consistencyResult||null;
+    const blockers=c?[...(c.missingCodes||[]),...(c.reasonCodes||[])]:[];
+    const evaluatedAt=c?.evaluatedAt ? new Date(c.evaluatedAt).getTime() : 0;
+    const resolvedByResponse=Boolean(requestedAt && respondedAt>requestedAt);
+    const resolvedByEvidence=Boolean(
+      requestedAt &&
+      c?.status==="COMPLETE" &&
+      blockers.length===0 &&
+      evaluatedAt>requestedAt
+    );
+    return {
+      active:true,
+      resolved:resolvedByResponse||resolvedByEvidence,
+      source:resolvedByResponse?"PARTICIPANT_RESPONSE":resolvedByEvidence?"EVIDENCE_UPDATE":null,
+      latest,
+      participantResponse:responseMatchesRequest?response:null,
+      requestedAt,
+      respondedAt,
+      evaluatedAt
+    };
+  }
+
   function hydrateAttendance(r) {
     const d = durationInfo(r);
     return {
@@ -809,7 +856,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.12-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.13-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1417,14 +1464,39 @@
       const a=activity(r.activityId); if(!a) err("ACTIVITY_NOT_FOUND",404);
       const checkoutState=checkoutWindowState(a);
       if(!r.checkoutAt && checkoutState.code!=="QR_CHECKOUT_CLOSED") err("ATTENDANCE_STILL_ACTIVE",409);
+      const requestStateBefore=participantEvidenceRequestState(r);
       const result=evalEvidence(r);
+      const requestResolvedByEvidence=Boolean(
+        requestStateBefore.active &&
+        !requestStateBefore.resolved &&
+        result.status==="COMPLETE" &&
+        (result.missingCodes||[]).length===0 &&
+        (result.reasonCodes||[]).length===0 &&
+        new Date(result.evaluatedAt||0).getTime()>requestStateBefore.requestedAt
+      );
       if(r.finalEvidenceStatus==="VERIFIED" && result.status!=="COMPLETE"){
         const previousFinal=r.finalEvidenceStatus;
         r.finalEvidenceStatus=null;
         audit(who.id,"FINAL_DECISION_INVALIDATED","AttendanceRecord",r.id,{demo:true,previousFinal,reason:"POLICY_BLOCKERS_AFTER_REEVALUATION"});
       }
-      save(); audit(who.id,"EVIDENCE_EVALUATED","AttendanceRecord",r.id,{demo:true,status:result.status});
-      return {ok:true,result,note:"DEMO rule-based result; not AI probability."};
+      save();
+      audit(who.id,"EVIDENCE_EVALUATED","AttendanceRecord",r.id,{demo:true,status:result.status});
+      if(requestResolvedByEvidence){
+        audit(who.id,"INFO_REQUEST_RESOLVED_BY_EVIDENCE_UPDATE","AttendanceRecord",r.id,{
+          demo:true,
+          requestReviewId:requestStateBefore.latest?.id||null,
+          requestedAt:requestStateBefore.latest?.reviewedAt||null,
+          evaluatedAt:result.evaluatedAt,
+          status:result.status
+        });
+      }
+      return {
+        ok:true,
+        result,
+        workflowStatus:requestResolvedByEvidence?"READY_DECISION":undefined,
+        infoRequestResolvedByEvidenceUpdate:requestResolvedByEvidence,
+        note:"DEMO rule-based result; not AI probability."
+      };
     }
 
     m = p.match(/^\/api\/participant-response\/([^/]+)$/);
@@ -1433,8 +1505,10 @@
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
       if(r.userId!==who.id) err("PARTICIPANT_RESPONSE_FORBIDDEN",403);
       ensureDemoActivityMutable(activity(r.activityId));
-      const latest=state.reviews.filter(x=>x.attendanceId===r.id).sort((a,b)=>String(b.reviewedAt).localeCompare(String(a.reviewedAt)))[0]||null;
+      const latest=latestHumanReview(r);
       if(latest?.decision!=="REQUEST_EVIDENCE") err("PARTICIPANT_RESPONSE_NOT_REQUESTED",409);
+      const requestState=participantEvidenceRequestState(r);
+      if(requestState.resolved) err("PARTICIPANT_RESPONSE_REQUEST_ALREADY_RESOLVED",409);
       const response=String(b.response||"").trim();
       if(response.length<3) err("PARTICIPANT_RESPONSE_REQUIRED",400);
       const item={id:uid("DEMO-PR"),attendanceId:r.id,userId:who.id,response,submittedAt:iso(),requestReviewId:latest.id};
