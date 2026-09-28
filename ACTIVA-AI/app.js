@@ -37,8 +37,8 @@
   const roleLabel = (r) => ({
     ADMIN:"ผู้ดูแลระบบ",
     ORGANIZER:"บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม",
-    STAFF:"ผู้ตรวจสอบหลักฐาน",
-    PARTICIPANT:"บุคลากรผู้เข้าร่วมกิจกรรม"
+    STAFF:"ผู้มีคุณสมบัติเป็น Reviewer",
+    PARTICIPANT:"บุคลากรทั่วไป / ผู้เข้าร่วมกิจกรรม"
   })[r] || r;
   const can = (...roles) => session && roles.includes(session.role);
 
@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.2 • Per-Activity Reviewer Governance + Immutable Closure</div>'+
+        '<div class="version">V1.0.3 • Position + Role + Assignment Governance</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.1</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.3</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -850,10 +850,10 @@
 
   function roleOptions(selected) {
     const roles = [
-      ["PARTICIPANT","บุคลากรผู้เข้าร่วมกิจกรรม"],
-      ["STAFF","ผู้ตรวจสอบหลักฐาน"],
-      ["ORGANIZER","บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม (Legacy Role)"],
-      ["ADMIN","ผู้ดูแลระบบ"]
+      ["PARTICIPANT","บุคลากรทั่วไป / ผู้เข้าร่วมกิจกรรม"],
+      ["STAFF","ผู้มีคุณสมบัติเป็น Reviewer"],
+      ["ORGANIZER","ผู้มีสิทธิ์จัดกิจกรรมเป็นประจำ"],
+      ["ADMIN","ผู้ดูแลระบบ IT / Governance"]
     ];
     return roles.map(([value,label]) =>
       '<option value="'+value+'" '+(value===selected?"selected":"")+'>'+label+'</option>'
@@ -888,6 +888,7 @@
       name:["name","fullname","ชื่อ","ชื่อ-นามสกุล","ชื่อสกุล"],
       email:["email","อีเมล"],
       department:["department","departmentname","หน่วยงาน","สาขา"],
+      positionTitle:["positiontitle","position","ตำแหน่ง","ตำแหน่งงาน"],
       role:["role","บทบาท"]
     };
     const header=rows[0].map(norm);
@@ -901,6 +902,7 @@
       name:String(r[idx.name]||"").trim(),
       email:idx.email>=0?String(r[idx.email]||"").trim():"",
       department:idx.department>=0?String(r[idx.department]||"").trim():"",
+      positionTitle:idx.positionTitle>=0?String(r[idx.positionTitle]||"").trim():"",
       role:idx.role>=0?String(r[idx.role]||"PARTICIPANT").trim().toUpperCase():"PARTICIPANT"
     })).filter(r=>r.employeeId && r.name);
   }
@@ -916,7 +918,8 @@
 
     v.innerHTML=
       '<div class="panel"><div class="section-head"><div><h2>บุคลากร / ผู้ใช้งาน</h2>'+
-      '<p class="muted">เฉพาะผู้ดูแลระบบเพิ่ม แก้ไข หรือปิดใช้งานบัญชีหลัก ส่วนสิทธิ์สร้าง/จัดกิจกรรมให้กำหนดแยกใน “สิทธิ์กิจกรรม” ของแต่ละบุคคล</p></div></div>'+
+      '<p class="muted">ตำแหน่งองค์กร (เช่น คณบดี รองคณบดี ผู้ช่วยคณบดี หัวหน้าสำนักงาน หัวหน้างาน อาจารย์ เจ้าหน้าที่) แยกจากบทบาทระบบและสิทธิ์กิจกรรม เพื่อไม่ผูกอำนาจระบบกับชื่อตำแหน่งโดยอัตโนมัติ</p></div></div>'+
+      '<div class="alert info"><b>Role Contract:</b> Position = ตำแหน่งงาน • Base Role = สิทธิ์พื้นฐาน • Activity Permission = สิทธิ์จัดกิจกรรม • Assignment = Co-organizer / Verifier รายกิจกรรม</div>'+
       '<div class="grid cards">'+card("ทั้งหมด",users.length)+card("ใช้งาน",active)+card("ผู้เข้าร่วม",participants)+card("เจ้าหน้าที่ตรวจสอบ",staff)+'</div></div>'+
 
       '<div class="split"><div class="panel"><h2>เพิ่มบุคลากรทีละคน</h2>'+
@@ -925,12 +928,13 @@
         field("ชื่อ–นามสกุล","uName","ชื่อผู้ใช้งาน")+
         field("อีเมล (ถ้ามี)","uEmail","name@university.ac.th","email")+
         field("หน่วยงาน / สาขา","uDept","เช่น เทคโนโลยีสารสนเทศ")+
+        field("ตำแหน่งในองค์กร","uPosition","เช่น คณบดี / รองคณบดี / หัวหน้างาน / อาจารย์ / เจ้าหน้าที่")+
         '<div class="field"><label>บทบาทระบบพื้นฐาน</label><select id="uRole">'+roleOptions("PARTICIPANT")+'</select><small class="muted">สิทธิ์จัดกิจกรรมกำหนดแยกจากบทบาทระบบ</small></div>'+
       '</div>'+
       '<div class="actions"><button class="btn primary" id="createUser">เพิ่มบุคลากร</button></div><div id="userMsg"></div></div>'+
 
       '<div class="panel"><h2>นำเข้าจาก CSV</h2>'+
-      '<p class="muted">รองรับหัวคอลัมน์: รหัสบุคลากร, ชื่อ, อีเมล, หน่วยงาน, บทบาท หรือ employeeId,name,email,department,role</p>'+
+      '<p class="muted">รองรับหัวคอลัมน์: รหัสบุคลากร, ชื่อ, อีเมล, หน่วยงาน, ตำแหน่ง, บทบาท หรือ employeeId,name,email,department,positionTitle,role</p>'+
       '<div class="actions"><button class="btn secondary" id="userTemplate">ดาวน์โหลดไฟล์ตัวอย่าง</button></div>'+
       '<div class="field" style="margin-top:12px"><label>เลือกไฟล์ CSV UTF-8</label><input id="userCsv" type="file" accept=".csv,text/csv"></div>'+
       '<div class="actions"><button class="btn primary" id="importUsers">นำเข้าบุคลากร</button></div>'+
@@ -945,12 +949,12 @@
     function renderList(){
       const q=document.getElementById("userSearch").value.trim().toLowerCase();
       const visible=users.filter(u=>[
-        u.employeeId,u.name,u.email,u.department?.name,roleLabel(u.role),userStatusLabel(u.status)
+        u.employeeId,u.name,u.email,u.department?.name,u.positionTitle,roleLabel(u.role),userStatusLabel(u.status)
       ].join(" ").toLowerCase().includes(q));
 
       document.getElementById("userList").innerHTML=
-        '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>หน่วยงาน</th><th>บทบาทระบบ</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
-        visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
+        '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>หน่วยงาน</th><th>บทบาทระบบ</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
+        visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.positionTitle||"—")+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
           '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
           '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button> '+
           (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
@@ -958,7 +962,7 @@
         '<div class="attendance-cards">'+visible.map(u=>
           '<article class="attendance-card"><div class="attendance-card-head"><div><b>'+esc(u.employeeId)+'</b><div>'+esc(u.name)+'</div></div>'+
           '<span class="status '+(u.status==="ACTIVE"?"s-ok":"s-warn")+'">'+esc(userStatusLabel(u.status))+'</span></div>'+
-          '<div class="attendance-meta"><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาทระบบ</b>'+esc(roleLabel(u.role))+'</span></div>'+
+          '<div class="attendance-meta"><span><b>ตำแหน่ง</b>'+esc(u.positionTitle||"—")+'</span><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาทระบบ</b>'+esc(roleLabel(u.role))+'</span></div>'+
           (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
           '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
           '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button>'+
@@ -973,6 +977,7 @@
         document.getElementById("uName").value=u.name||"";
         document.getElementById("uEmail").value=u.email||"";
         document.getElementById("uDept").value=u.department?.name||"";
+        document.getElementById("uPosition").value=u.positionTitle||"";
         document.getElementById("uRole").value=u.role;
         const create=document.getElementById("createUser");
         create.textContent="บันทึกการแก้ไข";
@@ -1050,11 +1055,13 @@
       const button=document.getElementById("createUser");
       const employeeId=document.getElementById("uEmp").value.trim().toUpperCase();
       const name=document.getElementById("uName").value.trim();
+      const positionTitle=document.getElementById("uPosition").value.trim();
       if(!employeeId||!name){msg.innerHTML='<div class="alert warn">กรุณาระบุรหัสบุคลากรและชื่อ–นามสกุล</div>';return;}
       const payload={
         employeeId,name,
         email:document.getElementById("uEmail").value.trim()||null,
         department:document.getElementById("uDept").value.trim()||null,
+        positionTitle:positionTitle||null,
         role:document.getElementById("uRole").value
       };
       try{
@@ -1069,7 +1076,7 @@
     };
 
     document.getElementById("userTemplate").onclick=()=>{
-      const csv="\uFEFFรหัสบุคลากร,ชื่อ,อีเมล,หน่วยงาน,บทบาท\nP101,สมชาย ตัวอย่าง,somchai@example.ac.th,เทคโนโลยีสารสนเทศ,PARTICIPANT\nSTF101,สมหญิง ตัวอย่าง,somying@example.ac.th,สำนักงานคณะ,STAFF\n";
+      const csv="\uFEFFรหัสบุคลากร,ชื่อ,อีเมล,หน่วยงาน,ตำแหน่ง,บทบาท\nP101,สมชาย ตัวอย่าง,somchai@example.ac.th,เทคโนโลยีสารสนเทศ,อาจารย์,PARTICIPANT\nSTF101,สมหญิง ตัวอย่าง,somying@example.ac.th,สำนักงานคณะ,เจ้าหน้าที่รับผิดชอบตรวจสอบ,STAFF\n";
       download("activa-users-template.csv",csv,"text/csv;charset=utf-8");
     };
 
