@@ -1,5 +1,12 @@
 # ACTIVA-AI
 
+## V1.0.15 — Backend Connection Layer / Production Pilot Preparation
+- แยก public frontend ออกจาก PostgreSQL อย่างชัดเจน: Browser → HTTPS Backend API → Prisma → PostgreSQL
+- เพิ่ม `runtime-config.js` สำหรับ public `apiBaseUrl` โดยห้ามเก็บ database credential หรือ secret ใน frontend
+- Pilot/API Mode ตรวจ `/api/health`, PostgreSQL connectivity และ release-version match ก่อน login
+- Demo Mode ยังคงใช้ localStorage/Synthetic Data และไม่สามารถ Production GO
+- เพิ่ม `ALLOWED_ORIGINS` สำหรับกำหนด browser origin ที่อนุญาตให้เรียก Backend API
+
 ## V1.0.14 — Ground Truth Adjudication Guard + Release Identity Sync
 - เพิ่ม Ground Truth Adjudication Guard เพื่อคง separation ระหว่าง independent labeling, adjudication และ final lock
 - ซิงก์ current release identity ของ UI, Demo API, Server API, Backup/Recovery, Immutable Closure และ CI acceptance ให้เป็น `ACTIVA-AI-1.0.14`
