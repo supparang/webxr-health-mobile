@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.13 • Evidence Request Auto-Resolve</div>'+
+        '<div class="version">V1.0.14 • Ground Truth Adjudication Guard</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -3014,9 +3014,14 @@
     const reasonCodes = ["MISSING_QR","MISSING_IDENTITY","MISSING_CHECKOUT","MISSING_STAFF_VERIFICATION","SHORT_DURATION","DUPLICATE_SCAN","TEMPORAL_CONFLICT","STAFF_WITHOUT_CHECKIN","OTHER"];
 
     const withTwo = rows.filter(r => (r.groundTruthLabels || []).length >= 2).length;
+    const labelSignature = (x) => JSON.stringify([
+      x.target || "",
+      [...new Set(x.reasonCodes || [])].sort()
+    ]);
     const disagreements = can("ADMIN") ? rows.filter(r => {
-      const targets = [...new Set((r.groundTruthLabels || []).map(x => x.target))];
-      return targets.length > 1;
+      const labels = r.groundTruthLabels || [];
+      const signatures = [...new Set(labels.map(labelSignature))];
+      return labels.length >= 2 && signatures.length > 1;
     }).length : "—";
     const adjudicated = rows.filter(r => r.groundTruthCase?.status === "ADJUDICATED").length;
     const locked = rows.filter(r => r.groundTruthCase?.status === "LOCKED").length;
@@ -3030,7 +3035,7 @@
       card("Locked",locked)+
       '</div>'+
       '<div class="panel"><h2>Ground Truth Workspace</h2>'+
-      '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div><div class="hint"><b>Eligibility guard:</b> แสดงเฉพาะ Attendance ที่พร้อมติดป้ายแล้ว — Check-out เสร็จ หรือพ้น Check-out Window แล้ว และผู้ประเมินจะไม่เห็น Attendance ของตนเอง</div>'+
+      '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div>'+
       '<div class="hint"><b>Eligibility guard:</b> แสดงเฉพาะ Attendance ที่พร้อมติดป้ายแล้ว — Check-out เสร็จ หรือพ้น Check-out Window แล้ว และผู้ประเมินจะไม่เห็น Attendance ของตนเอง</div>'+
       (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||r.userId)+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
@@ -3071,26 +3076,46 @@
         '</div>';
 
       let adminPanel = "";
+      let adminAdjudicationEligible = false;
+      let directLockEligible = false;
       if (can("ADMIN")) {
-        const targetSet = [...new Set(labels.map(x => x.target))];
-        const agreement = labels.length < 2 ? "ยังมีผู้ประเมินไม่ครบ" : (targetSet.length === 1 ? "ผู้ประเมินสอดคล้องกัน" : "ผู้ประเมินไม่ตรงกัน ต้อง adjudicate");
+        const signatures = [...new Set(labels.map(labelSignature))];
+        const hasMinimumIndependentLabels = labels.length >= 2;
+        const hasDisagreement = hasMinimumIndependentLabels && signatures.length > 1;
+        const hasAgreement = hasMinimumIndependentLabels && signatures.length === 1;
+        adminAdjudicationEligible = hasDisagreement && !lockedCase;
+        directLockEligible = hasAgreement && !lockedCase;
+
+        const agreement = !hasMinimumIndependentLabels
+          ? "ยังไม่สามารถ Adjudicate ได้ — ต้องมี Independent Labels อย่างน้อย 2 รายการก่อน"
+          : hasAgreement
+            ? "ผู้ประเมินสอดคล้องกัน — ไม่จำเป็นต้อง Adjudicate สามารถ Lock Ground Truth ได้"
+            : "พบความเห็นไม่ตรงกัน — ต้องทำ Admin Adjudication ก่อน Lock Ground Truth";
+
         const labelRows = labels.length ? labels.map((x,i) =>
           '<tr><td>Reviewer '+(i+1)+'</td><td>'+esc(x.target)+'</td><td>'+esc((x.reasonCodes||[]).join(" • ")||"—")+'</td></tr>'
         ).join("") : '<tr><td colspan="3">ยังไม่มีฉลาก</td></tr>';
+
+        const adjudicatedReady = gtCase?.status === "ADJUDICATED";
+        const canLockNow = !lockedCase && (directLockEligible || adjudicatedReady);
+        const disableAdjudicationFields = adminAdjudicationEligible ? "" : " disabled";
 
         adminPanel =
           '<hr><h3>ส่วนผู้ตัดสินข้อขัดแย้ง (Admin Adjudication)</h3>'+
           '<p>'+statusBadge(gtCase?.status || "OPEN")+' <span class="muted">'+esc(agreement)+'</span></p>'+
           '<div class="table-wrap"><table><thead><tr><th>ฉลาก</th><th>Target</th><th>Reason Codes</th></tr></thead><tbody>'+labelRows+'</tbody></table></div>'+
           '<div class="form-grid" style="margin-top:14px">'+
-            '<div class="field"><label>Final Target หลัง adjudication</label><select id="adjTarget"><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
-            '<div class="field"><label>Reason Codes สุดท้าย (คั่นด้วย comma)</label><input id="adjReasons" placeholder="เช่น SHORT_DURATION,MISSING_CHECKOUT"></div>'+
-            '<div class="field full"><label>บันทึกเหตุผลการ adjudication</label><textarea id="adjNotes" placeholder="จำเป็นเมื่อผู้ประเมินไม่ตรงกัน"></textarea></div>'+
+            '<div class="field"><label>Final Target หลัง adjudication</label><select id="adjTarget"'+disableAdjudicationFields+'><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
+            '<div class="field"><label>Reason Codes สุดท้าย (คั่นด้วย comma)</label><input id="adjReasons"'+disableAdjudicationFields+' placeholder="เช่น SHORT_DURATION,MISSING_CHECKOUT"></div>'+
+            '<div class="field full"><label>บันทึกเหตุผลการ adjudication</label><textarea id="adjNotes"'+disableAdjudicationFields+' placeholder="ใช้เมื่อ Independent Labels ไม่ตรงกัน"></textarea></div>'+
           '</div>'+
           '<div class="actions">'+
-            '<button class="btn primary" id="adjBtn" '+(lockedCase?'disabled':'')+'>Adjudicate</button>'+
-            '<button class="btn ok" id="lockBtn" '+(gtCase?.status==="ADJUDICATED"?'':'disabled')+'>Lock Ground Truth</button>'+
-          '</div><div id="adjMsg"></div>';
+            '<button class="btn primary" id="adjBtn" '+(adminAdjudicationEligible?'':'disabled')+'>Adjudicate</button>'+
+            '<button class="btn ok" id="lockBtn" '+(canLockNow?'':'disabled')+'>Lock Ground Truth</button>'+
+          '</div>'+
+          (!hasMinimumIndependentLabels?'<div class="alert warn">ต้องมี Independent Labels จากผู้ประเมินอิสระอย่างน้อย 2 คนก่อน จึงจะตัดสินขั้น Ground Truth ได้</div>':'')+
+          (hasAgreement?'<div class="alert ok">ฉลากสอดคล้องกันครบถ้วน — Lock ได้โดยตรง โดยไม่สร้าง Adjudication record</div>':'')+
+          '<div id="adjMsg"></div>';
       }
 
       document.getElementById("gtForm").innerHTML =
@@ -3137,6 +3162,10 @@
 
       const adjBtn = document.getElementById("adjBtn");
       if (adjBtn && !lockedCase) adjBtn.onclick = async () => {
+        if (!adminAdjudicationEligible) {
+          document.getElementById("adjMsg").innerHTML = '<div class="alert warn">Adjudication ใช้เฉพาะเมื่อมี Independent Labels อย่างน้อย 2 คนและผลไม่ตรงกัน</div>';
+          return;
+        }
         const codes = document.getElementById("adjReasons").value.split(",").map(x=>x.trim()).filter(Boolean);
         try {
           await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/adjudicate", {
