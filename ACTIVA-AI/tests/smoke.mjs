@@ -824,7 +824,7 @@ const releaseActivity=await req("/api/activities",{
 assert(releaseActivity.activity?.id,"V1 closure activity creation failed");
 
 const gateBeforeClose=await req("/api/operations/release-gate",{actor:"ADM001"});
-assert(gateBeforeClose.releaseVersion==="ACTIVA-AI-1.0.0","release gate version mismatch");
+assert(gateBeforeClose.releaseVersion==="ACTIVA-AI-1.0.14","release gate version mismatch");
 assert(["GO","HOLD"].includes(gateBeforeClose.gate),"release gate status invalid");
 assert(gateBeforeClose.containsPII===false,"release gate must not expose PII");
 assert(Array.isArray(gateBeforeClose.scenarios),"release acceptance scenarios missing");
@@ -837,7 +837,7 @@ const closure=await req("/api/operations/activities/"+encodeURIComponent(release
 });
 assert(closure.immutableOperationalClosure===true,"activity immutable closure failed");
 assert(closure.pilotClosureHash,"activity closure hash missing");
-assert(closure.pilotClosureVersion==="ACTIVA-AI-1.0.0","activity closure version mismatch");
+assert(closure.pilotClosureVersion==="ACTIVA-AI-1.0.14","activity closure version mismatch");
 
 const closureAgain=await req("/api/operations/activities/"+encodeURIComponent(releaseActivity.activity.id)+"/close",{
   actor:"ADM001",
@@ -862,7 +862,7 @@ assert(participantBackup.status===403,"participant must not export operational b
 
 const backupExport=await req("/api/operations/backup",{actor:"ADM001"});
 assert(backupExport.backup?.format==="ACTIVA_AI_BACKUP_V1","backup format mismatch");
-assert(backupExport.backup?.releaseVersion==="ACTIVA-AI-1.0.0","backup release version mismatch");
+assert(backupExport.backup?.releaseVersion==="ACTIVA-AI-1.0.14","backup release version mismatch");
 assert(backupExport.backup?.containsPII===true,"operational backup must explicitly declare PII");
 assert(backupExport.backup?.containsSecrets===false,"operational backup must exclude secrets");
 assert(backupExport.backup?.checksum,"backup checksum missing");
