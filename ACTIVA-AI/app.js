@@ -3,10 +3,25 @@
 
   const SESSION_KEY = "activa_ai_v034_session";
   const MODE_KEY = "activa_ai_mode";
+  const API_BASE_KEY = "activa_ai_api_base_url";
   const NAV_GROUP_KEY = "activa_ai_nav_groups";
   const SELECTED_ACTIVITY_KEY = "activa_ai_selected_activity";
   const DEMO_STORAGE_KEY = "activa_ai_demo_v034";
-  let appMode = sessionStorage.getItem(MODE_KEY) || "server";
+  const PUBLIC_CONFIG = window.ACTIVA_CONFIG || {};
+  const RELEASE_VERSION = PUBLIC_CONFIG.releaseVersion || "ACTIVA-AI-1.0.15";
+
+  function normalizeApiBase(value) {
+    const raw=String(value||"").trim();
+    if(!raw) return "";
+    let url;
+    try { url=new URL(raw); }
+    catch { return ""; }
+    if(!["http:","https:"].includes(url.protocol)) return "";
+    return url.origin + url.pathname.replace(/\/$/,"");
+  }
+
+  let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || "");
+  let appMode = sessionStorage.getItem(MODE_KEY) || "demo";
   let session = readSession();
   let activeView = "dashboard";
   let qrTimer = null;
@@ -75,6 +90,52 @@
     else sessionStorage.removeItem(SESSION_KEY);
   }
 
+  function setApiBaseUrl(value) {
+    apiBaseUrl=normalizeApiBase(value);
+    if(apiBaseUrl) sessionStorage.setItem(API_BASE_KEY,apiBaseUrl);
+    else sessionStorage.removeItem(API_BASE_KEY);
+    return apiBaseUrl;
+  }
+
+  function serverApiUrl(path) {
+    if(!apiBaseUrl) {
+      const err=new Error("SERVER_API_NOT_CONFIGURED");
+      err.status=0;
+      err.data={ok:false,error:"SERVER_API_NOT_CONFIGURED"};
+      throw err;
+    }
+    const cleanPath=String(path||"").startsWith("/")?String(path):"/"+String(path||"");
+    return apiBaseUrl+cleanPath;
+  }
+
+  async function checkServerHealth() {
+    const response=await fetch(serverApiUrl("/api/health"),{
+      method:"GET",
+      headers:{Accept:"application/json"}
+    });
+    let data={};
+    try { data=await response.json(); } catch {}
+    if(!response.ok) {
+      const err=new Error(data.error||("HTTP_"+response.status));
+      err.status=response.status;
+      err.data=data;
+      throw err;
+    }
+    if(data.database!=="connected") {
+      const err=new Error("DATABASE_NOT_CONNECTED");
+      err.status=503;
+      err.data=data;
+      throw err;
+    }
+    if(data.releaseVersion && data.releaseVersion!==RELEASE_VERSION) {
+      const err=new Error("BACKEND_RELEASE_VERSION_MISMATCH");
+      err.status=409;
+      err.data={...data,expectedReleaseVersion:RELEASE_VERSION};
+      throw err;
+    }
+    return data;
+  }
+
   async function api(path, options = {}, actorOverride = null) {
     const actor = actorOverride || session?.employeeId;
     if (appMode === "demo") {
@@ -87,7 +148,7 @@
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
     if (actor) headers.set("x-activa-user-id", actor);
 
-    const response = await fetch(path, { ...options, headers });
+    const response = await fetch(serverApiUrl(path), { ...options, headers });
     let data = {};
     try { data = await response.json(); } catch {}
     if (!response.ok) {
@@ -299,10 +360,11 @@
   }
 
   function renderLogin() {
+    const configuredApi=apiBaseUrl||"";
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.14</div><h1>เลือกโหมดใช้งาน</h1>'+
-      '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
+      '<div class="kicker">ACTIVA-AI V1.0.15</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<p>Demo Mode ใช้ข้อมูลสังเคราะห์ใน browser ส่วน Pilot/API Mode เชื่อม Backend API ซึ่งเป็นผู้เชื่อม PostgreSQL อีกชั้นหนึ่ง</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
         '<div><b>ADM001</b><span>ผู้ดูแลระบบ</span></div>'+
@@ -313,22 +375,66 @@
         '<div><b>P001</b><span>บุคลากรผู้เข้าร่วมกิจกรรม</span></div>'+
         '<div><b>T001–T010</b><span>บุคลากรทดลองสำหรับทดสอบหลายคน</span></div>'+
       '</div>'+
-      '<div class="demo-note">หมายเหตุ: “ผู้จัดกิจกรรม” เป็นสิทธิ์ที่ ADMIN เพิ่ม/ลดให้บุคลากร ไม่ใช่ประเภทบุคลากรถาวร</div></div>'+
-      '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
+      '<div class="demo-note">“ผู้จัดกิจกรรม” เป็นสิทธิ์ที่ ADMIN เพิ่ม/ลดให้บุคลากร ไม่ใช่ประเภทบุคลากรถาวร</div></div>'+
+      '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001" autocomplete="username"></div>'+
+      '<div class="field" style="margin-top:12px"><label>Backend API URL สำหรับ Pilot/API Mode</label>'+
+        '<input id="apiBaseUrl" inputmode="url" placeholder="https://api.example.org" value="'+esc(configuredApi)+'">'+
+        '<div class="muted" style="margin-top:6px">ใส่เฉพาะ URL ของ HTTPS API — ห้ามใส่ DATABASE_URL, password หรือ secret</div></div>'+
+      '<div class="actions">'+
+        '<button class="btn secondary" id="checkServer">ตรวจการเชื่อมต่อ API</button>'+
+      '</div>'+
+      '<div id="serverHealthMsg"></div>'+
       '<div class="actions">'+
         '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
-        '<button class="btn secondary" id="serverLogin">เข้า Server Mode</button>'+
+        '<button class="btn secondary" id="serverLogin">เข้า Pilot/API Mode</button>'+
       '</div>'+
-      '<div class="hint"><b>Demo Mode:</b> ไม่ต้องใช้ PostgreSQL ข้อมูลเก็บใน browser และเป็นข้อมูลสาธิต/สังเคราะห์เท่านั้น<br><b>Server Mode:</b> ใช้ API + PostgreSQL ตามสถาปัตยกรรมจริง</div>'+
+      '<div class="hint"><b>Demo Mode:</b> localStorage + Synthetic Data<br>'+
+        '<b>Pilot/API Mode:</b> Browser → HTTPS Backend API → Prisma → PostgreSQL<br>'+
+        '<b>Security:</b> PostgreSQL credential อยู่ฝั่ง server เท่านั้น ไม่ส่งมาที่ browser</div>'+
       '<div class="actions"><button class="btn warn" id="resetDemo">ล้างข้อมูล Demo</button></div>'+
       '<div id="loginMsg"></div></div></div>';
+
+    function readApiInput() {
+      const value=document.getElementById("apiBaseUrl")?.value||"";
+      return setApiBaseUrl(value);
+    }
+
+    async function probeServer() {
+      const host=document.getElementById("serverHealthMsg");
+      const base=readApiInput();
+      if(!base) {
+        host.innerHTML='<div class="alert bad">กรุณาระบุ Backend API URL ที่ขึ้นต้นด้วย https:// หรือ http://</div>';
+        return null;
+      }
+      host.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
+      try {
+        const health=await checkServerHealth();
+        host.innerHTML='<div class="alert ok"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
+          'API: '+esc(base)+'<br>'+
+          'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected</div>';
+        return health;
+      } catch(error) {
+        host.innerHTML=errorBox(error);
+        return null;
+      }
+    }
 
     async function login(mode) {
       const id = document.getElementById("loginId").value.trim().toUpperCase();
       const msg = document.getElementById("loginMsg");
       if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
+
+      if(mode==="server") {
+        if(!readApiInput()) {
+          return msg.innerHTML='<div class="alert bad">ยังไม่ได้ตั้ง Backend API URL สำหรับ Pilot/API Mode</div>';
+        }
+        msg.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
+        try { await checkServerHealth(); }
+        catch(error) { return msg.innerHTML=errorBox(error); }
+      }
+
       setMode(mode);
-      msg.innerHTML = '<div class="alert">กำลังเข้าสู่ '+(mode==="demo"?"Demo Mode":"Server Mode")+'…</div>';
+      msg.innerHTML = '<div class="alert">กำลังเข้าสู่ '+(mode==="demo"?"Demo Mode":"Pilot/API Mode")+'…</div>';
       try {
         const data = await api("/api/me", {}, id);
         session = data.user;
@@ -346,6 +452,7 @@
       }
     }
 
+    document.getElementById("checkServer").onclick = probeServer;
     document.getElementById("demoLogin").onclick = () => login("demo");
     document.getElementById("serverLogin").onclick = () => login("server");
     document.getElementById("resetDemo").onclick = () => {
