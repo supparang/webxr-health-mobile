@@ -68,6 +68,7 @@ jobs:
 
       - name: JavaScript syntax checks
         run: |
+          node --check runtime-config.js
           node --check app.js
           node --check demo-api.js
           node --check server/index.js
