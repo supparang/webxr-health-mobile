@@ -269,11 +269,16 @@ const coParticipantCheckin=await req("/api/attendance/checkin",{
 });
 assert(coParticipantCheckin.attendance?.id,"co-organizer should be allowed to participate");
 
+const reviewerProxyCheckin=await reqError("/api/attendance/checkin",{
+  actor:"STF001",method:"POST",body:{userId:"P001",token:qr.token}
+});
+assert(reviewerProxyCheckin.status===403 && reviewerProxyCheckin.data?.error==="CHECKIN_SELF_ONLY","reviewer must not check in another participant");
+
 const reviewerParticipantCheckin=await req("/api/attendance/checkin",{
   actor:"STF001",method:"POST",body:{userId:"STF001",token:qr.token}
 });
 const reviewerOwnAttendanceId=reviewerParticipantCheckin.attendance?.id;
-assert(reviewerOwnAttendanceId,"assigned reviewer should be allowed to participate");
+assert(reviewerOwnAttendanceId,"assigned reviewer should be allowed to participate and check in as self");
 
 const selfStaffVerify=await reqError("/api/attendance/"+encodeURIComponent(reviewerOwnAttendanceId)+"/staff-verify",{
   actor:"STF001",method:"POST"
