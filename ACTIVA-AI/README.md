@@ -506,3 +506,11 @@ Conflict rules:
 - Active attendance (checked in but not checked out) is displayed as **กำลังเข้าร่วม** in Evidence Matrix.
 - Stale/incomplete evidence from an earlier test run is hidden while the attendance is still active.
 - Per-record and bulk evidence evaluation buttons stay disabled until checkout is complete, or the checkout window has closed.
+
+
+## V1.0.8 — Scoped Attendance Actions
+- Normal Dynamic QR Check-out is self-only for every role; proxy checkout controls are disabled when another person's record is selected.
+- Assisted Check-out is operational work for the activity Owner, Co-organizer, or ADMIN only.
+- Reviewer verification requires VERIFIER assignment and is disabled for the reviewer's own Attendance.
+- Wrong-record cancellation follows the same assigned-reviewer and no-self-action boundary.
+- UI authorization now mirrors the backend rules introduced in V1.0.4–V1.0.7.
