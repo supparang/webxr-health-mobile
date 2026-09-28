@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.4 • Activity Roles + No Self-Review</div>'+
+        '<div class="version">V1.0.5 • Self Attendance + Activity Roles</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.4</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.5</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1868,7 +1868,11 @@
   async function renderAttendance(v) {
     showLoading(v);
     const [activities, users, rows] = await Promise.all([loadActivities(), loadUsers(), loadAttendance()]);
-    const participants = users.filter(u => u.role === "PARTICIPANT");
+    const currentAttendanceUser = users.find(u =>
+      u.status === "ACTIVE" &&
+      (u.id === session.id || u.employeeId === session.employeeId)
+    ) || null;
+    const participants = currentAttendanceUser ? [currentAttendanceUser] : [];
     let qrScanner = null;
     let scannerBusy = false;
     let checkoutScanner = null;
@@ -1878,7 +1882,8 @@
       participantResponsePanel(rows)+
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
       '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
-      '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select></div>'+
+      '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select>'+
+      '<small class="muted">Dynamic QR สำหรับ Check-in ของตนเองเท่านั้น ไม่ว่าบัญชีจะเป็น Owner / Co-organizer / Reviewer / Participant</small></div>'+
       '<div class="actions scan-actions">'+
         '<button class="btn primary scan-btn" id="scanQrBtn">📷 สแกน QR</button>'+
         (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceTestBtn">🧪 ทดสอบ QR บนเครื่องนี้</button>':'')+
@@ -2112,6 +2117,8 @@
           msg.innerHTML = '<div class="alert warn"><b>Check-in แล้ว</b><br>กิจกรรมนี้มีรายการ Check-in อยู่แล้ว จึงไม่สร้างรายการซ้ำ</div>';
         } else if (e?.message === "ACTIVITY_ALREADY_COMPLETED") {
           msg.innerHTML = '<div class="alert ok"><b>กิจกรรมนี้บันทึกเข้า–ออกแล้ว</b><br>ไม่ต้อง Check-in ซ้ำ ให้ดำเนินการ Staff Verification / Evidence Review ต่อ</div>';
+        } else if (e?.message === "CHECKIN_SELF_ONLY" || e?.message === "PARTICIPANT_CAN_ONLY_CHECKIN_SELF") {
+          msg.innerHTML = '<div class="alert bad"><b>Check-in ได้เฉพาะตนเอง</b><br>บัญชีที่ Login อยู่ต้องตรงกับผู้เข้าร่วมที่กำลัง Check-in</div>';
         } else if (e?.message === "QR_CHECKIN_NOT_OPEN") {
           msg.innerHTML = '<div class="alert warn"><b>ยังไม่ถึงเวลา Check-in</b><br>เปิด '+esc(fmt(e.data?.checkinOpenAt))+' ถึง '+esc(fmt(e.data?.checkinCloseAt))+'</div>';
           await stopScanner();
