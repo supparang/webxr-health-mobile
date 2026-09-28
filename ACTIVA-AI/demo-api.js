@@ -176,6 +176,7 @@
         {id:"ORG001",employeeId:"ORG001",name:"บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",positionTitle:"ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)",role:"ORGANIZER",status:"ACTIVE",activityPermissions:ORGANIZER_DEFAULT_PERMISSIONS.map(permission=>({permission,grantedAt:iso(),validFrom:null,validUntil:null,reason:"Demo organizer permission seed",revokedAt:null}))},
         {id:"STF001",employeeId:"STF001",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 1",positionTitle:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",role:"STAFF",status:"ACTIVE"},
         {id:"STF002",employeeId:"STF002",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 2",positionTitle:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",role:"STAFF",status:"ACTIVE"},
+        {id:"STF003",employeeId:"STF003",name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 3",positionTitle:"บุคลากรผู้ประเมินอิสระ/ผู้ตรวจสอบ",role:"STAFF",status:"ACTIVE"},
         {id:"P001",employeeId:"P001",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 1",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P002",employeeId:"P002",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 2",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
         {id:"P003",employeeId:"P003",name:"บุคลากรผู้เข้าร่วมตัวอย่าง 3",positionTitle:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",role:"PARTICIPANT",status:"ACTIVE"},
@@ -255,7 +256,7 @@
     }
 
     // Reviewer governance: STAFF is only reviewer-capable; assignment is per activity.
-    for (const verifierId of ["STF001","STF002"]) {
+    for (const verifierId of ["STF001","STF002","STF003"]) {
       if (!(a.roleAssignments||[]).some(x=>x.role==="VERIFIER"&&x.userId===verifierId)) {
         a.roleAssignments=a.roleAssignments||[];
         a.roleAssignments.push({
@@ -346,6 +347,24 @@
       changed = true;
     }
 
+    if (!data.demoThirdReviewer112Migrated) {
+      if (!Array.isArray(data.users)) data.users = [];
+      if (!data.users.some(u => u.employeeId === "STF003" || u.id === "STF003")) {
+        data.users.push({
+          id:"STF003",
+          employeeId:"STF003",
+          name:"ผู้ตรวจสอบหลักฐานตัวอย่าง 3",
+          positionTitle:"บุคลากรผู้ประเมินอิสระ/ผู้ตรวจสอบ",
+          role:"STAFF",
+          status:"ACTIVE",
+          activityPermissions:[]
+        });
+        changed = true;
+      }
+      data.demoThirdReviewer112Migrated = true;
+      changed = true;
+    }
+
     if (!data.evidenceFreshness111Migrated) {
       for (const row of (data.attendance || [])) {
         const result=row.consistencyResult;
@@ -369,6 +388,7 @@
         ORG001:"ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)",
         STF001:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",
         STF002:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",
+        STF003:"บุคลากรผู้ประเมินอิสระ/ผู้ตรวจสอบ",
         P001:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",
         P002:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",
         P003:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)"
@@ -401,6 +421,7 @@
         ORG001: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)",
         STF001: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1",
         STF002: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2",
+        STF003: "ผู้ตรวจสอบหลักฐานตัวอย่าง 3",
         P001: "บุคลากรผู้เข้าร่วมตัวอย่าง 1",
         P002: "บุคลากรผู้เข้าร่วมตัวอย่าง 2",
         P003: "บุคลากรผู้เข้าร่วมตัวอย่าง 3",
@@ -638,7 +659,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.11";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.12";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -788,7 +809,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.11-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.12-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);

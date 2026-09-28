@@ -15,6 +15,7 @@ async function main() {
     { employeeId: "ORG001", name: "บุคลากรตัวอย่าง (ได้รับสิทธิ์จัดกิจกรรม)", positionTitle: "ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)", role: "ORGANIZER" },
     { employeeId: "STF001", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 1", positionTitle: "บุคลากรผู้ได้รับมอบหมายตรวจสอบ", role: "STAFF" },
     { employeeId: "STF002", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 2", positionTitle: "บุคลากรผู้ได้รับมอบหมายตรวจสอบ", role: "STAFF" },
+    { employeeId: "STF003", name: "ผู้ตรวจสอบหลักฐานตัวอย่าง 3", positionTitle: "บุคลากรผู้ประเมินอิสระ/ผู้ตรวจสอบ", role: "STAFF" },
     { employeeId: "P001", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 1", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
     { employeeId: "P002", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 2", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
     { employeeId: "P003", name: "บุคลากรผู้เข้าร่วมตัวอย่าง 3", positionTitle: "อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)", role: "PARTICIPANT" },
@@ -120,7 +121,7 @@ async function main() {
   }
 
   console.log("ACTIVA-AI demo seed completed.");
-  console.log("Use x-activa-user-id headers: ADM001, ORG001, STF001, STF002, P001, P002, P003");
+  console.log("Use x-activa-user-id headers: ADM001, ORG001, STF001, STF002, STF003, P001, P002, P003");
 }
 
 main()

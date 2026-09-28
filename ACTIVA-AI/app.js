@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.11 • Evidence Freshness Guard</div>'+
+        '<div class="version">V1.0.12 • Third Independent Reviewer</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.10</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.12</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -309,6 +309,7 @@
         '<div><b>ORG001</b><span>บุคลากรตัวอย่าง • ได้รับสิทธิ์จัดกิจกรรม</span></div>'+
         '<div><b>STF001</b><span>ผู้ตรวจสอบหลักฐานคนที่ 1</span></div>'+
         '<div><b>STF002</b><span>ผู้ตรวจสอบหลักฐานคนที่ 2</span></div>'+
+        '<div><b>STF003</b><span>ผู้ตรวจสอบหลักฐานคนที่ 3 • Independent Labeler</span></div>'+
         '<div><b>P001</b><span>บุคลากรผู้เข้าร่วมกิจกรรม</span></div>'+
         '<div><b>T001–T010</b><span>บุคลากรทดลองสำหรับทดสอบหลายคน</span></div>'+
       '</div>'+
@@ -338,7 +339,7 @@
         if (mode === "demo" && error?.message === "DEMO_USER_NOT_FOUND") {
           msg.innerHTML =
             '<div class="alert bad"><b>ไม่พบรหัส '+esc(id)+' ในบัญชี Demo</b><br>'+
-            'ใช้ ADM001, ORG001, STF001, STF002, P001–P003 หรือ T001–T010 ได้ทันที</div>';
+            'ใช้ ADM001, ORG001, STF001–STF003, P001–P003 หรือ T001–T010 ได้ทันที</div>';
         } else {
           msg.innerHTML = errorBox(error);
         }

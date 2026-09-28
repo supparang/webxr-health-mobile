@@ -528,3 +528,10 @@ Conflict rules:
 - The UI ignores a rule result whose evaluation timestamp is older than the latest checkout or reviewer-verification evidence.
 - Demo migration clears stale persisted evaluations created by earlier releases.
 - Prevents impossible states such as showing a valid checkout time and duration while still displaying MISSING_CHECKOUT or MISSING_DURATION from an older evaluation.
+
+
+## V1.0.12 — Third Independent Reviewer
+- Added demo/server seed account `STF003` as a STAFF reviewer and independent Ground Truth labeler.
+- Existing Demo browser state is migrated in-place; no Demo reset is required.
+- STF003 can provide the second independent label for attendance belonging to STF001 or STF002 while preserving no-self-labeling.
+- Synthetic QA reviewer assignment also includes STF003. User-created activities are not silently changed; ORG/ADMIN can assign STF003 as an activity Reviewer when operational Human Review access is needed.
