@@ -517,6 +517,7 @@ app.get("/api/me", async (req, res) => {
       id: req.activaUser.id,
       employeeId: req.activaUser.employeeId,
       name: req.activaUser.name,
+      positionTitle: req.activaUser.positionTitle || null,
       role: req.activaUser.role,
       status: req.activaUser.status,
       activityPermissions,
@@ -604,6 +605,7 @@ app.get("/api/users", personnelDirectoryGuard, async (_req, res) => {
       employeeId: true,
       name: true,
       email: true,
+      positionTitle: true,
       role: true,
       status: true,
       department: { select: { code: true, name: true } },
@@ -651,6 +653,7 @@ app.post("/api/users", requireRoles("ADMIN"), async (req,res)=>{
   const employeeId=String(b.employeeId||"").trim().toUpperCase();
   const name=String(b.name||"").trim();
   const email=String(b.email||"").trim()||null;
+  const positionTitle=String(b.positionTitle||"").trim()||null;
   const role=normalizeRole(b.role,true);
   if(!employeeId||!name) return res.status(400).json({ok:false,error:"EMPLOYEE_ID_AND_NAME_REQUIRED"});
   if(!role) return res.status(400).json({ok:false,error:"INVALID_ROLE"});
@@ -664,10 +667,10 @@ app.post("/api/users", requireRoles("ADMIN"), async (req,res)=>{
 
   const department=await resolveDepartmentByName(b.department);
   const user=await prisma.user.create({
-    data:{employeeId,name,email,role,status:"ACTIVE",departmentId:department?.id||null},
+    data:{employeeId,name,email,positionTitle,role,status:"ACTIVE",departmentId:department?.id||null},
     include:{department:{select:{code:true,name:true}}},
   });
-  await audit(req,"USER_CREATED","User",user.id,{employeeId,role,department:department?.name||null});
+  await audit(req,"USER_CREATED","User",user.id,{employeeId,positionTitle,role,department:department?.name||null});
   res.status(201).json({ok:true,user});
 });
 
@@ -677,6 +680,9 @@ app.patch("/api/users/:userId", requireRoles("ADMIN"), async (req,res)=>{
   const b=req.body||{};
   const name=String(b.name||current.name).trim();
   const email=String(b.email||"").trim()||null;
+  const positionTitle=Object.prototype.hasOwnProperty.call(b,"positionTitle")
+    ? (String(b.positionTitle||"").trim()||null)
+    : current.positionTitle;
   const role=normalizeRole(b.role||current.role,true);
   if(!name) return res.status(400).json({ok:false,error:"NAME_REQUIRED"});
   if(!role) return res.status(400).json({ok:false,error:"INVALID_ROLE"});
@@ -687,10 +693,10 @@ app.patch("/api/users/:userId", requireRoles("ADMIN"), async (req,res)=>{
   const department=await resolveDepartmentByName(b.department);
   const user=await prisma.user.update({
     where:{id:current.id},
-    data:{name,email,role,departmentId:department?.id||null},
+    data:{name,email,positionTitle,role,departmentId:department?.id||null},
     include:{department:{select:{code:true,name:true}}},
   });
-  await audit(req,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,role,department:department?.name||null});
+  await audit(req,"USER_UPDATED","User",user.id,{employeeId:user.employeeId,positionTitle,role,department:department?.name||null});
   res.json({ok:true,user});
 });
 
@@ -834,6 +840,7 @@ app.post("/api/users/import", requireRoles("ADMIN"), async (req,res)=>{
       const employeeId=String(raw.employeeId||"").trim().toUpperCase();
       const name=String(raw.name||"").trim();
       const email=String(raw.email||"").trim()||null;
+      const positionTitle=String(raw.positionTitle||"").trim()||null;
       const role=normalizeRole(raw.role,false);
       if(!employeeId||!name||!role){errorCount++;errors.push({employeeId,error:"INVALID_ROW"});continue;}
       const exists=await prisma.user.findUnique({where:{employeeId}});
@@ -844,7 +851,7 @@ app.post("/api/users/import", requireRoles("ADMIN"), async (req,res)=>{
       }
       const department=await resolveDepartmentByName(raw.department);
       await prisma.user.create({
-        data:{employeeId,name,email,role,status:"ACTIVE",departmentId:department?.id||null},
+        data:{employeeId,name,email,positionTitle,role,status:"ACTIVE",departmentId:department?.id||null},
       });
       createdCount++;
     }catch(error){
