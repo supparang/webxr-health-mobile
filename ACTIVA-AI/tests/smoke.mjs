@@ -43,6 +43,8 @@ async function req(path, { actor, method = "GET", body } = {}) {
 const health = await req("/api/health");
 assert(health.ok && health.database === "connected", "health/database check failed");
 assert(health.version === "1.0.15", "health version must report ACTIVA-AI 1.0.15");
+assert(health.authentication?.mode === "DEMO_HEADER", "CI authentication mode must be DEMO_HEADER");
+assert(health.authentication?.productionReady === false, "DEMO_HEADER must never be production-ready authentication");
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
   headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
