@@ -64,11 +64,11 @@ const audit=await api.request("/api/audit",{method:"GET"},"ADM001");
 const holdAudit=(audit.logs||[]).find(x=>x.action==="PILOT_RELEASE_HOLD");
 assert(holdAudit,"Demo HOLD audit event missing");
 assert.equal(holdAudit.metadata?.decision,"HOLD","Demo HOLD audit decision mismatch");
-assert.equal(holdAudit.metadata?.releaseVersion,"ACTIVA-AI-1.0.14","Demo HOLD audit release version mismatch");
+assert.equal(holdAudit.metadata?.releaseVersion,"ACTIVA-AI-1.0.15","Demo HOLD audit release version mismatch");
 assert.deepEqual(
   holdAudit.metadata?.blockersAtDecision,
   ["DEMO_MODE_NOT_PRODUCTION"],
   "Demo HOLD audit must retain the non-production blocker"
 );
 
-console.log("ACTIVA-AI V1.0.14 demo release guard test passed");
+console.log("ACTIVA-AI V1.0.15 demo release guard test passed");
