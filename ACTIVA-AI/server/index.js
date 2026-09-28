@@ -3692,7 +3692,8 @@ app.use((_req, res) => {
 app.use((error, _req, res, _next) => {
   console.error(error);
   const status=Number(error?.status)||500;
-  const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";\n  res.status(status).json({ ok:false, error:code });
+  const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";
+  res.status(status).json({ ok:false, error:code });
 });
 
 app.listen(port, () => {
