@@ -411,10 +411,7 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
     overflow:hidden
   }
   .release-closure-table td{
-    display:grid;
-    grid-template-columns:minmax(108px,0.78fr) minmax(0,1.42fr);
-    gap:10px;
-    align-items:start;
+    display:block;
     width:100%;
     min-width:0;
     padding:11px 12px;
@@ -424,6 +421,8 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   }
   .release-closure-table td:last-child{border-bottom:0}
   .release-closure-table td::before{
+    display:block;
+    margin-bottom:6px;
     font-size:12px;
     line-height:1.35;
     font-weight:800;
