@@ -754,7 +754,7 @@
 
       '<div class="panel"><h2>Immutable Activity Closure</h2>'+
       '<p class="muted">เมื่อปิดแล้ว ระบบจะ block การแก้ operational evidence, check-in/out, staff verification, void, re-evaluate และ Human Review ของกิจกรรมนั้น</p>'+
-      '<div class="table-wrap"><table><thead><tr><th>กิจกรรม</th><th>สถานะ</th><th>ค้าง Review</th><th>ยังไม่ Evaluate</th><th>Checklist</th><th>Action / Hash</th></tr></thead><tbody>'+activityRows+'</tbody></table></div></div>'+
+      '<div class="table-wrap release-closure-table"><table><thead><tr><th>กิจกรรม</th><th>สถานะ</th><th>ค้าง Review</th><th>ยังไม่ Evaluate</th><th>Checklist</th><th>Action / Hash</th></tr></thead><tbody>'+activityRows+'</tbody></table></div></div>'+
 
       '<div class="split"><div class="panel"><h2>Backup & Recovery Verification</h2>'+
       '<p class="muted">Production backup มี PII และต้องเก็บในที่ปลอดภัย ระบบไม่รวม QR cryptographic credentials เพื่อให้ credential เดิมใช้ไม่ได้หลัง disaster recovery</p>'+
