@@ -621,7 +621,7 @@
     save();
   }
   function activity(id) { return state.activities.find(a => a.id === id); }
-  const RELEASE_VERSION="ACTIVA-AI-1.0.4";
+  const RELEASE_VERSION="ACTIVA-AI-1.0.5";
   const BACKUP_FORMAT="ACTIVA_AI_BACKUP_V1";
 
   function ensureDemoActivityMutable(a){
@@ -771,7 +771,7 @@
     const p = url.pathname;
 
     if (p === "/api/health" && method === "GET") {
-      return {ok:true,version:"1.0.4-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
+      return {ok:true,version:"1.0.5-demo",database:"demo-local",mode:"DEMO",synthetic:true,ai:state.models.some(x=>x.status==="DEPLOYED")?"decision-support-active":"no-deployed-model",deployedModelVersion:state.models.find(x=>x.status==="DEPLOYED")?.version||null,autonomousDecision:false};
     }
     if (p === "/api/me" && method === "GET") {
       if (!who) err("DEMO_USER_NOT_FOUND",404);
@@ -1186,7 +1186,7 @@
     }
     if (p === "/api/attendance/checkin" && method === "POST") {
       const u = actor(b.userId); if(!u) err("USER_NOT_FOUND",404);
-      if (who.role==="PARTICIPANT" && who.id!==u.id) err("PARTICIPANT_CAN_ONLY_CHECKIN_SELF",403);
+      if (who.id!==u.id) err("CHECKIN_SELF_ONLY",403);
       let a = state.activities.find(x=>x.qrByPurpose?.CHECKIN?.token===b.token || x.qr?.token===b.token);
       const portable=decodePortableDemoQr(b.token);
       if(portable){
@@ -1263,7 +1263,7 @@
     if (m && method==="POST") {
       const r=attendance(decodeURIComponent(m[1])); if(!r) err("ATTENDANCE_NOT_FOUND",404);
       if(r.isVoided) err("ATTENDANCE_VOIDED",409);
-      if(who.role==="PARTICIPANT"&&r.userId!==who.id) err("PARTICIPANT_CAN_ONLY_CHECKOUT_SELF",403);
+      if(r.userId!==who.id) err("CHECKOUT_SELF_ONLY",403);
       if(r.checkoutAt) err("ALREADY_CHECKED_OUT",409);
       if(!b.token) err("CHECKOUT_QR_REQUIRED",400);
 
