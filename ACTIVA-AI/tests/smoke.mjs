@@ -407,6 +407,8 @@ const autoResolveAfter=await req("/api/evidence/"+encodeURIComponent(autoResolve
 assert(autoResolveAfter.result?.status==="COMPLETE","evidence should become COMPLETE after staff verification");
 assert((autoResolveAfter.result?.missingCodes||[]).length===0,"resolved evidence must have no missing required codes");
 assert((autoResolveAfter.result?.reasonCodes||[]).length===0,"resolved evidence must have no blockers");
+assert(autoResolveAfter.infoRequestResolvedByEvidenceUpdate===true,"V1.0.13 must mark evidence-driven request resolution");
+assert(autoResolveAfter.workflowStatus==="READY_DECISION","resolved evidence request must return READY_DECISION");
 
 const lateParticipantResponse=await reqError("/api/participant-response/"+encodeURIComponent(autoResolveAttendanceId),{
   actor:"P003",
@@ -427,7 +429,7 @@ const autoResolveAuditEntry=autoResolveAudit.logs.find((x)=>
 );
 assert(autoResolveAuditEntry,"V1.0.13 auto-resolve audit event missing");
 assert(autoResolveAuditEntry.metadata?.requestReviewId,"auto-resolve audit missing requestReviewId");
-assert(autoResolveAuditEntry.metadata?.resolvedBy==="EVIDENCE_UPDATE","auto-resolve audit missing resolvedBy evidence marker");
+assert(autoResolveAuditEntry.metadata?.status==="COMPLETE","auto-resolve audit must record COMPLETE evidence status");
 
 const assistActivity=await req("/api/activities",{
   actor:"ORG001",method:"POST",
