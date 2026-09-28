@@ -1589,24 +1589,62 @@
 
     m=p.match(/^\/api\/ground-truth\/([^/]+)\/adjudicate$/);
     if(m&&method==="POST"){
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
       const attendanceId=decodeURIComponent(m[1]);
       const labels=state.groundTruthLabels.filter(x=>x.attendanceId===attendanceId);
+      const reviewerCount=new Set(labels.map(x=>x.reviewerId)).size;
+      const labelSignature=x=>JSON.stringify([x.target||"",[...new Set(x.reasonCodes||[])].sort()]);
+      const signatures=[...new Set(labels.map(labelSignature))];
       let c=state.groundTruthCases.find(x=>x.attendanceId===attendanceId);
       if(c?.status==="LOCKED") err("GROUND_TRUTH_LOCKED_NO_READJUDICATION",409);
-      if(labels.length<2 && b.force!==true) err("TWO_INDEPENDENT_LABELS_REQUIRED",409);
+      if(reviewerCount<2) err("TWO_INDEPENDENT_LABELS_REQUIRED",409);
+      if(signatures.length<2) err("ADJUDICATION_REQUIRES_DISAGREEMENT",409);
+      if(!String(b.notes||"").trim()) err("DISAGREEMENT_REQUIRES_ADJUDICATION_NOTES",400);
       if(!c){c={id:uid("DEMO-GTC"),attendanceId};state.groundTruthCases.push(c);}
       Object.assign(c,{finalTarget:b.finalTarget,reasonCodes:b.reasonCodes||[],status:"ADJUDICATED",adjudicatorId:who.id,notes:b.notes||"",adjudicatedAt:iso(),lockedAt:null});
-      save(); audit(who.id,"GROUND_TRUTH_ADJUDICATED","AttendanceRecord",attendanceId,{demo:true});
-      return {ok:true,groundTruthCase:c,labelCount:labels.length};
+      save(); audit(who.id,"GROUND_TRUTH_ADJUDICATED","AttendanceRecord",attendanceId,{demo:true,labelCount:labels.length,reviewerCount});
+      return {ok:true,groundTruthCase:c,labelCount:labels.length,reviewerCount};
     }
 
     m=p.match(/^\/api\/ground-truth\/([^/]+)\/lock$/);
     if(m&&method==="POST"){
+      if(who.role!=="ADMIN") err("FORBIDDEN",403);
       const attendanceId=decodeURIComponent(m[1]);
-      const c=state.groundTruthCases.find(x=>x.attendanceId===attendanceId);
-      if(!c||c.status!=="ADJUDICATED") err("ADJUDICATION_REQUIRED_BEFORE_LOCK",409);
-      c.status="LOCKED";c.lockedAt=iso();save();audit(who.id,"GROUND_TRUTH_LOCKED","AttendanceRecord",attendanceId,{demo:true});
-      return {ok:true,groundTruthCase:c};
+      const labels=state.groundTruthLabels.filter(x=>x.attendanceId===attendanceId);
+      const reviewerCount=new Set(labels.map(x=>x.reviewerId)).size;
+      const labelSignature=x=>JSON.stringify([x.target||"",[...new Set(x.reasonCodes||[])].sort()]);
+      const signatures=[...new Set(labels.map(labelSignature))];
+      if(reviewerCount<2) err("TWO_INDEPENDENT_LABELS_REQUIRED",409);
+
+      let c=state.groundTruthCases.find(x=>x.attendanceId===attendanceId);
+      const hasDisagreement=signatures.length>1;
+      if(hasDisagreement){
+        if(!c||c.status!=="ADJUDICATED") err("ADJUDICATION_REQUIRED_BEFORE_LOCK",409);
+      }else{
+        const consensus=labels[0];
+        if(!c){c={id:uid("DEMO-GTC"),attendanceId};state.groundTruthCases.push(c);}
+        if(c.status!=="ADJUDICATED"){
+          Object.assign(c,{
+            finalTarget:consensus.target,
+            reasonCodes:[...new Set(consensus.reasonCodes||[])].sort(),
+            notes:"CONSENSUS_DIRECT_LOCK: Independent labels agreed; no adjudication required.",
+            adjudicatorId:null,
+            adjudicatedAt:null
+          });
+        }
+      }
+
+      c.status="LOCKED";
+      c.lockedAt=iso();
+      save();
+      audit(who.id,"GROUND_TRUTH_LOCKED","AttendanceRecord",attendanceId,{
+        demo:true,
+        finalTarget:c.finalTarget,
+        labelCount:labels.length,
+        reviewerCount,
+        resolutionMode:hasDisagreement?"ADJUDICATED":"CONSENSUS"
+      });
+      return {ok:true,groundTruthCase:c,resolutionMode:hasDisagreement?"ADJUDICATED":"CONSENSUS"};
     }
 
     if (p === "/api/ml/readiness" && method==="GET") {
