@@ -809,6 +809,39 @@ assert(participantPilot.status === 403, "participant must not access pilot readi
 
 // V1.0 pilot release gate, immutable closure, backup and recovery verification
 const releaseNow=Date.now();
+
+// Negative closure gate: an activity that has not ended must never be immutable-closed.
+const notEndedClosureActivity=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI V1 closure gate negative",
+    category:"ทดสอบ Release",
+    location:"CI",
+    startAt:new Date(releaseNow+60*60000).toISOString(),
+    endAt:new Date(releaseNow+120*60000).toISOString(),
+    policy:{}
+  }
+});
+assert(notEndedClosureActivity.activity?.id,"negative closure activity creation failed");
+
+const notEndedClosure=await reqError(
+  "/api/operations/activities/"+encodeURIComponent(notEndedClosureActivity.activity.id)+"/close",
+  {
+    actor:"ADM001",
+    method:"POST",
+    body:{reason:"CI must reject immutable closure before activity end"}
+  }
+);
+assert(notEndedClosure.status===409,"non-ended activity immutable closure must be blocked");
+assert(notEndedClosure.data?.error==="ACTIVITY_NOT_CLOSE_READY","wrong non-ended closure error");
+assert(
+  Array.isArray(notEndedClosure.data?.checklist) &&
+  notEndedClosure.data.checklist.some(x=>x.key==="ACTIVITY_ENDED" && x.passed===false),
+  "closure gate must report ACTIVITY_ENDED=false"
+);
+
+
 const releaseActivity=await req("/api/activities",{
   actor:"ORG001",
   method:"POST",
