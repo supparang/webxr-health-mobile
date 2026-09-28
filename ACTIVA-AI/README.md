@@ -1,5 +1,11 @@
 # ACTIVA-AI
 
+## V1.0.14 — Ground Truth Adjudication Guard + Release Identity Sync
+- เพิ่ม Ground Truth Adjudication Guard เพื่อคง separation ระหว่าง independent labeling, adjudication และ final lock
+- ซิงก์ current release identity ของ UI, Demo API, Server API, Backup/Recovery, Immutable Closure และ CI acceptance ให้เป็น `ACTIVA-AI-1.0.14`
+- ป้องกันกรณี Recovery Check แสดง `currentReleaseVersionMatch=true` กับ release identifier เก่ากว่า UI ที่กำลังทดสอบ
+- Demo Mode ยังคงบังคับ HOLD และไม่อนุญาต Production GO
+
 ## V1.0.13 — Evidence Request Auto-Resolve
 - แก้ state conflict ที่เคสยังแสดง “กำลังรอข้อมูลจากผู้เข้าร่วม” ทั้งที่หลักฐานถูกปรับปรุงภายหลังและประเมินใหม่เป็น COMPLETE แล้ว
 - เมื่อ latest Human Review เป็น REQUEST_EVIDENCE ระบบจะถือว่าคำขอข้อมูลเดิมสิ้นสุด หากมี Evidence Evaluation ใหม่หลังคำขอและไม่มี blocker เหลืออยู่
