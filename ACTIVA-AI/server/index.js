@@ -7,7 +7,7 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
-import { attachActor, requireRoles, resolveUserRef } from "./auth.js";
+import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady } from "./auth.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -321,10 +321,13 @@ function releaseSecurityStatus() {
     researchSalt.length >= 16 &&
     !unsafeMarker.test(researchSalt) &&
     !/ACTIVA-DEMO-SALT/i.test(researchSalt);
+  const authenticationReady=productionAuthenticationReady();
   return {
     qrSigningReady,
     researchSaltReady,
-    ready: qrSigningReady && researchSaltReady,
+    authenticationMode: authenticationMode(),
+    authenticationReady,
+    ready: qrSigningReady && researchSaltReady && authenticationReady,
     secretsExposed: false,
   };
 }
@@ -507,6 +510,10 @@ app.get("/api/health", async (_req, res) => {
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
+      authentication: {
+        mode: authenticationMode(),
+        productionReady: productionAuthenticationReady(),
+      },
     });
   } catch (error) {
     console.error("Database health check failed:", error);
@@ -2967,7 +2974,12 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
       id: "SECURITY_CONFIG",
       title: "Production signing and research hashing configuration",
       status: security.ready ? "PASS" : "HOLD",
-      evidence: { qrSigningReady: security.qrSigningReady, researchSaltReady: security.researchSaltReady },
+      evidence: {
+        qrSigningReady: security.qrSigningReady,
+        researchSaltReady: security.researchSaltReady,
+        authenticationMode: security.authenticationMode,
+        authenticationReady: security.authenticationReady
+      },
     },
     {
       id: "HUMAN_FINAL_DECISION",
