@@ -180,6 +180,12 @@ async function canManageActivity(req, activity) {
   return Boolean(await activeActivityAssignment(req.activaUser?.id, activity?.id, "CO_ORGANIZER"));
 }
 
+async function canReviewActivity(req, activityId) {
+  if (req.activaUser?.role === "ADMIN") return true;
+  if (req.activaUser?.role !== "STAFF") return false;
+  return Boolean(await activeActivityAssignment(req.activaUser.id, activityId, "VERIFIER"));
+}
+
 async function audit(req, action, entityType, entityId, metadata = {}) {
   await prisma.auditLog.create({
     data: {
@@ -1127,6 +1133,24 @@ app.put("/api/activities/:activityId/assignments", async (req, res) => {
       return res.status(409).json({ok:false,error:"PRIMARY_ORGANIZER_CANNOT_BE_CO_ORGANIZER"});
     }
 
+    if (verifierUsers && verifierUsers.some(u=>u.role!=="STAFF")) {
+      return res.status(409).json({ok:false,error:"VERIFIER_MUST_BE_STAFF"});
+    }
+    if (verifierUsers && verifierUsers.some(u=>u.id===activity.organizerId)) {
+      return res.status(409).json({ok:false,error:"ORGANIZER_CANNOT_REVIEW_OWN_ACTIVITY"});
+    }
+
+    const effectiveCoIds = new Set(
+      (coUsers || before.filter(x=>x.role==="CO_ORGANIZER").map(x=>({id:x.userId}))).map(x=>x.id)
+    );
+    const effectiveVerifierIds = new Set(
+      (verifierUsers || before.filter(x=>x.role==="VERIFIER").map(x=>({id:x.userId}))).map(x=>x.id)
+    );
+    const assignmentConflict=[...effectiveVerifierIds].find(id=>effectiveCoIds.has(id));
+    if (assignmentConflict) {
+      return res.status(409).json({ok:false,error:"REVIEWER_CANNOT_BE_CO_ORGANIZER",userId:assignmentConflict});
+    }
+
     let coAdded=[],coRemoved=[];
     if (coUsers) {
       const beforeIds=before.filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId).sort();
@@ -1588,6 +1612,14 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "OR
     include: { staffVerification: true },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  if (!(await canReviewActivity(req, attendance.activityId))) {
+    return res.status(403).json({
+      ok:false,
+      error:"REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",
+      activityId:attendance.activityId,
+      note:"STAFF must be assigned as VERIFIER for this activity. ADMIN may review as governance override."
+    });
+  }
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   if (attendance.staffVerification) {
