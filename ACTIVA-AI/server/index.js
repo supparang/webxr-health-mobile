@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.4";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.5";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1440,8 +1440,12 @@ app.post("/api/attendance/checkin", async (req, res) => {
     });
   }
 
-  if (req.activaUser.role === "PARTICIPANT" && req.activaUser.id !== user.id) {
-    return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKIN_SELF" });
+  if (req.activaUser.id !== user.id) {
+    return res.status(403).json({
+      ok:false,
+      error:"CHECKIN_SELF_ONLY",
+      note:"Dynamic QR check-in is personal attendance evidence for the authenticated user, regardless of activity role."
+    });
   }
 
   const existing = await prisma.attendanceRecord.findFirst({
@@ -1482,8 +1486,12 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
   if (!current) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
   if (!(await ensureActivityOperationallyMutable(res, current.activityId))) return;
   if (current.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
-  if (req.activaUser.role === "PARTICIPANT" && current.userId !== req.activaUser.id) {
-    return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKOUT_SELF" });
+  if (current.userId !== req.activaUser.id) {
+    return res.status(403).json({
+      ok:false,
+      error:"CHECKOUT_SELF_ONLY",
+      note:"Normal Dynamic QR checkout is personal attendance evidence. Operational exceptions must use the separate assisted workflow."
+    });
   }
   if (!current.checkinAt) return res.status(409).json({ ok: false, error: "CHECKIN_REQUIRED" });
   if (current.checkoutAt) return res.status(409).json({
