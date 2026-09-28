@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.3 • Position + Role + Assignment Governance</div>'+
+        '<div class="version">V1.0.4 • Activity Roles + No Self-Review</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.3</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.4</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1387,7 +1387,7 @@
             '</div>'+
             (caps.lifecycle==="ACTIVE"?'<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ การเปลี่ยนผู้จัดร่วมทำได้เฉพาะผู้มีสิทธิ์และต้องระบุเหตุผล ระบบจะบันทึก Audit Trail</div>':'')+
             (caps.lifecycle==="ENDED"?(caps.canAssignCo?'<div class="alert warn"><b>กิจกรรมสิ้นสุดแล้ว</b><br>แก้ไขผู้จัดร่วมได้เฉพาะ ADMIN พร้อมเหตุผล และจะถูกบันทึกเป็น Administrative Override</div>':'<div class="alert bad"><b>กิจกรรมสิ้นสุดแล้ว</b><br>รายชื่อผู้จัดร่วมถูกล็อก ผู้ใช้ทั่วไปแก้ไขไม่ได้</div>'):'')+
-            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount","ORG001")+
+            assignmentChecks(activeUsers.filter(u=>u.id!==a.organizerId&&!verifierIds.includes(u.id)),coIds,"coAssign",!caps.canAssignCo,"coSearch","coCount","ORG001")+
             (caps.coChangeReasonRequired?'<div class="field"><label>'+(caps.coAdminOverrideRequired?'เหตุผลการแก้ไขหลังสิ้นสุดกิจกรรม':'เหตุผลการเปลี่ยนแปลงระหว่างกิจกรรม')+'</label><textarea id="coChangeReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
             (caps.canAssignCo?'<div class="actions"><button class="btn primary" id="saveCo">'+(a.assignmentsUpdatedAt?'บันทึกการเปลี่ยนแปลง':'บันทึกผู้จัดร่วม')+'</button></div>':'<div class="hint">บัญชีนี้ดูได้ แต่ไม่มีสิทธิ์เปลี่ยนผู้จัดร่วม</div>')+
             '<div id="coAssignMsg"></div>'+
@@ -1399,7 +1399,8 @@
             '<div id="verifierAssignMsg"></div>'+
           '</section>'+
         '</div>'+
-        '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">เลือกขอบเขตผู้เข้าร่วมก่อน แล้วจึงเลือกรายชื่อหรือหน่วยงาน</p></div></div>'+
+        '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">การเป็นผู้เข้าร่วมเป็นสถานะการเข้าร่วม ไม่ชนกับ Owner / Co-organizer / Reviewer บุคคลเดียวกันจึงมี Attendance ของตนเองได้</p></div></div>'+
+        '<div class="alert info"><b>กติกา:</b> Owner / Co-organizer / Reviewer สามารถอยู่ในรายชื่อผู้เข้าร่วมได้ แต่ Reviewer ห้ามยืนยันหรือตัดสิน Attendance ของตนเอง ระบบจะให้ Reviewer คนอื่นตรวจแทน</div>'+
         '<div class="participation-modes">'+
           '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
           '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
@@ -2795,7 +2796,8 @@
     const reasons=[].concat(c?.reasonCodes||[]);
     const blockers=[...missing,...reasons];
     const evaluated=Boolean(c);
-    const canNormalVerify=evaluated&&blockers.length===0&&c.status==="COMPLETE";
+    const selfReview=Boolean(session && (r.user?.id===session.id || r.userId===session.id));
+    const canNormalVerify=evaluated&&blockers.length===0&&c.status==="COMPLETE"&&!selfReview;
     const workflowStatus=reviewWorkflowStatus(r);
     const readOnlyHistory=["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(workflowStatus);
     const latestReview=(r.humanReviews||[])[0]||null;
@@ -2821,6 +2823,7 @@
           '<br><small>ส่งเมื่อ '+fmt(r.participantResponse.submittedAt)+'</small></div>'
         : (workflowStatus==="WAIT_PARTICIPANT"?'<div class="alert warn"><b>กำลังรอข้อมูลจากผู้เข้าร่วม</b></div>':""))+
       '<div class="hint"><b>Personal QR เป็นทางเลือกสำหรับค้นหา case เท่านั้น</b> หากบุคคลกลับไปแล้ว ให้ตรวจจาก Review Queue และหลักฐานที่มีได้ตามปกติ</div>'+
+      (selfReview&&!readOnlyHistory?'<div class="alert bad"><b>เคสของคุณเอง — ห้าม Self-review</b><br>คุณยังเข้าร่วมกิจกรรมและมี Attendance ได้ตามปกติ แต่ต้องให้ Reviewer คนอื่นที่ได้รับมอบหมายเป็นผู้ยืนยัน/ตัดสินรายการนี้</div>':'')+
       (readOnlyHistory
         ? '<div class="alert ok"><b>เคสนี้มีผลตัดสินสุดท้ายแล้ว — อ่านอย่างเดียว</b><br>ระบบไม่แสดงปุ่มตัดสินซ้ำในหน้า History เพื่อรักษาความถูกต้องของ Audit Trail</div>'+
           '<div class="timeline review-history-detail">'+
@@ -2835,16 +2838,16 @@
           '<div class="field" style="margin-top:14px"><label>เหตุผล/หมายเหตุการตัดสินใจ <span class="required">*</span></label><textarea id="rvReason" placeholder="ระบุเหตุผลทุกครั้ง เพื่อให้ตรวจสอบย้อนหลังได้"></textarea><small class="muted">บังคับกรอกสำหรับทุกผลตัดสิน รวมถึง “รับรองปกติ”</small></div>'+
           '<div class="actions">'+
             '<button class="btn ok" data-dec="VERIFY" '+(!canNormalVerify?'disabled':'')+'>รับรองปกติ</button>'+
-            '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
-            '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
-            '<button class="btn bad" data-dec="REJECT" '+(!evaluated?'disabled':'')+'>ไม่รับรอง</button>'+
-            (can("ADMIN","STAFF")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY" title="ใช้เมื่อยังมี blocker แต่ผู้ตรวจสอบมีหลักฐานและเหตุผลเพียงพอ">รับรองเป็นกรณีพิเศษ</button>':'')+
+            '<button class="btn secondary" data-dec="CORRECT" '+(!evaluated||selfReview?'disabled':'')+'>แก้ไข/ส่งกลับ</button>'+
+            '<button class="btn warn" data-dec="REQUEST_EVIDENCE" '+(!evaluated||selfReview?'disabled':'')+'>ขอหลักฐานเพิ่ม</button>'+
+            '<button class="btn bad" data-dec="REJECT" '+(!evaluated||selfReview?'disabled':'')+'>ไม่รับรอง</button>'+
+            (can("ADMIN","STAFF")&&evaluated&&blockers.length?'<button class="btn override" data-dec="OVERRIDE_VERIFY" '+(selfReview?'disabled':'')+' title="ใช้เมื่อยังมี blocker แต่ผู้ตรวจสอบมีหลักฐานและเหตุผลเพียงพอ">รับรองเป็นกรณีพิเศษ</button>':'')+
           '</div><div id="rvMsg"></div>')+
       '</div>';
 
     box.scrollIntoView({behavior:"smooth",block:"start"});
 
-    if(readOnlyHistory)return;
+    if(readOnlyHistory||selfReview)return;
 
     box.querySelectorAll("[data-dec]").forEach(btn=>btn.onclick=async()=>{
       const decision=btn.dataset.dec;
