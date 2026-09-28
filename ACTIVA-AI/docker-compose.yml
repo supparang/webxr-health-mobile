@@ -1,3 +1,8 @@
+# LOCAL DEMO / DEVELOPMENT ONLY
+# Do not use this compose file for real personnel data.
+# It intentionally uses demo credentials, DEMO_HEADER auth, and seeds synthetic/demo users.
+# Production/Pilot deployment must use managed secrets, approved PostgreSQL, and real authentication.
+
 services:
   postgres:
     image: postgres:16-alpine
