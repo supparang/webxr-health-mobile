@@ -211,7 +211,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.7 • Active Evidence Guard</div>'+
+        '<div class="version">V1.0.8 • Scoped Attendance Actions</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -301,7 +301,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V1.0.7</div><h1>เลือกโหมดใช้งาน</h1>'+
+      '<div class="kicker">ACTIVA-AI V1.0.8</div><h1>เลือกโหมดใช้งาน</h1>'+
       '<p>ช่วงนี้ยังไม่ต้องเชื่อม PostgreSQL ก็สามารถทดลอง workflow ของ ACTIVA-AI ได้</p>'+
       '<div class="demo-box"><b>บัญชีทดลอง</b>'+
       '<div class="demo-account-list">'+
@@ -1914,8 +1914,8 @@
         '<button class="btn primary" id="coScanQrBtn">📷 สแกน Check-out QR</button>'+
         (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceCheckoutTestBtn">🧪 ทดสอบ Check-out QR</button>':'')+
         '<button class="btn secondary" id="coManualTokenBtn">กรอก/วาง Check-out Token</button>'+
-        (can("ADMIN","STAFF")?'<button class="btn warn" id="assistCheckoutBtn">Check-out กรณีพิเศษ</button>':'')+
-        (can("ADMIN","ORGANIZER","STAFF")?'<button class="btn ok" id="staffBtn">เจ้าหน้าที่ยืนยัน</button>':'')+
+        ((can("ADMIN")||canManageActivities())?'<button class="btn warn" id="assistCheckoutBtn">Check-out กรณีพิเศษ</button>':'')+
+        (can("ADMIN","STAFF")?'<button class="btn ok" id="staffBtn">Reviewer ยืนยัน</button>':'')+
         (can("ADMIN","STAFF")?'<button class="btn bad" id="voidBtn">ยกเลิกรายการผิด</button>':'')+
       '</div>'+
       '<div id="checkoutScannerPanel" class="scanner-panel" hidden>'+
@@ -1924,7 +1924,7 @@
       '</div>'+
       '<div class="field token-fallback" id="coTokenField" hidden style="margin-top:10px"><label>Dynamic Check-out QR Token</label><textarea id="coToken" placeholder="วาง CHECKOUT token"></textarea>'+
         '<div class="actions"><button class="btn secondary" id="coBtn">ยืนยัน Check-out จาก Token</button></div></div>'+
-      '<div class="hint">Check-out ปกติต้องใช้ Dynamic CHECKOUT QR ณ จุดกิจกรรม หากสแกนไม่ได้จริง เจ้าหน้าที่/ผู้ดูแลระบบใช้ “Check-out กรณีพิเศษ” พร้อมเหตุผล และรายการจะถูกส่งให้ตรวจสอบ</div>'+
+      '<div class="hint">Check-out ปกติเป็นหลักฐานส่วนบุคคล ต้องใช้ Dynamic CHECKOUT QR ของตนเอง ณ จุดกิจกรรม หากสแกนไม่ได้จริง ผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ผู้ดูแลระบบจึงใช้ “Check-out กรณีพิเศษ” พร้อมเหตุผล ส่วน Reviewer มีหน้าที่ตรวจหลักฐานและห้ามยืนยันรายการของตนเอง</div>'+
       '<div id="coMsg"></div></div></div>'+
       ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><div id="attendanceDashboard"></div></div>';
@@ -2298,15 +2298,53 @@
       if(!select)return;
       const selected=rows.find(r=>r.id===select.value);
       const done=Boolean(selected?.checkoutAt);
-      if(scan){scan.disabled=!selected||done;scan.textContent=done?"Check-out แล้ว":"📷 สแกน Check-out QR";}
-      if(testBtn)testBtn.disabled=!selected||done;
-      if(assist)assist.disabled=!selected||done;
-      if(co)co.disabled=!selected||done;
-      if(staff){
-        staff.disabled=!selected||Boolean(selected?.staffVerification);
-        staff.textContent=selected?.staffVerification?"เจ้าหน้าที่ยืนยันแล้ว":"เจ้าหน้าที่ยืนยัน";
+      const selectedActivity=selected
+        ? activities.find(a=>a.id===(selected.activity?.id||selected.activityId)) || selected.activity || null
+        : null;
+      const isSelf=Boolean(selected && (
+        selected.userId===session?.id ||
+        selected.user?.id===session?.id ||
+        selected.user?.employeeId===session?.employeeId
+      ));
+      const canOperateSelected=Boolean(selectedActivity && (can("ADMIN") || canManageActivityClient(selectedActivity)));
+      const isAssignedReviewer=Boolean(selectedActivity && (
+        can("ADMIN") ||
+        (can("STAFF") && (selectedActivity.roleAssignments||[]).some(x=>x.role==="VERIFIER"&&x.userId===session?.id))
+      ));
+
+      // Normal Dynamic QR checkout is always self-only.
+      if(scan){
+        scan.disabled=!selected||done||!isSelf;
+        scan.textContent=done?"Check-out แล้ว":(!isSelf?"Check-out ได้เฉพาะตนเอง":"📷 สแกน Check-out QR");
+        scan.title=!isSelf?"Dynamic QR Check-out เป็นหลักฐานส่วนบุคคล ใช้แทนผู้อื่นไม่ได้":"";
       }
-      if(voidBtn)voidBtn.disabled=!selected;
+      if(testBtn){
+        testBtn.disabled=!selected||done||!isSelf;
+        testBtn.title=!isSelf?"ทดสอบ Check-out ได้เฉพาะ Attendance ของตนเอง":"";
+      }
+      if(co){
+        co.disabled=!selected||done||!isSelf;
+        co.title=!isSelf?"ยืนยัน Check-out จาก Token ได้เฉพาะตนเอง":"";
+      }
+
+      // Assisted checkout is operational work: Owner / Co-organizer / ADMIN only.
+      if(assist){
+        assist.disabled=!selected||done||!canOperateSelected;
+        assist.title=!canOperateSelected?"เฉพาะผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ADMIN ของกิจกรรมนี้":"";
+      }
+
+      // Reviewer may verify others only; never own Attendance.
+      if(staff){
+        staff.disabled=!selected||Boolean(selected?.staffVerification)||!isAssignedReviewer||isSelf;
+        staff.textContent=selected?.staffVerification?"Reviewer ยืนยันแล้ว":(isSelf?"ห้ามยืนยันรายการตนเอง":"Reviewer ยืนยัน");
+        staff.title=isSelf?"SELF_REVIEW_FORBIDDEN — Reviewer ห้ามยืนยัน Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+      }
+
+      // Voiding is a reviewer/governance correction and also cannot target self.
+      if(voidBtn){
+        voidBtn.disabled=!selected||!isAssignedReviewer||isSelf;
+        voidBtn.title=isSelf?"Reviewer ห้ามยกเลิก Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+      }
     }
     const refreshAttendanceRows=document.getElementById("refreshAttendanceRows");
     if(refreshAttendanceRows)refreshAttendanceRows.onclick=async()=>{
