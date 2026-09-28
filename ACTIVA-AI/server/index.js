@@ -198,7 +198,7 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
   });
 }
 
-const RELEASE_VERSION = "ACTIVA-AI-1.0.5";
+const RELEASE_VERSION = "ACTIVA-AI-1.0.6";
 const BACKUP_FORMAT = "ACTIVA_AI_BACKUP_V1";
 
 async function ensureActivityOperationallyMutable(res, activityId) {
@@ -1723,6 +1723,16 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
+  const checkoutState = checkoutWindowState(attendance.activity);
+  if (!attendance.checkoutAt && checkoutState.code !== "QR_CHECKOUT_CLOSED") {
+    return res.status(409).json({
+      ok:false,
+      error:"ATTENDANCE_STILL_ACTIVE",
+      note:"Evidence should not be evaluated while checkout is still possible.",
+      checkoutOpenAt:new Date(checkoutState.checkoutOpenAt).toISOString(),
+      checkoutCloseAt:new Date(checkoutState.checkoutCloseAt).toISOString(),
+    });
+  }
   if (!attendance.activity.policy) return res.status(409).json({ ok: false, error: "POLICY_NOT_CONFIGURED" });
 
   const result = evaluateEvidence(
