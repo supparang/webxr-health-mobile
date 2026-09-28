@@ -346,6 +346,26 @@
       changed = true;
     }
 
+    if (!data.positionRoleContract103Migrated) {
+      const demoPositions = {
+        ADM001:"ผู้ดูแลระบบ IT",
+        ORG001:"ผู้บริหาร/ผู้รับผิดชอบกิจกรรม (ตัวอย่าง)",
+        STF001:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",
+        STF002:"บุคลากรผู้ได้รับมอบหมายตรวจสอบ",
+        P001:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",
+        P002:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)",
+        P003:"อาจารย์/เจ้าหน้าที่ (ตัวอย่าง)"
+      };
+      for (const u of (data.users || [])) {
+        if (!u.positionTitle) {
+          u.positionTitle = demoPositions[u.employeeId] || (String(u.employeeId||"").startsWith("T") ? "บุคลากรทดลอง" : null);
+          changed = true;
+        }
+      }
+      data.positionRoleContract103Migrated = true;
+      changed = true;
+    }
+
     for (const u of (data.users || [])) {
       if (!Array.isArray(u.activityPermissions)) {
         u.activityPermissions = u.role === "ORGANIZER"
