@@ -7,7 +7,7 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
-import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googleAllowedDomains } from "./auth.js";
+import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
 import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled } from "./deployment-config.js";
 
 if (process.env.NODE_ENV === "production") {
@@ -529,6 +529,7 @@ app.get("/api/health", async (_req, res) => {
         provider: authenticationMode()==="GOOGLE_OIDC" ? "GOOGLE" : null,
         googleClientId: authenticationMode()==="GOOGLE_OIDC" ? googleClientId() : null,
         allowedDomains: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedDomains() : [],
+        allowedEmailCount: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedEmails().length : 0,
       },
     });
   } catch (error) {
