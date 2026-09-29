@@ -558,7 +558,7 @@
          !(health.authentication?.configurationReady===true || health.authentication?.productionReady===true) ||
          !health.authentication?.googleClientId) {
         msg.innerHTML='<div class="alert bad"><b>Google Login ยังไม่พร้อม</b><br>'+
-          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และ GOOGLE_ALLOWED_DOMAINS ให้ครบ</div>';
+          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และอย่างน้อยหนึ่ง allowlist: GOOGLE_ALLOWED_DOMAINS หรือ GOOGLE_ALLOWED_EMAILS</div>';
         return;
       }
       if(!EXPECTED_GOOGLE_CLIENT_ID || health.authentication.googleClientId!==EXPECTED_GOOGLE_CLIENT_ID) {
@@ -621,8 +621,13 @@
       });
 
       const domains=(health.authentication.allowedDomains||[]).join(", ");
+      const emailCount=Number(health.authentication.allowedEmailCount||0);
+      const policies=[];
+      if(domains) policies.push("Google Workspace: "+domains);
+      if(emailCount>0) policies.push("บัญชี Google Pilot ที่อนุญาตรายอีเมล "+emailCount+" บัญชี");
       msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบ Google Sign-In</b><br>'+
-        'อนุญาตเฉพาะ Google Workspace: '+esc(domains||"ตามที่ backend กำหนด")+'<br>ต้องลงชื่อเข้าใช้อีกครั้งเมื่อโหลดหน้าใหม่ สถานะนี้ไม่ใช่ Production GO</div>';
+        'นโยบายบัญชี: '+esc(policies.join(" • ")||"ตามที่ backend กำหนด")+
+        '<br>ต้องลงชื่อเข้าใช้อีกครั้งเมื่อโหลดหน้าใหม่ สถานะนี้ไม่ใช่ Production GO</div>';
     }
 
     document.getElementById("checkServer").onclick = probeServer;
