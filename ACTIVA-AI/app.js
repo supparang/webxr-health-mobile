@@ -4,6 +4,7 @@
   const SESSION_KEY = "activa_ai_v034_session";
   const MODE_KEY = "activa_ai_mode";
   const API_BASE_KEY = "activa_ai_api_base_url";
+  const AUTH_TOKEN_KEY = "activa_ai_google_id_token";
   const NAV_GROUP_KEY = "activa_ai_nav_groups";
   const SELECTED_ACTIVITY_KEY = "activa_ai_selected_activity";
   const DEMO_STORAGE_KEY = "activa_ai_demo_v034";
@@ -25,6 +26,7 @@
     : "";
   let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || SAME_ORIGIN_API_BASE);
   let appMode = sessionStorage.getItem(MODE_KEY) || "demo";
+  let pilotAuthToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || "";
   let session = readSession();
   let activeView = "dashboard";
   let qrTimer = null;
@@ -93,6 +95,35 @@
     else sessionStorage.removeItem(SESSION_KEY);
   }
 
+  function savePilotAuthToken(token) {
+    pilotAuthToken=String(token||"");
+    if(pilotAuthToken) sessionStorage.setItem(AUTH_TOKEN_KEY,pilotAuthToken);
+    else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+
+  let googleIdentityPromise=null;
+  function loadGoogleIdentityServices() {
+    if(window.google?.accounts?.id) return Promise.resolve(window.google);
+    if(googleIdentityPromise) return googleIdentityPromise;
+    googleIdentityPromise=new Promise((resolve,reject)=>{
+      const existing=document.querySelector('script[data-activa-google-identity]');
+      if(existing) {
+        existing.addEventListener("load",()=>resolve(window.google),{once:true});
+        existing.addEventListener("error",()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED")),{once:true});
+        return;
+      }
+      const script=document.createElement("script");
+      script.src="https://accounts.google.com/gsi/client";
+      script.async=true;
+      script.defer=true;
+      script.dataset.activaGoogleIdentity="true";
+      script.onload=()=>resolve(window.google);
+      script.onerror=()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED"));
+      document.head.appendChild(script);
+    });
+    return googleIdentityPromise;
+  }
+
   function setApiBaseUrl(value) {
     apiBaseUrl=normalizeApiBase(value);
     if(apiBaseUrl) sessionStorage.setItem(API_BASE_KEY,apiBaseUrl);
@@ -149,7 +180,7 @@
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    if (actor) headers.set("x-activa-user-id", actor);
+    if (pilotAuthToken) headers.set("Authorization", "Bearer "+pilotAuthToken);
 
     const response = await fetch(serverApiUrl(path), { ...options, headers });
     let data = {};
@@ -275,7 +306,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
-        '<div class="version">V1.0.14 • Ground Truth Adjudication Guard</div>'+
+        '<div class="version">V1.0.15 • Google OIDC + Backend Connection Layer</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -299,6 +330,10 @@
   async function render() {
     clearInterval(qrTimer);
     qrTimer = null;
+    if (appMode==="server" && session && !pilotAuthToken) {
+      session=null;
+      saveSession();
+    }
     if (!session) return renderLogin();
 
     app().innerHTML = shell();
@@ -324,6 +359,10 @@
     document.getElementById("logout").onclick = () => {
       session = null;
       saveSession();
+      if(appMode==="server") {
+        savePilotAuthToken("");
+        try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
+      }
       activeView = "dashboard";
       render();
     };
@@ -379,7 +418,7 @@
         '<div><b>T001–T010</b><span>บุคลากรทดลองสำหรับทดสอบหลายคน</span></div>'+
       '</div>'+
       '<div class="demo-note">“ผู้จัดกิจกรรม” เป็นสิทธิ์ที่ ADMIN เพิ่ม/ลดให้บุคลากร ไม่ใช่ประเภทบุคลากรถาวร</div></div>'+
-      '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001" autocomplete="username"></div>'+
+      '<div class="field"><label>รหัสบุคลากร (ใช้เฉพาะ Demo Mode)</label><input id="loginId" value="ADM001" autocomplete="username"></div>'+
       '<div class="field" style="margin-top:12px"><label>Backend API URL สำหรับ Pilot/API Mode</label>'+
         '<input id="apiBaseUrl" inputmode="url" placeholder="https://api.example.org" value="'+esc(configuredApi)+'">'+
         '<div class="muted" style="margin-top:6px">ใส่เฉพาะ URL ของ HTTPS API — ห้ามใส่ DATABASE_URL, password หรือ secret</div></div>'+
@@ -389,8 +428,9 @@
       '<div id="serverHealthMsg"></div>'+
       '<div class="actions">'+
         '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
-        '<button class="btn secondary" id="serverLogin">เข้า Pilot/API Mode</button>'+
+        '<button class="btn secondary" id="serverLogin">เตรียมเข้าสู่ระบบด้วย Google</button>'+
       '</div>'+
+      '<div id="googleSignInWrap" hidden style="margin-top:14px"><div id="googleSignInButton"></div></div>'+
       '<div class="hint"><b>Demo Mode:</b> localStorage + Synthetic Data<br>'+
         '<b>Pilot/API Mode:</b> Browser → HTTPS Backend API → Prisma → PostgreSQL<br>'+
         '<b>Security:</b> PostgreSQL credential อยู่ฝั่ง server เท่านั้น ไม่ส่งมาที่ browser</div>'+
@@ -429,24 +469,9 @@
       const msg = document.getElementById("loginMsg");
       if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
 
-      if(mode==="server") {
-        if(!readApiInput()) {
-          return msg.innerHTML='<div class="alert bad">ยังไม่ได้ตั้ง Backend API URL สำหรับ Pilot/API Mode</div>';
-        }
-        msg.innerHTML='<div class="alert">กำลังตรวจ Backend API, PostgreSQL และ Authentication…</div>';
-        try {
-          const health=await checkServerHealth();
-          if(health.authentication?.productionReady!==true) {
-            return msg.innerHTML='<div class="alert bad"><b>ยังไม่เปิด Pilot/API Login</b><br>'+
-              'Backend และ PostgreSQL เชื่อมต่อได้ แต่ Production Authentication ยังไม่พร้อม ('+
-              esc(health.authentication?.mode||"DISABLED")+')</div>';
-          }
-        }
-        catch(error) { return msg.innerHTML=errorBox(error); }
-      }
-
-      setMode(mode);
-      msg.innerHTML = '<div class="alert">กำลังเข้าสู่ '+(mode==="demo"?"Demo Mode":"Pilot/API Mode")+'…</div>';
+      setMode("demo");
+      savePilotAuthToken("");
+      msg.innerHTML = '<div class="alert">กำลังเข้าสู่ Demo Mode…</div>';
       try {
         const data = await api("/api/me", {}, id);
         session = data.user;
@@ -454,7 +479,7 @@
         activeView = "dashboard";
         render();
       } catch (error) {
-        if (mode === "demo" && error?.message === "DEMO_USER_NOT_FOUND") {
+        if (error?.message === "DEMO_USER_NOT_FOUND") {
           msg.innerHTML =
             '<div class="alert bad"><b>ไม่พบรหัส '+esc(id)+' ในบัญชี Demo</b><br>'+
             'ใช้ ADM001, ORG001, STF001–STF003, P001–P003 หรือ T001–T010 ได้ทันที</div>';
@@ -464,9 +489,80 @@
       }
     }
 
+    async function prepareGoogleLogin() {
+      const msg=document.getElementById("loginMsg");
+      const health=await probeServer();
+      if(!health) return;
+
+      if(health.authentication?.mode!=="GOOGLE_OIDC" ||
+         health.authentication?.provider!=="GOOGLE" ||
+         health.authentication?.productionReady!==true ||
+         !health.authentication?.googleClientId) {
+        msg.innerHTML='<div class="alert bad"><b>Google Login ยังไม่พร้อม</b><br>'+
+          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และ GOOGLE_ALLOWED_DOMAINS ให้ครบ</div>';
+        return;
+      }
+
+      try {
+        await loadGoogleIdentityServices();
+      } catch(error) {
+        msg.innerHTML=errorBox(error);
+        return;
+      }
+
+      const wrap=document.getElementById("googleSignInWrap");
+      const button=document.getElementById("googleSignInButton");
+      wrap.hidden=false;
+      button.innerHTML="";
+
+      window.google.accounts.id.initialize({
+        client_id:health.authentication.googleClientId,
+        callback:async(response)=>{
+          if(!response?.credential) {
+            msg.innerHTML='<div class="alert bad">Google ไม่ได้ส่ง ID token กลับมา</div>';
+            return;
+          }
+
+          savePilotAuthToken(response.credential);
+          setMode("server");
+          msg.innerHTML='<div class="alert">Google ยืนยันตัวตนแล้ว กำลังตรวจสิทธิ์ใน ACTIVA-AI…</div>';
+
+          try {
+            const data=await api("/api/me");
+            session=data.user;
+            saveSession();
+            activeView="dashboard";
+            render();
+          } catch(error) {
+            session=null;
+            saveSession();
+            savePilotAuthToken("");
+            setMode("demo");
+            msg.innerHTML=errorBox(error);
+          }
+        },
+        auto_select:false,
+        cancel_on_tap_outside:true,
+      });
+
+      window.google.accounts.id.renderButton(button,{
+        type:"standard",
+        theme:"outline",
+        size:"large",
+        text:"signin_with",
+        shape:"rectangular",
+        logo_alignment:"left",
+        width:320,
+      });
+
+      const domains=(health.authentication.allowedDomains||[]).join(", ");
+      msg.innerHTML='<div class="alert ok"><b>พร้อม Google Sign-In</b><br>'+
+        'อนุญาตเฉพาะ Google Workspace: '+esc(domains||"ตามที่ backend กำหนด")+'</div>';
+    }
+
     document.getElementById("checkServer").onclick = probeServer;
     document.getElementById("demoLogin").onclick = () => login("demo");
-    document.getElementById("serverLogin").onclick = () => login("server");
+    document.getElementById("serverLogin").onclick = prepareGoogleLogin;
     document.getElementById("resetDemo").onclick = () => {
       if (window.ACTIVA_DEMO_API) window.ACTIVA_DEMO_API.reset();
       document.getElementById("loginMsg").innerHTML = '<div class="alert ok">ล้างข้อมูล Demo แล้ว</div>';
