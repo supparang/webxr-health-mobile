@@ -6,6 +6,8 @@
 - Pilot/API Mode ตรวจ `/api/health`, PostgreSQL connectivity และ release-version match ก่อน login
 - Demo Mode ยังคงใช้ localStorage/Synthetic Data และไม่สามารถ Production GO
 - เพิ่ม `ALLOWED_ORIGINS` สำหรับกำหนด browser origin ที่อนุญาตให้เรียก Backend API
+- เพิ่ม Google Workspace OIDC: ตรวจ Google ID token, OAuth Client ID, verified email และ Workspace domain ก่อน map กับ `User.email` ใน PostgreSQL
+- ไม่ auto-create ผู้ใช้และไม่ให้ Google account เปลี่ยน role/permission ของ ACTIVA-AI
 
 ## V1.0.14 — Ground Truth Adjudication Guard + Release Identity Sync
 - เพิ่ม Ground Truth Adjudication Guard เพื่อคง separation ระหว่าง independent labeling, adjudication และ final lock
