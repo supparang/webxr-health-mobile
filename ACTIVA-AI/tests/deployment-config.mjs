@@ -15,7 +15,7 @@ assert.equal(productionGoEnabled({}), false);
 assert.equal(productionGoEnabled({ ACTIVA_PRODUCTION_GO_ENABLED: "TRUE" }), false);
 for (const [key, values] of Object.entries({
   NODE_ENV: ["development"], ACTIVA_AUTH_MODE: ["DEMO_HEADER", "DISABLED", "SSO"],
-  GOOGLE_CLIENT_ID: ["", "placeholder"], GOOGLE_ALLOWED_DOMAINS: ["*", "@chandra.ac.th", "chandra.ac.th,"],
+  GOOGLE_CLIENT_ID: ["", "placeholder"], GOOGLE_ALLOWED_DOMAINS: ["*", "@chandra.ac.th", "https://chandra.ac.th"],
   GOOGLE_ALLOWED_EMAILS: ["*", "@gmail.com", "https://gmail.com", "person@gmail"],
   ALLOWED_ORIGINS: ["", "*", "http://supparang.github.io", "https://supparang.github.io/", "https://supparang.github.io/path", "https://user:pass@supparang.github.io"],
   DATABASE_URL: ["", "https://db.internal", "postgresql://activa:activa_password@db.internal/activa"],
