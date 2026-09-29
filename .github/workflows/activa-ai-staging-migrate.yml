@@ -1,0 +1,40 @@
+name: ACTIVA-AI Staging DB Migration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_STAGING_DATABASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: codex/activa-google-oidc-readiness
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Deploy Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Check migration status
+        run: npx prisma migrate status
