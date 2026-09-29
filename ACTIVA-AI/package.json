@@ -13,6 +13,7 @@
     "prisma:status": "prisma migrate status",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
     "deployment:check": "node scripts/check-deployment.mjs",
+    "staging:verify": "node scripts/verify-staging.mjs",
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js",
     "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
@@ -20,7 +21,7 @@
     "db:push": "prisma db push",
     "test:smoke": "node tests/smoke.mjs",
     "test:auth": "node tests/auth-readiness.mjs && node tests/google-oidc.mjs",
-    "test:deployment": "node tests/deployment-config.mjs",
+    "test:deployment": "node tests/deployment-config.mjs && node tests/staging-verifier.mjs",
     "test:frontend-auth": "node tests/frontend-auth.mjs"
   },
   "dependencies": {
