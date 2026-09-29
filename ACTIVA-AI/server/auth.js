@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "./db.js";
-import { validGoogleClientId, validGoogleDomain } from "./google-config.js";
+import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
 
 let googleVerifier=null;
 let googleVerifierClientId=null;
@@ -29,12 +29,25 @@ export function googleAllowedDomains() {
     .filter(Boolean);
 }
 
+export function googleAllowedEmails() {
+  return [...new Set(
+    String(process.env.GOOGLE_ALLOWED_EMAILS || "")
+      .split(",")
+      .map((x) => x.trim().toLowerCase())
+      .filter(Boolean)
+  )];
+}
+
 function googleOidcConfigured() {
   const clientId=googleClientId();
   const domains=googleAllowedDomains();
-  // These are public identifiers, but malformed values must not advertise
-  // deployment readiness or reach the token verifier.
-  return validGoogleClientId(clientId) && domains.length > 0 && domains.every(validGoogleDomain);
+  const emails=googleAllowedEmails();
+  // Workspace domains remain the primary route. Exact verified Google-account
+  // emails are an explicit pilot exception; wildcards are never accepted.
+  return validGoogleClientId(clientId) &&
+    (domains.length > 0 || emails.length > 0) &&
+    domains.every(validGoogleDomain) &&
+    emails.every(validGoogleEmail);
 }
 
 export function productionAuthenticationReady() {
@@ -65,6 +78,7 @@ function emailDomain(email) {
 async function resolveGoogleUser(idToken) {
   const clientId=googleClientId();
   const allowedDomains=googleAllowedDomains();
+  const allowedEmails=googleAllowedEmails();
 
   if (!googleOidcConfigured()) {
     const error=new Error("GOOGLE_OIDC_NOT_CONFIGURED");
@@ -104,8 +118,14 @@ async function resolveGoogleUser(idToken) {
   }
 
   const domain=emailDomain(email);
-  if (!allowedDomains.includes(domain) || !hd || !allowedDomains.includes(hd)) {
-    const error=new Error("GOOGLE_WORKSPACE_DOMAIN_NOT_ALLOWED");
+  const workspaceAllowed=Boolean(
+    domain && hd && allowedDomains.includes(domain) && allowedDomains.includes(hd)
+  );
+  const exactEmailAllowed=allowedEmails.includes(email);
+  if (!workspaceAllowed && !exactEmailAllowed) {
+    const error=new Error(
+      allowedEmails.length > 0 ? "GOOGLE_ACCOUNT_NOT_ALLOWED" : "GOOGLE_WORKSPACE_DOMAIN_NOT_ALLOWED"
+    );
     error.status=403;
     throw error;
   }
