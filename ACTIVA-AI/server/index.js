@@ -7,7 +7,7 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
-import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady } from "./auth.js";
+import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googleAllowedDomains } from "./auth.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -513,6 +513,9 @@ app.get("/api/health", async (_req, res) => {
       authentication: {
         mode: authenticationMode(),
         productionReady: productionAuthenticationReady(),
+        provider: authenticationMode()==="GOOGLE_OIDC" ? "GOOGLE" : null,
+        googleClientId: authenticationMode()==="GOOGLE_OIDC" ? googleClientId() : null,
+        allowedDomains: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedDomains() : [],
       },
     });
   } catch (error) {
