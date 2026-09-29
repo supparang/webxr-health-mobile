@@ -1,0 +1,46 @@
+name: ACTIVA-AI First Admin Bootstrap
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap-admin:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_STAGING_DATABASE_URL }}
+      ACTIVA_AUTH_MODE: GOOGLE_OIDC
+      GOOGLE_ALLOWED_DOMAINS: ${{ secrets.ACTIVA_GOOGLE_ALLOWED_DOMAINS }}
+      BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.BOOTSTRAP_ADMIN_EMAIL }}
+      BOOTSTRAP_ADMIN_EMPLOYEE_ID: ${{ secrets.BOOTSTRAP_ADMIN_EMPLOYEE_ID }}
+      BOOTSTRAP_ADMIN_NAME: ${{ secrets.BOOTSTRAP_ADMIN_NAME }}
+      BOOTSTRAP_ADMIN_REASON: ${{ secrets.BOOTSTRAP_ADMIN_REASON }}
+
+    steps:
+      - name: Checkout ACTIVA-AI
+        uses: actions/checkout@v4
+        with:
+          ref: codex/activa-google-oidc-readiness
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Check migrations
+        run: npx prisma migrate status
+
+      - name: Bootstrap first administrator
+        run: npm run admin:bootstrap -- --apply
