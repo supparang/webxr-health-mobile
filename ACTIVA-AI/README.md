@@ -1,6 +1,7 @@
 # ACTIVA-AI
 
 ## V1.0.15 — Backend Connection Layer / Production Pilot Preparation
+- Backend + PostgreSQL staging instructions: [V1.0.15 staging deployment](docs/v1.0.15-staging-deployment.md). Use `.env.pilot.example`, the migration container and first-admin dry run. Production GO remains disabled; older setup instructions below are historical development notes.
 - แยก public frontend ออกจาก PostgreSQL อย่างชัดเจน: Browser → HTTPS Backend API → Prisma → PostgreSQL
 - เพิ่ม `runtime-config.js` สำหรับ public `apiBaseUrl` โดยห้ามเก็บ database credential หรือ secret ใน frontend
 - Pilot/API Mode ตรวจ `/api/health`, PostgreSQL connectivity และ release-version match ก่อน login

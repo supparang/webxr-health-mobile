@@ -10,6 +10,7 @@
   const DEMO_STORAGE_KEY = "activa_ai_demo_v034";
   const PUBLIC_CONFIG = window.ACTIVA_CONFIG || {};
   const RELEASE_VERSION = PUBLIC_CONFIG.releaseVersion || "ACTIVA-AI-1.0.15";
+  const EXPECTED_GOOGLE_CLIENT_ID = String(PUBLIC_CONFIG.googleClientId || "").trim();
 
   function normalizeApiBase(value) {
     const raw=String(value||"").trim();
@@ -17,7 +18,9 @@
     let url;
     try { url=new URL(raw); }
     catch { return ""; }
-    if(!["http:","https:"].includes(url.protocol)) return "";
+    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if(url.protocol!=="https:" && !(url.protocol==="http:" && loopback)) return "";
+    if(url.username || url.password || url.search || url.hash || /[?#]/.test(raw)) return "";
     return url.origin + url.pathname.replace(/\/$/,"");
   }
 
@@ -25,9 +28,15 @@
     ? location.origin
     : "";
   let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || SAME_ORIGIN_API_BASE);
-  let appMode = sessionStorage.getItem(MODE_KEY) || "demo";
-  let pilotAuthToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || "";
-  let session = readSession();
+  let appMode = sessionStorage.getItem(MODE_KEY)==="server" ? "server" : "demo";
+  // Google credentials stay in memory and are bound to the validated API destination.
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  let pilotAuthToken = "";
+  let pilotAuthBase = "";
+  let validatedGoogleBase = "";
+  let authGeneration = 0;
+  let session = appMode==="demo" ? readSession() : null;
+  if(appMode==="server") sessionStorage.removeItem(SESSION_KEY);
   let activeView = "dashboard";
   let qrTimer = null;
   let qrState = null;
@@ -91,14 +100,35 @@
   }
 
   function saveSession() {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    if (session && appMode==="demo") sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     else sessionStorage.removeItem(SESSION_KEY);
   }
 
-  function savePilotAuthToken(token) {
+  function savePilotAuthToken(token, base = apiBaseUrl) {
+    if(token && (!base || base!==apiBaseUrl || base!==validatedGoogleBase)) {
+      throw new Error("GOOGLE_API_DESTINATION_NOT_VALIDATED");
+    }
     pilotAuthToken=String(token||"");
-    if(pilotAuthToken) sessionStorage.setItem(AUTH_TOKEN_KEY,pilotAuthToken);
-    else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    pilotAuthBase=pilotAuthToken ? base : "";
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+
+  function clearPilotAuthentication() {
+    authGeneration++;
+    validatedGoogleBase="";
+    savePilotAuthToken("");
+    session=null;
+    saveSession();
+    clearInterval(qrTimer);
+    qrTimer=null;
+    try { window.google?.accounts?.id?.cancel(); } catch {}
+    try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
+    const wrap=document.getElementById("googleSignInWrap");
+    if(wrap) wrap.hidden=true;
+  }
+
+  function currentGoogleAttempt(generation, base) {
+    return authGeneration===generation && apiBaseUrl===base;
   }
 
   let googleIdentityPromise=null;
@@ -106,26 +136,37 @@
     if(window.google?.accounts?.id) return Promise.resolve(window.google);
     if(googleIdentityPromise) return googleIdentityPromise;
     googleIdentityPromise=new Promise((resolve,reject)=>{
-      const existing=document.querySelector('script[data-activa-google-identity]');
-      if(existing) {
-        existing.addEventListener("load",()=>resolve(window.google),{once:true});
-        existing.addEventListener("error",()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED")),{once:true});
-        return;
-      }
+      document.querySelector('script[data-activa-google-identity]')?.remove();
       const script=document.createElement("script");
+      let timeout;
+      const fail=()=>{
+        clearTimeout(timeout);
+        script.remove();
+        reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED"));
+      };
       script.src="https://accounts.google.com/gsi/client";
       script.async=true;
       script.defer=true;
       script.dataset.activaGoogleIdentity="true";
-      script.onload=()=>resolve(window.google);
-      script.onerror=()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED"));
+      script.onload=()=>{
+        clearTimeout(timeout);
+        if(window.google?.accounts?.id) resolve(window.google);
+        else fail();
+      };
+      script.onerror=fail;
+      timeout=setTimeout(fail,15000);
       document.head.appendChild(script);
+    }).catch(error=>{
+      googleIdentityPromise=null;
+      throw error;
     });
     return googleIdentityPromise;
   }
 
   function setApiBaseUrl(value) {
-    apiBaseUrl=normalizeApiBase(value);
+    const next=normalizeApiBase(value);
+    if(next!==apiBaseUrl) clearPilotAuthentication();
+    apiBaseUrl=next;
     if(apiBaseUrl) sessionStorage.setItem(API_BASE_KEY,apiBaseUrl);
     else sessionStorage.removeItem(API_BASE_KEY);
     return apiBaseUrl;
@@ -143,12 +184,18 @@
   }
 
   async function checkServerHealth() {
+    const base=apiBaseUrl;
+    const generation=authGeneration;
     const response=await fetch(serverApiUrl("/api/health"),{
       method:"GET",
-      headers:{Accept:"application/json"}
+      headers:{Accept:"application/json"},
+      cache:"no-store",
+      credentials:"omit",
+      redirect:"error"
     });
     let data={};
     try { data=await response.json(); } catch {}
+    if(!currentGoogleAttempt(generation,base)) throw new Error("GOOGLE_LOGIN_RESTART_REQUIRED");
     if(!response.ok) {
       const err=new Error(data.error||("HTTP_"+response.status));
       err.status=response.status;
@@ -178,17 +225,31 @@
     }
 
     const headers = new Headers(options.headers || {});
+    const generation=authGeneration;
+    const base=apiBaseUrl;
     headers.set("Accept", "application/json");
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    if (pilotAuthToken) headers.set("Authorization", "Bearer "+pilotAuthToken);
+    headers.delete("Authorization");
+    if (pilotAuthToken) {
+      if(pilotAuthBase!==base || validatedGoogleBase!==base) throw new Error("GOOGLE_API_DESTINATION_NOT_VALIDATED");
+      headers.set("Authorization", "Bearer "+pilotAuthToken);
+    }
 
-    const response = await fetch(serverApiUrl(path), { ...options, headers });
+    const response = await fetch(serverApiUrl(path), { ...options, headers, credentials:"omit", redirect:"error" });
     let data = {};
     try { data = await response.json(); } catch {}
+    if(!currentGoogleAttempt(generation,base)) throw new Error("GOOGLE_LOGIN_RESTART_REQUIRED");
     if (!response.ok) {
       const err = new Error(data.error || ("HTTP_" + response.status));
       err.status = response.status;
       err.data = data;
+      if(response.status===401) {
+        clearPilotAuthentication();
+        activeView="dashboard";
+        renderLogin();
+        const msg=document.getElementById("loginMsg");
+        if(msg) msg.innerHTML='<div class="alert warn">การยืนยันตัวตนหมดอายุหรือใช้ไม่ได้ กรุณาเข้าสู่ระบบด้วย Google อีกครั้ง</div>';
+      }
       throw err;
     }
     return data;
@@ -357,12 +418,7 @@
     });
 
     document.getElementById("logout").onclick = () => {
-      session = null;
-      saveSession();
-      if(appMode==="server") {
-        savePilotAuthToken("");
-        try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
-      }
+      clearPilotAuthentication();
       activeView = "dashboard";
       render();
     };
@@ -421,7 +477,7 @@
       '<div class="field"><label>รหัสบุคลากร (ใช้เฉพาะ Demo Mode)</label><input id="loginId" value="ADM001" autocomplete="username"></div>'+
       '<div class="field" style="margin-top:12px"><label>Backend API URL สำหรับ Pilot/API Mode</label>'+
         '<input id="apiBaseUrl" inputmode="url" placeholder="https://api.example.org" value="'+esc(configuredApi)+'">'+
-        '<div class="muted" style="margin-top:6px">ใส่เฉพาะ URL ของ HTTPS API — ห้ามใส่ DATABASE_URL, password หรือ secret</div></div>'+
+        '<div class="muted" style="margin-top:6px">ใช้ HTTPS API เท่านั้น (http://localhost หรือ loopback ใช้ทดสอบในเครื่องได้) ห้ามใส่ password, secret, query หรือ fragment</div></div>'+
       '<div class="actions">'+
         '<button class="btn secondary" id="checkServer">ตรวจการเชื่อมต่อ API</button>'+
       '</div>'+
@@ -446,17 +502,17 @@
       const host=document.getElementById("serverHealthMsg");
       const base=readApiInput();
       if(!base) {
-        host.innerHTML='<div class="alert bad">กรุณาระบุ Backend API URL ที่ขึ้นต้นด้วย https:// หรือ http://</div>';
+        host.innerHTML='<div class="alert bad">กรุณาระบุ HTTPS API URL ที่ไม่มีข้อมูลเข้าสู่ระบบ, query หรือ fragment (HTTP ใช้ได้เฉพาะ loopback ในเครื่อง)</div>';
         return null;
       }
       host.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
       try {
         const health=await checkServerHealth();
-        const authReady=health.authentication?.productionReady===true;
+        const authReady=health.authentication?.configurationReady===true || health.authentication?.productionReady===true;
         host.innerHTML='<div class="alert '+(authReady?'ok':'warn')+'"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
           'API: '+esc(base)+'<br>'+
           'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected<br>'+
-          'Authentication: '+(authReady?'Production-ready':'ยังไม่พร้อมสำหรับข้อมูลจริง ('+esc(health.authentication?.mode||"DISABLED")+')')+'</div>';
+          'Authentication: '+(authReady?'ตั้งค่าครบ ยังต้องทดสอบ Google Sign-In จริง และไม่ใช่ Production GO':'ยังตั้งค่าไม่ครบ ('+esc(health.authentication?.mode||"DISABLED")+')')+'</div>';
         return health;
       } catch(error) {
         host.innerHTML=errorBox(error);
@@ -469,8 +525,8 @@
       const msg = document.getElementById("loginMsg");
       if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
 
+      clearPilotAuthentication();
       setMode("demo");
-      savePilotAuthToken("");
       msg.innerHTML = '<div class="alert">กำลังเข้าสู่ Demo Mode…</div>';
       try {
         const data = await api("/api/me", {}, id);
@@ -491,24 +547,33 @@
 
     async function prepareGoogleLogin() {
       const msg=document.getElementById("loginMsg");
+      clearPilotAuthentication();
       const health=await probeServer();
       if(!health) return;
+      const base=apiBaseUrl;
+      const generation=authGeneration;
 
       if(health.authentication?.mode!=="GOOGLE_OIDC" ||
          health.authentication?.provider!=="GOOGLE" ||
-         health.authentication?.productionReady!==true ||
+         !(health.authentication?.configurationReady===true || health.authentication?.productionReady===true) ||
          !health.authentication?.googleClientId) {
         msg.innerHTML='<div class="alert bad"><b>Google Login ยังไม่พร้อม</b><br>'+
           'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และ GOOGLE_ALLOWED_DOMAINS ให้ครบ</div>';
+        return;
+      }
+      if(!EXPECTED_GOOGLE_CLIENT_ID || health.authentication.googleClientId!==EXPECTED_GOOGLE_CLIENT_ID) {
+        msg.innerHTML='<div class="alert bad">GOOGLE_CLIENT_ID_MISMATCH: Client ID ของ Backend ไม่ตรงกับแอปนี้ กรุณาตรวจการตั้งค่าก่อนเข้าสู่ระบบ</div>';
         return;
       }
 
       try {
         await loadGoogleIdentityServices();
       } catch(error) {
-        msg.innerHTML=errorBox(error);
+        if(currentGoogleAttempt(generation,base)) msg.innerHTML=errorBox(error);
         return;
       }
+      if(!currentGoogleAttempt(generation,base)) return;
+      validatedGoogleBase=base;
 
       const wrap=document.getElementById("googleSignInWrap");
       const button=document.getElementById("googleSignInButton");
@@ -516,28 +581,28 @@
       button.innerHTML="";
 
       window.google.accounts.id.initialize({
-        client_id:health.authentication.googleClientId,
+        client_id:EXPECTED_GOOGLE_CLIENT_ID,
         callback:async(response)=>{
+          if(!currentGoogleAttempt(generation,base) || validatedGoogleBase!==base) return;
           if(!response?.credential) {
             msg.innerHTML='<div class="alert bad">Google ไม่ได้ส่ง ID token กลับมา</div>';
             return;
           }
 
-          savePilotAuthToken(response.credential);
+          savePilotAuthToken(response.credential,base);
           setMode("server");
           msg.innerHTML='<div class="alert">Google ยืนยันตัวตนแล้ว กำลังตรวจสิทธิ์ใน ACTIVA-AI…</div>';
 
           try {
             const data=await api("/api/me");
+            if(!currentGoogleAttempt(generation,base)) return;
             session=data.user;
             saveSession();
             activeView="dashboard";
             render();
           } catch(error) {
-            session=null;
-            saveSession();
-            savePilotAuthToken("");
-            setMode("demo");
+            if(!currentGoogleAttempt(generation,base)) return;
+            clearPilotAuthentication();
             msg.innerHTML=errorBox(error);
           }
         },
@@ -556,11 +621,16 @@
       });
 
       const domains=(health.authentication.allowedDomains||[]).join(", ");
-      msg.innerHTML='<div class="alert ok"><b>พร้อม Google Sign-In</b><br>'+
-        'อนุญาตเฉพาะ Google Workspace: '+esc(domains||"ตามที่ backend กำหนด")+'</div>';
+      msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบ Google Sign-In</b><br>'+
+        'อนุญาตเฉพาะ Google Workspace: '+esc(domains||"ตามที่ backend กำหนด")+'<br>ต้องลงชื่อเข้าใช้อีกครั้งเมื่อโหลดหน้าใหม่ สถานะนี้ไม่ใช่ Production GO</div>';
     }
 
     document.getElementById("checkServer").onclick = probeServer;
+    document.getElementById("apiBaseUrl").oninput = ()=>{
+      setApiBaseUrl(document.getElementById("apiBaseUrl").value);
+      document.getElementById("serverHealthMsg").innerHTML="";
+      document.getElementById("loginMsg").innerHTML="";
+    };
     document.getElementById("demoLogin").onclick = () => login("demo");
     document.getElementById("serverLogin").onclick = prepareGoogleLogin;
     document.getElementById("resetDemo").onclick = () => {

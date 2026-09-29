@@ -20,7 +20,7 @@ jobs:
         env:
           POSTGRES_DB: activa_ai
           POSTGRES_USER: activa
-          POSTGRES_PASSWORD: activa_password
+          POSTGRES_PASSWORD: ci-disposable-postgres-16
         ports:
           - 5432:5432
         options: >-
@@ -34,7 +34,7 @@ jobs:
         working-directory: ACTIVA-AI
 
     env:
-      DATABASE_URL: postgresql://activa:activa_password@127.0.0.1:5432/activa_ai?schema=public
+      DATABASE_URL: postgresql://activa:ci-disposable-postgres-16@127.0.0.1:5432/activa_ai?schema=public
       QR_SIGNING_SECRET: ci-secret-for-activa-ai-qr-signing-123456
       QR_TOKEN_TTL_SECONDS: "120"
       RESEARCH_HASH_SALT: ci-research-hash-salt-not-for-production
@@ -43,6 +43,8 @@ jobs:
       PORT: "3000"
       ALLOWED_ORIGINS: "https://pilot.example.test"
       ACTIVA_AUTH_MODE: "DEMO_HEADER"
+      ACTIVA_PRODUCTION_GO_ENABLED: "false"
+      ACTIVA_TEST_DATABASE_ONLY: "true"
 
     steps:
       - name: Checkout
@@ -54,7 +56,10 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Audit locked dependencies
+        run: npm audit --audit-level=high
 
       - name: Validate Prisma schema
         run: npx prisma validate
@@ -62,8 +67,15 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Create database schema
-        run: npx prisma db push
+      - name: Deploy migrations to fresh PostgreSQL and check repeatability
+        run: |
+          npm run prisma:deploy
+          npm run prisma:deploy
+          npm run prisma:status
+          npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Verify empty database and first-admin provisioning
+        run: node tests/bootstrap-database.mjs
 
       - name: Seed demo data
         run: node prisma/seed.js
@@ -84,10 +96,35 @@ jobs:
           node --check tests/auth-readiness.mjs
 
       - name: Authentication readiness guard
-        run: node tests/auth-readiness.mjs
+        run: |
+          npm run test:auth
+          npm run test:frontend-auth
+          npm run test:deployment
+          node tests/bootstrap-admin.mjs
 
       - name: Build production container
-        run: docker build -t activa-ai-v1.0.15-ci .
+        run: |
+          docker build --target migrate -t activa-ai-migrate-ci .
+          docker build --target runtime -t activa-ai-v1.0.15-ci .
+          docker run --rm --network host -e DATABASE_URL activa-ai-migrate-ci
+
+      - name: Verify production container with Google OIDC configured and GO disabled
+        run: |
+          # Disposable CI fixtures only; real staging secrets come from its secret store.
+          docker run --detach --name activa-ai-pilot-ci --network host \
+            -e DATABASE_URL -e PORT=3001 -e ACTIVA_AUTH_MODE=GOOGLE_OIDC \
+            -e GOOGLE_CLIENT_ID=517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com \
+            -e GOOGLE_ALLOWED_DOMAINS=chandra.ac.th \
+            -e ALLOWED_ORIGINS=https://supparang.github.io \
+            -e ACTIVA_PRODUCTION_GO_ENABLED=false \
+            -e QR_SIGNING_SECRET=5e6c9d8a5e6c9d8a5e6c9d8a5e6c9d8a5e6c9d8a5e6c9d8a5e6c9d8a5e6c9d8a \
+            -e RESEARCH_HASH_SALT=7a3f4b2c7a3f4b2c7a3f4b2c7a3f4b2c7a3f4b2c7a3f4b2c7a3f4b2c7a3f4b2c \
+            activa-ai-v1.0.15-ci
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3001/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/pilot-http.mjs
 
       - name: Start ACTIVA-AI server
         run: |
@@ -144,4 +181,10 @@ jobs:
 
       - name: Show server log on failure
         if: failure()
-        run: cat /tmp/activa-ai.log || true
+        run: |
+          cat /tmp/activa-ai.log || true
+          docker logs activa-ai-pilot-ci || true
+
+      - name: Stop pilot test container
+        if: always()
+        run: docker rm -f activa-ai-pilot-ci || true

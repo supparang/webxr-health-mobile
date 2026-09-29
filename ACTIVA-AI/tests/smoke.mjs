@@ -45,6 +45,13 @@ assert(health.ok && health.database === "connected", "health/database check fail
 assert(health.version === "1.0.15", "health version must report ACTIVA-AI 1.0.15");
 assert(health.authentication?.mode === "DEMO_HEADER", "CI authentication mode must be DEMO_HEADER");
 assert(health.authentication?.productionReady === false, "DEMO_HEADER must never be production-ready authentication");
+assert(health.productionGoEnabled === false, "Production GO must remain disabled");
+
+for (const path of ["/server/auth.js", "/prisma/schema.prisma", "/package.json", "/package-lock.json", "/.env", "/node_modules/express/package.json", "/scripts/bootstrap-admin.mjs"]) {
+  const response = await fetch(base + path);
+  assert(response.status === 404, "Backend file must not be public: " + path);
+}
+assert((await fetch(base + "/runtime-config.js")).status === 200, "Public runtime config must be available");
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
   headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
@@ -939,6 +946,12 @@ assert(tamperedCheck.data?.error==="BACKUP_CHECKSUM_MISMATCH","tampered backup c
 
 const gateAfterRecovery=await req("/api/operations/release-gate",{actor:"ADM001"});
 assert(gateAfterRecovery.backupRecovery?.passed===true,"recent V1 recovery check must satisfy backup gate");
+assert(gateAfterRecovery.gate === "HOLD" && gateAfterRecovery.blockers.includes("PRODUCTION_GO_DISABLED"), "Recovery must not enable Production GO");
+const blockedGo = await reqError("/api/operations/release-decision", {
+  actor: "ADM001", method: "POST",
+  body: { decision: "GO", reason: "CI must reject GO while deployment approval is disabled" }
+});
+assert(blockedGo.status === 409 && blockedGo.data.blockers.includes("PRODUCTION_GO_DISABLED"), "GO must be rejected while disabled");
 
 const holdDecision=await req("/api/operations/release-decision",{
   actor:"ADM001",

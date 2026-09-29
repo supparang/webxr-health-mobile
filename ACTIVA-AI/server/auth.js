@@ -1,5 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "./db.js";
+import { validGoogleClientId, validGoogleDomain } from "./google-config.js";
 
 let googleVerifier=null;
 let googleVerifierClientId=null;
@@ -29,7 +30,11 @@ export function googleAllowedDomains() {
 }
 
 function googleOidcConfigured() {
-  return Boolean(googleClientId()) && googleAllowedDomains().length > 0;
+  const clientId=googleClientId();
+  const domains=googleAllowedDomains();
+  // These are public identifiers, but malformed values must not advertise
+  // deployment readiness or reach the token verifier.
+  return validGoogleClientId(clientId) && domains.length > 0 && domains.every(validGoogleDomain);
 }
 
 export function productionAuthenticationReady() {
@@ -53,16 +58,15 @@ function bearerToken(req) {
 }
 
 function emailDomain(email) {
-  const parts=String(email || "").toLowerCase().split("@");
-  return parts.length === 2 ? parts[1] : "";
+  const match=email.match(/^[^\s@]+@([^\s@]+)$/);
+  return match ? match[1] : "";
 }
 
 async function resolveGoogleUser(idToken) {
-  const verifier=getGoogleVerifier();
   const clientId=googleClientId();
   const allowedDomains=googleAllowedDomains();
 
-  if (!verifier || !clientId || allowedDomains.length === 0) {
+  if (!googleOidcConfigured()) {
     const error=new Error("GOOGLE_OIDC_NOT_CONFIGURED");
     error.status=503;
     throw error;
@@ -70,6 +74,9 @@ async function resolveGoogleUser(idToken) {
 
   let ticket;
   try {
+    const verifier=getGoogleVerifier();
+    // The Google library validates the signature, issuer, audience and lifetime.
+    // Only trust claims obtained from this verified ticket.
     ticket=await verifier.verifyIdToken({
       idToken,
       audience: clientId,
@@ -81,8 +88,14 @@ async function resolveGoogleUser(idToken) {
   }
 
   const payload=ticket.getPayload() || {};
-  const email=String(payload.email || "").trim().toLowerCase();
-  const hd=String(payload.hd || "").trim().toLowerCase();
+  const email=typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const hd=typeof payload.hd === "string" ? payload.hd.trim().toLowerCase() : "";
+
+  if (typeof payload.sub !== "string" || !payload.sub.trim() || payload.sub.length > 255) {
+    const error=new Error("GOOGLE_ID_TOKEN_INVALID");
+    error.status=401;
+    throw error;
+  }
 
   if (!email || payload.email_verified !== true) {
     const error=new Error("GOOGLE_EMAIL_NOT_VERIFIED");
@@ -97,20 +110,30 @@ async function resolveGoogleUser(idToken) {
     throw error;
   }
 
-  const user=await prisma.user.findFirst({
+  // PostgreSQL's email uniqueness is case-sensitive; authentication is not.
+  // Reject ambiguous provisioned accounts rather than choosing an arbitrary role.
+  const users=await prisma.user.findMany({
     where: {
       email: {
         equals: email,
         mode: "insensitive",
       },
     },
+    take: 2,
   });
 
-  if (!user) {
+  if (users.length === 0) {
     const error=new Error("GOOGLE_ACCOUNT_NOT_PROVISIONED");
     error.status=403;
     throw error;
   }
+
+  if (users.length !== 1) {
+    const error=new Error("GOOGLE_ACCOUNT_AMBIGUOUS");
+    error.status=403;
+    throw error;
+  }
+  const [user]=users;
 
   if (user.status !== "ACTIVE") {
     const error=new Error("INVALID_OR_INACTIVE_USER");
@@ -122,7 +145,7 @@ async function resolveGoogleUser(idToken) {
     user,
     authContext: {
       provider: "GOOGLE",
-      subject: payload.sub || null,
+      subject: payload.sub,
       email,
       hostedDomain: hd,
     },
@@ -134,6 +157,12 @@ export async function attachActor(req, res, next) {
     const mode=authenticationMode();
 
     if (mode === "DEMO_HEADER") {
+      if (String(process.env.NODE_ENV || "").trim().toLowerCase() === "production") {
+        return res.status(503).json({
+          ok: false,
+          error: "DEMO_HEADER_FORBIDDEN_IN_PRODUCTION",
+        });
+      }
       const ref = req.header("x-activa-user-id");
       if (!ref) {
         return res.status(401).json({

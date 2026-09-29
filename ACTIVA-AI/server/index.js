@@ -8,20 +8,31 @@ import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googleAllowedDomains } from "./auth.js";
+import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled } from "./deployment-config.js";
+
+if (process.env.NODE_ENV === "production") {
+  const errors = deploymentConfigurationErrors();
+  if (errors.length) throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + errors.join(", "));
+}
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .map((x) => x.trim())
-  .filter(Boolean);
+const allowedOrigins = configuredOrigins();
+
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+app.use("/api", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || (allowedOrigins.length === 0 && process.env.NODE_ENV !== "production")) {
       return callback(null, true);
     }
     const error = new Error("CORS_ORIGIN_NOT_ALLOWED");
@@ -510,16 +521,18 @@ app.get("/api/health", async (_req, res) => {
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
+      productionGoEnabled: productionGoEnabled(),
       authentication: {
         mode: authenticationMode(),
         productionReady: productionAuthenticationReady(),
+        configurationReady: productionAuthenticationReady(),
         provider: authenticationMode()==="GOOGLE_OIDC" ? "GOOGLE" : null,
         googleClientId: authenticationMode()==="GOOGLE_OIDC" ? googleClientId() : null,
         allowedDomains: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedDomains() : [],
       },
     });
   } catch (error) {
-    console.error("Database health check failed:", error);
+    console.error("Database health check failed:", error?.name || "Error");
     res.status(503).json({ ok: false, version: "1.0.15",
       releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
   }
@@ -2965,6 +2978,7 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     : false;
 
   const blockers = [];
+  if (!productionGoEnabled()) blockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (criticalIssues.length) blockers.push("CRITICAL_DATA_QUALITY");
   if (endedNotClosed.length) blockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
@@ -3241,6 +3255,7 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
   const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
 
   const hardBlockers = [];
+  if (!productionGoEnabled()) hardBlockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
   if (overTargetCount > 0) hardBlockers.push("REVIEW_BACKLOG_OVER_TARGET");
@@ -3698,14 +3713,20 @@ app.use("/api", (_req, res) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
-app.use(express.static(staticDir));
-
-app.use((_req, res) => {
-  res.sendFile(path.join(staticDir, "index.html"));
-});
+// Only public browser assets may be served. Never serve server, prisma,
+// scripts, dependency, backup, or environment files from the application tree.
+const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css"];
+for (const file of publicFiles) {
+  app.get("/" + file, (_req, res) => {
+    if (file === "runtime-config.js") res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(staticDir, file));
+  });
+}
+app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
+app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
 app.use((error, _req, res, _next) => {
-  console.error(error);
+  console.error("Request failed:", error?.name || "Error");
   const status=Number(error?.status)||500;
   const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";
   res.status(status).json({ ok:false, error:code });
