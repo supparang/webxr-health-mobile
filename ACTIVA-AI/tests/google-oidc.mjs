@@ -10,7 +10,7 @@ const { privateKey, publicKey }=generateKeyPairSync("rsa", { modulusLength: 2048
 const unrelatedKey=generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
 const publicPem=publicKey.export({ type: "spki", format: "pem" });
 const clientId="517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com";
-const keys=["NODE_ENV", "ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS"];
+const keys=["NODE_ENV", "ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS", "GOOGLE_ALLOWED_EMAILS"];
 const savedEnv=Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 const savedPrisma=globalThis.__activaPrisma;
 const savedCertFetch=OAuth2Client.prototype.getFederatedSignonCertsAsync;
@@ -62,6 +62,7 @@ try {
   process.env.ACTIVA_AUTH_MODE="GOOGLE_OIDC";
   process.env.GOOGLE_CLIENT_ID=clientId;
   process.env.GOOGLE_ALLOWED_DOMAINS="chandra.ac.th";
+  process.env.GOOGLE_ALLOWED_EMAILS="";
   const { attachActor }=await import("../server/auth.js");
 
   async function request(headers={}) {
@@ -96,6 +97,25 @@ try {
     provider: "GOOGLE", subject: "google-subject-123", email: "person@chandra.ac.th", hostedDomain: "chandra.ac.th",
   });
   assert.deepEqual(databaseQueries.at(-1),{ where: { email: { equals: "person@chandra.ac.th", mode: "insensitive" } }, take: 2 });
+
+  process.env.GOOGLE_ALLOWED_EMAILS="pilot.person@gmail.com";
+  const gmailUser={ ...activeUser, id:"gmail-user", employeeId:"PILOT_P01", email:"pilot.person@gmail.com" };
+  provisionedUsers=[gmailUser];
+  const gmailSuccess=await request({ authorization: "Bearer "+idToken({ email:"Pilot.Person@gmail.com", hd:undefined }) });
+  assert.equal(gmailSuccess.nextCalls,1,"Exact allowlisted Gmail account should authenticate");
+  assert.equal(gmailSuccess.nextError,null);
+  assert.equal(gmailSuccess.req.activaUser,gmailUser);
+  assert.deepEqual(gmailSuccess.req.authContext,{
+    provider:"GOOGLE", subject:"google-subject-123", email:"pilot.person@gmail.com", hostedDomain:"",
+  });
+  await rejected(
+    "non-allowlisted Gmail account",
+    idToken({ email:"other.person@gmail.com", hd:undefined }),
+    403,
+    "GOOGLE_ACCOUNT_NOT_ALLOWED"
+  );
+  process.env.GOOGLE_ALLOWED_EMAILS="";
+  provisionedUsers=[activeUser];
 
   const noBearer=await request({ "x-activa-user-id": "ADMIN001" });
   assert.equal(noBearer.status,401);
@@ -170,6 +190,9 @@ try {
   process.env.GOOGLE_ALLOWED_DOMAINS="*.chandra.ac.th";
   await rejected("invalid domain configuration",idToken(),503,"GOOGLE_OIDC_NOT_CONFIGURED");
   process.env.GOOGLE_ALLOWED_DOMAINS="chandra.ac.th";
+  process.env.GOOGLE_ALLOWED_EMAILS="*";
+  await rejected("invalid exact-email configuration",idToken(),503,"GOOGLE_OIDC_NOT_CONFIGURED");
+  process.env.GOOGLE_ALLOWED_EMAILS="";
   process.env.GOOGLE_CLIENT_ID="invalid-client-id";
   await rejected("invalid client configuration",idToken(),503,"GOOGLE_OIDC_NOT_CONFIGURED");
   assert.equal(certificateRequests,beforeCertificates,"Invalid configuration must not invoke the verifier");
@@ -191,7 +214,7 @@ try {
 
   process.env.ACTIVA_AUTH_MODE="DISABLED";
   await rejected("disabled authentication",idToken(),503,"PRODUCTION_AUTHENTICATION_NOT_CONFIGURED");
-  console.log("ACTIVA-AI Google OIDC signed-token, domain, provisioning and header-spoof regression checks passed");
+  console.log("ACTIVA-AI Google OIDC signed-token, Workspace/exact-email allowlist, provisioning and header-spoof regression checks passed");
 } finally {
   OAuth2Client.prototype.getFederatedSignonCertsAsync=savedCertFetch;
   if (savedPrisma === undefined) delete globalThis.__activaPrisma;
