@@ -1,0 +1,34 @@
+{
+  "protocolId": "ACTIVA-P3-RP-001",
+  "samplePlanId": "ACTIVA-P3-SP-001",
+  "status": "PENDING",
+  "approvedAt": null,
+  "approvedBy": null,
+  "target": "REVIEW_REQUIRED",
+  "design": {
+    "outcomeType": "binary",
+    "primaryGrouping": "participant_hash",
+    "sensitivityGrouping": "event_id",
+    "candidatePredictorCount": 13,
+    "candidateModelFamilies": [
+      "logistic_regression",
+      "random_forest",
+      "gradient_boosting"
+    ],
+    "primarySelectionMetric": "validation_pr_auc",
+    "calibrationRequired": true
+  },
+  "assumptions": {
+    "anticipatedReviewRequiredPrevalence": null,
+    "clusteringRationale": "Repeated records may occur within participant and activity; participant-group split is primary and event-group sensitivity analysis is pre-specified.",
+    "sampleSizeMethod": "PENDING: determine before empirical training using a defensible binary prediction-model sample-size method and/or simulation that accounts for prevalence, model complexity, calibration and clustering.",
+    "notes": null
+  },
+  "minimums": {
+    "records": null,
+    "uniqueParticipants": null,
+    "uniqueEvents": null,
+    "perTargetClass": null
+  },
+  "approvalRule": "Set status to APPROVED only after minimums and rationale are completed and reviewed before final-test inspection."
+}
