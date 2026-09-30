@@ -4024,6 +4024,36 @@ app.use((error, _req, res, _next) => {
   res.status(status).json({ ok:false, error:code });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log("ACTIVA-AI V1.0.15 server running on http://localhost:" + port);
 });
+
+// Bound idle/header/request lifetimes so a production instance does not keep
+// incomplete HTTP connections open indefinitely.
+server.keepAliveTimeout = 5000;
+server.headersTimeout = 35000;
+server.requestTimeout = 30000;
+
+let shutdownStarted = false;
+async function gracefulShutdown(signal) {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  console.log("ACTIVA-AI graceful shutdown:", signal);
+  const forceTimer = setTimeout(() => {
+    console.error("ACTIVA-AI forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+  forceTimer.unref();
+
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      clearTimeout(forceTimer);
+      process.exit(0);
+    } catch {
+      process.exit(1);
+    }
+  });
+}
+process.on("SIGTERM", () => { void gracefulShutdown("SIGTERM"); });
+process.on("SIGINT", () => { void gracefulShutdown("SIGINT"); });
