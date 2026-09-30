@@ -194,7 +194,7 @@ def compute_plan(plan: dict[str, Any]) -> dict[str, Any]:
             "noReviewRequired": expected_total_negative,
         },
         "simulationStressTestRequired": stress_required,
-        "simulationStressTestStatus": stress.get("status") or "NOT_REQUIRED" if not stress_required else stress.get("status") or "PENDING",
+        "simulationStressTestStatus": ("NOT_REQUIRED" if not stress_required else (stress.get("status") or "PENDING")),
         "approvalReadyFromSampleSizeMethod": approval_ready,
         "limitations": [
             "Unique-participant and unique-event minimums must be justified separately because pmsampsize addresses record/event counts, not clustering adequacy.",
