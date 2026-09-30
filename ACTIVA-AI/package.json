@@ -24,7 +24,9 @@
     "test:deployment": "node tests/deployment-config.mjs && node tests/staging-verifier.mjs",
     "test:frontend-auth": "node tests/frontend-auth.mjs",
     "production:verify": "node scripts/verify-production.mjs",
-    "test:production-monitor": "node tests/production-verifier.mjs"
+    "test:production-monitor": "node tests/production-verifier.mjs",
+    "recovery:verify": "node scripts/verify-recovery-database.mjs",
+    "test:recovery-verifier": "node tests/recovery-verifier.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

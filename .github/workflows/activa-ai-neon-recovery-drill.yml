@@ -1,0 +1,94 @@
+name: ACTIVA-AI Neon Recovery Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type VERIFY-ACTIVA-NEON-RECOVERY to continue"
+        required: true
+        type: string
+      recovery_point_utc:
+        description: "Exact Neon branch recovery point in UTC ISO-8601, e.g. 2026-09-30T12:20:00Z"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-isolated-recovery:
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      ACTIVA_RECOVERY_DATABASE_URL: ${{ secrets.ACTIVA_RECOVERY_DATABASE_URL }}
+      ACTIVA_PRODUCTION_DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_RECOVERY_POINT_UTC: ${{ inputs.recovery_point_utc }}
+
+    steps:
+      - name: Validate operator confirmation
+        shell: bash
+        working-directory: .
+        run: |
+          test "${{ inputs.confirm }}" = "VERIFY-ACTIVA-NEON-RECOVERY" || {
+            echo "Confirmation text does not match. Refusing recovery verification."
+            exit 1
+          }
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Verify isolated Neon PITR branch
+        id: recovery
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-recovery-database.mjs | tee recovery-verification.json
+
+      - name: Add recovery evidence summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo "## ACTIVA-AI Neon Recovery Drill"
+            echo ""
+            echo "Isolated Neon recovery database verification passed."
+            echo ""
+            echo "- Recovery point (UTC): ${ACTIVA_RECOVERY_POINT_UTC}"
+            echo "- Production target queried by verifier: false"
+            echo "- Production data mutated: false"
+            echo "- Evidence artifact: activa-ai-neon-recovery-evidence"
+            echo ""
+            echo "The verifier checks Neon target isolation, reviewed Prisma migrations,"
+            echo "required schema tables, exactly one ACTIVE ADMIN, bootstrap audit evidence,"
+            echo "and that restored audit data does not extend beyond the requested recovery point."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload non-PII recovery evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: activa-ai-neon-recovery-evidence
+          path: ACTIVA-AI/recovery-verification.json
+          retention-days: 30
+          if-no-files-found: error
