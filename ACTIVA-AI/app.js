@@ -364,8 +364,18 @@
     const nav = navGroups().map(group => navGroupHtml(group, storedState)).join("");
 
     return '<div class="shell">'+
-      '<aside class="sidebar">'+
-        '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
+      '<header class="mobile-appbar">'+
+        '<button type="button" class="mobile-menu-button" id="mobileMenuButton" aria-label="เปิดเมนู" aria-controls="appSidebar" aria-expanded="false">'+
+          '<span></span><span></span><span></span>'+
+        '</button>'+
+        '<div class="mobile-appbar-title"><strong>ACTIVA-AI</strong><small>'+esc(viewTitle())+'</small></div>'+
+      '</header>'+
+      '<div class="mobile-menu-backdrop" id="mobileMenuBackdrop" hidden></div>'+
+      '<aside class="sidebar" id="appSidebar" aria-label="เมนู ACTIVA-AI">'+
+        '<div class="sidebar-head">'+
+          '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
+          '<button type="button" class="sidebar-close" id="sidebarClose" aria-label="ปิดเมนู">×</button>'+
+        '</div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
         '<div class="version">V1.0.15 • Google OIDC + Backend Connection Layer</div>'+
       '</aside>'+
@@ -374,6 +384,40 @@
         '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+roleLabel(session.role)+'</span></div></div>'+
         '<div id="view"></div>'+
       '</main></div>';
+  }
+
+  function setMobileNavOpen(open) {
+    const sidebar=document.getElementById("appSidebar");
+    const button=document.getElementById("mobileMenuButton");
+    const backdrop=document.getElementById("mobileMenuBackdrop");
+    if(!sidebar || !button || !backdrop) return;
+
+    const compact=window.matchMedia && window.matchMedia("(max-width: 1000px)").matches;
+    const next=Boolean(open && compact);
+    sidebar.classList.toggle("mobile-open",next);
+    button.setAttribute("aria-expanded",next?"true":"false");
+    button.setAttribute("aria-label",next?"ปิดเมนู":"เปิดเมนู");
+    sidebar.setAttribute("aria-hidden",compact?(next?"false":"true"):"false");
+    backdrop.hidden=!next;
+    document.body.classList.toggle("mobile-nav-open",next);
+  }
+
+  function bindMobileNavigation() {
+    const button=document.getElementById("mobileMenuButton");
+    const close=document.getElementById("sidebarClose");
+    const backdrop=document.getElementById("mobileMenuBackdrop");
+    if(button) button.onclick=()=>setMobileNavOpen(button.getAttribute("aria-expanded")!=="true");
+    if(close) close.onclick=()=>setMobileNavOpen(false);
+    if(backdrop) backdrop.onclick=()=>setMobileNavOpen(false);
+
+    document.querySelectorAll(".sidebar [data-view]").forEach((item)=>{
+      item.addEventListener("click",()=>setMobileNavOpen(false),{once:true});
+    });
+
+    window.onkeydown=(event)=>{
+      if(event.key==="Escape") setMobileNavOpen(false);
+    };
+    setMobileNavOpen(false);
   }
 
   function showLoading(v, text) {
@@ -397,8 +441,13 @@
     }
     if (!session) return renderLogin();
 
+    document.body.classList.remove("mobile-nav-open");
     app().innerHTML = shell();
-    document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => setView(b.dataset.view));
+    bindMobileNavigation();
+    document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => {
+      setMobileNavOpen(false);
+      setView(b.dataset.view);
+    });
 
     document.querySelectorAll("[data-nav-toggle]").forEach((toggle) => {
       toggle.onclick = () => {
@@ -418,6 +467,7 @@
     });
 
     document.getElementById("logout").onclick = () => {
+      setMobileNavOpen(false);
       clearPilotAuthentication();
       activeView = "dashboard";
       render();
