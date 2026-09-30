@@ -1,6 +1,6 @@
 # ACTIVA-AI
 
-## V1.0.16 — Production Hardening / Phase 2 Operations (in progress)
+## V1.0.16 — Production Hardening / Phase 2 Operations (COMPLETE)
 - V1.0.15 Production Acceptance ถูก freeze เป็น release/tag `ACTIVA-AI-1.0.15`; Phase 2 ไม่แก้ย้อนหลังหลักฐาน release เดิม
 - เพิ่ม `ACTIVA_DEPLOYMENT_TIER=STAGING|PRODUCTION` และ Production GO guard แบบ fail-closed
 - เพิ่ม browser/runtime security hardening และ Google OIDC same-origin production support
@@ -10,7 +10,10 @@
 - เพิ่ม GitHub alert routing: เมื่อ monitor fail จะสร้าง/อัปเดต incident issue เดียวและ assign ให้ `supparang`; เมื่อ monitor กลับมาผ่าน ระบบ comment RECOVERED และปิด issue อัตโนมัติ
 - เพิ่ม runbook [Phase 2 Production Operations & First Real Activity](docs/v1.0.16-phase2-production-operations.md)
 - เพิ่ม guarded [Neon PITR + Isolated Restore Drill](docs/v1.0.16-neon-recovery-drill.md): recovery target ต้องเป็น Neon, ต้องแยกจาก Production, ตรวจ migration/schema/governance แบบ read-only และเก็บ non-PII evidence artifact
-- งานคงเหลือหลัก: execute Neon isolated restore drill, optional secondary alert channel/escalation ownership, log-retention/redaction, secret rotation และ First Real Activity acceptance
+- Neon PITR isolated restore drill ผ่านแล้ว พร้อม non-PII recovery evidence artifact; post-recovery Production Monitor ผ่านแล้ว
+- Controlled First Real Activity, immutable closure, alert fail/recover cycle, log/redaction policy, user lifecycle, secret-rotation procedure และ dependency cadence ผ่าน Phase 2 final gate แล้ว
+- **Phase 2 COMPLETE — 2026-09-30**
+- งานต่อไปเป็น Phase 3 / research expansion; optional secondary alert channel และ custom domain ไม่ใช่ Phase 2 blockers
 
 ## V1.0.15 — Backend Connection Layer / Production Pilot Preparation
 - Backend + PostgreSQL staging instructions: [V1.0.15 staging deployment](docs/v1.0.15-staging-deployment.md). Use `.env.pilot.example`, the migration container and first-admin dry run. Production GO remains disabled; older setup instructions below are historical development notes.
