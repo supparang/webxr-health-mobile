@@ -1,0 +1,24 @@
+{
+  "protocolId": "ACTIVA-P3-RP-001",
+  "samplePlanId": "ACTIVA-P3-SP-001",
+  "status": "CI_TOOL_CHECK_ONLY",
+  "design": {
+    "numericPredictorParameters": 23,
+    "anticipatedActivityTypeLevels": 2,
+    "candidatePredictorParameters": 24,
+    "targetShrinkage": 0.9,
+    "finalTestHoldoutFraction": 0.2
+  },
+  "assumptions": {
+    "anticipatedReviewRequiredPrevalence": 0.174,
+    "prevalenceSource": "Published pmsampsize worked example — CI tool check only, not ACTIVA empirical planning",
+    "anticipatedModelStrength": {
+      "metric": "csrsquared",
+      "value": 0.288,
+      "source": "Published pmsampsize worked example — CI tool check only"
+    }
+  },
+  "simulationStressTest": {
+    "status": "NOT_REQUIRED"
+  }
+}
