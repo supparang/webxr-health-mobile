@@ -1,6 +1,6 @@
 {
   "name": "activa-ai-prototype",
-  "version": "1.0.15",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "ACTIVA-AI research prototype: policy-aware multi-source participation evidence verification",
@@ -26,7 +26,9 @@
     "production:verify": "node scripts/verify-production.mjs",
     "test:production-monitor": "node tests/production-verifier.mjs",
     "recovery:verify": "node scripts/verify-recovery-database.mjs",
-    "test:recovery-verifier": "node tests/recovery-verifier.mjs"
+    "test:recovery-verifier": "node tests/recovery-verifier.mjs",
+    "phase3:dataset-check": "node scripts/validate-phase3-dataset.mjs",
+    "test:phase3-readiness": "node tests/phase3-dataset-readiness.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
