@@ -64,6 +64,16 @@
   })[c]);
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
   const shortActivityId = (activity) => String(activity?.id || "").slice(-6) || "------";
+  const localDateValue = (dt) => {
+    const d=new Date(dt);
+    if(Number.isNaN(d.getTime())) return "";
+    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+  };
+  const localTimeValue = (dt) => {
+    const d=new Date(dt);
+    if(Number.isNaN(d.getTime())) return "";
+    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  };
   const activityChoiceLabel = (activity) => {
     const title=activity?.title || "กิจกรรม";
     const start=activity?.startAt ? fmt(activity.startAt) : "ไม่ระบุเวลา";
@@ -1496,6 +1506,148 @@
       if(now>end)return "ENDED";
       return "ACTIVE";
     }
+    async function renderActivityEdit(host,a){
+      const life=activityLifecycleClient(a);
+      const immutable=Boolean(a.pilotClosedAt);
+      if(immutable || life==="ENDED"){
+        host.innerHTML='<div class="panel activity-edit-panel">'+
+          '<div class="section-head"><div><h2>แก้ไขกิจกรรม</h2><p><b>'+esc(a.title)+'</b> • #'+esc(shortActivityId(a))+'</p></div>'+
+          '<button class="btn mini secondary" id="closeActivityEdit">ปิด</button></div>'+
+          '<div class="alert warn"><b>'+(immutable?'กิจกรรมถูกปิดแบบ Immutable แล้ว':'กิจกรรมสิ้นสุดแล้ว')+'</b><br>'+
+          (immutable?'ไม่สามารถแก้ข้อมูลกิจกรรมย้อนหลังได้':'ข้อมูลเวลาและ Evidence ถูกล็อกเพื่อรักษาความต่อเนื่องของ Attendance และ Audit Trail')+
+          '</div></div>';
+        document.getElementById("closeActivityEdit").onclick=()=>{host.innerHTML="";};
+        host.scrollIntoView({behavior:"smooth",block:"start"});
+        return;
+      }
+
+      const fullEdit=life==="UPCOMING";
+      const activeEdit=life==="ACTIVE";
+      const disableGoverned=fullEdit?"":"disabled";
+      const policy=a.policy||{};
+      const categories=["พัฒนาบุคลากร","ประชุม","บริการวิชาการ","วิจัย","ประกันคุณภาพ"];
+      if(a.category&&!categories.includes(a.category))categories.push(a.category);
+      const optionHtml=categories.map(x=>'<option '+(x===a.category?'selected':'')+'>'+esc(x)+'</option>').join("");
+      const checkEdit=(id,label,value,disabled)=>'<label class="check '+(disabled?'is-disabled':'')+'"><input id="'+id+'" type="checkbox" '+(value?'checked':'')+' '+(disabled?'disabled':'')+'> '+esc(label)+'</label>';
+
+      host.innerHTML='<div class="panel activity-edit-panel">'+
+        '<div class="section-head"><div><h2>แก้ไขกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+' • '+(activeEdit?'กำลังดำเนินกิจกรรม':'ก่อนเริ่มกิจกรรม')+'</span></p></div>'+
+        '<button class="btn mini secondary" id="closeActivityEdit">ปิด</button></div>'+
+        (activeEdit
+          ? '<div class="alert warn"><b>กิจกรรมกำลังดำเนินอยู่</b><br>แก้ได้เฉพาะชื่อ ประเภท และสถานที่ และต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร เวลาและ Evidence Policy ถูกล็อก</div>'
+          : '<div class="alert info"><b>ก่อนเริ่มกิจกรรม</b><br>สามารถแก้รายละเอียด เวลา Check-in/Check-out และ Evidence Policy ได้ โดยคง Activity ID และผู้เข้าร่วม/Reviewer เดิมไว้</div>')+
+        '<div class="form-grid">'+
+          '<div class="field"><label>ชื่อกิจกรรม</label><input id="eTitle" value="'+esc(a.title)+'"></div>'+
+          '<div class="field"><label>ประเภทกิจกรรม</label><select id="eCat">'+optionHtml+'</select></div>'+
+          '<div class="field"><label>วันที่</label><input id="eDate" type="date" value="'+esc(localDateValue(a.startAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>สถานที่</label><input id="eLoc" value="'+esc(a.location||"")+'"></div>'+
+          '<div class="field"><label>เวลาเริ่ม</label><input id="eStart" type="time" value="'+esc(localTimeValue(a.startAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เวลาสิ้นสุด</label><input id="eEnd" type="time" value="'+esc(localTimeValue(a.endAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิด Check-in QR</label><input id="eCiOpen" type="time" value="'+esc(localTimeValue(a.checkinOpenAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>ปิด Check-in QR</label><input id="eCiClose" type="time" value="'+esc(localTimeValue(a.checkinCloseAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิดช่วง Check-out</label><input id="eCoOpen" type="time" value="'+esc(localTimeValue(a.checkoutOpenAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>ปิดช่วง Check-out</label><input id="eCoClose" type="time" value="'+esc(localTimeValue(a.checkoutCloseAt))+'" '+disableGoverned+'></div>'+
+        '</div>'+
+        '<h3>นโยบายหลักฐานของกิจกรรม</h3>'+
+        '<div class="policy">'+
+          checkEdit("eQr","QR กิจกรรม",policy.qrRequired!==false,!fullEdit)+
+          checkEdit("eId","ยืนยันตัวตน",policy.identityRequired!==false,!fullEdit)+
+          checkEdit("eIn","Check-in",policy.checkinRequired!==false,!fullEdit)+
+          checkEdit("eOut","Check-out",policy.checkoutRequired!==false,!fullEdit)+
+          checkEdit("eDur","ระยะเวลา",policy.durationRequired!==false,!fullEdit)+
+          checkEdit("eStaff","Reviewer ยืนยัน",policy.staffRequired!==false,!fullEdit)+
+          checkEdit("eSig","ลายเซ็น",Boolean(policy.signatureRequired),!fullEdit)+
+          '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="eRatio" type="number" min="0" max="1" step=".05" value="'+esc(policy.minDurationRatio??0.75)+'" '+disableGoverned+'></div>'+
+        '</div>'+
+        (activeEdit?'<div class="field edit-reason"><label>เหตุผลการแก้ไขระหว่างกิจกรรม</label><textarea id="eReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
+        '<div class="actions"><button class="btn primary" id="saveActivityEdit">บันทึกการแก้ไข</button><button class="btn secondary" id="cancelActivityEdit">ยกเลิก</button></div>'+
+        '<div id="activityEditMsg"></div>'+
+      '</div>';
+
+      const close=()=>{host.innerHTML="";};
+      document.getElementById("closeActivityEdit").onclick=close;
+      document.getElementById("cancelActivityEdit").onclick=close;
+
+      document.getElementById("saveActivityEdit").onclick=async()=>{
+        const msg=document.getElementById("activityEditMsg");
+        const save=document.getElementById("saveActivityEdit");
+        const title=document.getElementById("eTitle").value.trim();
+        const category=document.getElementById("eCat").value.trim();
+        const location=document.getElementById("eLoc").value.trim();
+        if(!title||!category||!location){
+          msg.innerHTML='<div class="alert bad">กรุณากรอกชื่อ ประเภท และสถานที่ให้ครบ</div>';
+          return;
+        }
+
+        const payload={title,category,location};
+        if(fullEdit){
+          const date=document.getElementById("eDate").value;
+          const startDt=new Date(date+"T"+document.getElementById("eStart").value);
+          const endDt=new Date(date+"T"+document.getElementById("eEnd").value);
+          const ciOpenDt=new Date(date+"T"+document.getElementById("eCiOpen").value);
+          const ciCloseDt=new Date(date+"T"+document.getElementById("eCiClose").value);
+          const coOpenDt=new Date(date+"T"+document.getElementById("eCoOpen").value);
+          const coCloseDt=new Date(date+"T"+document.getElementById("eCoClose").value);
+          if([startDt,endDt,ciOpenDt,ciCloseDt,coOpenDt,coCloseDt].some(d=>Number.isNaN(d.getTime()))){
+            msg.innerHTML='<div class="alert bad">กรุณาระบุวันที่และเวลาให้ครบ</div>';return;
+          }
+          if(endDt<=startDt){msg.innerHTML='<div class="alert bad">เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม</div>';return;}
+          if(ciCloseDt<=ciOpenDt){msg.innerHTML='<div class="alert bad">เวลาปิด Check-in ต้องอยู่หลังเวลาเปิด</div>';return;}
+          if(ciCloseDt>endDt){msg.innerHTML='<div class="alert bad">ช่วง Check-in ต้องปิดไม่เกินเวลาสิ้นสุดกิจกรรม</div>';return;}
+          if(coCloseDt<=coOpenDt){msg.innerHTML='<div class="alert bad">เวลาปิด Check-out ต้องอยู่หลังเวลาเปิด</div>';return;}
+          if(coOpenDt<startDt){msg.innerHTML='<div class="alert bad">ช่วง Check-out ต้องไม่เปิดก่อนกิจกรรมเริ่ม</div>';return;}
+          payload.startAt=startDt.toISOString();
+          payload.endAt=endDt.toISOString();
+          payload.checkinOpenAt=ciOpenDt.toISOString();
+          payload.checkinCloseAt=ciCloseDt.toISOString();
+          payload.checkoutOpenAt=coOpenDt.toISOString();
+          payload.checkoutCloseAt=coCloseDt.toISOString();
+          payload.policy={
+            qrRequired:document.getElementById("eQr").checked,
+            identityRequired:document.getElementById("eId").checked,
+            checkinRequired:document.getElementById("eIn").checked,
+            checkoutRequired:document.getElementById("eOut").checked,
+            durationRequired:document.getElementById("eDur").checked,
+            staffRequired:document.getElementById("eStaff").checked,
+            signatureRequired:document.getElementById("eSig").checked,
+            minDurationRatio:Number(document.getElementById("eRatio").value||0.75),
+          };
+        }else{
+          payload.changeReason=document.getElementById("eReason")?.value.trim()||"";
+          if(payload.changeReason.length<10){
+            msg.innerHTML='<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';return;
+          }
+        }
+
+        save.disabled=true;
+        save.textContent="กำลังบันทึก…";
+        try{
+          const result=await api("/api/activities/"+encodeURIComponent(a.id),{
+            method:"PATCH",
+            body:JSON.stringify(payload),
+          });
+          if(result.noChange){
+            msg.innerHTML='<div class="alert">ไม่มีข้อมูลเปลี่ยนแปลง</div>';
+            save.disabled=false;save.textContent="บันทึกการแก้ไข";return;
+          }
+          msg.innerHTML='<div class="alert ok"><b>แก้ไขกิจกรรมแล้ว</b><br>Activity ID เดิมยังคงอยู่'+(result.qrTokensRevoked?'<br>ยกเลิก QR ที่ยังไม่หมดอายุ '+esc(result.qrTokensRevoked)+' ใบ เนื่องจากเวลา/นโยบายเปลี่ยน':'')+'</div>';
+          setTimeout(()=>renderActivities(v),450);
+        }catch(e){
+          const map={
+            ACTIVITY_DUPLICATE:"มีอีกกิจกรรมที่ใช้ชื่อ สถานที่ และช่วงเวลาเดียวกันแล้ว",
+            ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY:"กิจกรรมกำลังดำเนินอยู่ จึงแก้เวลา/ช่วง QR/Evidence Policy ไม่ได้",
+            ACTIVITY_EDIT_REASON_REQUIRED:"กรุณาระบุเหตุผลการแก้ไขอย่างน้อย 10 ตัวอักษร",
+            ACTIVITY_EDIT_LOCKED_AFTER_END:"กิจกรรมสิ้นสุดแล้ว จึงล็อกข้อมูลเพื่อรักษา Audit Trail",
+            ACTIVITY_PILOT_CLOSED_IMMUTABLE:"กิจกรรมถูกปิดแบบ Immutable แล้ว",
+          };
+          msg.innerHTML='<div class="alert bad"><b>บันทึกไม่สำเร็จ</b><br>'+esc(map[e?.message]||e?.message||"เกิดข้อผิดพลาด")+'</div>';
+          save.disabled=false;save.textContent="บันทึกการแก้ไข";
+        }
+      };
+
+      host.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
     function activityReviewCount(activityId){
       return activityAttendance.filter(r=>(r.activity?.id||r.activityId)===activityId&&
         ["REVIEW_REQUIRED","INCOMPLETE","INCONSISTENT"].includes(evidenceStatusOf(r))&&
@@ -1558,6 +1710,7 @@
             '<div class="activity-center-actions">'+
               '<button class="btn mini secondary openAttendanceActivity" data-id="'+esc(a.id)+'">ผู้เข้าร่วม</button>'+
               '<button class="btn mini secondary openQrActivity" data-id="'+esc(a.id)+'">QR</button>'+
+              (canManageActivityClient(a)&&life!=="ENDED"&&!a.pilotClosedAt?'<button class="btn mini secondary editActivity" data-id="'+esc(a.id)+'">แก้ไข</button>':'')+
               (canManageActivityClient(a)?'<button class="btn mini primary manageActivity" data-id="'+esc(a.id)+'">จัดการ</button>':'')+
             '</div></article>';
         }).join(""):'<div class="empty">ไม่พบกิจกรรมตามเงื่อนไข</div>')+'</div>'+
@@ -1569,6 +1722,10 @@
       document.getElementById("actPrev").onclick=()=>{activityState.page--;renderActivityCenter();};
       document.getElementById("actNext").onclick=()=>{activityState.page++;renderActivityCenter();};
 
+      host.querySelectorAll(".editActivity").forEach(btn=>btn.onclick=()=>{
+        const activity=activities.find(a=>a.id===btn.dataset.id);
+        if(activity) renderActivityEdit(document.getElementById("activityManager"),activity);
+      });
       host.querySelectorAll(".manageActivity").forEach(btn=>btn.onclick=()=>{
         renderActivityManagement(document.getElementById("activityManager"),btn.dataset.id);
       });
