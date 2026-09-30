@@ -3859,10 +3859,52 @@
         '<div class="actions"><button class="btn primary" id="mlDownload" '+(locked? "":"disabled")+'>ดาวน์โหลด Locked ML Dataset (JSON)</button></div>'+
         '<div id="mlMsg"></div>'+
       '</div>'+
+      '<div class="panel"><h2>Phase 3 Planning Cohort</h2>'+
+        '<div class="hint"><b>Aggregate only:</b> ใช้สำหรับวางแผน sample size เท่านั้น ไม่แสดงรหัสบุคลากร ชื่อ หรืออีเมล และไม่ใช่ผล AI</div>'+
+        '<div class="hint"><b>Final-test firewall:</b> record ที่อยู่ใน planning snapshot จะถูกกำหนดเป็น development-only หลัง sample plan ถูก freeze</div>'+
+        '<div class="form-grid" style="margin-top:12px">'+
+          '<div class="field"><label>Planning cutoff</label><input id="p3PlanningCutoff" type="datetime-local"></div>'+
+        '</div>'+
+        '<div class="actions"><button class="btn secondary" id="p3PlanningLoad" '+(data.syntheticDemo? "disabled":"")+'>คำนวณ Planning Snapshot</button><button class="btn secondary" id="p3PlanningDownload" disabled>ดาวน์โหลด Snapshot JSON</button></div>'+
+        (data.syntheticDemo?'<div class="alert warn">Demo/Synthetic Mode ไม่สามารถใช้เป็น empirical planning cohort ได้</div>':'')+
+        '<div id="p3PlanningMsg"></div>'+
+      '</div>'+
       '<div class="panel"><h2>Model Evaluation Plan</h2>'+
         '<p>เมื่อข้อมูลพร้อม จะเปรียบเทียบ Logistic Regression, Random Forest และ Gradient Boosting โดยเลือก model family จาก validation set และกัน final test set ออกจากการปรับโมเดล</p>'+
         '<p class="muted">Metrics: Precision, Recall/Sensitivity, Specificity, F1, ROC-AUC, PR-AUC, Brier Score, Calibration และ 95% CI ตาม analysis protocol</p>'+
       '</div>';
+
+    let phase3PlanningSnapshot = null;
+    const p3Load = document.getElementById("p3PlanningLoad");
+    const p3Download = document.getElementById("p3PlanningDownload");
+    if (p3Load && !data.syntheticDemo) p3Load.onclick = async () => {
+      const msg = document.getElementById("p3PlanningMsg");
+      try {
+        const raw = document.getElementById("p3PlanningCutoff").value;
+        const query = raw ? ("?lockedBefore="+encodeURIComponent(new Date(raw).toISOString())) : "";
+        const snap = await api("/api/ml/planning-summary"+query);
+        phase3PlanningSnapshot = snap;
+        const s = snap.counts || {};
+        const prevalence = s.anticipatedReviewRequiredPrevalence == null ? "-" : (Number(s.anticipatedReviewRequiredPrevalence)*100).toFixed(2)+"%";
+        msg.innerHTML =
+          '<div class="grid cards" style="margin-top:12px">'+
+            card("Locked records",s.lockedCount||0)+
+            card("REVIEW_REQUIRED",s.reviewRequired||0)+
+            card("NO_REVIEW_REQUIRED",s.noReviewRequired||0)+
+            card("Prevalence",prevalence)+
+            card("Unique participants",s.uniqueParticipants||0)+
+            card("Unique events",s.uniqueEvents||0)+
+            card("Activity type levels",s.activityTypeLevels||0)+
+          '</div>'+
+          '<div class="alert warn"><b>Planning cutoff:</b> '+esc(snap.snapshotCutoffUtc||"-")+'<br>ข้อมูลใน snapshot นี้ต้องเป็น development-only หากนำไปใช้กำหนด sample plan</div>'+
+          '<div class="hint"><b>Activity types:</b> '+esc((snap.activityTypes||[]).join(", ")||"-")+'</div>';
+        if (p3Download) p3Download.disabled = false;
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+    if (p3Download) p3Download.onclick = () => {
+      if (!phase3PlanningSnapshot) return;
+      download("activa-phase3-planning-snapshot.json", JSON.stringify(phase3PlanningSnapshot,null,2), "application/json");
+    };
 
     const btn = document.getElementById("mlDownload");
     if (btn && locked) btn.onclick = async () => {
