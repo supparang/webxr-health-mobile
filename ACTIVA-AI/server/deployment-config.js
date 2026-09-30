@@ -4,12 +4,19 @@ export function productionGoEnabled(env = process.env) {
   return env.ACTIVA_PRODUCTION_GO_ENABLED === "true";
 }
 
+export function deploymentTier(env = process.env) {
+  const tier = String(env.ACTIVA_DEPLOYMENT_TIER || "STAGING").trim().toUpperCase();
+  return ["STAGING", "PRODUCTION"].includes(tier) ? tier : "INVALID";
+}
+
 export function configuredOrigins(env = process.env) {
   return String(env.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean);
 }
 
 export function deploymentConfigurationErrors(env = process.env) {
   const errors = [];
+  const tier = deploymentTier(env);
+  if (tier === "INVALID") errors.push("ACTIVA_DEPLOYMENT_TIER_INVALID");
   if (env.NODE_ENV !== "production") errors.push("NODE_ENV_MUST_BE_PRODUCTION");
   if (String(env.ACTIVA_AUTH_MODE || "").trim().toUpperCase() !== "GOOGLE_OIDC") errors.push("GOOGLE_OIDC_REQUIRED");
   if (!validGoogleClientId(String(env.GOOGLE_CLIENT_ID || "").trim())) errors.push("GOOGLE_CLIENT_ID_INVALID");
@@ -37,5 +44,6 @@ export function deploymentConfigurationErrors(env = process.env) {
   }
   if (env.QR_SIGNING_SECRET && env.QR_SIGNING_SECRET === env.RESEARCH_HASH_SALT) errors.push("SIGNING_SECRET_AND_RESEARCH_SALT_MUST_DIFFER");
   if (env.ACTIVA_PRODUCTION_GO_ENABLED && !["true", "false"].includes(env.ACTIVA_PRODUCTION_GO_ENABLED)) errors.push("ACTIVA_PRODUCTION_GO_ENABLED_INVALID");
+  if (tier === "STAGING" && productionGoEnabled(env)) errors.push("STAGING_REQUIRES_PRODUCTION_GO_DISABLED");
   return errors;
 }
