@@ -98,6 +98,8 @@ jobs:
           node --check tests/auth-readiness.mjs
           node --check scripts/verify-production.mjs
           node --check tests/production-verifier.mjs
+          node --check scripts/verify-recovery-database.mjs
+          node --check tests/recovery-verifier.mjs
 
       - name: Authentication readiness guard
         run: |
@@ -108,6 +110,9 @@ jobs:
 
       - name: Production monitor validation guard
         run: npm run test:production-monitor
+
+      - name: Neon recovery verifier guard
+        run: npm run test:recovery-verifier
 
       - name: Build production container
         run: |
