@@ -10,7 +10,8 @@ const { privateKey, publicKey }=generateKeyPairSync("rsa", { modulusLength: 2048
 const unrelatedKey=generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
 const publicPem=publicKey.export({ type: "spki", format: "pem" });
 const clientId="517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com";
-const keys=["NODE_ENV", "ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS", "GOOGLE_ALLOWED_EMAILS"];
+const pilotClientId="999999999999-pilotclient123.apps.googleusercontent.com";
+const keys=["NODE_ENV", "ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_PILOT_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS", "GOOGLE_ALLOWED_EMAILS"];
 const savedEnv=Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 const savedPrisma=globalThis.__activaPrisma;
 const savedCertFetch=OAuth2Client.prototype.getFederatedSignonCertsAsync;
@@ -61,6 +62,7 @@ try {
   process.env.NODE_ENV="test";
   process.env.ACTIVA_AUTH_MODE="GOOGLE_OIDC";
   process.env.GOOGLE_CLIENT_ID=clientId;
+  process.env.GOOGLE_PILOT_CLIENT_ID=pilotClientId;
   process.env.GOOGLE_ALLOWED_DOMAINS="chandra.ac.th";
   process.env.GOOGLE_ALLOWED_EMAILS="";
   const { attachActor }=await import("../server/auth.js");
@@ -101,7 +103,7 @@ try {
   process.env.GOOGLE_ALLOWED_EMAILS="pilot.person@gmail.com";
   const gmailUser={ ...activeUser, id:"gmail-user", employeeId:"PILOT_P01", email:"pilot.person@gmail.com" };
   provisionedUsers=[gmailUser];
-  const gmailSuccess=await request({ authorization: "Bearer "+idToken({ email:"Pilot.Person@gmail.com", hd:undefined }) });
+  const gmailSuccess=await request({ authorization: "Bearer "+idToken({ aud:pilotClientId, email:"Pilot.Person@gmail.com", hd:undefined }) });
   assert.equal(gmailSuccess.nextCalls,1,"Exact allowlisted Gmail account should authenticate");
   assert.equal(gmailSuccess.nextError,null);
   assert.equal(gmailSuccess.req.activaUser,gmailUser);
@@ -110,10 +112,14 @@ try {
   });
   await rejected(
     "non-allowlisted Gmail account",
-    idToken({ email:"other.person@gmail.com", hd:undefined }),
+    idToken({ aud:pilotClientId, email:"other.person@gmail.com", hd:undefined }),
     403,
     "GOOGLE_ACCOUNT_NOT_ALLOWED"
   );
+  const wrongPilotAudience=await request({ authorization:"Bearer "+idToken({ email:"pilot.person@gmail.com", hd:undefined }) });
+  assert.equal(wrongPilotAudience.status,403,"allowlisted Gmail must not reuse Internal OAuth client");
+  assert.equal(wrongPilotAudience.body?.error,"GOOGLE_ACCOUNT_NOT_ALLOWED");
+
   process.env.GOOGLE_ALLOWED_EMAILS="";
   provisionedUsers=[activeUser];
 
