@@ -28,6 +28,23 @@
 ## Explainability ใน baseline
 ใช้ permutation importance เพื่อบอกว่าตัวแปรใดช่วยการพยากรณ์ ไม่ใช้ตีความเชิงสาเหตุ
 
+## Phase 3 empirical readiness gate
+
+ก่อนฝึกด้วยข้อมูลจริง ต้องผ่าน protocol `ACTIVA-P3-RP-001` และตรวจ dataset ก่อน:
+
+```bash
+npm run phase3:dataset-check -- \
+  --input locked_dataset.json \
+  --min-records <approved_N> \
+  --min-participants <approved_participants> \
+  --min-events <approved_events> \
+  --min-per-class <approved_minimum_each_target>
+```
+
+ค่าขั้นต่ำต้องมาจาก sample-size/sample-composition plan ที่อนุมัติก่อนดู final test result ไม่ควรตั้งตัวเลขย้อนหลังเพื่อให้ dataset ผ่าน gate
+
+ผล `ok=true` แต่ `researchTrainingAuthorized=false` หมายถึงโครงสร้างข้อมูลผ่าน แต่ยังไม่ได้ระบุ sample thresholds ครบ จึง **ยังห้าม** ใช้ train empirical research model
+
 ## วิธีใช้
 1. Export locked dataset จาก GET /api/ml/dataset
 2. บันทึกเป็น JSON
