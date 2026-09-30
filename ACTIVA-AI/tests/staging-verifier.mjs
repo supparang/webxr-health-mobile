@@ -30,9 +30,23 @@ function fixture({ data = health, preflight = true, preflightMethod = "GET", exp
       "X-Frame-Options": "DENY",
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
-      "Cross-Origin-Opener-Policy": "same-origin-allow-popups"
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      "X-Request-Id": "ci-request-health-0001"
     };
     if (init.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...headers, "Access-Control-Allow-Methods": preflightMethod, "Access-Control-Allow-Headers": preflight ? "authorization,content-type" : "content-type" } });
+    if (path === "/api/live") {
+      if (init.headers.Origin !== options.frontendOrigin) return new Response(null, { status: 403 });
+      return new Response(JSON.stringify({
+        ok:true, service:"ACTIVA-AI", releaseVersion:"ACTIVA-AI-1.0.15", deploymentTier:"STAGING"
+      }), { status:200, headers:{ ...headers, "X-Request-Id":"ci-request-live-0001" } });
+    }
+    if (path === "/api/ready") {
+      if (init.headers.Origin !== options.frontendOrigin) return new Response(null, { status: 403 });
+      return new Response(JSON.stringify({
+        ok:true, ready:true, releaseVersion:"ACTIVA-AI-1.0.15", deploymentTier:"STAGING",
+        database:"connected", authenticationReady:true
+      }), { status:200, headers:{ ...headers, "X-Request-Id":"ci-request-ready-0001" } });
+    }
     if (path === "/api/health") {
       if (init.headers.Origin !== options.frontendOrigin) return new Response(null, { status: 403 });
       return new Response(malformed ? "secret-body-token" : JSON.stringify(data), { status: 200, headers });
@@ -48,7 +62,7 @@ assert.equal(report.automatedChecksPassed, true);
 assert.equal(report.productionGoApproved, false);
 assert.equal(report.checks.length, 24);
 assert.ok(report.manualAcceptanceRequired.includes("GOOGLE_SIGN_IN_TO_APPROVED_ACTIVE_USER"));
-assert.equal(good.calls.length, 14);
+assert.equal(good.calls.length, 16);
 assert.ok(good.calls.every(x => !x.url.includes("release-decision")));
 for (const overrides of [
   { data: { ...health, productionGoEnabled: true } },
