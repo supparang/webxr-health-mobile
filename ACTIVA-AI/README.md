@@ -10,7 +10,8 @@
 - CI มี regression test สำหรับ Phase 3 readiness contract
 - **P3.0 PASS:** Phase 2 baseline frozen
 - **P3.1 PASS:** protocol + feature contract + governed sample plan + validator + CI tests merged in PR #98; ACTIVA-AI CI run `36738250570` PASS
-- **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะ approve sample-size/sample-composition plan และ locked dataset ผ่าน threshold ที่ pre-specify
+- **P3.2 IMPLEMENTING:** เพิ่ม governed sample-size planner ตาม Riley/pmsampsize, target-specific class minima และ high-discrimination simulation safeguard
+- **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะใส่แหล่งอ้างอิง prevalence/model strength, อนุมัติ sample plan และ locked dataset ผ่าน threshold ที่ pre-specify
 - AI ยังคงเป็น decision support เท่านั้น; Human Final Decision เป็น final authority
 
 ## V1.0.16 — Production Hardening / Phase 2 Operations (COMPLETE)
