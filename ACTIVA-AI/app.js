@@ -63,6 +63,12 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   })[c]);
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
+  const shortActivityId = (activity) => String(activity?.id || "").slice(-6) || "------";
+  const activityChoiceLabel = (activity) => {
+    const title=activity?.title || "กิจกรรม";
+    const start=activity?.startAt ? fmt(activity.startAt) : "ไม่ระบุเวลา";
+    return title+" • "+start+" • #"+shortActivityId(activity);
+  };
   const roleLabel = (r) => ({
     ADMIN:"ผู้ดูแลระบบ",
     ORGANIZER:"บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม",
@@ -1546,7 +1552,7 @@
           const reviewCount=activityReviewCount(a.id);
           const lifecycleLabel=life==="ACTIVE"?"กำลังดำเนินอยู่":life==="UPCOMING"?"กำลังจะมาถึง":"สิ้นสุดแล้ว";
           return '<article class="activity-center-row">'+
-            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+'</small></div>'+
+            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+' • #'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</small></div>'+
             '<div class="activity-center-status"><span class="status '+(life==="ACTIVE"?"s-ok":life==="UPCOMING"?"s-info":"s-warn")+'">'+lifecycleLabel+'</span>'+
               (reviewCount?'<span class="status s-bad">ต้องตรวจ '+reviewCount+'</span>':'')+'</div>'+
             '<div class="activity-center-actions">'+
@@ -1614,6 +1620,8 @@
       if(ciCloseDt>endDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-in ต้องปิดไม่เกินเวลาสิ้นสุดกิจกรรม</div>';
       if(coCloseDt<=coOpenDt) return msg.innerHTML='<div class="alert bad">เวลาปิด Check-out ต้องอยู่หลังเวลาเปิด Check-out</div>';
       if(coOpenDt<startDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-out ต้องไม่เปิดก่อนกิจกรรมเริ่ม</div>';
+      createBtn.disabled=true;
+      createBtn.textContent="กำลังบันทึก…";
       try {
         await api("/api/activities", {
           method:"POST",
@@ -1637,7 +1645,15 @@
         });
         msg.innerHTML = '<div class="alert ok">บันทึกกิจกรรมแล้ว • จากนั้นกด “จัดผู้รับผิดชอบ/ผู้เข้าร่วม” เพื่อเพิ่ม Co-organizer ผู้ตรวจสอบ และกำหนดผู้เข้าร่วม</div>';
         setTimeout(() => renderActivities(v), 300);
-      } catch (error) { msg.innerHTML = errorBox(error); }
+      } catch (error) {
+        if(error?.message==="ACTIVITY_DUPLICATE"){
+          msg.innerHTML='<div class="alert warn"><b>กิจกรรมนี้ถูกบันทึกไว้แล้ว</b><br>ระบบหยุดการบันทึกซ้ำ กรุณาใช้รายการเดิมในศูนย์กิจกรรม</div>';
+        }else{
+          msg.innerHTML = errorBox(error);
+        }
+        createBtn.disabled=false;
+        createBtn.textContent="บันทึกกิจกรรม";
+      }
     };
   }
 
@@ -1730,7 +1746,7 @@
       const allowedDepts=new Set(Array.isArray(a.allowedDepartmentCodes)?a.allowedDepartmentCodes:[]);
 
       host.innerHTML=
-        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b></p></div><button class="btn mini secondary" id="closeActivityManager">ปิด</button></div>'+
+        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</span></p></div><div class="actions manager-head-actions">'+(can("ADMIN")?'<button class="btn mini bad" id="deleteEmptyActivity">ลบกิจกรรมว่าง</button>':'')+'<button class="btn mini secondary" id="closeActivityManager">ปิด</button></div></div>'+
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
         '<div class="split assignment-role-grid">'+
           '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">'+(caps.canAssignCo?'เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน':'รายชื่อผู้จัดร่วมที่ได้รับมอบหมายในกิจกรรมนี้')+'</p></div></div>'+
@@ -1833,6 +1849,27 @@
       host.querySelectorAll('input[name="participationMode"]').forEach(x=>x.onchange=updateMode);
       updateMode();
       document.getElementById("closeActivityManager").onclick=()=>{host.innerHTML="";};
+      const deleteEmpty=document.getElementById("deleteEmptyActivity");
+      if(deleteEmpty) deleteEmpty.onclick=async()=>{
+        const confirmText="ลบกิจกรรมว่างนี้หรือไม่?\n\n"+a.title+"\n#"+shortActivityId(a)+"\n\nระบบจะลบได้เฉพาะรายการที่ยังไม่มีผู้เข้าร่วม ผู้ตรวจสอบ QR หรือ Attendance เท่านั้น";
+        if(!confirm(confirmText)) return;
+        deleteEmpty.disabled=true;
+        deleteEmpty.textContent="กำลังตรวจและลบ…";
+        try{
+          await api("/api/activities/"+encodeURIComponent(activityId),{method:"DELETE"});
+          if(sessionStorage.getItem(SELECTED_ACTIVITY_KEY)===activityId) sessionStorage.removeItem(SELECTED_ACTIVITY_KEY);
+          host.innerHTML='<div class="panel"><div class="alert ok"><b>ลบกิจกรรมว่างแล้ว</b><br>Audit Trail ถูกบันทึกไว้เรียบร้อย</div></div>';
+          setTimeout(()=>setView("activities"),350);
+        }catch(e){
+          deleteEmpty.disabled=false;
+          deleteEmpty.textContent="ลบกิจกรรมว่าง";
+          if(e?.message==="ACTIVITY_DELETE_BLOCKED_HAS_LINKED_DATA"){
+            host.insertAdjacentHTML("afterbegin",'<div class="alert warn"><b>ลบไม่ได้</b><br>กิจกรรมนี้มีข้อมูลเชื่อมโยงแล้ว จึงไม่ลบอัตโนมัติเพื่อรักษา Audit Trail</div>');
+          }else{
+            host.insertAdjacentHTML("afterbegin",errorBox(e));
+          }
+        }
+      };
 
       const checkedValues=(selector)=>[...host.querySelectorAll(selector+":checked")].map(x=>x.value);
       async function saveAssignments(payload,message,msgId){
@@ -1913,7 +1950,7 @@
     v.innerHTML =
       '<div class="panel"><h2>Dynamic Event QR</h2>'+
       '<div class="event-toolbar">'+
-        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ประเภท QR</label><select id="qrPurpose"><option value="CHECKIN">QR สำหรับ Check-in</option><option value="CHECKOUT">QR สำหรับ Check-out</option></select></div>'+
       '</div>'+
       '<div id="qrWindowInfo"></div>'+
@@ -2253,7 +2290,7 @@
     v.innerHTML =
       participantResponsePanel(rows)+
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
-      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select>'+
       '<small class="muted">Dynamic QR สำหรับ Check-in ของตนเองเท่านั้น ไม่ว่าบัญชีจะเป็น Owner / Co-organizer / Reviewer / Participant</small></div>'+
       '<div class="actions scan-actions">'+
@@ -2331,7 +2368,7 @@
       const host=document.getElementById("attendanceDashboard");
       if(!host) return;
 
-      const activityOptions=activities.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===dashboardState.activityId?'selected':'')+'>'+esc(a.title)+'</option>').join("");
+      const activityOptions=activities.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===dashboardState.activityId?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("");
       const eventRows=rows.filter(r=>!dashboardState.activityId || (r.activity?.id||r.activityId)===dashboardState.activityId);
       const summary=attendanceSummary(eventRows);
 
@@ -2916,7 +2953,7 @@
       v.innerHTML =
         '<div class="panel"><div class="section-head"><div><h2>ตารางตรวจสอบหลักฐาน</h2><p class="muted"><b>ผลตรวจหลักฐานของระบบ</b> คือผลจากกฎตรวจสอบ ส่วน <b>ผลตัดสินสุดท้าย</b> คือผลจากผู้ตรวจสอบ — แยกกันเสมอ</p></div></div>'+
         '<div class="event-toolbar">'+
-          '<div class="field"><label>กิจกรรม</label><select id="evidenceActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+esc(a.id)+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
+          '<div class="field"><label>กิจกรรม</label><select id="evidenceActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+esc(a.id)+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
           '<div class="field"><label>ค้นหารหัส/ชื่อบุคลากร</label><input id="evidenceSearch" value="'+esc(state.search)+'" placeholder="เช่น P001 หรือชื่อบุคลากร"></div>'+
         '</div>'+
         '<div class="result-meta">แสดง '+filteredRows.length+' จาก '+activityRows.length+' รายการในขอบเขตที่เลือก</div>'+
@@ -3178,7 +3215,7 @@
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
-        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ค้นหา</label><input id="reviewSearch" value="'+esc(state.search)+'" placeholder="รหัส / ชื่อ / กิจกรรม"></div></div>'+
         '<div class="filter-chips">'+[
           ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
