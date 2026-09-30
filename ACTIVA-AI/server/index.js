@@ -1138,12 +1138,13 @@ app.patch("/api/activities/:activityId", async (req, res) => {
       return res.status(400).json({ok:false,error:"MISSING_REQUIRED_FIELDS"});
     }
 
+    const currentWindows=activityTimeWindows(activity);
     const startAt=b.startAt!==undefined ? toIso(b.startAt) : new Date(activity.startAt);
     const endAt=b.endAt!==undefined ? toIso(b.endAt) : new Date(activity.endAt);
-    const checkinOpenAt=b.checkinOpenAt!==undefined ? toIso(b.checkinOpenAt) : new Date(activity.checkinOpenAt);
-    const checkinCloseAt=b.checkinCloseAt!==undefined ? toIso(b.checkinCloseAt) : new Date(activity.checkinCloseAt);
-    const checkoutOpenAt=b.checkoutOpenAt!==undefined ? toIso(b.checkoutOpenAt) : new Date(activity.checkoutOpenAt);
-    const checkoutCloseAt=b.checkoutCloseAt!==undefined ? toIso(b.checkoutCloseAt) : new Date(activity.checkoutCloseAt);
+    const checkinOpenAt=b.checkinOpenAt!==undefined ? toIso(b.checkinOpenAt) : new Date(currentWindows.checkinOpenAt);
+    const checkinCloseAt=b.checkinCloseAt!==undefined ? toIso(b.checkinCloseAt) : new Date(currentWindows.checkinCloseAt);
+    const checkoutOpenAt=b.checkoutOpenAt!==undefined ? toIso(b.checkoutOpenAt) : new Date(currentWindows.checkoutOpenAt);
+    const checkoutCloseAt=b.checkoutCloseAt!==undefined ? toIso(b.checkoutCloseAt) : new Date(currentWindows.checkoutCloseAt);
 
     if (endAt <= startAt) return res.status(400).json({ok:false,error:"INVALID_ACTIVITY_TIME_RANGE"});
     if (checkinOpenAt >= checkinCloseAt) return res.status(400).json({ok:false,error:"INVALID_CHECKIN_WINDOW"});
