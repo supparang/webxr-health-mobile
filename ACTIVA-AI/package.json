@@ -22,7 +22,9 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:auth": "node tests/auth-readiness.mjs && node tests/google-oidc.mjs",
     "test:deployment": "node tests/deployment-config.mjs && node tests/staging-verifier.mjs",
-    "test:frontend-auth": "node tests/frontend-auth.mjs"
+    "test:frontend-auth": "node tests/frontend-auth.mjs",
+    "production:verify": "node scripts/verify-production.mjs",
+    "test:production-monitor": "node tests/production-verifier.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
