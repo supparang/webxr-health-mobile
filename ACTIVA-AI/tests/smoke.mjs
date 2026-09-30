@@ -146,6 +146,49 @@ assert(p1CreateAfter.status === 403, "P001 should not create activity after perm
 const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
 
+// V1.0.15 governed activity editing: full before start, descriptive-only while active.
+const editNow=Date.now();
+const editableActivityCreate=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI editable upcoming activity",
+    category:"ทดสอบ",
+    location:"CI edit A",
+    startAt:new Date(editNow+4*3600000).toISOString(),
+    endAt:new Date(editNow+5*3600000).toISOString(),
+    checkinOpenAt:new Date(editNow+3.5*3600000).toISOString(),
+    checkinCloseAt:new Date(editNow+4.25*3600000).toISOString(),
+    checkoutOpenAt:new Date(editNow+4.5*3600000).toISOString(),
+    checkoutCloseAt:new Date(editNow+5.25*3600000).toISOString(),
+    policy:{minDurationRatio:0.75}
+  }
+});
+const editableId=editableActivityCreate.activity.id;
+const editedUpcoming=await req("/api/activities/"+encodeURIComponent(editableId),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    title:"CI editable upcoming revised",
+    category:"ประชุม",
+    location:"CI edit B",
+    startAt:new Date(editNow+4.25*3600000).toISOString(),
+    endAt:new Date(editNow+5.25*3600000).toISOString(),
+    checkinOpenAt:new Date(editNow+3.75*3600000).toISOString(),
+    checkinCloseAt:new Date(editNow+4.5*3600000).toISOString(),
+    checkoutOpenAt:new Date(editNow+4.75*3600000).toISOString(),
+    checkoutCloseAt:new Date(editNow+5.5*3600000).toISOString(),
+    policy:{
+      qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
+      durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.8
+    }
+  }
+});
+assert(editedUpcoming.activity?.id===editableId,"activity edit must preserve Activity ID");
+assert(editedUpcoming.activity?.title==="CI editable upcoming revised","upcoming activity title edit failed");
+assert(editedUpcoming.activity?.location==="CI edit B","upcoming activity location edit failed");
+assert(Number(editedUpcoming.activity?.policy?.minDurationRatio)===0.8,"upcoming activity policy edit failed");
+
 const ciNow=Date.now();
 const activeActivityCreate=await req("/api/activities",{
   actor:"ORG001",
@@ -165,6 +208,34 @@ const activeActivityCreate=await req("/api/activities",{
 });
 const activity=activeActivityCreate.activity;
 assert(activity?.id,"active-window activity creation failed");
+
+const activeEditWithoutReason=await reqError("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{location:"CI active corrected"}
+});
+assert(activeEditWithoutReason.status===400 && activeEditWithoutReason.data?.error==="ACTIVITY_EDIT_REASON_REQUIRED","active descriptive edit must require reason");
+
+const activeRestrictedEdit=await reqError("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    startAt:new Date(ciNow-20*60000).toISOString(),
+    changeReason:"CI should reject active schedule mutation"
+  }
+});
+assert(activeRestrictedEdit.status===409 && activeRestrictedEdit.data?.error==="ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY","active schedule edit must be blocked");
+
+const activeDescriptiveEdit=await req("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    location:"CI active corrected",
+    changeReason:"CI active descriptive correction"
+  }
+});
+assert(activeDescriptiveEdit.activity?.id===activity.id,"active descriptive edit must preserve Activity ID");
+assert(activeDescriptiveEdit.activity?.location==="CI active corrected","active descriptive edit failed");
 
 // V0.5.6 QR/check-in time-window enforcement
 const futureActivity=await req("/api/activities",{
