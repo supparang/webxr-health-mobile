@@ -1152,7 +1152,10 @@
       '<div class="panel"><h2>Final GO / HOLD Decision</h2>'+
       (latest?'<div class="hint"><b>Decision ล่าสุด:</b> '+esc(latest.action)+' • '+fmt(latest.createdAt)+'<br>'+esc(latest.metadata?.reason||"")+'</div>':'<div class="hint">ยังไม่มีการบันทึก release decision</div>')+
       (can("ADMIN")?'<div class="field"><label>เหตุผลการตัดสินใจ</label><textarea id="releaseReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>'+
-      '<div class="actions"><button class="btn bad" id="recordHold">บันทึก HOLD</button><button class="btn ok" id="recordGo" '+(data.gate==="GO"?"":"disabled")+'>บันทึก GO</button></div>':'<div class="hint">STAFF ดู gate ได้ แต่ ADMIN เป็นผู้บันทึก release decision</div>')+
+      (data.deploymentTier!=="PRODUCTION"
+        ? '<div class="alert warn"><b>STAGING guard:</b> ปุ่ม GO ถูกปิดโดยเจตนา • Production GO ทำได้เฉพาะ deploymentTier = PRODUCTION เท่านั้น</div>'
+        : '')+
+      '<div class="actions"><button class="btn bad" id="recordHold">บันทึก HOLD</button><button class="btn ok" id="recordGo" '+(data.gate==="GO"?"":"disabled")+' title="'+esc(data.gate==="GO"?"พร้อมบันทึก GO":"GO ถูกบล็อก: "+((data.blockers||[]).join(", ")||"release gate ยังไม่ผ่าน"))+'">บันทึก GO</button></div>':'<div class="hint">STAFF ดู gate ได้ แต่ ADMIN เป็นผู้บันทึก release decision</div>')+
       '<div id="releaseMsg"></div></div></div>';
 
     document.querySelectorAll(".closePilotActivity").forEach(btn=>btn.onclick=async()=>{
