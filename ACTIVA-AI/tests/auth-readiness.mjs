@@ -6,14 +6,17 @@ import {
   googleAllowedDomains,
   googleAllowedEmails,
   googleClientId,
+  googlePilotClientId,
+  googlePilotEmailReady,
 } from "../server/auth.js";
 
-const keys=["ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS", "GOOGLE_ALLOWED_EMAILS"];
+const keys=["ACTIVA_AUTH_MODE", "GOOGLE_CLIENT_ID", "GOOGLE_PILOT_CLIENT_ID", "GOOGLE_ALLOWED_DOMAINS", "GOOGLE_ALLOWED_EMAILS"];
 const saved=Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 const clientId="517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com";
+const pilotClientId="999999999999-pilotclient123.apps.googleusercontent.com";
 
 try {
-for (const key of ["GOOGLE_CLIENT_ID","GOOGLE_ALLOWED_DOMAINS","GOOGLE_ALLOWED_EMAILS"]) delete process.env[key];
+for (const key of ["GOOGLE_CLIENT_ID","GOOGLE_PILOT_CLIENT_ID","GOOGLE_ALLOWED_DOMAINS","GOOGLE_ALLOWED_EMAILS"]) delete process.env[key];
 
 for (const mode of ["DISABLED", "DEMO_HEADER", "OIDC", "SSO", "UNKNOWN"]) {
   process.env.ACTIVA_AUTH_MODE=mode;
@@ -40,16 +43,31 @@ assert.equal(productionAuthenticationReady(),true,"Workspace-domain Google OIDC 
 process.env.GOOGLE_ALLOWED_DOMAINS="";
 process.env.GOOGLE_ALLOWED_EMAILS=" Pilot.One@gmail.com, pilot.two@gmail.com, pilot.one@gmail.com ";
 assert.deepEqual(googleAllowedEmails(),["pilot.one@gmail.com","pilot.two@gmail.com"]);
-assert.equal(productionAuthenticationReady(),true,"Exact-email Google OIDC should be production-ready");
+assert.equal(googlePilotEmailReady(),false,"Exact-email route must not reuse the Internal client");
+assert.equal(productionAuthenticationReady(),false,"Email-only pilot route requires a separate Pilot client");
+process.env.GOOGLE_PILOT_CLIENT_ID=pilotClientId;
+assert.equal(googlePilotClientId(),pilotClientId);
+assert.equal(googlePilotEmailReady(),true);
+assert.equal(productionAuthenticationReady(),true,"Exact-email Google OIDC should be ready with separate Pilot client");
 
 process.env.GOOGLE_ALLOWED_DOMAINS="CHANDRA.AC.TH, staff.chandra.ac.th";
 process.env.GOOGLE_ALLOWED_EMAILS="";
+process.env.GOOGLE_PILOT_CLIENT_ID="";
 
 for (const invalid of ["client-id", "<OAuth 2.0 Web client id>.apps.googleusercontent.com", "https://"+clientId, clientId+".evil.example", "invalid.apps.googleusercontent.com"]) {
   process.env.GOOGLE_CLIENT_ID=invalid;
   assert.equal(productionAuthenticationReady(),false,"Malformed client ID must fail closed: "+invalid);
 }
 process.env.GOOGLE_CLIENT_ID=clientId;
+for (const invalid of ["client-id","https://"+pilotClientId,pilotClientId+".evil.example"]) {
+  process.env.GOOGLE_PILOT_CLIENT_ID=invalid;
+  process.env.GOOGLE_ALLOWED_DOMAINS="";
+  process.env.GOOGLE_ALLOWED_EMAILS="pilot.one@gmail.com";
+  assert.equal(productionAuthenticationReady(),false,"Malformed Pilot client ID must fail closed: "+invalid);
+}
+process.env.GOOGLE_PILOT_CLIENT_ID="";
+process.env.GOOGLE_ALLOWED_DOMAINS="chandra.ac.th";
+process.env.GOOGLE_ALLOWED_EMAILS="";
 
 for (const invalid of ["*", "*.chandra.ac.th", "@chandra.ac.th", "https://chandra.ac.th", "chandra.ac.th/", "chandra.ac.th:443", "localhost", "127.0.0.1", "-chandra.ac.th", "chandra..ac.th", "chandra.ac.th,*.example.org"]) {
   process.env.GOOGLE_ALLOWED_DOMAINS=invalid;
@@ -65,6 +83,7 @@ process.env.ACTIVA_AUTH_MODE=" google_oidc ";
 process.env.GOOGLE_CLIENT_ID=" "+clientId+" ";
 process.env.GOOGLE_ALLOWED_DOMAINS=" CHANDRA.AC.TH ";
 process.env.GOOGLE_ALLOWED_EMAILS=" Pilot.One@GMAIL.COM ";
+process.env.GOOGLE_PILOT_CLIENT_ID=" "+pilotClientId+" ";
 assert.equal(productionAuthenticationReady(),true,"Public identifiers may be trimmed and allowlists normalized");
 assert.equal(authenticationMode(),"GOOGLE_OIDC");
 assert.deepEqual(googleAllowedDomains(),["chandra.ac.th"]);
