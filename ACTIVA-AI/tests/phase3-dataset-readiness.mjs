@@ -41,6 +41,7 @@ const pass = validatePhase3Dataset(good, {
   minParticipants: 6,
   minEvents: 3,
   minPerClass: 6,
+  samplePlanApproved: true,
 });
 assert.equal(pass.ok, true);
 assert.equal(pass.researchTrainingAuthorized, true);
@@ -51,6 +52,17 @@ const noThresholds = validatePhase3Dataset(good);
 assert.equal(noThresholds.ok, true);
 assert.equal(noThresholds.researchTrainingAuthorized, false);
 assert(noThresholds.warnings.some(x => x.includes("SAMPLE_SIZE_THRESHOLDS")));
+
+const thresholdsWithoutApproval = validatePhase3Dataset(good, {
+  minRecords: 12,
+  minParticipants: 6,
+  minEvents: 3,
+  minPerClass: 6,
+  samplePlanApproved: false,
+});
+assert.equal(thresholdsWithoutApproval.ok, true);
+assert.equal(thresholdsWithoutApproval.researchTrainingAuthorized, false);
+assert(thresholdsWithoutApproval.warnings.some(x => x.includes("SAMPLE_PLAN_NOT_APPROVED")));
 
 const synthetic = validatePhase3Dataset({ ...good, syntheticDemo:true });
 assert.equal(synthetic.ok, false);
