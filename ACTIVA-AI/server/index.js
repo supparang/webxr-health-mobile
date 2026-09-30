@@ -7,21 +7,32 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
-import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googleAllowedDomains } from "./auth.js";
+import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
+import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled } from "./deployment-config.js";
+
+if (process.env.NODE_ENV === "production") {
+  const errors = deploymentConfigurationErrors();
+  if (errors.length) throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + errors.join(", "));
+}
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
-const allowedOrigins = String(process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .map((x) => x.trim())
-  .filter(Boolean);
+const allowedOrigins = configuredOrigins();
+
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+app.use("/api", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || (allowedOrigins.length === 0 && process.env.NODE_ENV !== "production")) {
       return callback(null, true);
     }
     const error = new Error("CORS_ORIGIN_NOT_ALLOWED");
@@ -510,16 +521,21 @@ app.get("/api/health", async (_req, res) => {
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
+      productionGoEnabled: productionGoEnabled(),
       authentication: {
         mode: authenticationMode(),
         productionReady: productionAuthenticationReady(),
+        configurationReady: productionAuthenticationReady(),
         provider: authenticationMode()==="GOOGLE_OIDC" ? "GOOGLE" : null,
         googleClientId: authenticationMode()==="GOOGLE_OIDC" ? googleClientId() : null,
+        googlePilotClientId: authenticationMode()==="GOOGLE_OIDC" ? (googlePilotClientId() || null) : null,
+        pilotEmailReady: authenticationMode()==="GOOGLE_OIDC" ? googlePilotEmailReady() : false,
         allowedDomains: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedDomains() : [],
+        allowedEmailCount: authenticationMode()==="GOOGLE_OIDC" ? googleAllowedEmails().length : 0,
       },
     });
   } catch (error) {
-    console.error("Database health check failed:", error);
+    console.error("Database health check failed:", error?.name || "Error");
     res.status(503).json({ ok: false, version: "1.0.15",
       releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
   }
@@ -958,7 +974,11 @@ app.get("/api/attendance", async (req, res) => {
       },
       staffVerification: true,
       consistencyResult: true,
-      humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+      humanReviews: {
+        orderBy: { reviewedAt: "desc" },
+        take: 1,
+        include: { reviewer: { select: { id: true, employeeId: true, name: true } } },
+      },
       participantResponses: { orderBy: { submittedAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
@@ -1029,6 +1049,28 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
       return res.status(400).json({ ok:false, error:"CHECKOUT_WINDOW_BEFORE_ACTIVITY_START" });
     }
 
+    // Idempotency guard for the activity-creation UI: an accidental second tap
+    // with the same organizer, title, location and exact time range must not
+    // create a second event with a different activity ID.
+    const duplicateActivity = await prisma.activity.findFirst({
+      where: {
+        organizerId: primaryOrganizer.id,
+        title: { equals: String(b.title).trim(), mode: "insensitive" },
+        location: String(b.location).trim(),
+        startAt,
+        endAt,
+      },
+      select: { id:true, title:true, createdAt:true },
+    });
+    if (duplicateActivity) {
+      return res.status(409).json({
+        ok:false,
+        error:"ACTIVITY_DUPLICATE",
+        existingActivityId:duplicateActivity.id,
+        existingCreatedAt:duplicateActivity.createdAt,
+      });
+    }
+
     const activity = await prisma.activity.create({
       data: {
         title: b.title,
@@ -1074,6 +1116,204 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
   }
 });
 
+app.patch("/api/activities/:activityId", async (req, res) => {
+  try {
+    const activity = await prisma.activity.findUnique({
+      where:{id:req.params.activityId},
+      include:{policy:true},
+    });
+    if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+    if (!(await canManageActivity(req, activity))) {
+      return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
+    }
+    if (activity.pilotClosedAt) {
+      return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE"});
+    }
+
+    const lifecycle=activityLifecycle(activity);
+    if (lifecycle==="ENDED") {
+      return res.status(409).json({ok:false,error:"ACTIVITY_EDIT_LOCKED_AFTER_END",lifecycle});
+    }
+
+    const b=req.body||{};
+    const reason=String(b.changeReason||"").trim();
+    const title=String(b.title ?? activity.title).trim();
+    const category=String(b.category ?? activity.category).trim();
+    const location=String(b.location ?? activity.location).trim();
+    if (!title || !category || !location) {
+      return res.status(400).json({ok:false,error:"MISSING_REQUIRED_FIELDS"});
+    }
+
+    const currentWindows=activityTimeWindows(activity);
+    const startAt=b.startAt!==undefined ? toIso(b.startAt) : new Date(activity.startAt);
+    const endAt=b.endAt!==undefined ? toIso(b.endAt) : new Date(activity.endAt);
+    const checkinOpenAt=b.checkinOpenAt!==undefined ? toIso(b.checkinOpenAt) : new Date(currentWindows.checkinOpenAt);
+    const checkinCloseAt=b.checkinCloseAt!==undefined ? toIso(b.checkinCloseAt) : new Date(currentWindows.checkinCloseAt);
+    const checkoutOpenAt=b.checkoutOpenAt!==undefined ? toIso(b.checkoutOpenAt) : new Date(currentWindows.checkoutOpenAt);
+    const checkoutCloseAt=b.checkoutCloseAt!==undefined ? toIso(b.checkoutCloseAt) : new Date(currentWindows.checkoutCloseAt);
+
+    if (endAt <= startAt) return res.status(400).json({ok:false,error:"INVALID_ACTIVITY_TIME_RANGE"});
+    if (checkinOpenAt >= checkinCloseAt) return res.status(400).json({ok:false,error:"INVALID_CHECKIN_WINDOW"});
+    if (checkoutOpenAt >= checkoutCloseAt) return res.status(400).json({ok:false,error:"INVALID_CHECKOUT_WINDOW"});
+    if (checkinCloseAt > endAt) return res.status(400).json({ok:false,error:"CHECKIN_WINDOW_AFTER_ACTIVITY_END"});
+    if (checkoutOpenAt < startAt) return res.status(400).json({ok:false,error:"CHECKOUT_WINDOW_BEFORE_ACTIVITY_START"});
+
+    const currentPolicy=activity.policy||{
+      qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
+      durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.75,
+    };
+    const policyInput=b.policy&&typeof b.policy==="object"?b.policy:{};
+    const nextPolicy={
+      qrRequired:policyInput.qrRequired ?? currentPolicy.qrRequired,
+      identityRequired:policyInput.identityRequired ?? currentPolicy.identityRequired,
+      checkinRequired:policyInput.checkinRequired ?? currentPolicy.checkinRequired,
+      checkoutRequired:policyInput.checkoutRequired ?? currentPolicy.checkoutRequired,
+      durationRequired:policyInput.durationRequired ?? currentPolicy.durationRequired,
+      staffRequired:policyInput.staffRequired ?? currentPolicy.staffRequired,
+      signatureRequired:policyInput.signatureRequired ?? currentPolicy.signatureRequired,
+      minDurationRatio:Number(policyInput.minDurationRatio ?? currentPolicy.minDurationRatio),
+    };
+    if (!Number.isFinite(nextPolicy.minDurationRatio) || nextPolicy.minDurationRatio<0 || nextPolicy.minDurationRatio>1) {
+      return res.status(400).json({ok:false,error:"INVALID_MIN_DURATION_RATIO"});
+    }
+
+    const iso=(value)=>new Date(value).toISOString();
+    const before={
+      title:activity.title,category:activity.category,location:activity.location,
+      startAt:iso(activity.startAt),endAt:iso(activity.endAt),
+      checkinOpenAt:iso(activity.checkinOpenAt),checkinCloseAt:iso(activity.checkinCloseAt),
+      checkoutOpenAt:iso(activity.checkoutOpenAt),checkoutCloseAt:iso(activity.checkoutCloseAt),
+      policy:{
+        qrRequired:Boolean(currentPolicy.qrRequired),
+        identityRequired:Boolean(currentPolicy.identityRequired),
+        checkinRequired:Boolean(currentPolicy.checkinRequired),
+        checkoutRequired:Boolean(currentPolicy.checkoutRequired),
+        durationRequired:Boolean(currentPolicy.durationRequired),
+        staffRequired:Boolean(currentPolicy.staffRequired),
+        signatureRequired:Boolean(currentPolicy.signatureRequired),
+        minDurationRatio:Number(currentPolicy.minDurationRatio),
+      },
+    };
+    const after={
+      title,category,location,
+      startAt:iso(startAt),endAt:iso(endAt),
+      checkinOpenAt:iso(checkinOpenAt),checkinCloseAt:iso(checkinCloseAt),
+      checkoutOpenAt:iso(checkoutOpenAt),checkoutCloseAt:iso(checkoutCloseAt),
+      policy:{...nextPolicy},
+    };
+
+    const changedFields=[];
+    for (const key of ["title","category","location","startAt","endAt","checkinOpenAt","checkinCloseAt","checkoutOpenAt","checkoutCloseAt"]) {
+      if (before[key]!==after[key]) changedFields.push(key);
+    }
+    for (const key of ["qrRequired","identityRequired","checkinRequired","checkoutRequired","durationRequired","staffRequired","signatureRequired","minDurationRatio"]) {
+      if (before.policy[key]!==after.policy[key]) changedFields.push("policy."+key);
+    }
+
+    if (!changedFields.length) {
+      return res.json({ok:true,noChange:true,lifecycle,activity});
+    }
+
+    if (lifecycle==="ACTIVE") {
+      const allowedActiveFields=new Set(["title","category","location"]);
+      const restricted=changedFields.filter(key=>!allowedActiveFields.has(key));
+      if (restricted.length) {
+        return res.status(409).json({
+          ok:false,error:"ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY",
+          lifecycle,restrictedFields:restricted,
+        });
+      }
+      if (reason.length<10) {
+        return res.status(400).json({ok:false,error:"ACTIVITY_EDIT_REASON_REQUIRED",lifecycle});
+      }
+    }
+
+    const duplicate=await prisma.activity.findFirst({
+      where:{
+        id:{not:activity.id},
+        organizerId:activity.organizerId,
+        title:{equals:title,mode:"insensitive"},
+        location,
+        startAt,
+        endAt,
+      },
+      select:{id:true,title:true},
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        ok:false,error:"ACTIVITY_DUPLICATE",
+        existingActivityId:duplicate.id,
+      });
+    }
+
+    const scheduleOrQrChanged=changedFields.some(key=>
+      ["startAt","endAt","checkinOpenAt","checkinCloseAt","checkoutOpenAt","checkoutCloseAt","policy.qrRequired"].includes(key)
+    );
+
+    const result=await prisma.$transaction(async(tx)=>{
+      let qrTokensRevoked=0;
+      if (scheduleOrQrChanged) {
+        const revoked=await tx.qrToken.updateMany({
+          where:{activityId:activity.id,revokedAt:null,expiresAt:{gt:new Date()}},
+          data:{revokedAt:new Date()},
+        });
+        qrTokensRevoked=revoked.count;
+      }
+
+      const updated=await tx.activity.update({
+        where:{id:activity.id},
+        data:{
+          title,category,location,startAt,endAt,
+          checkinOpenAt,checkinCloseAt,checkoutOpenAt,checkoutCloseAt,
+          policy:{
+            upsert:{
+              create:{...nextPolicy},
+              update:{...nextPolicy},
+            },
+          },
+        },
+        include:{
+          policy:true,
+          organizer:{select:{id:true,employeeId:true,name:true}},
+          roleAssignments:{
+            include:{user:{select:{id:true,employeeId:true,name:true}}},
+            orderBy:{assignedAt:"asc"},
+          },
+          _count:{select:{participants:true}},
+        },
+      });
+
+      await tx.auditLog.create({
+        data:{
+          actorId:actorId(req),
+          action:lifecycle==="ACTIVE"?"ACTIVITY_UPDATED_DURING_ACTIVE":"ACTIVITY_UPDATED",
+          entityType:"Activity",
+          entityId:activity.id,
+          metadata:{
+            lifecycle,
+            changedFields,
+            reason:reason||null,
+            before,
+            after,
+            qrTokensRevoked,
+          },
+        },
+      });
+      return {updated,qrTokensRevoked};
+    });
+
+    res.json({
+      ok:true,
+      lifecycle,
+      changedFields,
+      qrTokensRevoked:result.qrTokensRevoked,
+      activity:result.updated,
+    });
+  } catch(error) {
+    res.status(400).json({ok:false,error:error.message});
+  }
+});
+
 app.get("/api/activities/:activityId/manage", async (req, res) => {
   const activity = await prisma.activity.findUnique({
     where: { id:req.params.activityId },
@@ -1111,6 +1351,61 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
       coAdminOverrideRequired:coGov.adminOverrideRequired,
     },
   });
+});
+
+app.delete("/api/activities/:activityId", requireRoles("ADMIN"), async (req, res) => {
+  const activity = await prisma.activity.findUnique({
+    where:{id:req.params.activityId},
+    include:{
+      _count:{
+        select:{
+          participants:true,
+          roleAssignments:true,
+          qrTokens:true,
+          attendanceRecords:true,
+        },
+      },
+    },
+  });
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (activity.pilotClosedAt) {
+    return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE"});
+  }
+
+  const linked={
+    participants:activity._count.participants,
+    assignments:activity._count.roleAssignments,
+    qrTokens:activity._count.qrTokens,
+    attendanceRecords:activity._count.attendanceRecords,
+  };
+  if (Object.values(linked).some(Number)) {
+    return res.status(409).json({
+      ok:false,
+      error:"ACTIVITY_DELETE_BLOCKED_HAS_LINKED_DATA",
+      linked,
+    });
+  }
+
+  await prisma.$transaction([
+    prisma.auditLog.create({
+      data:{
+        actorId:actorId(req),
+        action:"EMPTY_ACTIVITY_DELETED",
+        entityType:"Activity",
+        entityId:activity.id,
+        metadata:{
+          title:activity.title,
+          startAt:activity.startAt,
+          endAt:activity.endAt,
+          createdAt:activity.createdAt,
+          reason:"empty-duplicate-or-draft-cleanup",
+        },
+      },
+    }),
+    prisma.activity.delete({where:{id:activity.id}}),
+  ]);
+
+  res.json({ok:true,deletedActivityId:activity.id});
 });
 
 app.put("/api/activities/:activityId/assignments", async (req, res) => {
@@ -2965,6 +3260,7 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     : false;
 
   const blockers = [];
+  if (!productionGoEnabled()) blockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (criticalIssues.length) blockers.push("CRITICAL_DATA_QUALITY");
   if (endedNotClosed.length) blockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
@@ -3241,6 +3537,7 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
   const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
 
   const hardBlockers = [];
+  if (!productionGoEnabled()) hardBlockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
   if (overTargetCount > 0) hardBlockers.push("REVIEW_BACKLOG_OVER_TARGET");
@@ -3698,14 +3995,20 @@ app.use("/api", (_req, res) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
-app.use(express.static(staticDir));
-
-app.use((_req, res) => {
-  res.sendFile(path.join(staticDir, "index.html"));
-});
+// Only public browser assets may be served. Never serve server, prisma,
+// scripts, dependency, backup, or environment files from the application tree.
+const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css"];
+for (const file of publicFiles) {
+  app.get("/" + file, (_req, res) => {
+    if (file === "runtime-config.js") res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(staticDir, file));
+  });
+}
+app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
+app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
 app.use((error, _req, res, _next) => {
-  console.error(error);
+  console.error("Request failed:", error?.name || "Error");
   const status=Number(error?.status)||500;
   const code=error?.message==="CORS_ORIGIN_NOT_ALLOWED" ? "CORS_ORIGIN_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR";
   res.status(status).json({ ok:false, error:code });

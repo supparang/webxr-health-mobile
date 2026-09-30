@@ -1,8 +1,9 @@
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "./db.js";
+import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
 
 let googleVerifier=null;
-let googleVerifierClientId=null;
+let googleVerifierAudienceKey="";
 
 export async function resolveUserRef(ref) {
   if (!ref) return null;
@@ -21,6 +22,14 @@ export function googleClientId() {
   return String(process.env.GOOGLE_CLIENT_ID || "").trim();
 }
 
+export function googlePilotClientId() {
+  return String(process.env.GOOGLE_PILOT_CLIENT_ID || "").trim();
+}
+
+export function googleClientIds() {
+  return [...new Set([googleClientId(), googlePilotClientId()].filter(validGoogleClientId))];
+}
+
 export function googleAllowedDomains() {
   return String(process.env.GOOGLE_ALLOWED_DOMAINS || "")
     .split(",")
@@ -28,8 +37,34 @@ export function googleAllowedDomains() {
     .filter(Boolean);
 }
 
+export function googleAllowedEmails() {
+  return [...new Set(
+    String(process.env.GOOGLE_ALLOWED_EMAILS || "")
+      .split(",")
+      .map((x) => x.trim().toLowerCase())
+      .filter(Boolean)
+  )];
+}
+
 function googleOidcConfigured() {
-  return Boolean(googleClientId()) && googleAllowedDomains().length > 0;
+  const clientId=googleClientId();
+  const pilotClientId=googlePilotClientId();
+  const domains=googleAllowedDomains();
+  const emails=googleAllowedEmails();
+
+  const allowlistsValid=domains.every(validGoogleDomain) && emails.every(validGoogleEmail);
+  if (!allowlistsValid) return false;
+
+  // Production/organization route remains bound to GOOGLE_CLIENT_ID.
+  // Personal Gmail pilot accounts are accepted only when a separate
+  // GOOGLE_PILOT_CLIENT_ID is configured; the Internal client is never reused.
+  const workspaceRouteReady=domains.length > 0 && validGoogleClientId(clientId);
+  const pilotEmailRouteReady=emails.length > 0 && validGoogleClientId(pilotClientId);
+  return workspaceRouteReady || pilotEmailRouteReady;
+}
+
+export function googlePilotEmailReady() {
+  return googleAllowedEmails().length > 0 && validGoogleClientId(googlePilotClientId());
 }
 
 export function productionAuthenticationReady() {
@@ -37,11 +72,12 @@ export function productionAuthenticationReady() {
 }
 
 function getGoogleVerifier() {
-  const clientId=googleClientId();
-  if (!clientId) return null;
-  if (!googleVerifier || googleVerifierClientId !== clientId) {
-    googleVerifier=new OAuth2Client(clientId);
-    googleVerifierClientId=clientId;
+  const audiences=googleClientIds();
+  if (!audiences.length) return null;
+  const key=audiences.join("|");
+  if (!googleVerifier || googleVerifierAudienceKey !== key) {
+    googleVerifier=new OAuth2Client(audiences[0]);
+    googleVerifierAudienceKey=key;
   }
   return googleVerifier;
 }
@@ -53,16 +89,18 @@ function bearerToken(req) {
 }
 
 function emailDomain(email) {
-  const parts=String(email || "").toLowerCase().split("@");
-  return parts.length === 2 ? parts[1] : "";
+  const match=email.match(/^[^\s@]+@([^\s@]+)$/);
+  return match ? match[1] : "";
 }
 
 async function resolveGoogleUser(idToken) {
-  const verifier=getGoogleVerifier();
   const clientId=googleClientId();
+  const pilotClientId=googlePilotClientId();
+  const clientIds=googleClientIds();
   const allowedDomains=googleAllowedDomains();
+  const allowedEmails=googleAllowedEmails();
 
-  if (!verifier || !clientId || allowedDomains.length === 0) {
+  if (!googleOidcConfigured()) {
     const error=new Error("GOOGLE_OIDC_NOT_CONFIGURED");
     error.status=503;
     throw error;
@@ -70,9 +108,12 @@ async function resolveGoogleUser(idToken) {
 
   let ticket;
   try {
+    const verifier=getGoogleVerifier();
+    // The Google library validates the signature, issuer, audience and lifetime.
+    // Only trust claims obtained from this verified ticket.
     ticket=await verifier.verifyIdToken({
       idToken,
-      audience: clientId,
+      audience: clientIds,
     });
   } catch {
     const error=new Error("GOOGLE_ID_TOKEN_INVALID");
@@ -81,8 +122,14 @@ async function resolveGoogleUser(idToken) {
   }
 
   const payload=ticket.getPayload() || {};
-  const email=String(payload.email || "").trim().toLowerCase();
-  const hd=String(payload.hd || "").trim().toLowerCase();
+  const email=typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const hd=typeof payload.hd === "string" ? payload.hd.trim().toLowerCase() : "";
+
+  if (typeof payload.sub !== "string" || !payload.sub.trim() || payload.sub.length > 255) {
+    const error=new Error("GOOGLE_ID_TOKEN_INVALID");
+    error.status=401;
+    throw error;
+  }
 
   if (!email || payload.email_verified !== true) {
     const error=new Error("GOOGLE_EMAIL_NOT_VERIFIED");
@@ -91,26 +138,56 @@ async function resolveGoogleUser(idToken) {
   }
 
   const domain=emailDomain(email);
-  if (!allowedDomains.includes(domain) || !hd || !allowedDomains.includes(hd)) {
-    const error=new Error("GOOGLE_WORKSPACE_DOMAIN_NOT_ALLOWED");
+  const tokenAudience=typeof payload.aud === "string" ? payload.aud : "";
+  const workspaceAllowed=Boolean(
+    tokenAudience === clientId &&
+    domain && hd &&
+    allowedDomains.includes(domain) &&
+    allowedDomains.includes(hd)
+  );
+  const exactEmailAllowed=Boolean(
+    pilotClientId &&
+    tokenAudience === pilotClientId &&
+    allowedEmails.includes(email)
+  );
+
+  if (!workspaceAllowed && !exactEmailAllowed) {
+    if (allowedEmails.includes(email) && !validGoogleClientId(pilotClientId)) {
+      const error=new Error("GOOGLE_PILOT_LOGIN_NOT_CONFIGURED");
+      error.status=503;
+      throw error;
+    }
+    const error=new Error(
+      allowedEmails.length > 0 ? "GOOGLE_ACCOUNT_NOT_ALLOWED" : "GOOGLE_WORKSPACE_DOMAIN_NOT_ALLOWED"
+    );
     error.status=403;
     throw error;
   }
 
-  const user=await prisma.user.findFirst({
+  // PostgreSQL's email uniqueness is case-sensitive; authentication is not.
+  // Reject ambiguous provisioned accounts rather than choosing an arbitrary role.
+  const users=await prisma.user.findMany({
     where: {
       email: {
         equals: email,
         mode: "insensitive",
       },
     },
+    take: 2,
   });
 
-  if (!user) {
+  if (users.length === 0) {
     const error=new Error("GOOGLE_ACCOUNT_NOT_PROVISIONED");
     error.status=403;
     throw error;
   }
+
+  if (users.length !== 1) {
+    const error=new Error("GOOGLE_ACCOUNT_AMBIGUOUS");
+    error.status=403;
+    throw error;
+  }
+  const [user]=users;
 
   if (user.status !== "ACTIVE") {
     const error=new Error("INVALID_OR_INACTIVE_USER");
@@ -122,7 +199,7 @@ async function resolveGoogleUser(idToken) {
     user,
     authContext: {
       provider: "GOOGLE",
-      subject: payload.sub || null,
+      subject: payload.sub,
       email,
       hostedDomain: hd,
     },
@@ -134,6 +211,12 @@ export async function attachActor(req, res, next) {
     const mode=authenticationMode();
 
     if (mode === "DEMO_HEADER") {
+      if (String(process.env.NODE_ENV || "").trim().toLowerCase() === "production") {
+        return res.status(503).json({
+          ok: false,
+          error: "DEMO_HEADER_FORBIDDEN_IN_PRODUCTION",
+        });
+      }
       const ref = req.header("x-activa-user-id");
       if (!ref) {
         return res.status(401).json({

@@ -10,6 +10,8 @@
   const DEMO_STORAGE_KEY = "activa_ai_demo_v034";
   const PUBLIC_CONFIG = window.ACTIVA_CONFIG || {};
   const RELEASE_VERSION = PUBLIC_CONFIG.releaseVersion || "ACTIVA-AI-1.0.15";
+  const EXPECTED_GOOGLE_CLIENT_ID = String(PUBLIC_CONFIG.googleClientId || "").trim();
+  const EXPECTED_GOOGLE_PILOT_CLIENT_ID = String(PUBLIC_CONFIG.googlePilotClientId || "").trim();
 
   function normalizeApiBase(value) {
     const raw=String(value||"").trim();
@@ -17,7 +19,9 @@
     let url;
     try { url=new URL(raw); }
     catch { return ""; }
-    if(!["http:","https:"].includes(url.protocol)) return "";
+    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if(url.protocol!=="https:" && !(url.protocol==="http:" && loopback)) return "";
+    if(url.username || url.password || url.search || url.hash || /[?#]/.test(raw)) return "";
     return url.origin + url.pathname.replace(/\/$/,"");
   }
 
@@ -25,9 +29,15 @@
     ? location.origin
     : "";
   let apiBaseUrl = normalizeApiBase(sessionStorage.getItem(API_BASE_KEY) || PUBLIC_CONFIG.apiBaseUrl || SAME_ORIGIN_API_BASE);
-  let appMode = sessionStorage.getItem(MODE_KEY) || "demo";
-  let pilotAuthToken = sessionStorage.getItem(AUTH_TOKEN_KEY) || "";
-  let session = readSession();
+  let appMode = sessionStorage.getItem(MODE_KEY)==="server" ? "server" : "demo";
+  // Google credentials stay in memory and are bound to the validated API destination.
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  let pilotAuthToken = "";
+  let pilotAuthBase = "";
+  let validatedGoogleBase = "";
+  let authGeneration = 0;
+  let session = appMode==="demo" ? readSession() : null;
+  if(appMode==="server") sessionStorage.removeItem(SESSION_KEY);
   let activeView = "dashboard";
   let qrTimer = null;
   let qrState = null;
@@ -54,6 +64,24 @@
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   })[c]);
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
+  const shortActivityId = (activity) => String(activity?.id || "").slice(-6) || "------";
+  const localDateValue = (dt) => {
+    if(!dt) return "";
+    const d=new Date(dt);
+    if(Number.isNaN(d.getTime())) return "";
+    return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+  };
+  const localTimeValue = (dt) => {
+    if(!dt) return "";
+    const d=new Date(dt);
+    if(Number.isNaN(d.getTime())) return "";
+    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  };
+  const activityChoiceLabel = (activity) => {
+    const title=activity?.title || "กิจกรรม";
+    const start=activity?.startAt ? fmt(activity.startAt) : "ไม่ระบุเวลา";
+    return title+" • "+start+" • #"+shortActivityId(activity);
+  };
   const roleLabel = (r) => ({
     ADMIN:"ผู้ดูแลระบบ",
     ORGANIZER:"บุคลากรที่ได้รับสิทธิ์จัดกิจกรรม",
@@ -91,14 +119,35 @@
   }
 
   function saveSession() {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    if (session && appMode==="demo") sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     else sessionStorage.removeItem(SESSION_KEY);
   }
 
-  function savePilotAuthToken(token) {
+  function savePilotAuthToken(token, base = apiBaseUrl) {
+    if(token && (!base || base!==apiBaseUrl || base!==validatedGoogleBase)) {
+      throw new Error("GOOGLE_API_DESTINATION_NOT_VALIDATED");
+    }
     pilotAuthToken=String(token||"");
-    if(pilotAuthToken) sessionStorage.setItem(AUTH_TOKEN_KEY,pilotAuthToken);
-    else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    pilotAuthBase=pilotAuthToken ? base : "";
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+
+  function clearPilotAuthentication() {
+    authGeneration++;
+    validatedGoogleBase="";
+    savePilotAuthToken("");
+    session=null;
+    saveSession();
+    clearInterval(qrTimer);
+    qrTimer=null;
+    try { window.google?.accounts?.id?.cancel(); } catch {}
+    try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
+    const wrap=document.getElementById("googleSignInWrap");
+    if(wrap) wrap.hidden=true;
+  }
+
+  function currentGoogleAttempt(generation, base) {
+    return authGeneration===generation && apiBaseUrl===base;
   }
 
   let googleIdentityPromise=null;
@@ -106,26 +155,37 @@
     if(window.google?.accounts?.id) return Promise.resolve(window.google);
     if(googleIdentityPromise) return googleIdentityPromise;
     googleIdentityPromise=new Promise((resolve,reject)=>{
-      const existing=document.querySelector('script[data-activa-google-identity]');
-      if(existing) {
-        existing.addEventListener("load",()=>resolve(window.google),{once:true});
-        existing.addEventListener("error",()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED")),{once:true});
-        return;
-      }
+      document.querySelector('script[data-activa-google-identity]')?.remove();
       const script=document.createElement("script");
+      let timeout;
+      const fail=()=>{
+        clearTimeout(timeout);
+        script.remove();
+        reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED"));
+      };
       script.src="https://accounts.google.com/gsi/client";
       script.async=true;
       script.defer=true;
       script.dataset.activaGoogleIdentity="true";
-      script.onload=()=>resolve(window.google);
-      script.onerror=()=>reject(new Error("GOOGLE_IDENTITY_SCRIPT_LOAD_FAILED"));
+      script.onload=()=>{
+        clearTimeout(timeout);
+        if(window.google?.accounts?.id) resolve(window.google);
+        else fail();
+      };
+      script.onerror=fail;
+      timeout=setTimeout(fail,15000);
       document.head.appendChild(script);
+    }).catch(error=>{
+      googleIdentityPromise=null;
+      throw error;
     });
     return googleIdentityPromise;
   }
 
   function setApiBaseUrl(value) {
-    apiBaseUrl=normalizeApiBase(value);
+    const next=normalizeApiBase(value);
+    if(next!==apiBaseUrl) clearPilotAuthentication();
+    apiBaseUrl=next;
     if(apiBaseUrl) sessionStorage.setItem(API_BASE_KEY,apiBaseUrl);
     else sessionStorage.removeItem(API_BASE_KEY);
     return apiBaseUrl;
@@ -143,12 +203,18 @@
   }
 
   async function checkServerHealth() {
+    const base=apiBaseUrl;
+    const generation=authGeneration;
     const response=await fetch(serverApiUrl("/api/health"),{
       method:"GET",
-      headers:{Accept:"application/json"}
+      headers:{Accept:"application/json"},
+      cache:"no-store",
+      credentials:"omit",
+      redirect:"error"
     });
     let data={};
     try { data=await response.json(); } catch {}
+    if(!currentGoogleAttempt(generation,base)) throw new Error("GOOGLE_LOGIN_RESTART_REQUIRED");
     if(!response.ok) {
       const err=new Error(data.error||("HTTP_"+response.status));
       err.status=response.status;
@@ -178,17 +244,31 @@
     }
 
     const headers = new Headers(options.headers || {});
+    const generation=authGeneration;
+    const base=apiBaseUrl;
     headers.set("Accept", "application/json");
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    if (pilotAuthToken) headers.set("Authorization", "Bearer "+pilotAuthToken);
+    headers.delete("Authorization");
+    if (pilotAuthToken) {
+      if(pilotAuthBase!==base || validatedGoogleBase!==base) throw new Error("GOOGLE_API_DESTINATION_NOT_VALIDATED");
+      headers.set("Authorization", "Bearer "+pilotAuthToken);
+    }
 
-    const response = await fetch(serverApiUrl(path), { ...options, headers });
+    const response = await fetch(serverApiUrl(path), { ...options, headers, credentials:"omit", redirect:"error" });
     let data = {};
     try { data = await response.json(); } catch {}
+    if(!currentGoogleAttempt(generation,base)) throw new Error("GOOGLE_LOGIN_RESTART_REQUIRED");
     if (!response.ok) {
       const err = new Error(data.error || ("HTTP_" + response.status));
       err.status = response.status;
       err.data = data;
+      if(response.status===401) {
+        clearPilotAuthentication();
+        activeView="dashboard";
+        renderLogin();
+        const msg=document.getElementById("loginMsg");
+        if(msg) msg.innerHTML='<div class="alert warn">การยืนยันตัวตนหมดอายุหรือใช้ไม่ได้ กรุณาเข้าสู่ระบบด้วย Google อีกครั้ง</div>';
+      }
       throw err;
     }
     return data;
@@ -303,8 +383,18 @@
     const nav = navGroups().map(group => navGroupHtml(group, storedState)).join("");
 
     return '<div class="shell">'+
-      '<aside class="sidebar">'+
-        '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
+      '<header class="mobile-appbar">'+
+        '<button type="button" class="mobile-menu-button" id="mobileMenuButton" aria-label="เปิดเมนู" aria-controls="appSidebar" aria-expanded="false">'+
+          '<span></span><span></span><span></span>'+
+        '</button>'+
+        '<div class="mobile-appbar-title"><strong>ACTIVA-AI</strong><small>'+esc(viewTitle())+'</small></div>'+
+      '</header>'+
+      '<div class="mobile-menu-backdrop" id="mobileMenuBackdrop" hidden></div>'+
+      '<aside class="sidebar" id="appSidebar" aria-label="เมนู ACTIVA-AI">'+
+        '<div class="sidebar-head">'+
+          '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
+          '<button type="button" class="sidebar-close" id="sidebarClose" aria-label="ปิดเมนู">×</button>'+
+        '</div>'+
         '<nav class="nav" aria-label="เมนูหลัก">'+nav+'</nav>'+
         '<div class="version">V1.0.15 • Google OIDC + Backend Connection Layer</div>'+
       '</aside>'+
@@ -313,6 +403,40 @@
         '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+roleLabel(session.role)+'</span></div></div>'+
         '<div id="view"></div>'+
       '</main></div>';
+  }
+
+  function setMobileNavOpen(open) {
+    const sidebar=document.getElementById("appSidebar");
+    const button=document.getElementById("mobileMenuButton");
+    const backdrop=document.getElementById("mobileMenuBackdrop");
+    if(!sidebar || !button || !backdrop) return;
+
+    const compact=window.matchMedia && window.matchMedia("(max-width: 1000px)").matches;
+    const next=Boolean(open && compact);
+    sidebar.classList.toggle("mobile-open",next);
+    button.setAttribute("aria-expanded",next?"true":"false");
+    button.setAttribute("aria-label",next?"ปิดเมนู":"เปิดเมนู");
+    sidebar.setAttribute("aria-hidden",compact?(next?"false":"true"):"false");
+    backdrop.hidden=!next;
+    document.body.classList.toggle("mobile-nav-open",next);
+  }
+
+  function bindMobileNavigation() {
+    const button=document.getElementById("mobileMenuButton");
+    const close=document.getElementById("sidebarClose");
+    const backdrop=document.getElementById("mobileMenuBackdrop");
+    if(button) button.onclick=()=>setMobileNavOpen(button.getAttribute("aria-expanded")!=="true");
+    if(close) close.onclick=()=>setMobileNavOpen(false);
+    if(backdrop) backdrop.onclick=()=>setMobileNavOpen(false);
+
+    document.querySelectorAll(".sidebar [data-view]").forEach((item)=>{
+      item.addEventListener("click",()=>setMobileNavOpen(false),{once:true});
+    });
+
+    window.onkeydown=(event)=>{
+      if(event.key==="Escape") setMobileNavOpen(false);
+    };
+    setMobileNavOpen(false);
   }
 
   function showLoading(v, text) {
@@ -336,8 +460,13 @@
     }
     if (!session) return renderLogin();
 
+    document.body.classList.remove("mobile-nav-open");
     app().innerHTML = shell();
-    document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => setView(b.dataset.view));
+    bindMobileNavigation();
+    document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => {
+      setMobileNavOpen(false);
+      setView(b.dataset.view);
+    });
 
     document.querySelectorAll("[data-nav-toggle]").forEach((toggle) => {
       toggle.onclick = () => {
@@ -357,12 +486,8 @@
     });
 
     document.getElementById("logout").onclick = () => {
-      session = null;
-      saveSession();
-      if(appMode==="server") {
-        savePilotAuthToken("");
-        try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
-      }
+      setMobileNavOpen(false);
+      clearPilotAuthentication();
       activeView = "dashboard";
       render();
     };
@@ -421,16 +546,17 @@
       '<div class="field"><label>รหัสบุคลากร (ใช้เฉพาะ Demo Mode)</label><input id="loginId" value="ADM001" autocomplete="username"></div>'+
       '<div class="field" style="margin-top:12px"><label>Backend API URL สำหรับ Pilot/API Mode</label>'+
         '<input id="apiBaseUrl" inputmode="url" placeholder="https://api.example.org" value="'+esc(configuredApi)+'">'+
-        '<div class="muted" style="margin-top:6px">ใส่เฉพาะ URL ของ HTTPS API — ห้ามใส่ DATABASE_URL, password หรือ secret</div></div>'+
+        '<div class="muted" style="margin-top:6px">ใช้ HTTPS API เท่านั้น (http://localhost หรือ loopback ใช้ทดสอบในเครื่องได้) ห้ามใส่ password, secret, query หรือ fragment</div></div>'+
       '<div class="actions">'+
         '<button class="btn secondary" id="checkServer">ตรวจการเชื่อมต่อ API</button>'+
       '</div>'+
       '<div id="serverHealthMsg"></div>'+
       '<div class="actions">'+
         '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
-        '<button class="btn secondary" id="serverLogin">เตรียมเข้าสู่ระบบด้วย Google</button>'+
+        '<button class="btn secondary" id="serverLogin">เข้าสู่ระบบองค์กร</button>'+
+        '<button class="btn secondary" id="serverPilotLogin">เข้าสู่ระบบ Pilot Gmail</button>'+
       '</div>'+
-      '<div id="googleSignInWrap" hidden style="margin-top:14px"><div id="googleSignInButton"></div></div>'+
+      '<div id="googleSignInWrap" hidden style="margin-top:14px"><div id="googleSignInRouteLabel" class="muted" style="margin-bottom:8px"></div><div id="googleSignInButton"></div></div>'+
       '<div class="hint"><b>Demo Mode:</b> localStorage + Synthetic Data<br>'+
         '<b>Pilot/API Mode:</b> Browser → HTTPS Backend API → Prisma → PostgreSQL<br>'+
         '<b>Security:</b> PostgreSQL credential อยู่ฝั่ง server เท่านั้น ไม่ส่งมาที่ browser</div>'+
@@ -446,17 +572,20 @@
       const host=document.getElementById("serverHealthMsg");
       const base=readApiInput();
       if(!base) {
-        host.innerHTML='<div class="alert bad">กรุณาระบุ Backend API URL ที่ขึ้นต้นด้วย https:// หรือ http://</div>';
+        host.innerHTML='<div class="alert bad">กรุณาระบุ HTTPS API URL ที่ไม่มีข้อมูลเข้าสู่ระบบ, query หรือ fragment (HTTP ใช้ได้เฉพาะ loopback ในเครื่อง)</div>';
         return null;
       }
       host.innerHTML='<div class="alert">กำลังตรวจ Backend API และ PostgreSQL…</div>';
       try {
         const health=await checkServerHealth();
-        const authReady=health.authentication?.productionReady===true;
+        const authReady=health.authentication?.configurationReady===true || health.authentication?.productionReady===true;
         host.innerHTML='<div class="alert '+(authReady?'ok':'warn')+'"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
           'API: '+esc(base)+'<br>'+
           'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected<br>'+
-          'Authentication: '+(authReady?'Production-ready':'ยังไม่พร้อมสำหรับข้อมูลจริง ('+esc(health.authentication?.mode||"DISABLED")+')')+'</div>';
+          'Authentication: '+(authReady?'องค์กรพร้อม':'ยังตั้งค่าไม่ครบ ('+esc(health.authentication?.mode||"DISABLED")+')')+
+          (Number(health.authentication?.allowedEmailCount||0)>0
+            ? '<br>Pilot Gmail: '+(health.authentication?.pilotEmailReady?'พร้อม':'รอ GOOGLE_PILOT_CLIENT_ID')
+            : '')+'</div>';
         return health;
       } catch(error) {
         host.innerHTML=errorBox(error);
@@ -469,8 +598,8 @@
       const msg = document.getElementById("loginMsg");
       if (!id) return msg.innerHTML = '<div class="alert bad">กรุณาระบุรหัสบุคลากร</div>';
 
+      clearPilotAuthentication();
       setMode("demo");
-      savePilotAuthToken("");
       msg.innerHTML = '<div class="alert">กำลังเข้าสู่ Demo Mode…</div>';
       try {
         const data = await api("/api/me", {}, id);
@@ -489,55 +618,85 @@
       }
     }
 
-    async function prepareGoogleLogin() {
+    async function prepareGoogleLogin(route="workspace") {
       const msg=document.getElementById("loginMsg");
+      clearPilotAuthentication();
       const health=await probeServer();
       if(!health) return;
+      const base=apiBaseUrl;
+      const generation=authGeneration;
 
       if(health.authentication?.mode!=="GOOGLE_OIDC" ||
          health.authentication?.provider!=="GOOGLE" ||
-         health.authentication?.productionReady!==true ||
-         !health.authentication?.googleClientId) {
+         !(health.authentication?.configurationReady===true || health.authentication?.productionReady===true)) {
         msg.innerHTML='<div class="alert bad"><b>Google Login ยังไม่พร้อม</b><br>'+
-          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และ GOOGLE_ALLOWED_DOMAINS ให้ครบ</div>';
+          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC และ Google OAuth configuration ให้ครบ</div>';
         return;
+      }
+
+      const sameOrigin=Boolean(location?.origin && base===location.origin);
+      let selectedClientId="";
+      let routeLabel="";
+      if(route==="pilot"){
+        selectedClientId=String(health.authentication?.googlePilotClientId||"").trim();
+        routeLabel="Pilot Gmail";
+        if(!health.authentication?.pilotEmailReady || !selectedClientId){
+          msg.innerHTML='<div class="alert warn"><b>Pilot Gmail ยังไม่พร้อม</b><br>'+
+            'ให้เพิ่ม GOOGLE_PILOT_CLIENT_ID ของ OAuth client แบบ External/Testing ใน Render โดยคง GOOGLE_CLIENT_ID เดิมสำหรับ Internal organization ไว้</div>';
+          return;
+        }
+        if(!sameOrigin && (!EXPECTED_GOOGLE_PILOT_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_PILOT_CLIENT_ID)){
+          msg.innerHTML='<div class="alert bad">GOOGLE_PILOT_CLIENT_ID_MISMATCH: Pilot Client ID ของ Backend ไม่ตรงกับ public configuration</div>';
+          return;
+        }
+      }else{
+        selectedClientId=String(health.authentication?.googleClientId||"").trim();
+        routeLabel="บัญชีองค์กร";
+        if(!selectedClientId || !EXPECTED_GOOGLE_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_CLIENT_ID){
+          msg.innerHTML='<div class="alert bad">GOOGLE_CLIENT_ID_MISMATCH: Client ID ของ Backend ไม่ตรงกับแอปนี้ กรุณาตรวจการตั้งค่าก่อนเข้าสู่ระบบ</div>';
+          return;
+        }
       }
 
       try {
         await loadGoogleIdentityServices();
       } catch(error) {
-        msg.innerHTML=errorBox(error);
+        if(currentGoogleAttempt(generation,base)) msg.innerHTML=errorBox(error);
         return;
       }
+      if(!currentGoogleAttempt(generation,base)) return;
+      validatedGoogleBase=base;
 
       const wrap=document.getElementById("googleSignInWrap");
       const button=document.getElementById("googleSignInButton");
       wrap.hidden=false;
+      const routeHost=document.getElementById("googleSignInRouteLabel");
+      if(routeHost) routeHost.textContent="เส้นทางเข้าสู่ระบบ: "+routeLabel;
       button.innerHTML="";
 
       window.google.accounts.id.initialize({
-        client_id:health.authentication.googleClientId,
+        client_id:selectedClientId,
         callback:async(response)=>{
+          if(!currentGoogleAttempt(generation,base) || validatedGoogleBase!==base) return;
           if(!response?.credential) {
             msg.innerHTML='<div class="alert bad">Google ไม่ได้ส่ง ID token กลับมา</div>';
             return;
           }
 
-          savePilotAuthToken(response.credential);
+          savePilotAuthToken(response.credential,base);
           setMode("server");
           msg.innerHTML='<div class="alert">Google ยืนยันตัวตนแล้ว กำลังตรวจสิทธิ์ใน ACTIVA-AI…</div>';
 
           try {
             const data=await api("/api/me");
+            if(!currentGoogleAttempt(generation,base)) return;
             session=data.user;
             saveSession();
             activeView="dashboard";
             render();
           } catch(error) {
-            session=null;
-            saveSession();
-            savePilotAuthToken("");
-            setMode("demo");
+            if(!currentGoogleAttempt(generation,base)) return;
+            clearPilotAuthentication();
             msg.innerHTML=errorBox(error);
           }
         },
@@ -556,13 +715,24 @@
       });
 
       const domains=(health.authentication.allowedDomains||[]).join(", ");
-      msg.innerHTML='<div class="alert ok"><b>พร้อม Google Sign-In</b><br>'+
-        'อนุญาตเฉพาะ Google Workspace: '+esc(domains||"ตามที่ backend กำหนด")+'</div>';
+      const emailCount=Number(health.authentication.allowedEmailCount||0);
+      const policies=[];
+      if(domains) policies.push("Google Workspace: "+domains);
+      if(emailCount>0) policies.push("บัญชี Google Pilot ที่อนุญาตรายอีเมล "+emailCount+" บัญชี");
+      msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบ Google Sign-In — '+esc(routeLabel)+'</b><br>'+
+        'นโยบายบัญชี: '+esc(policies.join(" • ")||"ตามที่ backend กำหนด")+
+        '<br>Production/Internal client และ Pilot Gmail client แยกจากกัน</div>';
     }
 
     document.getElementById("checkServer").onclick = probeServer;
+    document.getElementById("apiBaseUrl").oninput = ()=>{
+      setApiBaseUrl(document.getElementById("apiBaseUrl").value);
+      document.getElementById("serverHealthMsg").innerHTML="";
+      document.getElementById("loginMsg").innerHTML="";
+    };
     document.getElementById("demoLogin").onclick = () => login("demo");
-    document.getElementById("serverLogin").onclick = prepareGoogleLogin;
+    document.getElementById("serverLogin").onclick = () => prepareGoogleLogin("workspace");
+    document.getElementById("serverPilotLogin").onclick = () => prepareGoogleLogin("pilot");
     document.getElementById("resetDemo").onclick = () => {
       if (window.ACTIVA_DEMO_API) window.ACTIVA_DEMO_API.reset();
       document.getElementById("loginMsg").innerHTML = '<div class="alert ok">ล้างข้อมูล Demo แล้ว</div>';
@@ -1365,6 +1535,148 @@
       if(now>end)return "ENDED";
       return "ACTIVE";
     }
+    async function renderActivityEdit(host,a){
+      const life=activityLifecycleClient(a);
+      const immutable=Boolean(a.pilotClosedAt);
+      if(immutable || life==="ENDED"){
+        host.innerHTML='<div class="panel activity-edit-panel">'+
+          '<div class="section-head"><div><h2>แก้ไขกิจกรรม</h2><p><b>'+esc(a.title)+'</b> • #'+esc(shortActivityId(a))+'</p></div>'+
+          '<button class="btn mini secondary" id="closeActivityEdit">ปิด</button></div>'+
+          '<div class="alert warn"><b>'+(immutable?'กิจกรรมถูกปิดแบบ Immutable แล้ว':'กิจกรรมสิ้นสุดแล้ว')+'</b><br>'+
+          (immutable?'ไม่สามารถแก้ข้อมูลกิจกรรมย้อนหลังได้':'ข้อมูลเวลาและ Evidence ถูกล็อกเพื่อรักษาความต่อเนื่องของ Attendance และ Audit Trail')+
+          '</div></div>';
+        document.getElementById("closeActivityEdit").onclick=()=>{host.innerHTML="";};
+        host.scrollIntoView({behavior:"smooth",block:"start"});
+        return;
+      }
+
+      const fullEdit=life==="UPCOMING";
+      const activeEdit=life==="ACTIVE";
+      const disableGoverned=fullEdit?"":"disabled";
+      const policy=a.policy||{};
+      const categories=["พัฒนาบุคลากร","ประชุม","บริการวิชาการ","วิจัย","ประกันคุณภาพ"];
+      if(a.category&&!categories.includes(a.category))categories.push(a.category);
+      const optionHtml=categories.map(x=>'<option '+(x===a.category?'selected':'')+'>'+esc(x)+'</option>').join("");
+      const checkEdit=(id,label,value,disabled)=>'<label class="check '+(disabled?'is-disabled':'')+'"><input id="'+id+'" type="checkbox" '+(value?'checked':'')+' '+(disabled?'disabled':'')+'> '+esc(label)+'</label>';
+
+      host.innerHTML='<div class="panel activity-edit-panel">'+
+        '<div class="section-head"><div><h2>แก้ไขกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+' • '+(activeEdit?'กำลังดำเนินกิจกรรม':'ก่อนเริ่มกิจกรรม')+'</span></p></div>'+
+        '<button class="btn mini secondary" id="closeActivityEdit">ปิด</button></div>'+
+        (activeEdit
+          ? '<div class="alert warn"><b>กิจกรรมกำลังดำเนินอยู่</b><br>แก้ได้เฉพาะชื่อ ประเภท และสถานที่ และต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร เวลาและ Evidence Policy ถูกล็อก</div>'
+          : '<div class="alert info"><b>ก่อนเริ่มกิจกรรม</b><br>สามารถแก้รายละเอียด เวลา Check-in/Check-out และ Evidence Policy ได้ โดยคง Activity ID และผู้เข้าร่วม/Reviewer เดิมไว้</div>')+
+        '<div class="form-grid">'+
+          '<div class="field"><label>ชื่อกิจกรรม</label><input id="eTitle" value="'+esc(a.title)+'"></div>'+
+          '<div class="field"><label>ประเภทกิจกรรม</label><select id="eCat">'+optionHtml+'</select></div>'+
+          '<div class="field"><label>วันที่</label><input id="eDate" type="date" value="'+esc(localDateValue(a.startAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>สถานที่</label><input id="eLoc" value="'+esc(a.location||"")+'"></div>'+
+          '<div class="field"><label>เวลาเริ่ม</label><input id="eStart" type="time" value="'+esc(localTimeValue(a.startAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เวลาสิ้นสุด</label><input id="eEnd" type="time" value="'+esc(localTimeValue(a.endAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิด Check-in QR</label><input id="eCiOpen" type="time" value="'+esc(localTimeValue(a.checkinOpenAt||new Date(new Date(a.startAt).getTime()-30*60000)))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>ปิด Check-in QR</label><input id="eCiClose" type="time" value="'+esc(localTimeValue(a.checkinCloseAt||new Date(new Date(a.startAt).getTime()+30*60000)))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิดช่วง Check-out</label><input id="eCoOpen" type="time" value="'+esc(localTimeValue(a.checkoutOpenAt||new Date(new Date(a.endAt).getTime()-30*60000)))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>ปิดช่วง Check-out</label><input id="eCoClose" type="time" value="'+esc(localTimeValue(a.checkoutCloseAt||new Date(new Date(a.endAt).getTime()+30*60000)))+'" '+disableGoverned+'></div>'+
+        '</div>'+
+        '<h3>นโยบายหลักฐานของกิจกรรม</h3>'+
+        '<div class="policy">'+
+          checkEdit("eQr","QR กิจกรรม",policy.qrRequired!==false,!fullEdit)+
+          checkEdit("eId","ยืนยันตัวตน",policy.identityRequired!==false,!fullEdit)+
+          checkEdit("eIn","Check-in",policy.checkinRequired!==false,!fullEdit)+
+          checkEdit("eOut","Check-out",policy.checkoutRequired!==false,!fullEdit)+
+          checkEdit("eDur","ระยะเวลา",policy.durationRequired!==false,!fullEdit)+
+          checkEdit("eStaff","Reviewer ยืนยัน",policy.staffRequired!==false,!fullEdit)+
+          checkEdit("eSig","ลายเซ็น",Boolean(policy.signatureRequired),!fullEdit)+
+          '<div class="field"><label>สัดส่วนเวลาขั้นต่ำ</label><input id="eRatio" type="number" min="0" max="1" step=".05" value="'+esc(policy.minDurationRatio??0.75)+'" '+disableGoverned+'></div>'+
+        '</div>'+
+        (activeEdit?'<div class="field edit-reason"><label>เหตุผลการแก้ไขระหว่างกิจกรรม</label><textarea id="eReason" placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"></textarea></div>':'')+
+        '<div class="actions"><button class="btn primary" id="saveActivityEdit">บันทึกการแก้ไข</button><button class="btn secondary" id="cancelActivityEdit">ยกเลิก</button></div>'+
+        '<div id="activityEditMsg"></div>'+
+      '</div>';
+
+      const close=()=>{host.innerHTML="";};
+      document.getElementById("closeActivityEdit").onclick=close;
+      document.getElementById("cancelActivityEdit").onclick=close;
+
+      document.getElementById("saveActivityEdit").onclick=async()=>{
+        const msg=document.getElementById("activityEditMsg");
+        const save=document.getElementById("saveActivityEdit");
+        const title=document.getElementById("eTitle").value.trim();
+        const category=document.getElementById("eCat").value.trim();
+        const location=document.getElementById("eLoc").value.trim();
+        if(!title||!category||!location){
+          msg.innerHTML='<div class="alert bad">กรุณากรอกชื่อ ประเภท และสถานที่ให้ครบ</div>';
+          return;
+        }
+
+        const payload={title,category,location};
+        if(fullEdit){
+          const date=document.getElementById("eDate").value;
+          const startDt=new Date(date+"T"+document.getElementById("eStart").value);
+          const endDt=new Date(date+"T"+document.getElementById("eEnd").value);
+          const ciOpenDt=new Date(date+"T"+document.getElementById("eCiOpen").value);
+          const ciCloseDt=new Date(date+"T"+document.getElementById("eCiClose").value);
+          const coOpenDt=new Date(date+"T"+document.getElementById("eCoOpen").value);
+          const coCloseDt=new Date(date+"T"+document.getElementById("eCoClose").value);
+          if([startDt,endDt,ciOpenDt,ciCloseDt,coOpenDt,coCloseDt].some(d=>Number.isNaN(d.getTime()))){
+            msg.innerHTML='<div class="alert bad">กรุณาระบุวันที่และเวลาให้ครบ</div>';return;
+          }
+          if(endDt<=startDt){msg.innerHTML='<div class="alert bad">เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม</div>';return;}
+          if(ciCloseDt<=ciOpenDt){msg.innerHTML='<div class="alert bad">เวลาปิด Check-in ต้องอยู่หลังเวลาเปิด</div>';return;}
+          if(ciCloseDt>endDt){msg.innerHTML='<div class="alert bad">ช่วง Check-in ต้องปิดไม่เกินเวลาสิ้นสุดกิจกรรม</div>';return;}
+          if(coCloseDt<=coOpenDt){msg.innerHTML='<div class="alert bad">เวลาปิด Check-out ต้องอยู่หลังเวลาเปิด</div>';return;}
+          if(coOpenDt<startDt){msg.innerHTML='<div class="alert bad">ช่วง Check-out ต้องไม่เปิดก่อนกิจกรรมเริ่ม</div>';return;}
+          payload.startAt=startDt.toISOString();
+          payload.endAt=endDt.toISOString();
+          payload.checkinOpenAt=ciOpenDt.toISOString();
+          payload.checkinCloseAt=ciCloseDt.toISOString();
+          payload.checkoutOpenAt=coOpenDt.toISOString();
+          payload.checkoutCloseAt=coCloseDt.toISOString();
+          payload.policy={
+            qrRequired:document.getElementById("eQr").checked,
+            identityRequired:document.getElementById("eId").checked,
+            checkinRequired:document.getElementById("eIn").checked,
+            checkoutRequired:document.getElementById("eOut").checked,
+            durationRequired:document.getElementById("eDur").checked,
+            staffRequired:document.getElementById("eStaff").checked,
+            signatureRequired:document.getElementById("eSig").checked,
+            minDurationRatio:Number(document.getElementById("eRatio").value||0.75),
+          };
+        }else{
+          payload.changeReason=document.getElementById("eReason")?.value.trim()||"";
+          if(payload.changeReason.length<10){
+            msg.innerHTML='<div class="alert warn">กิจกรรมกำลังดำเนินอยู่ กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร</div>';return;
+          }
+        }
+
+        save.disabled=true;
+        save.textContent="กำลังบันทึก…";
+        try{
+          const result=await api("/api/activities/"+encodeURIComponent(a.id),{
+            method:"PATCH",
+            body:JSON.stringify(payload),
+          });
+          if(result.noChange){
+            msg.innerHTML='<div class="alert">ไม่มีข้อมูลเปลี่ยนแปลง</div>';
+            save.disabled=false;save.textContent="บันทึกการแก้ไข";return;
+          }
+          msg.innerHTML='<div class="alert ok"><b>แก้ไขกิจกรรมแล้ว</b><br>Activity ID เดิมยังคงอยู่'+(result.qrTokensRevoked?'<br>ยกเลิก QR ที่ยังไม่หมดอายุ '+esc(result.qrTokensRevoked)+' ใบ เนื่องจากเวลา/นโยบายเปลี่ยน':'')+'</div>';
+          setTimeout(()=>renderActivities(v),450);
+        }catch(e){
+          const map={
+            ACTIVITY_DUPLICATE:"มีอีกกิจกรรมที่ใช้ชื่อ สถานที่ และช่วงเวลาเดียวกันแล้ว",
+            ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY:"กิจกรรมกำลังดำเนินอยู่ จึงแก้เวลา/ช่วง QR/Evidence Policy ไม่ได้",
+            ACTIVITY_EDIT_REASON_REQUIRED:"กรุณาระบุเหตุผลการแก้ไขอย่างน้อย 10 ตัวอักษร",
+            ACTIVITY_EDIT_LOCKED_AFTER_END:"กิจกรรมสิ้นสุดแล้ว จึงล็อกข้อมูลเพื่อรักษา Audit Trail",
+            ACTIVITY_PILOT_CLOSED_IMMUTABLE:"กิจกรรมถูกปิดแบบ Immutable แล้ว",
+          };
+          msg.innerHTML='<div class="alert bad"><b>บันทึกไม่สำเร็จ</b><br>'+esc(map[e?.message]||e?.message||"เกิดข้อผิดพลาด")+'</div>';
+          save.disabled=false;save.textContent="บันทึกการแก้ไข";
+        }
+      };
+
+      host.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
     function activityReviewCount(activityId){
       return activityAttendance.filter(r=>(r.activity?.id||r.activityId)===activityId&&
         ["REVIEW_REQUIRED","INCOMPLETE","INCONSISTENT"].includes(evidenceStatusOf(r))&&
@@ -1421,12 +1733,13 @@
           const reviewCount=activityReviewCount(a.id);
           const lifecycleLabel=life==="ACTIVE"?"กำลังดำเนินอยู่":life==="UPCOMING"?"กำลังจะมาถึง":"สิ้นสุดแล้ว";
           return '<article class="activity-center-row">'+
-            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+'</small></div>'+
+            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+' • #'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</small></div>'+
             '<div class="activity-center-status"><span class="status '+(life==="ACTIVE"?"s-ok":life==="UPCOMING"?"s-info":"s-warn")+'">'+lifecycleLabel+'</span>'+
               (reviewCount?'<span class="status s-bad">ต้องตรวจ '+reviewCount+'</span>':'')+'</div>'+
             '<div class="activity-center-actions">'+
               '<button class="btn mini secondary openAttendanceActivity" data-id="'+esc(a.id)+'">ผู้เข้าร่วม</button>'+
               '<button class="btn mini secondary openQrActivity" data-id="'+esc(a.id)+'">QR</button>'+
+              (canManageActivityClient(a)&&life!=="ENDED"&&!a.pilotClosedAt?'<button class="btn mini secondary editActivity" data-id="'+esc(a.id)+'">แก้ไข</button>':'')+
               (canManageActivityClient(a)?'<button class="btn mini primary manageActivity" data-id="'+esc(a.id)+'">จัดการ</button>':'')+
             '</div></article>';
         }).join(""):'<div class="empty">ไม่พบกิจกรรมตามเงื่อนไข</div>')+'</div>'+
@@ -1438,6 +1751,10 @@
       document.getElementById("actPrev").onclick=()=>{activityState.page--;renderActivityCenter();};
       document.getElementById("actNext").onclick=()=>{activityState.page++;renderActivityCenter();};
 
+      host.querySelectorAll(".editActivity").forEach(btn=>btn.onclick=()=>{
+        const activity=activities.find(a=>a.id===btn.dataset.id);
+        if(activity) renderActivityEdit(document.getElementById("activityManager"),activity);
+      });
       host.querySelectorAll(".manageActivity").forEach(btn=>btn.onclick=()=>{
         renderActivityManagement(document.getElementById("activityManager"),btn.dataset.id);
       });
@@ -1489,6 +1806,8 @@
       if(ciCloseDt>endDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-in ต้องปิดไม่เกินเวลาสิ้นสุดกิจกรรม</div>';
       if(coCloseDt<=coOpenDt) return msg.innerHTML='<div class="alert bad">เวลาปิด Check-out ต้องอยู่หลังเวลาเปิด Check-out</div>';
       if(coOpenDt<startDt) return msg.innerHTML='<div class="alert bad">ช่วง Check-out ต้องไม่เปิดก่อนกิจกรรมเริ่ม</div>';
+      createBtn.disabled=true;
+      createBtn.textContent="กำลังบันทึก…";
       try {
         await api("/api/activities", {
           method:"POST",
@@ -1512,7 +1831,15 @@
         });
         msg.innerHTML = '<div class="alert ok">บันทึกกิจกรรมแล้ว • จากนั้นกด “จัดผู้รับผิดชอบ/ผู้เข้าร่วม” เพื่อเพิ่ม Co-organizer ผู้ตรวจสอบ และกำหนดผู้เข้าร่วม</div>';
         setTimeout(() => renderActivities(v), 300);
-      } catch (error) { msg.innerHTML = errorBox(error); }
+      } catch (error) {
+        if(error?.message==="ACTIVITY_DUPLICATE"){
+          msg.innerHTML='<div class="alert warn"><b>กิจกรรมนี้ถูกบันทึกไว้แล้ว</b><br>ระบบหยุดการบันทึกซ้ำ กรุณาใช้รายการเดิมในศูนย์กิจกรรม</div>';
+        }else{
+          msg.innerHTML = errorBox(error);
+        }
+        createBtn.disabled=false;
+        createBtn.textContent="บันทึกกิจกรรม";
+      }
     };
   }
 
@@ -1596,7 +1923,15 @@
         api("/api/activities/"+encodeURIComponent(activityId)+"/manage"),
         loadUsers()
       ]);
-      const a=detail.activity, caps=detail.capabilities||{};
+      const a=detail.activity, rawCaps=detail.capabilities||{};
+      const immutableClosed=Boolean(a.pilotClosedAt);
+      const caps={
+        ...rawCaps,
+        canAssignCo: !immutableClosed && Boolean(rawCaps.canAssignCo),
+        canAssignVerifier: !immutableClosed && Boolean(rawCaps.canAssignVerifier),
+        canManageParticipants: !immutableClosed && Boolean(rawCaps.canManageParticipants),
+      };
+      const participationDisabled=caps.canManageParticipants?"":"disabled";
       const activeUsers=users.filter(u=>u.status==="ACTIVE");
       const coIds=(a.roleAssignments||[]).filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId);
       const verifierIds=(a.roleAssignments||[]).filter(x=>x.role==="VERIFIER").map(x=>x.userId);
@@ -1605,8 +1940,9 @@
       const allowedDepts=new Set(Array.isArray(a.allowedDepartmentCodes)?a.allowedDepartmentCodes:[]);
 
       host.innerHTML=
-        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b></p></div><button class="btn mini secondary" id="closeActivityManager">ปิด</button></div>'+
+        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</span></p></div><div class="actions manager-head-actions">'+(can("ADMIN")&&!immutableClosed?'<button class="btn mini bad" id="deleteEmptyActivity">ลบกิจกรรมว่าง</button>':'')+'<button class="btn mini secondary" id="closeActivityManager">ปิด</button></div></div>'+
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
+        (immutableClosed?'<div class="alert info"><b>กิจกรรมถูกปิดแบบ Immutable แล้ว</b><br>รายชื่อผู้รับผิดชอบ ผู้ตรวจสอบ และผู้เข้าร่วมเป็นข้อมูลอ่านอย่างเดียว ไม่สามารถแก้ย้อนหลังได้</div>':'')+
         '<div class="split assignment-role-grid">'+
           '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">'+(caps.canAssignCo?'เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน':'รายชื่อผู้จัดร่วมที่ได้รับมอบหมายในกิจกรรมนี้')+'</p></div></div>'+
             '<div class="assignment-governance">'+
@@ -1634,9 +1970,9 @@
         '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">การเป็นผู้เข้าร่วมเป็นสถานะการเข้าร่วม ไม่ชนกับ Owner / Co-organizer / Reviewer บุคคลเดียวกันจึงมี Attendance ของตนเองได้</p></div></div>'+
         '<div class="alert info"><b>กติกา:</b> Owner / Co-organizer / Reviewer สามารถอยู่ในรายชื่อผู้เข้าร่วมได้ แต่ Reviewer ห้ามยืนยันหรือตัดสิน Attendance ของตนเอง ระบบจะให้ Reviewer คนอื่นตรวจแทน</div>'+
         '<div class="participation-modes">'+
-          '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
-          '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
-          '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
+          '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+' '+participationDisabled+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+' '+participationDisabled+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+' '+participationDisabled+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
         '</div>'+
         '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants,"rosterSearch","rosterCount","P001")+'</div>'+
         '<div id="groupBox"><h4>เลือกหน่วยงาน</h4><div class="assignment-list">'+depts.map(d=>
@@ -1708,6 +2044,27 @@
       host.querySelectorAll('input[name="participationMode"]').forEach(x=>x.onchange=updateMode);
       updateMode();
       document.getElementById("closeActivityManager").onclick=()=>{host.innerHTML="";};
+      const deleteEmpty=document.getElementById("deleteEmptyActivity");
+      if(deleteEmpty) deleteEmpty.onclick=async()=>{
+        const confirmText="ลบกิจกรรมว่างนี้หรือไม่?\n\n"+a.title+"\n#"+shortActivityId(a)+"\n\nระบบจะลบได้เฉพาะรายการที่ยังไม่มีผู้เข้าร่วม ผู้ตรวจสอบ QR หรือ Attendance เท่านั้น";
+        if(!confirm(confirmText)) return;
+        deleteEmpty.disabled=true;
+        deleteEmpty.textContent="กำลังตรวจและลบ…";
+        try{
+          await api("/api/activities/"+encodeURIComponent(activityId),{method:"DELETE"});
+          if(sessionStorage.getItem(SELECTED_ACTIVITY_KEY)===activityId) sessionStorage.removeItem(SELECTED_ACTIVITY_KEY);
+          host.innerHTML='<div class="panel"><div class="alert ok"><b>ลบกิจกรรมว่างแล้ว</b><br>Audit Trail ถูกบันทึกไว้เรียบร้อย</div></div>';
+          setTimeout(()=>setView("activities"),350);
+        }catch(e){
+          deleteEmpty.disabled=false;
+          deleteEmpty.textContent="ลบกิจกรรมว่าง";
+          if(e?.message==="ACTIVITY_DELETE_BLOCKED_HAS_LINKED_DATA"){
+            host.insertAdjacentHTML("afterbegin",'<div class="alert warn"><b>ลบไม่ได้</b><br>กิจกรรมนี้มีข้อมูลเชื่อมโยงแล้ว จึงไม่ลบอัตโนมัติเพื่อรักษา Audit Trail</div>');
+          }else{
+            host.insertAdjacentHTML("afterbegin",errorBox(e));
+          }
+        }
+      };
 
       const checkedValues=(selector)=>[...host.querySelectorAll(selector+":checked")].map(x=>x.value);
       async function saveAssignments(payload,message,msgId){
@@ -1788,7 +2145,7 @@
     v.innerHTML =
       '<div class="panel"><h2>Dynamic Event QR</h2>'+
       '<div class="event-toolbar">'+
-        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ประเภท QR</label><select id="qrPurpose"><option value="CHECKIN">QR สำหรับ Check-in</option><option value="CHECKOUT">QR สำหรับ Check-out</option></select></div>'+
       '</div>'+
       '<div id="qrWindowInfo"></div>'+
@@ -2128,9 +2485,10 @@
     v.innerHTML =
       participantResponsePanel(rows)+
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
-      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(a.title)+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select>'+
       '<small class="muted">Dynamic QR สำหรับ Check-in ของตนเองเท่านั้น ไม่ว่าบัญชีจะเป็น Owner / Co-organizer / Reviewer / Participant</small></div>'+
+      '<div id="ciLockMsg"></div>'+
       '<div class="actions scan-actions">'+
         '<button class="btn primary scan-btn" id="scanQrBtn">📷 สแกน QR</button>'+
         (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceTestBtn">🧪 ทดสอบ QR บนเครื่องนี้</button>':'')+
@@ -2151,6 +2509,7 @@
           : '<option value="">ยังไม่มีรายการ Check-in ใน Demo storage นี้</option>')+
       '</select></div>'+
       '<div class="actions"><button class="btn secondary mini" id="refreshAttendanceRows">↻ รีเฟรชรายการ Check-in</button></div>'+
+      '<div id="recordLockMsg"></div>'+
       (!rows.length && appMode==="demo"
         ? '<div class="alert warn"><b>ยังไม่พบรายการสำหรับ Check-out</b><br>ถ้าเพิ่ง Check-in ในอีกแท็บของเบราว์เซอร์เดียวกัน ระบบจะรีเฟรชให้อัตโนมัติ หรือกด “รีเฟรชรายการ Check-in” ได้ทันที<br><br><b>ถ้า Check-in จากอีกอุปกรณ์:</b> Demo Mode เก็บ attendance ไว้ใน browser ของเครื่องที่สแกน จึงไม่ sync กลับมาที่เครื่องผู้จัด แม้ QR จะใช้ข้ามอุปกรณ์ได้ หากต้องการข้อมูลร่วมกันจริงให้ใช้ Server Mode + PostgreSQL</div>'
         : '')+
@@ -2194,6 +2553,29 @@
       ciActivitySelect.value=storedAttendanceActivity;
     }
 
+    function syncCheckinActions(){
+      const activity=activities.find(a=>a.id===ciActivitySelect?.value)||null;
+      const immutable=Boolean(activity?.pilotClosedAt);
+      const lockMsg=document.getElementById("ciLockMsg");
+      const controls=[
+        document.getElementById("scanQrBtn"),
+        document.getElementById("sameDeviceTestBtn"),
+        document.getElementById("manualTokenBtn"),
+        document.getElementById("ciBtn"),
+      ].filter(Boolean);
+      controls.forEach(control=>{
+        control.disabled=immutable;
+        control.title=immutable?"กิจกรรมปิดแบบ Immutable แล้ว ไม่สามารถบันทึก Check-in เพิ่มได้":"";
+      });
+      if(lockMsg){
+        lockMsg.innerHTML=immutable
+          ? '<div class="alert info"><b>กิจกรรมปิดแบบ Immutable แล้ว</b><br>Check-in/Check-out และหลักฐานของกิจกรรมนี้ถูกล็อกเพื่อรักษา Audit Trail</div>'
+          : "";
+      }
+    }
+    ciActivitySelect?.addEventListener("change",syncCheckinActions);
+    syncCheckinActions();
+
     const dashboardState={
       activityId:document.getElementById("ciAct")?.value || activities[0]?.id || "",
       filter:"AUTO",
@@ -2206,7 +2588,7 @@
       const host=document.getElementById("attendanceDashboard");
       if(!host) return;
 
-      const activityOptions=activities.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===dashboardState.activityId?'selected':'')+'>'+esc(a.title)+'</option>').join("");
+      const activityOptions=activities.map(a=>'<option value="'+esc(a.id)+'" '+(a.id===dashboardState.activityId?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("");
       const eventRows=rows.filter(r=>!dashboardState.activityId || (r.activity?.id||r.activityId)===dashboardState.activityId);
       const summary=attendanceSummary(eventRows);
 
@@ -2535,16 +2917,24 @@
       const select=document.getElementById("coRecord");
       const scan=document.getElementById("coScanQrBtn");
       const testBtn=document.getElementById("sameDeviceCheckoutTestBtn");
+      const manual=document.getElementById("coManualTokenBtn");
       const assist=document.getElementById("assistCheckoutBtn");
       const staff=document.getElementById("staffBtn");
       const voidBtn=document.getElementById("voidBtn");
       const co=document.getElementById("coBtn");
+      const lockMsg=document.getElementById("recordLockMsg");
       if(!select)return;
       const selected=rows.find(r=>r.id===select.value);
       const done=Boolean(selected?.checkoutAt);
       const selectedActivity=selected
         ? activities.find(a=>a.id===(selected.activity?.id||selected.activityId)) || selected.activity || null
         : null;
+      const immutableClosed=Boolean(selectedActivity?.pilotClosedAt);
+      if(lockMsg){
+        lockMsg.innerHTML=immutableClosed
+          ? '<div class="alert info"><b>กิจกรรมถูกปิดแบบ Immutable แล้ว</b><br>รายการนี้อ่านอย่างเดียว ระบบไม่อนุญาต Check-out, Reviewer Verification, Void หรือการแก้หลักฐานย้อนหลัง</div>'
+          : "";
+      }
       const isSelf=Boolean(selected && (
         selected.userId===session?.id ||
         selected.user?.id===session?.id ||
@@ -2558,36 +2948,40 @@
 
       // Normal Dynamic QR checkout is always self-only.
       if(scan){
-        scan.disabled=!selected||done||!isSelf;
-        scan.textContent=done?"Check-out แล้ว":(!isSelf?"Check-out ได้เฉพาะตนเอง":"📷 สแกน Check-out QR");
-        scan.title=!isSelf?"Dynamic QR Check-out เป็นหลักฐานส่วนบุคคล ใช้แทนผู้อื่นไม่ได้":"";
+        scan.disabled=immutableClosed||!selected||done||!isSelf;
+        scan.textContent=immutableClosed?"กิจกรรมปิดแล้ว • Check-out ถูกล็อก":(done?"Check-out แล้ว":(!isSelf?"Check-out ได้เฉพาะตนเอง":"📷 สแกน Check-out QR"));
+        scan.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"Dynamic QR Check-out เป็นหลักฐานส่วนบุคคล ใช้แทนผู้อื่นไม่ได้":"");
       }
       if(testBtn){
-        testBtn.disabled=!selected||done||!isSelf;
-        testBtn.title=!isSelf?"ทดสอบ Check-out ได้เฉพาะ Attendance ของตนเอง":"";
+        testBtn.disabled=immutableClosed||!selected||done||!isSelf;
+        testBtn.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"ทดสอบ Check-out ได้เฉพาะ Attendance ของตนเอง":"");
+      }
+      if(manual){
+        manual.disabled=immutableClosed||!selected||done||!isSelf;
+        manual.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"กรอก Check-out Token ได้เฉพาะ Attendance ของตนเอง":"");
       }
       if(co){
-        co.disabled=!selected||done||!isSelf;
-        co.title=!isSelf?"ยืนยัน Check-out จาก Token ได้เฉพาะตนเอง":"";
+        co.disabled=immutableClosed||!selected||done||!isSelf;
+        co.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"ยืนยัน Check-out จาก Token ได้เฉพาะตนเอง":"");
       }
 
       // Assisted checkout is operational work: Owner / Co-organizer / ADMIN only.
       if(assist){
-        assist.disabled=!selected||done||!canOperateSelected;
-        assist.title=!canOperateSelected?"เฉพาะผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ADMIN ของกิจกรรมนี้":"";
+        assist.disabled=immutableClosed||!selected||done||!canOperateSelected;
+        assist.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!canOperateSelected?"เฉพาะผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ADMIN ของกิจกรรมนี้":"");
       }
 
       // Reviewer may verify others only; never own Attendance.
       if(staff){
-        staff.disabled=!selected||Boolean(selected?.staffVerification)||!isAssignedReviewer||isSelf;
-        staff.textContent=selected?.staffVerification?"Reviewer ยืนยันแล้ว":(isSelf?"ห้ามยืนยันรายการตนเอง":"Reviewer ยืนยัน");
-        staff.title=isSelf?"SELF_REVIEW_FORBIDDEN — Reviewer ห้ามยืนยัน Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+        staff.disabled=immutableClosed||!selected||Boolean(selected?.staffVerification)||!isAssignedReviewer||isSelf;
+        staff.textContent=selected?.staffVerification?"Reviewer ยืนยันแล้ว":(immutableClosed?"กิจกรรมปิดแล้ว • Reviewer ถูกล็อก":(isSelf?"ห้ามยืนยันรายการตนเอง":"Reviewer ยืนยัน"));
+        staff.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(isSelf?"SELF_REVIEW_FORBIDDEN — Reviewer ห้ามยืนยัน Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":""));
       }
 
       // Voiding is a reviewer/governance correction and also cannot target self.
       if(voidBtn){
-        voidBtn.disabled=!selected||!isAssignedReviewer||isSelf;
-        voidBtn.title=isSelf?"Reviewer ห้ามยกเลิก Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+        voidBtn.disabled=immutableClosed||!selected||!isAssignedReviewer||isSelf;
+        voidBtn.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว ไม่สามารถ Void Attendance ได้":(isSelf?"Reviewer ห้ามยกเลิก Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":""));
       }
     }
     const refreshAttendanceRows=document.getElementById("refreshAttendanceRows");
@@ -2791,7 +3185,7 @@
       v.innerHTML =
         '<div class="panel"><div class="section-head"><div><h2>ตารางตรวจสอบหลักฐาน</h2><p class="muted"><b>ผลตรวจหลักฐานของระบบ</b> คือผลจากกฎตรวจสอบ ส่วน <b>ผลตัดสินสุดท้าย</b> คือผลจากผู้ตรวจสอบ — แยกกันเสมอ</p></div></div>'+
         '<div class="event-toolbar">'+
-          '<div class="field"><label>กิจกรรม</label><select id="evidenceActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+esc(a.id)+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
+          '<div class="field"><label>กิจกรรม</label><select id="evidenceActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+esc(a.id)+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
           '<div class="field"><label>ค้นหารหัส/ชื่อบุคลากร</label><input id="evidenceSearch" value="'+esc(state.search)+'" placeholder="เช่น P001 หรือชื่อบุคลากร"></div>'+
         '</div>'+
         '<div class="result-meta">แสดง '+filteredRows.length+' จาก '+activityRows.length+' รายการในขอบเขตที่เลือก</div>'+
@@ -3053,7 +3447,7 @@
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
-        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(a.title)+'</option>').join("")+'</select></div>'+
+        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ค้นหา</label><input id="reviewSearch" value="'+esc(state.search)+'" placeholder="รหัส / ชื่อ / กิจกรรม"></div></div>'+
         '<div class="filter-chips">'+[
           ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
@@ -3153,6 +3547,9 @@
     const readOnlyHistory=["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(workflowStatus);
     const latestReview=(r.humanReviews||[])[0]||null;
     const responseForDisplay=requestState.participantResponse||(!requestState.active?r.participantResponse:null);
+    const reviewerDisplay=latestReview?.reviewer
+      ? [latestReview.reviewer.employeeId,latestReview.reviewer.name].filter(Boolean).join(" • ")
+      : (latestReview?.reviewerId||"—");
     const decisionLabel=({
       VERIFY:"รับรองปกติ",
       OVERRIDE_VERIFY:"รับรองเป็นกรณีพิเศษ",
@@ -3182,7 +3579,7 @@
         ? '<div class="alert ok"><b>เคสนี้มีผลตัดสินสุดท้ายแล้ว — อ่านอย่างเดียว</b><br>ระบบไม่แสดงปุ่มตัดสินซ้ำในหน้า History เพื่อรักษาความถูกต้องของ Audit Trail</div>'+
           '<div class="timeline review-history-detail">'+
             '<div><b>การตัดสินล่าสุด</b> — '+esc(decisionLabel)+'</div>'+
-            '<div><b>ผู้ตรวจสอบ</b> — '+esc(latestReview?.reviewerId||"—")+'</div>'+
+            '<div><b>ผู้ตรวจสอบ</b> — '+esc(reviewerDisplay)+'</div>'+
             '<div><b>เวลาตัดสิน</b> — '+fmt(latestReview?.reviewedAt)+'</div>'+
             '<div><b>เหตุผล</b> — '+esc(latestReview?.reason||"—")+'</div>'+
           '</div>'

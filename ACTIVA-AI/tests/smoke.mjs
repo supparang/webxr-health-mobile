@@ -45,6 +45,13 @@ assert(health.ok && health.database === "connected", "health/database check fail
 assert(health.version === "1.0.15", "health version must report ACTIVA-AI 1.0.15");
 assert(health.authentication?.mode === "DEMO_HEADER", "CI authentication mode must be DEMO_HEADER");
 assert(health.authentication?.productionReady === false, "DEMO_HEADER must never be production-ready authentication");
+assert(health.productionGoEnabled === false, "Production GO must remain disabled");
+
+for (const path of ["/server/auth.js", "/prisma/schema.prisma", "/package.json", "/package-lock.json", "/.env", "/node_modules/express/package.json", "/scripts/bootstrap-admin.mjs"]) {
+  const response = await fetch(base + path);
+  assert(response.status === 404, "Backend file must not be public: " + path);
+}
+assert((await fetch(base + "/runtime-config.js")).status === 200, "Public runtime config must be available");
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
   headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
@@ -139,6 +146,49 @@ assert(p1CreateAfter.status === 403, "P001 should not create activity after perm
 const activities = await req("/api/activities", { actor: "ADM001" });
 assert(activities.activities.length > 0, "seed activity missing");
 
+// V1.0.15 governed activity editing: full before start, descriptive-only while active.
+const editNow=Date.now();
+const editableActivityCreate=await req("/api/activities",{
+  actor:"ORG001",
+  method:"POST",
+  body:{
+    title:"CI editable upcoming activity",
+    category:"ทดสอบ",
+    location:"CI edit A",
+    startAt:new Date(editNow+4*3600000).toISOString(),
+    endAt:new Date(editNow+5*3600000).toISOString(),
+    checkinOpenAt:new Date(editNow+3.5*3600000).toISOString(),
+    checkinCloseAt:new Date(editNow+4.25*3600000).toISOString(),
+    checkoutOpenAt:new Date(editNow+4.5*3600000).toISOString(),
+    checkoutCloseAt:new Date(editNow+5.25*3600000).toISOString(),
+    policy:{minDurationRatio:0.75}
+  }
+});
+const editableId=editableActivityCreate.activity.id;
+const editedUpcoming=await req("/api/activities/"+encodeURIComponent(editableId),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    title:"CI editable upcoming revised",
+    category:"ประชุม",
+    location:"CI edit B",
+    startAt:new Date(editNow+4.25*3600000).toISOString(),
+    endAt:new Date(editNow+5.25*3600000).toISOString(),
+    checkinOpenAt:new Date(editNow+3.75*3600000).toISOString(),
+    checkinCloseAt:new Date(editNow+4.5*3600000).toISOString(),
+    checkoutOpenAt:new Date(editNow+4.75*3600000).toISOString(),
+    checkoutCloseAt:new Date(editNow+5.5*3600000).toISOString(),
+    policy:{
+      qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
+      durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.8
+    }
+  }
+});
+assert(editedUpcoming.activity?.id===editableId,"activity edit must preserve Activity ID");
+assert(editedUpcoming.activity?.title==="CI editable upcoming revised","upcoming activity title edit failed");
+assert(editedUpcoming.activity?.location==="CI edit B","upcoming activity location edit failed");
+assert(Number(editedUpcoming.activity?.policy?.minDurationRatio)===0.8,"upcoming activity policy edit failed");
+
 const ciNow=Date.now();
 const activeActivityCreate=await req("/api/activities",{
   actor:"ORG001",
@@ -158,6 +208,34 @@ const activeActivityCreate=await req("/api/activities",{
 });
 const activity=activeActivityCreate.activity;
 assert(activity?.id,"active-window activity creation failed");
+
+const activeEditWithoutReason=await reqError("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{location:"CI active corrected"}
+});
+assert(activeEditWithoutReason.status===400 && activeEditWithoutReason.data?.error==="ACTIVITY_EDIT_REASON_REQUIRED","active descriptive edit must require reason");
+
+const activeRestrictedEdit=await reqError("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    startAt:new Date(ciNow-20*60000).toISOString(),
+    changeReason:"CI should reject active schedule mutation"
+  }
+});
+assert(activeRestrictedEdit.status===409 && activeRestrictedEdit.data?.error==="ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY","active schedule edit must be blocked");
+
+const activeDescriptiveEdit=await req("/api/activities/"+encodeURIComponent(activity.id),{
+  actor:"ORG001",
+  method:"PATCH",
+  body:{
+    location:"CI active corrected",
+    changeReason:"CI active descriptive correction"
+  }
+});
+assert(activeDescriptiveEdit.activity?.id===activity.id,"active descriptive edit must preserve Activity ID");
+assert(activeDescriptiveEdit.activity?.location==="CI active corrected","active descriptive edit failed");
 
 // V0.5.6 QR/check-in time-window enforcement
 const futureActivity=await req("/api/activities",{
@@ -641,6 +719,11 @@ const overrideReview = await req("/api/reviews/" + encodeURIComponent(attendance
 });
 assert(overrideReview.finalEvidenceStatus === "OVERRIDE_VERIFIED", "manual override final status mismatch");
 
+const reviewIdentityAttendance = await req("/api/attendance", { actor: "ADM001" });
+const reviewIdentityRow = reviewIdentityAttendance.attendance.find((r) => r.id === attendanceId);
+assert(reviewIdentityRow?.humanReviews?.[0]?.reviewer?.employeeId === "STF001", "human review response must expose reviewer employeeId for UI display");
+assert(reviewIdentityRow?.humanReviews?.[0]?.reviewer?.name, "human review response must expose reviewer name for UI display");
+
 const participantAttendance = await req("/api/attendance", { actor: "P001" });
 assert(participantAttendance.attendance.every((r) => r.user?.employeeId === "P001"), "participant privacy filter failed");
 
@@ -939,6 +1022,12 @@ assert(tamperedCheck.data?.error==="BACKUP_CHECKSUM_MISMATCH","tampered backup c
 
 const gateAfterRecovery=await req("/api/operations/release-gate",{actor:"ADM001"});
 assert(gateAfterRecovery.backupRecovery?.passed===true,"recent V1 recovery check must satisfy backup gate");
+assert(gateAfterRecovery.gate === "HOLD" && gateAfterRecovery.blockers.includes("PRODUCTION_GO_DISABLED"), "Recovery must not enable Production GO");
+const blockedGo = await reqError("/api/operations/release-decision", {
+  actor: "ADM001", method: "POST",
+  body: { decision: "GO", reason: "CI must reject GO while deployment approval is disabled" }
+});
+assert(blockedGo.status === 409 && blockedGo.data.blockers.includes("PRODUCTION_GO_DISABLED"), "GO must be rejected while disabled");
 
 const holdDecision=await req("/api/operations/release-decision",{
   actor:"ADM001",

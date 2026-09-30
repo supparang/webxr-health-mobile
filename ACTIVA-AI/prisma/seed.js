@@ -4,6 +4,9 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.ACTIVA_AUTH_MODE !== "DEMO_HEADER" || process.env.NODE_ENV === "production") {
+    throw new Error("DEMO_SEED_FORBIDDEN: use only a disposable local/CI database with DEMO_HEADER and non-production NODE_ENV");
+  }
   const department = await prisma.department.upsert({
     where: { code: "SCI" },
     update: { name: "คณะวิทยาศาสตร์" },
