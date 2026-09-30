@@ -719,6 +719,11 @@ const overrideReview = await req("/api/reviews/" + encodeURIComponent(attendance
 });
 assert(overrideReview.finalEvidenceStatus === "OVERRIDE_VERIFIED", "manual override final status mismatch");
 
+const reviewIdentityAttendance = await req("/api/attendance", { actor: "ADM001" });
+const reviewIdentityRow = reviewIdentityAttendance.attendance.find((r) => r.id === attendanceId);
+assert(reviewIdentityRow?.humanReviews?.[0]?.reviewer?.employeeId === "STF001", "human review response must expose reviewer employeeId for UI display");
+assert(reviewIdentityRow?.humanReviews?.[0]?.reviewer?.name, "human review response must expose reviewer name for UI display");
+
 const participantAttendance = await req("/api/attendance", { actor: "P001" });
 assert(participantAttendance.attendance.every((r) => r.user?.employeeId === "P001"), "participant privacy filter failed");
 
