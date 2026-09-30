@@ -28,7 +28,8 @@
     "recovery:verify": "node scripts/verify-recovery-database.mjs",
     "test:recovery-verifier": "node tests/recovery-verifier.mjs",
     "phase3:dataset-check": "node scripts/validate-phase3-dataset.mjs",
-    "test:phase3-readiness": "node tests/phase3-dataset-readiness.mjs"
+    "test:phase3-readiness": "node tests/phase3-dataset-readiness.mjs",
+    "phase3:sample-plan": "python ml/plan_phase3_sample.py"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
