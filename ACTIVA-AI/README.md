@@ -7,8 +7,9 @@
 - Production database, admin bootstrap, Backup/Recovery Verification และ Human GO ผ่าน acceptance แล้ว
 - Phase 2 เพิ่ม scheduled **ACTIVA-AI Production Monitor** เพื่อตรวจ `/api/live`, `/api/ready`, `/api/health` ทุก 6 ชั่วโมง โดยไม่อ่าน PII และไม่ mutate production data
 - Monitor ตรวจ invariants สำคัญ: PRODUCTION tier, release identity, PostgreSQL connected, authentication ready และ `autonomousDecision=false`
+- เพิ่ม GitHub alert routing: เมื่อ monitor fail จะสร้าง/อัปเดต incident issue เดียวและ assign ให้ `supparang`; เมื่อ monitor กลับมาผ่าน ระบบ comment RECOVERED และปิด issue อัตโนมัติ
 - เพิ่ม runbook [Phase 2 Production Operations & First Real Activity](docs/v1.0.16-phase2-production-operations.md)
-- งานคงเหลือหลัก: provider PITR + isolated restore drill, external alert routing, log-retention/redaction, secret rotation และ First Real Activity acceptance
+- งานคงเหลือหลัก: provider PITR + isolated restore drill, optional secondary alert channel/escalation ownership, log-retention/redaction, secret rotation และ First Real Activity acceptance
 
 ## V1.0.15 — Backend Connection Layer / Production Pilot Preparation
 - Backend + PostgreSQL staging instructions: [V1.0.15 staging deployment](docs/v1.0.15-staging-deployment.md). Use `.env.pilot.example`, the migration container and first-admin dry run. Production GO remains disabled; older setup instructions below are historical development notes.
