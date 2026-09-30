@@ -134,6 +134,7 @@ export function validatePhase3Dataset(payload, options = {}) {
   const minParticipants = positiveInt(options.minParticipants);
   const minEvents = positiveInt(options.minEvents);
   const minPerClass = positiveInt(options.minPerClass);
+  const samplePlanApproved = options.samplePlanApproved === true;
 
   if (minRecords && records.length < minRecords) fail("MIN_RECORDS_NOT_MET", `${records.length}<${minRecords}`);
   if (minParticipants && participants.size < minParticipants) fail("MIN_PARTICIPANTS_NOT_MET", `${participants.size}<${minParticipants}`);
@@ -146,6 +147,9 @@ export function validatePhase3Dataset(payload, options = {}) {
 
   if (!minRecords || !minParticipants || !minEvents || !minPerClass) {
     warnings.push("SAMPLE_SIZE_THRESHOLDS_NOT_FULLY_SPECIFIED: structural PASS is not approval to train empirical research models.");
+  }
+  if (!samplePlanApproved) {
+    warnings.push("SAMPLE_PLAN_NOT_APPROVED: empirical training remains HOLD until a version-controlled sample plan is APPROVED.");
   }
 
   return {
@@ -161,7 +165,8 @@ export function validatePhase3Dataset(payload, options = {}) {
       targets: targetCounts,
     },
     sampleThresholds: { minRecords, minParticipants, minEvents, minPerClass },
-    researchTrainingAuthorized: errors.length === 0 && minRecords > 0 && minParticipants > 0 && minEvents > 0 && minPerClass > 0,
+    samplePlanApproved,
+    researchTrainingAuthorized: errors.length === 0 && samplePlanApproved && minRecords > 0 && minParticipants > 0 && minEvents > 0 && minPerClass > 0,
   };
 }
 
@@ -173,20 +178,41 @@ function argValue(args, name) {
 async function main() {
   const args = process.argv.slice(2);
   const input = argValue(args, "--input");
+  const samplePlanPath = argValue(args, "--sample-plan");
   if (!input) {
-    console.error("Usage: node scripts/validate-phase3-dataset.mjs --input locked_dataset.json --min-records N --min-participants N --min-events N --min-per-class N");
+    console.error("Usage: node scripts/validate-phase3-dataset.mjs --input locked_dataset.json --sample-plan ml/phase3-sample-plan.json");
     process.exitCode = 2;
     return;
   }
 
   const full = path.resolve(input);
   const payload = JSON.parse(fs.readFileSync(full, "utf8"));
+
+  let plan = null;
+  if (samplePlanPath) {
+    plan = JSON.parse(fs.readFileSync(path.resolve(samplePlanPath), "utf8"));
+  }
+  const planApproved = Boolean(
+    plan &&
+    plan.protocolId === PHASE3_PROTOCOL_ID &&
+    plan.status === "APPROVED" &&
+    plan.minimums
+  );
+  const minimums = plan?.minimums || {};
+
   const report = validatePhase3Dataset(payload, {
-    minRecords: argValue(args, "--min-records"),
-    minParticipants: argValue(args, "--min-participants"),
-    minEvents: argValue(args, "--min-events"),
-    minPerClass: argValue(args, "--min-per-class"),
+    minRecords: minimums.records ?? argValue(args, "--min-records"),
+    minParticipants: minimums.uniqueParticipants ?? argValue(args, "--min-participants"),
+    minEvents: minimums.uniqueEvents ?? argValue(args, "--min-events"),
+    minPerClass: minimums.perTargetClass ?? argValue(args, "--min-per-class"),
+    samplePlanApproved: planApproved,
   });
+  report.samplePlan = plan ? {
+    samplePlanId: plan.samplePlanId || null,
+    protocolId: plan.protocolId || null,
+    status: plan.status || null,
+    approvedAt: plan.approvedAt || null,
+  } : null;
   console.log(JSON.stringify(report, null, 2));
   if (!report.ok || !report.researchTrainingAuthorized) process.exitCode = 1;
 }
