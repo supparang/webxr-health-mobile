@@ -59,10 +59,18 @@ export async function verifyStaging(options, fetchImpl = fetch) {
   record("HEALTH_REACHABLE", health?.status === 200);
   if (!health || health.status !== 200) return report();
   record("DATABASE_AND_RELEASE", health.body?.ok === true && health.body.database === "connected" && health.body.releaseVersion === RELEASE);
+  record("DEPLOYMENT_TIER", health.body?.deploymentTier === "STAGING");
   const auth = health.body?.authentication;
   record("GOOGLE_OIDC_CONFIGURATION", auth?.mode === "GOOGLE_OIDC" && auth?.provider === "GOOGLE" && auth?.configurationReady === true && auth?.googleClientId === CLIENT_ID && Array.isArray(auth.allowedDomains) && auth.allowedDomains.length === 1 && auth.allowedDomains[0] === DOMAIN);
   record("PRODUCTION_GO_DISABLED", health.body?.productionGoEnabled === false);
   record("HEALTH_NOT_CACHED", health.headers.get("cache-control")?.split(",").some(x => x.trim().toLowerCase() === "no-store"));
+  record("SECURITY_HEADERS",
+    health.headers.get("x-content-type-options") === "nosniff" &&
+    health.headers.get("x-frame-options") === "DENY" &&
+    health.headers.get("referrer-policy") === "strict-origin-when-cross-origin" &&
+    (health.headers.get("permissions-policy") || "").includes("camera=(self)") &&
+    health.headers.get("cross-origin-opener-policy") === "same-origin-allow-popups"
+  );
   record("APPROVED_ORIGIN", health.headers.get("access-control-allow-origin") === origin);
   const preflight = await request("/api/me", { method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization,content-type" } });
   const allowedHeaders = (preflight?.headers.get("access-control-allow-headers") || "").toLowerCase().split(",").map(x => x.trim());
