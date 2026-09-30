@@ -1,0 +1,38 @@
+name: ACTIVA-AI Production Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 5
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      ACTIVA_PRODUCTION_URL: https://activa-ai-production-api.onrender.com
+      ACTIVA_EXPECTED_RELEASE: ACTIVA-AI-1.0.15
+      ACTIVA_EXPECTED_GOOGLE_DOMAIN: chandra.ac.th
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify production liveness, readiness and governance invariants
+        run: node scripts/verify-production.mjs
