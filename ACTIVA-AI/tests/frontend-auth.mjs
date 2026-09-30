@@ -5,6 +5,9 @@ import vm from "node:vm";
 
 const source=await readFile(new URL("../app.js",import.meta.url),"utf8");
 const configSource=await readFile(new URL("../runtime-config.js",import.meta.url),"utf8");
+assert.match(source,/immutableClosed=Boolean\(a\.pilotClosedAt\)/,"activity-management UI must lock immutable activities");
+assert.match(source,/recordLockMsg/,"attendance UI must surface immutable record lock state");
+assert.match(source,/reviewerDisplay=latestReview\?\.reviewer/,"Human Review history must prefer reviewer employee identity over internal IDs");
 const CLIENT_ID="517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com";
 const API="https://pilot.example.test";
 const TOKEN_KEY="activa_ai_google_id_token";
