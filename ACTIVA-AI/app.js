@@ -65,11 +65,13 @@
   const fmt = (dt) => !dt ? "—" : new Date(dt).toLocaleString("th-TH", { dateStyle:"short", timeStyle:"short" });
   const shortActivityId = (activity) => String(activity?.id || "").slice(-6) || "------";
   const localDateValue = (dt) => {
+    if(!dt) return "";
     const d=new Date(dt);
     if(Number.isNaN(d.getTime())) return "";
     return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
   };
   const localTimeValue = (dt) => {
+    if(!dt) return "";
     const d=new Date(dt);
     if(Number.isNaN(d.getTime())) return "";
     return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
@@ -1543,10 +1545,10 @@
           '<div class="field"><label>สถานที่</label><input id="eLoc" value="'+esc(a.location||"")+'"></div>'+
           '<div class="field"><label>เวลาเริ่ม</label><input id="eStart" type="time" value="'+esc(localTimeValue(a.startAt))+'" '+disableGoverned+'></div>'+
           '<div class="field"><label>เวลาสิ้นสุด</label><input id="eEnd" type="time" value="'+esc(localTimeValue(a.endAt))+'" '+disableGoverned+'></div>'+
-          '<div class="field"><label>เปิด Check-in QR</label><input id="eCiOpen" type="time" value="'+esc(localTimeValue(a.checkinOpenAt))+'" '+disableGoverned+'></div>'+
-          '<div class="field"><label>ปิด Check-in QR</label><input id="eCiClose" type="time" value="'+esc(localTimeValue(a.checkinCloseAt))+'" '+disableGoverned+'></div>'+
-          '<div class="field"><label>เปิดช่วง Check-out</label><input id="eCoOpen" type="time" value="'+esc(localTimeValue(a.checkoutOpenAt))+'" '+disableGoverned+'></div>'+
-          '<div class="field"><label>ปิดช่วง Check-out</label><input id="eCoClose" type="time" value="'+esc(localTimeValue(a.checkoutCloseAt))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิด Check-in QR</label><input id="eCiOpen" type="time" value="'+esc(localTimeValue(a.checkinOpenAt||new Date(new Date(a.startAt).getTime()-30*60000)))+'" '+disableGoverned+'></div>'</div>'+
+          '<div class="field"><label>ปิด Check-in QR</label><input id="eCiClose" type="time" value="'+esc(localTimeValue(a.checkinCloseAt||new Date(new Date(a.startAt).getTime()+30*60000)))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>เปิดช่วง Check-out</label><input id="eCoOpen" type="time" value="'+esc(localTimeValue(a.checkoutOpenAt||new Date(new Date(a.endAt).getTime()-30*60000)))+'" '+disableGoverned+'></div>'+
+          '<div class="field"><label>ปิดช่วง Check-out</label><input id="eCoClose" type="time" value="'+esc(localTimeValue(a.checkoutCloseAt||new Date(new Date(a.endAt).getTime()+30*60000)))+'" '+disableGoverned+'></div>'+
         '</div>'+
         '<h3>นโยบายหลักฐานของกิจกรรม</h3>'+
         '<div class="policy">'+
