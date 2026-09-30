@@ -1110,6 +1110,203 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
   }
 });
 
+app.patch("/api/activities/:activityId", async (req, res) => {
+  try {
+    const activity = await prisma.activity.findUnique({
+      where:{id:req.params.activityId},
+      include:{policy:true},
+    });
+    if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+    if (!(await canManageActivity(req, activity))) {
+      return res.status(403).json({ok:false,error:"ACTIVITY_MANAGEMENT_FORBIDDEN"});
+    }
+    if (activity.pilotClosedAt) {
+      return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE"});
+    }
+
+    const lifecycle=activityLifecycle(activity);
+    if (lifecycle==="ENDED") {
+      return res.status(409).json({ok:false,error:"ACTIVITY_EDIT_LOCKED_AFTER_END",lifecycle});
+    }
+
+    const b=req.body||{};
+    const reason=String(b.changeReason||"").trim();
+    const title=String(b.title ?? activity.title).trim();
+    const category=String(b.category ?? activity.category).trim();
+    const location=String(b.location ?? activity.location).trim();
+    if (!title || !category || !location) {
+      return res.status(400).json({ok:false,error:"MISSING_REQUIRED_FIELDS"});
+    }
+
+    const startAt=b.startAt!==undefined ? toIso(b.startAt) : new Date(activity.startAt);
+    const endAt=b.endAt!==undefined ? toIso(b.endAt) : new Date(activity.endAt);
+    const checkinOpenAt=b.checkinOpenAt!==undefined ? toIso(b.checkinOpenAt) : new Date(activity.checkinOpenAt);
+    const checkinCloseAt=b.checkinCloseAt!==undefined ? toIso(b.checkinCloseAt) : new Date(activity.checkinCloseAt);
+    const checkoutOpenAt=b.checkoutOpenAt!==undefined ? toIso(b.checkoutOpenAt) : new Date(activity.checkoutOpenAt);
+    const checkoutCloseAt=b.checkoutCloseAt!==undefined ? toIso(b.checkoutCloseAt) : new Date(activity.checkoutCloseAt);
+
+    if (endAt <= startAt) return res.status(400).json({ok:false,error:"INVALID_ACTIVITY_TIME_RANGE"});
+    if (checkinOpenAt >= checkinCloseAt) return res.status(400).json({ok:false,error:"INVALID_CHECKIN_WINDOW"});
+    if (checkoutOpenAt >= checkoutCloseAt) return res.status(400).json({ok:false,error:"INVALID_CHECKOUT_WINDOW"});
+    if (checkinCloseAt > endAt) return res.status(400).json({ok:false,error:"CHECKIN_WINDOW_AFTER_ACTIVITY_END"});
+    if (checkoutOpenAt < startAt) return res.status(400).json({ok:false,error:"CHECKOUT_WINDOW_BEFORE_ACTIVITY_START"});
+
+    const currentPolicy=activity.policy||{
+      qrRequired:true,identityRequired:true,checkinRequired:true,checkoutRequired:true,
+      durationRequired:true,staffRequired:true,signatureRequired:false,minDurationRatio:0.75,
+    };
+    const policyInput=b.policy&&typeof b.policy==="object"?b.policy:{};
+    const nextPolicy={
+      qrRequired:policyInput.qrRequired ?? currentPolicy.qrRequired,
+      identityRequired:policyInput.identityRequired ?? currentPolicy.identityRequired,
+      checkinRequired:policyInput.checkinRequired ?? currentPolicy.checkinRequired,
+      checkoutRequired:policyInput.checkoutRequired ?? currentPolicy.checkoutRequired,
+      durationRequired:policyInput.durationRequired ?? currentPolicy.durationRequired,
+      staffRequired:policyInput.staffRequired ?? currentPolicy.staffRequired,
+      signatureRequired:policyInput.signatureRequired ?? currentPolicy.signatureRequired,
+      minDurationRatio:Number(policyInput.minDurationRatio ?? currentPolicy.minDurationRatio),
+    };
+    if (!Number.isFinite(nextPolicy.minDurationRatio) || nextPolicy.minDurationRatio<0 || nextPolicy.minDurationRatio>1) {
+      return res.status(400).json({ok:false,error:"INVALID_MIN_DURATION_RATIO"});
+    }
+
+    const iso=(value)=>new Date(value).toISOString();
+    const before={
+      title:activity.title,category:activity.category,location:activity.location,
+      startAt:iso(activity.startAt),endAt:iso(activity.endAt),
+      checkinOpenAt:iso(activity.checkinOpenAt),checkinCloseAt:iso(activity.checkinCloseAt),
+      checkoutOpenAt:iso(activity.checkoutOpenAt),checkoutCloseAt:iso(activity.checkoutCloseAt),
+      policy:{
+        qrRequired:Boolean(currentPolicy.qrRequired),
+        identityRequired:Boolean(currentPolicy.identityRequired),
+        checkinRequired:Boolean(currentPolicy.checkinRequired),
+        checkoutRequired:Boolean(currentPolicy.checkoutRequired),
+        durationRequired:Boolean(currentPolicy.durationRequired),
+        staffRequired:Boolean(currentPolicy.staffRequired),
+        signatureRequired:Boolean(currentPolicy.signatureRequired),
+        minDurationRatio:Number(currentPolicy.minDurationRatio),
+      },
+    };
+    const after={
+      title,category,location,
+      startAt:iso(startAt),endAt:iso(endAt),
+      checkinOpenAt:iso(checkinOpenAt),checkinCloseAt:iso(checkinCloseAt),
+      checkoutOpenAt:iso(checkoutOpenAt),checkoutCloseAt:iso(checkoutCloseAt),
+      policy:{...nextPolicy},
+    };
+
+    const changedFields=[];
+    for (const key of ["title","category","location","startAt","endAt","checkinOpenAt","checkinCloseAt","checkoutOpenAt","checkoutCloseAt"]) {
+      if (before[key]!==after[key]) changedFields.push(key);
+    }
+    for (const key of ["qrRequired","identityRequired","checkinRequired","checkoutRequired","durationRequired","staffRequired","signatureRequired","minDurationRatio"]) {
+      if (before.policy[key]!==after.policy[key]) changedFields.push("policy."+key);
+    }
+
+    if (!changedFields.length) {
+      return res.json({ok:true,noChange:true,lifecycle,activity});
+    }
+
+    if (lifecycle==="ACTIVE") {
+      const allowedActiveFields=new Set(["title","category","location"]);
+      const restricted=changedFields.filter(key=>!allowedActiveFields.has(key));
+      if (restricted.length) {
+        return res.status(409).json({
+          ok:false,error:"ACTIVITY_EDIT_RESTRICTED_DURING_ACTIVITY",
+          lifecycle,restrictedFields:restricted,
+        });
+      }
+      if (reason.length<10) {
+        return res.status(400).json({ok:false,error:"ACTIVITY_EDIT_REASON_REQUIRED",lifecycle});
+      }
+    }
+
+    const duplicate=await prisma.activity.findFirst({
+      where:{
+        id:{not:activity.id},
+        organizerId:activity.organizerId,
+        title:{equals:title,mode:"insensitive"},
+        location,
+        startAt,
+        endAt,
+      },
+      select:{id:true,title:true},
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        ok:false,error:"ACTIVITY_DUPLICATE",
+        existingActivityId:duplicate.id,
+      });
+    }
+
+    const scheduleOrQrChanged=changedFields.some(key=>
+      ["startAt","endAt","checkinOpenAt","checkinCloseAt","checkoutOpenAt","checkoutCloseAt","policy.qrRequired"].includes(key)
+    );
+
+    const result=await prisma.$transaction(async(tx)=>{
+      let qrTokensRevoked=0;
+      if (scheduleOrQrChanged) {
+        const revoked=await tx.qrToken.updateMany({
+          where:{activityId:activity.id,revokedAt:null,expiresAt:{gt:new Date()}},
+          data:{revokedAt:new Date()},
+        });
+        qrTokensRevoked=revoked.count;
+      }
+
+      const updated=await tx.activity.update({
+        where:{id:activity.id},
+        data:{
+          title,category,location,startAt,endAt,
+          checkinOpenAt,checkinCloseAt,checkoutOpenAt,checkoutCloseAt,
+          policy:{
+            upsert:{
+              create:{...nextPolicy},
+              update:{...nextPolicy},
+            },
+          },
+        },
+        include:{
+          policy:true,
+          organizer:{select:{id:true,employeeId:true,name:true}},
+          roleAssignments:{
+            include:{user:{select:{id:true,employeeId:true,name:true}}},
+            orderBy:{assignedAt:"asc"},
+          },
+          _count:{select:{participants:true}},
+        },
+      });
+
+      await tx.auditLog.create({
+        data:{
+          actorId:actorId(req),
+          action:lifecycle==="ACTIVE"?"ACTIVITY_UPDATED_DURING_ACTIVE":"ACTIVITY_UPDATED",
+          entityType:"Activity",
+          entityId:activity.id,
+          metadata:{
+            lifecycle,
+            changedFields,
+            reason:reason||null,
+            before,
+            after,
+            qrTokensRevoked,
+          },
+        },
+      });
+      return {updated,qrTokensRevoked};
+    });
+
+    res.json({
+      ok:true,
+      lifecycle,
+      changedFields,
+      qrTokensRevoked:result.qrTokensRevoked,
+      activity:result.updated,
+    });
+  } catch(error) {
+    res.status(400).json({ok:false,error:error.message});
+  }
+});
+
 app.get("/api/activities/:activityId/manage", async (req, res) => {
   const activity = await prisma.activity.findUnique({
     where: { id:req.params.activityId },
