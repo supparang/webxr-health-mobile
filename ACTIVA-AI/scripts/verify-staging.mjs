@@ -55,6 +55,26 @@ export async function verifyStaging(options, fetchImpl = fetch) {
       manualAcceptanceRequired: ["GOOGLE_CONSOLE_ORIGIN_AND_AUDIENCE", "REAL_WORKSPACE_DOMAIN_CONFIRMATION", "GOOGLE_SIGN_IN_TO_APPROVED_ACTIVE_USER", "ROLE_AND_INACTIVE_USER_ACCEPTANCE", "POSTGRESQL_BACKUP_RESTORE", "OPERATIONAL_AND_PRIVACY_SIGN_OFF"]
     };
   }
+  const live = await request("/api/live", { headers: { Origin: origin }, json: true });
+  record("LIVENESS_PROBE",
+    live?.status === 200 &&
+    live.body?.ok === true &&
+    live.body?.service === "ACTIVA-AI" &&
+    live.body?.releaseVersion === RELEASE &&
+    live.body?.deploymentTier === "STAGING"
+  );
+
+  const ready = await request("/api/ready", { headers: { Origin: origin }, json: true });
+  record("READINESS_PROBE",
+    ready?.status === 200 &&
+    ready.body?.ok === true &&
+    ready.body?.ready === true &&
+    ready.body?.releaseVersion === RELEASE &&
+    ready.body?.deploymentTier === "STAGING" &&
+    ready.body?.database === "connected" &&
+    ready.body?.authenticationReady === true
+  );
+
   const health = await request("/api/health", { headers: { Origin: origin }, json: true });
   record("HEALTH_REACHABLE", health?.status === 200);
   if (!health || health.status !== 200) return report();
