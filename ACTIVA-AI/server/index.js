@@ -3269,6 +3269,7 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     : false;
 
   const blockers = [];
+  if (deploymentTier() !== "PRODUCTION") blockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) blockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (criticalIssues.length) blockers.push("CRITICAL_DATA_QUALITY");
@@ -3278,6 +3279,12 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
 
   const gate = blockers.length ? "HOLD" : "GO";
   const scenarios = [
+    {
+      id: "DEPLOYMENT_TIER",
+      title: "Production GO is available only on the production deployment tier",
+      status: deploymentTier() === "PRODUCTION" ? "PASS" : "HOLD",
+      evidence: { deploymentTier: deploymentTier(), productionGoEnabled: productionGoEnabled() },
+    },
     {
       id: "SECURITY_CONFIG",
       title: "Production signing and research hashing configuration",
@@ -3327,6 +3334,8 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
   res.json({
     ok: true,
     releaseVersion: RELEASE_VERSION,
+    deploymentTier: deploymentTier(),
+    productionGoEnabled: productionGoEnabled(),
     gate,
     blockers,
     generatedAt: now.toISOString(),
