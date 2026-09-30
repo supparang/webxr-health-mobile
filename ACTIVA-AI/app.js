@@ -11,6 +11,7 @@
   const PUBLIC_CONFIG = window.ACTIVA_CONFIG || {};
   const RELEASE_VERSION = PUBLIC_CONFIG.releaseVersion || "ACTIVA-AI-1.0.15";
   const EXPECTED_GOOGLE_CLIENT_ID = String(PUBLIC_CONFIG.googleClientId || "").trim();
+  const EXPECTED_GOOGLE_PILOT_CLIENT_ID = String(PUBLIC_CONFIG.googlePilotClientId || "").trim();
 
   function normalizeApiBase(value) {
     const raw=String(value||"").trim();
@@ -552,9 +553,10 @@
       '<div id="serverHealthMsg"></div>'+
       '<div class="actions">'+
         '<button class="btn primary" id="demoLogin">เข้า Demo Mode</button>'+
-        '<button class="btn secondary" id="serverLogin">เตรียมเข้าสู่ระบบด้วย Google</button>'+
+        '<button class="btn secondary" id="serverLogin">เข้าสู่ระบบองค์กร</button>'+
+        '<button class="btn secondary" id="serverPilotLogin">เข้าสู่ระบบ Pilot Gmail</button>'+
       '</div>'+
-      '<div id="googleSignInWrap" hidden style="margin-top:14px"><div id="googleSignInButton"></div></div>'+
+      '<div id="googleSignInWrap" hidden style="margin-top:14px"><div id="googleSignInRouteLabel" class="muted" style="margin-bottom:8px"></div><div id="googleSignInButton"></div></div>'+
       '<div class="hint"><b>Demo Mode:</b> localStorage + Synthetic Data<br>'+
         '<b>Pilot/API Mode:</b> Browser → HTTPS Backend API → Prisma → PostgreSQL<br>'+
         '<b>Security:</b> PostgreSQL credential อยู่ฝั่ง server เท่านั้น ไม่ส่งมาที่ browser</div>'+
@@ -580,7 +582,10 @@
         host.innerHTML='<div class="alert '+(authReady?'ok':'warn')+'"><b>เชื่อมต่อ Backend สำเร็จ</b><br>'+
           'API: '+esc(base)+'<br>'+
           'Release: '+esc(health.releaseVersion||health.version||"—")+' • PostgreSQL: connected<br>'+
-          'Authentication: '+(authReady?'ตั้งค่าครบ ยังต้องทดสอบ Google Sign-In จริง และไม่ใช่ Production GO':'ยังตั้งค่าไม่ครบ ('+esc(health.authentication?.mode||"DISABLED")+')')+'</div>';
+          'Authentication: '+(authReady?'องค์กรพร้อม':'ยังตั้งค่าไม่ครบ ('+esc(health.authentication?.mode||"DISABLED")+')')+
+          (Number(health.authentication?.allowedEmailCount||0)>0
+            ? '<br>Pilot Gmail: '+(health.authentication?.pilotEmailReady?'พร้อม':'รอ GOOGLE_PILOT_CLIENT_ID')
+            : '')+'</div>';
         return health;
       } catch(error) {
         host.innerHTML=errorBox(error);
@@ -613,7 +618,7 @@
       }
     }
 
-    async function prepareGoogleLogin() {
+    async function prepareGoogleLogin(route="workspace") {
       const msg=document.getElementById("loginMsg");
       clearPilotAuthentication();
       const health=await probeServer();
@@ -623,15 +628,34 @@
 
       if(health.authentication?.mode!=="GOOGLE_OIDC" ||
          health.authentication?.provider!=="GOOGLE" ||
-         !(health.authentication?.configurationReady===true || health.authentication?.productionReady===true) ||
-         !health.authentication?.googleClientId) {
+         !(health.authentication?.configurationReady===true || health.authentication?.productionReady===true)) {
         msg.innerHTML='<div class="alert bad"><b>Google Login ยังไม่พร้อม</b><br>'+
-          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC, GOOGLE_CLIENT_ID และอย่างน้อยหนึ่ง allowlist: GOOGLE_ALLOWED_DOMAINS หรือ GOOGLE_ALLOWED_EMAILS</div>';
+          'Backend ต้องตั้ง ACTIVA_AUTH_MODE=GOOGLE_OIDC และ Google OAuth configuration ให้ครบ</div>';
         return;
       }
-      if(!EXPECTED_GOOGLE_CLIENT_ID || health.authentication.googleClientId!==EXPECTED_GOOGLE_CLIENT_ID) {
-        msg.innerHTML='<div class="alert bad">GOOGLE_CLIENT_ID_MISMATCH: Client ID ของ Backend ไม่ตรงกับแอปนี้ กรุณาตรวจการตั้งค่าก่อนเข้าสู่ระบบ</div>';
-        return;
+
+      const sameOrigin=Boolean(location?.origin && base===location.origin);
+      let selectedClientId="";
+      let routeLabel="";
+      if(route==="pilot"){
+        selectedClientId=String(health.authentication?.googlePilotClientId||"").trim();
+        routeLabel="Pilot Gmail";
+        if(!health.authentication?.pilotEmailReady || !selectedClientId){
+          msg.innerHTML='<div class="alert warn"><b>Pilot Gmail ยังไม่พร้อม</b><br>'+
+            'ให้เพิ่ม GOOGLE_PILOT_CLIENT_ID ของ OAuth client แบบ External/Testing ใน Render โดยคง GOOGLE_CLIENT_ID เดิมสำหรับ Internal organization ไว้</div>';
+          return;
+        }
+        if(!sameOrigin && (!EXPECTED_GOOGLE_PILOT_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_PILOT_CLIENT_ID)){
+          msg.innerHTML='<div class="alert bad">GOOGLE_PILOT_CLIENT_ID_MISMATCH: Pilot Client ID ของ Backend ไม่ตรงกับ public configuration</div>';
+          return;
+        }
+      }else{
+        selectedClientId=String(health.authentication?.googleClientId||"").trim();
+        routeLabel="บัญชีองค์กร";
+        if(!selectedClientId || !EXPECTED_GOOGLE_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_CLIENT_ID){
+          msg.innerHTML='<div class="alert bad">GOOGLE_CLIENT_ID_MISMATCH: Client ID ของ Backend ไม่ตรงกับแอปนี้ กรุณาตรวจการตั้งค่าก่อนเข้าสู่ระบบ</div>';
+          return;
+        }
       }
 
       try {
@@ -646,10 +670,12 @@
       const wrap=document.getElementById("googleSignInWrap");
       const button=document.getElementById("googleSignInButton");
       wrap.hidden=false;
+      const routeHost=document.getElementById("googleSignInRouteLabel");
+      if(routeHost) routeHost.textContent="เส้นทางเข้าสู่ระบบ: "+routeLabel;
       button.innerHTML="";
 
       window.google.accounts.id.initialize({
-        client_id:EXPECTED_GOOGLE_CLIENT_ID,
+        client_id:selectedClientId,
         callback:async(response)=>{
           if(!currentGoogleAttempt(generation,base) || validatedGoogleBase!==base) return;
           if(!response?.credential) {
@@ -693,9 +719,9 @@
       const policies=[];
       if(domains) policies.push("Google Workspace: "+domains);
       if(emailCount>0) policies.push("บัญชี Google Pilot ที่อนุญาตรายอีเมล "+emailCount+" บัญชี");
-      msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบ Google Sign-In</b><br>'+
+      msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบ Google Sign-In — '+esc(routeLabel)+'</b><br>'+
         'นโยบายบัญชี: '+esc(policies.join(" • ")||"ตามที่ backend กำหนด")+
-        '<br>ต้องลงชื่อเข้าใช้อีกครั้งเมื่อโหลดหน้าใหม่ สถานะนี้ไม่ใช่ Production GO</div>';
+        '<br>Production/Internal client และ Pilot Gmail client แยกจากกัน</div>';
     }
 
     document.getElementById("checkServer").onclick = probeServer;
@@ -705,7 +731,8 @@
       document.getElementById("loginMsg").innerHTML="";
     };
     document.getElementById("demoLogin").onclick = () => login("demo");
-    document.getElementById("serverLogin").onclick = prepareGoogleLogin;
+    document.getElementById("serverLogin").onclick = () => prepareGoogleLogin("workspace");
+    document.getElementById("serverPilotLogin").onclick = () => prepareGoogleLogin("pilot");
     document.getElementById("resetDemo").onclick = () => {
       if (window.ACTIVA_DEMO_API) window.ACTIVA_DEMO_API.reset();
       document.getElementById("loginMsg").innerHTML = '<div class="alert ok">ล้างข้อมูล Demo แล้ว</div>';
