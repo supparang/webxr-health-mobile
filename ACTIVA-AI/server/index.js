@@ -23,6 +23,27 @@ const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 const allowedOrigins = configuredOrigins();
 
 app.disable("x-powered-by");
+app.use((req, res, next) => {
+  const incoming = String(req.get("x-request-id") || "").trim();
+  const requestId = /^[A-Za-z0-9._:-]{8,128}$/.test(incoming) ? incoming : crypto.randomUUID();
+  req.activaRequestId = requestId;
+  res.set("X-Request-Id", requestId);
+  const startedAt = process.hrtime.bigint();
+  res.on("finish", () => {
+    if (!req.path.startsWith("/api/")) return;
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    console.log(JSON.stringify({
+      type: "http_access",
+      requestId,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      durationMs: Math.round(durationMs * 10) / 10,
+      deploymentTier: deploymentTier()
+    }));
+  });
+  next();
+});
 app.use((_req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("X-Frame-Options", "DENY");
@@ -512,6 +533,60 @@ function inferenceFeatureRow(r) {
     scan_attempts: r.scanAttempts,
   };
 }
+
+app.get("/api/live", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "ACTIVA-AI",
+    releaseVersion: RELEASE_VERSION,
+    deploymentTier: deploymentTier(),
+  });
+});
+
+app.get("/api/ready", async (_req, res) => {
+  try {
+    const configErrors = process.env.NODE_ENV === "production" ? deploymentConfigurationErrors() : [];
+    if (configErrors.length) {
+      return res.status(503).json({
+        ok: false,
+        ready: false,
+        releaseVersion: RELEASE_VERSION,
+        deploymentTier: deploymentTier(),
+        error: "UNSAFE_DEPLOYMENT_CONFIGURATION",
+        blockers: configErrors,
+      });
+    }
+    await prisma.$queryRawUnsafe("SELECT 1");
+    if (!productionAuthenticationReady()) {
+      return res.status(503).json({
+        ok: false,
+        ready: false,
+        releaseVersion: RELEASE_VERSION,
+        deploymentTier: deploymentTier(),
+        database: "connected",
+        error: "AUTHENTICATION_NOT_READY",
+      });
+    }
+    res.json({
+      ok: true,
+      ready: true,
+      releaseVersion: RELEASE_VERSION,
+      deploymentTier: deploymentTier(),
+      database: "connected",
+      authenticationReady: true,
+    });
+  } catch (error) {
+    console.error("Readiness check failed:", error?.name || "Error");
+    res.status(503).json({
+      ok: false,
+      ready: false,
+      releaseVersion: RELEASE_VERSION,
+      deploymentTier: deploymentTier(),
+      database: "unavailable",
+      error: "DATABASE_UNAVAILABLE",
+    });
+  }
+});
 
 app.get("/api/health", async (_req, res) => {
   try {
