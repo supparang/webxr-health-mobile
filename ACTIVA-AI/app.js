@@ -652,7 +652,7 @@
       }else{
         selectedClientId=String(health.authentication?.googleClientId||"").trim();
         routeLabel="บัญชีองค์กร";
-        if(!selectedClientId || !EXPECTED_GOOGLE_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_CLIENT_ID){
+        if(!selectedClientId || (!sameOrigin && (!EXPECTED_GOOGLE_CLIENT_ID || selectedClientId!==EXPECTED_GOOGLE_CLIENT_ID))){
           msg.innerHTML='<div class="alert bad">GOOGLE_CLIENT_ID_MISMATCH: Client ID ของ Backend ไม่ตรงกับแอปนี้ กรุณาตรวจการตั้งค่าก่อนเข้าสู่ระบบ</div>';
           return;
         }
