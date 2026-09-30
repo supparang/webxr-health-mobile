@@ -1,0 +1,190 @@
+name: ACTIVA-AI Production First Admin Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type BOOTSTRAP-ACTIVA-PRODUCTION-ADMIN to continue'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-admin:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_AUTH_MODE: GOOGLE_OIDC
+      GOOGLE_ALLOWED_DOMAINS: ${{ secrets.ACTIVA_GOOGLE_ALLOWED_DOMAINS }}
+      BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.ACTIVA_PRODUCTION_ADMIN_EMAIL }}
+      BOOTSTRAP_ADMIN_EMPLOYEE_ID: ${{ secrets.ACTIVA_PRODUCTION_ADMIN_EMPLOYEE_ID }}
+      BOOTSTRAP_ADMIN_NAME: ${{ secrets.ACTIVA_PRODUCTION_ADMIN_NAME }}
+      BOOTSTRAP_ADMIN_REASON: ${{ secrets.ACTIVA_PRODUCTION_ADMIN_REASON }}
+      ACTIVA_RELEASE_REF: 729d38e2059ae12d6135feaba71ebd5caa1728f9
+
+    steps:
+      - name: Validate operator confirmation
+        shell: bash
+        working-directory: .
+        run: |
+          test "${{ inputs.confirm }}" = "BOOTSTRAP-ACTIVA-PRODUCTION-ADMIN" || {
+            echo "Confirmation text does not match. Refusing production admin bootstrap."
+            exit 1
+          }
+
+      - name: Checkout reviewed ACTIVA-AI release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACTIVA_RELEASE_REF }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Validate production target and migration set
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+
+          const raw = process.env.DATABASE_URL || '';
+          if (!raw) throw new Error('ACTIVA_PRODUCTION_DATABASE_URL secret is missing');
+          const url = new URL(raw);
+          if (!url.hostname.endsWith('.neon.tech')) {
+            throw new Error('Refusing bootstrap: target is not a Neon database');
+          }
+
+          const required = [
+            'ACTIVA_GOOGLE_ALLOWED_DOMAINS',
+            'ACTIVA_PRODUCTION_ADMIN_EMAIL',
+            'ACTIVA_PRODUCTION_ADMIN_EMPLOYEE_ID',
+            'ACTIVA_PRODUCTION_ADMIN_NAME',
+            'ACTIVA_PRODUCTION_ADMIN_REASON'
+          ];
+          const envMap = {
+            ACTIVA_GOOGLE_ALLOWED_DOMAINS: process.env.GOOGLE_ALLOWED_DOMAINS,
+            ACTIVA_PRODUCTION_ADMIN_EMAIL: process.env.BOOTSTRAP_ADMIN_EMAIL,
+            ACTIVA_PRODUCTION_ADMIN_EMPLOYEE_ID: process.env.BOOTSTRAP_ADMIN_EMPLOYEE_ID,
+            ACTIVA_PRODUCTION_ADMIN_NAME: process.env.BOOTSTRAP_ADMIN_NAME,
+            ACTIVA_PRODUCTION_ADMIN_REASON: process.env.BOOTSTRAP_ADMIN_REASON
+          };
+          const missing = required.filter(k => !String(envMap[k] || '').trim());
+          if (missing.length) throw new Error('Missing required production bootstrap secrets: ' + missing.join(', '));
+
+          const prisma = new PrismaClient();
+          try {
+            const rows = await prisma.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            );
+            const names = rows.map(r => r.migration_name);
+            const expected = [
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation'
+            ];
+            if (JSON.stringify(names) !== JSON.stringify(expected)) {
+              throw new Error('Refusing bootstrap: production migration set does not match reviewed release');
+            }
+
+            const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
+            if (adminCount !== 0) {
+              throw new Error('Refusing bootstrap: an administrator already exists');
+            }
+
+            console.log('Production bootstrap preflight passed: Neon target, reviewed migrations, zero existing admins');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Dry-run first administrator bootstrap
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          import { bootstrapAdmin, bootstrapConfig } from './scripts/bootstrap-admin.mjs';
+
+          const prisma = new PrismaClient();
+          try {
+            const config = bootstrapConfig(process.env, []);
+            const result = await bootstrapAdmin(prisma, config);
+            if (result.status !== 'dry-run' || result.changed !== false) {
+              throw new Error('Bootstrap dry-run did not return the expected no-change result');
+            }
+            console.log('Production first-admin dry-run passed; identity values are intentionally redacted');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Apply first administrator bootstrap
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          import { bootstrapAdmin, bootstrapConfig } from './scripts/bootstrap-admin.mjs';
+
+          const prisma = new PrismaClient();
+          try {
+            const config = bootstrapConfig(process.env, ['--apply']);
+            const result = await bootstrapAdmin(prisma, config);
+            if (result.status !== 'created' || result.changed !== true) {
+              throw new Error('First administrator was not created as expected');
+            }
+            console.log('Production first administrator created; identity values are intentionally redacted');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Verify administrator and audit record
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+
+          const prisma = new PrismaClient();
+          try {
+            const admins = await prisma.user.findMany({
+              where: { role: 'ADMIN', status: 'ACTIVE' },
+              select: { id: true }
+            });
+            if (admins.length !== 1) {
+              throw new Error('Verification failed: expected exactly one ACTIVE administrator');
+            }
+
+            const auditCount = await prisma.auditLog.count({
+              where: {
+                actorId: admins[0].id,
+                action: 'ADMIN_BOOTSTRAPPED',
+                entityType: 'User',
+                entityId: admins[0].id
+              }
+            });
+            if (auditCount !== 1) {
+              throw new Error('Verification failed: expected exactly one ADMIN_BOOTSTRAPPED audit record');
+            }
+
+            console.log('Production admin verification passed: exactly one ACTIVE ADMIN and one bootstrap audit record');
+            console.log('No release decision was made. Production GO remains governed separately.');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
