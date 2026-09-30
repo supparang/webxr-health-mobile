@@ -96,6 +96,8 @@ jobs:
           node --check tests/smoke.mjs
           node --check tests/demo-release-guard.mjs
           node --check tests/auth-readiness.mjs
+          node --check scripts/verify-production.mjs
+          node --check tests/production-verifier.mjs
 
       - name: Authentication readiness guard
         run: |
@@ -103,6 +105,9 @@ jobs:
           npm run test:frontend-auth
           npm run test:deployment
           node tests/bootstrap-admin.mjs
+
+      - name: Production monitor validation guard
+        run: npm run test:production-monitor
 
       - name: Build production container
         run: |
