@@ -974,7 +974,11 @@ app.get("/api/attendance", async (req, res) => {
       },
       staffVerification: true,
       consistencyResult: true,
-      humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+      humanReviews: {
+        orderBy: { reviewedAt: "desc" },
+        take: 1,
+        include: { reviewer: { select: { id: true, employeeId: true, name: true } } },
+      },
       participantResponses: { orderBy: { submittedAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
