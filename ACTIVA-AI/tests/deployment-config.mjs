@@ -4,6 +4,7 @@ import { deploymentConfigurationErrors, productionGoEnabled } from "../server/de
 const valid = {
   NODE_ENV: "production", ACTIVA_AUTH_MODE: "GOOGLE_OIDC",
   GOOGLE_CLIENT_ID: "517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com",
+  GOOGLE_PILOT_CLIENT_ID: "",
   GOOGLE_ALLOWED_DOMAINS: "chandra.ac.th", GOOGLE_ALLOWED_EMAILS: "", ALLOWED_ORIGINS: "https://supparang.github.io",
   DATABASE_URL: "postgresql://user:unit-only-db-password@db.internal:5432/activa?sslmode=require",
   QR_SIGNING_SECRET: "5e6c9d8a".repeat(8), RESEARCH_HASH_SALT: "7a3f4b2c".repeat(8),
@@ -15,7 +16,7 @@ assert.equal(productionGoEnabled({}), false);
 assert.equal(productionGoEnabled({ ACTIVA_PRODUCTION_GO_ENABLED: "TRUE" }), false);
 for (const [key, values] of Object.entries({
   NODE_ENV: ["development"], ACTIVA_AUTH_MODE: ["DEMO_HEADER", "DISABLED", "SSO"],
-  GOOGLE_CLIENT_ID: ["", "placeholder"], GOOGLE_ALLOWED_DOMAINS: ["*", "@chandra.ac.th", "https://chandra.ac.th"],
+  GOOGLE_CLIENT_ID: ["", "placeholder"], GOOGLE_PILOT_CLIENT_ID: ["placeholder","https://999999999999-pilotclient123.apps.googleusercontent.com"], GOOGLE_ALLOWED_DOMAINS: ["*", "@chandra.ac.th", "https://chandra.ac.th"],
   GOOGLE_ALLOWED_EMAILS: ["*", "@gmail.com", "https://gmail.com", "person@gmail"],
   ALLOWED_ORIGINS: ["", "*", "http://supparang.github.io", "https://supparang.github.io/", "https://supparang.github.io/path", "https://user:pass@supparang.github.io"],
   DATABASE_URL: ["", "https://db.internal", "postgresql://activa:activa_password@db.internal/activa"],
