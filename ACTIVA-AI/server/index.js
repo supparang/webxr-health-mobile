@@ -8,7 +8,7 @@ import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
-import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled } from "./deployment-config.js";
+import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled, deploymentTier } from "./deployment-config.js";
 
 if (process.env.NODE_ENV === "production") {
   const errors = deploymentConfigurationErrors();
@@ -25,7 +25,15 @@ const allowedOrigins = configuredOrigins();
 app.disable("x-powered-by");
 app.use((_req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
+  res.set("X-Frame-Options", "DENY");
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  // Google Identity Services popup login requires opener compatibility.
+  res.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.set("X-DNS-Prefetch-Control", "off");
+  if (process.env.NODE_ENV === "production" && deploymentTier() === "PRODUCTION") {
+    res.set("Strict-Transport-Security", "max-age=31536000");
+  }
   next();
 });
 app.use("/api", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
@@ -521,6 +529,7 @@ app.get("/api/health", async (_req, res) => {
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
+      deploymentTier: deploymentTier(),
       productionGoEnabled: productionGoEnabled(),
       authentication: {
         mode: authenticationMode(),
@@ -537,7 +546,7 @@ app.get("/api/health", async (_req, res) => {
   } catch (error) {
     console.error("Database health check failed:", error?.name || "Error");
     res.status(503).json({ ok: false, version: "1.0.15",
-      releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
+      releaseVersion: RELEASE_VERSION, deploymentTier: deploymentTier(), database: "unavailable", error: "DATABASE_UNAVAILABLE" });
   }
 });
 
@@ -3537,6 +3546,7 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
   const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
 
   const hardBlockers = [];
+  if (deploymentTier() !== "PRODUCTION") hardBlockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) hardBlockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
