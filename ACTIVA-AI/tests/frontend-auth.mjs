@@ -21,7 +21,7 @@ const user={id:"user-1",employeeId:"TEST001",name:"Test",role:"PARTICIPANT"};
 const response=(data,status=200)=>({ok:status>=200&&status<300,status,json:async()=>data});
 const deferred=()=>{let resolve; const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 
-function harness({storage={},google=true,fetchImpl}={}) {
+function harness({storage={},google=true,fetchImpl,locationHref="https://supparang.github.io/webxr-health-mobile/ACTIVA-AI/"}={}) {
   const saved=new Map(Object.entries(storage));
   const elements=new Map();
   const calls=[];
@@ -42,7 +42,7 @@ function harness({storage={},google=true,fetchImpl}={}) {
   if(google) window.google=googleApi;
   const context=vm.createContext({
     window,URL,Headers,console,
-    location:new URL("https://supparang.github.io/webxr-health-mobile/ACTIVA-AI/"),
+    location:new URL(locationHref),
     sessionStorage:{getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,String(value)),removeItem:key=>saved.delete(key)},
     document:{
       getElementById:element,
@@ -96,6 +96,19 @@ function harness({storage={},google=true,fetchImpl}={}) {
   await h.element("serverLogin").onclick();
   assert.equal(h.callbacks.length,0,"mismatched audience must never initialize Google");
   assert.match(h.element("loginMsg").innerHTML,/GOOGLE_CLIENT_ID_MISMATCH/);
+}
+
+{
+  const productionClientId="999999999999-productionclient123.apps.googleusercontent.com";
+  const productionHealth={...health,authentication:{...health.authentication,googleClientId:productionClientId}};
+  const h=harness({
+    locationHref:"https://activa-ai-production-api.onrender.com/",
+    fetchImpl:url=>response(url.endsWith("/api/health")?productionHealth:{user})
+  });
+  h.loginScreen("https://activa-ai-production-api.onrender.com");
+  await h.element("serverLogin").onclick();
+  assert.equal(h.callbacks.length,1,"same-origin Render must accept the backend-declared OAuth audience");
+  assert.equal(h.callbacks[0].client_id,productionClientId);
 }
 
 {
