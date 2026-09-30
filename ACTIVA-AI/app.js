@@ -1923,7 +1923,15 @@
         api("/api/activities/"+encodeURIComponent(activityId)+"/manage"),
         loadUsers()
       ]);
-      const a=detail.activity, caps=detail.capabilities||{};
+      const a=detail.activity, rawCaps=detail.capabilities||{};
+      const immutableClosed=Boolean(a.pilotClosedAt);
+      const caps={
+        ...rawCaps,
+        canAssignCo: !immutableClosed && Boolean(rawCaps.canAssignCo),
+        canAssignVerifier: !immutableClosed && Boolean(rawCaps.canAssignVerifier),
+        canManageParticipants: !immutableClosed && Boolean(rawCaps.canManageParticipants),
+      };
+      const participationDisabled=caps.canManageParticipants?"":"disabled";
       const activeUsers=users.filter(u=>u.status==="ACTIVE");
       const coIds=(a.roleAssignments||[]).filter(x=>x.role==="CO_ORGANIZER").map(x=>x.userId);
       const verifierIds=(a.roleAssignments||[]).filter(x=>x.role==="VERIFIER").map(x=>x.userId);
@@ -1932,8 +1940,9 @@
       const allowedDepts=new Set(Array.isArray(a.allowedDepartmentCodes)?a.allowedDepartmentCodes:[]);
 
       host.innerHTML=
-        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</span></p></div><div class="actions manager-head-actions">'+(can("ADMIN")?'<button class="btn mini bad" id="deleteEmptyActivity">ลบกิจกรรมว่าง</button>':'')+'<button class="btn mini secondary" id="closeActivityManager">ปิด</button></div></div>'+
+        '<div class="panel activity-manager"><div class="section-head"><div><h2>ผู้รับผิดชอบและผู้เข้าร่วมกิจกรรม</h2><p><b>'+esc(a.title)+'</b><br><span class="muted">#'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</span></p></div><div class="actions manager-head-actions">'+(can("ADMIN")&&!immutableClosed?'<button class="btn mini bad" id="deleteEmptyActivity">ลบกิจกรรมว่าง</button>':'')+'<button class="btn mini secondary" id="closeActivityManager">ปิด</button></div></div>'+
         '<div class="hint"><b>ผู้จัดกิจกรรมหลัก:</b> '+esc(a.organizer?.employeeId+" • "+a.organizer?.name)+'</div>'+
+        (immutableClosed?'<div class="alert info"><b>กิจกรรมถูกปิดแบบ Immutable แล้ว</b><br>รายชื่อผู้รับผิดชอบ ผู้ตรวจสอบ และผู้เข้าร่วมเป็นข้อมูลอ่านอย่างเดียว ไม่สามารถแก้ย้อนหลังได้</div>':'')+
         '<div class="split assignment-role-grid">'+
           '<section class="assignment-section assignment-section-co"><div class="assignment-section-title"><span class="assignment-step">1</span><div><h3>ผู้จัดกิจกรรมร่วม (Co-organizer)</h3><p class="muted">'+(caps.canAssignCo?'เลือกเฉพาะผู้ที่ต้องช่วยจัดกิจกรรมนี้ ถ้าไม่ต้องการให้ปล่อยเป็น 0 คน':'รายชื่อผู้จัดร่วมที่ได้รับมอบหมายในกิจกรรมนี้')+'</p></div></div>'+
             '<div class="assignment-governance">'+
@@ -1961,9 +1970,9 @@
         '<hr><section class="assignment-section assignment-section-participant"><div class="assignment-section-title"><span class="assignment-step">3</span><div><h3>กำหนดผู้เข้าร่วมกิจกรรม</h3><p class="muted">การเป็นผู้เข้าร่วมเป็นสถานะการเข้าร่วม ไม่ชนกับ Owner / Co-organizer / Reviewer บุคคลเดียวกันจึงมี Attendance ของตนเองได้</p></div></div>'+
         '<div class="alert info"><b>กติกา:</b> Owner / Co-organizer / Reviewer สามารถอยู่ในรายชื่อผู้เข้าร่วมได้ แต่ Reviewer ห้ามยืนยันหรือตัดสิน Attendance ของตนเอง ระบบจะให้ Reviewer คนอื่นตรวจแทน</div>'+
         '<div class="participation-modes">'+
-          '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
-          '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
-          '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
+          '<label><input type="radio" name="participationMode" value="OPEN" '+(a.participationMode==="OPEN"?"checked":"")+' '+participationDisabled+'> <b>บุคลากรทุกคน</b><small>บุคลากรที่ใช้งานอยู่สามารถสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="ROSTER" '+(a.participationMode==="ROSTER"?"checked":"")+' '+participationDisabled+'> <b>เฉพาะรายชื่อที่กำหนด</b><small>เฉพาะบุคลากรที่เลือกไว้จึงสแกนเข้าร่วมได้</small></label>'+
+          '<label><input type="radio" name="participationMode" value="GROUP" '+(a.participationMode==="GROUP"?"checked":"")+' '+participationDisabled+'> <b>เฉพาะหน่วยงาน</b><small>จำกัดตามหน่วยงานของบุคลากร</small></label>'+
         '</div>'+
         '<div id="rosterBox"><h4>เลือกรายชื่อบุคลากร</h4>'+assignmentChecks(activeUsers,rosterIds,"rosterPerson",!caps.canManageParticipants,"rosterSearch","rosterCount","P001")+'</div>'+
         '<div id="groupBox"><h4>เลือกหน่วยงาน</h4><div class="assignment-list">'+depts.map(d=>
@@ -2479,6 +2488,7 @@
       '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select>'+
       '<small class="muted">Dynamic QR สำหรับ Check-in ของตนเองเท่านั้น ไม่ว่าบัญชีจะเป็น Owner / Co-organizer / Reviewer / Participant</small></div>'+
+      '<div id="ciLockMsg"></div>'+
       '<div class="actions scan-actions">'+
         '<button class="btn primary scan-btn" id="scanQrBtn">📷 สแกน QR</button>'+
         (appMode==="demo"?'<button class="btn demo-test" id="sameDeviceTestBtn">🧪 ทดสอบ QR บนเครื่องนี้</button>':'')+
@@ -2499,6 +2509,7 @@
           : '<option value="">ยังไม่มีรายการ Check-in ใน Demo storage นี้</option>')+
       '</select></div>'+
       '<div class="actions"><button class="btn secondary mini" id="refreshAttendanceRows">↻ รีเฟรชรายการ Check-in</button></div>'+
+      '<div id="recordLockMsg"></div>'+
       (!rows.length && appMode==="demo"
         ? '<div class="alert warn"><b>ยังไม่พบรายการสำหรับ Check-out</b><br>ถ้าเพิ่ง Check-in ในอีกแท็บของเบราว์เซอร์เดียวกัน ระบบจะรีเฟรชให้อัตโนมัติ หรือกด “รีเฟรชรายการ Check-in” ได้ทันที<br><br><b>ถ้า Check-in จากอีกอุปกรณ์:</b> Demo Mode เก็บ attendance ไว้ใน browser ของเครื่องที่สแกน จึงไม่ sync กลับมาที่เครื่องผู้จัด แม้ QR จะใช้ข้ามอุปกรณ์ได้ หากต้องการข้อมูลร่วมกันจริงให้ใช้ Server Mode + PostgreSQL</div>'
         : '')+
@@ -2541,6 +2552,29 @@
     if(storedAttendanceActivity&&ciActivitySelect&&[...ciActivitySelect.options].some(o=>o.value===storedAttendanceActivity)){
       ciActivitySelect.value=storedAttendanceActivity;
     }
+
+    function syncCheckinActions(){
+      const activity=activities.find(a=>a.id===ciActivitySelect?.value)||null;
+      const immutable=Boolean(activity?.pilotClosedAt);
+      const lockMsg=document.getElementById("ciLockMsg");
+      const controls=[
+        document.getElementById("scanQrBtn"),
+        document.getElementById("sameDeviceTestBtn"),
+        document.getElementById("manualTokenBtn"),
+        document.getElementById("ciBtn"),
+      ].filter(Boolean);
+      controls.forEach(control=>{
+        control.disabled=immutable;
+        control.title=immutable?"กิจกรรมปิดแบบ Immutable แล้ว ไม่สามารถบันทึก Check-in เพิ่มได้":"";
+      });
+      if(lockMsg){
+        lockMsg.innerHTML=immutable
+          ? '<div class="alert info"><b>กิจกรรมปิดแบบ Immutable แล้ว</b><br>Check-in/Check-out และหลักฐานของกิจกรรมนี้ถูกล็อกเพื่อรักษา Audit Trail</div>'
+          : "";
+      }
+    }
+    ciActivitySelect?.addEventListener("change",syncCheckinActions);
+    syncCheckinActions();
 
     const dashboardState={
       activityId:document.getElementById("ciAct")?.value || activities[0]?.id || "",
@@ -2883,16 +2917,24 @@
       const select=document.getElementById("coRecord");
       const scan=document.getElementById("coScanQrBtn");
       const testBtn=document.getElementById("sameDeviceCheckoutTestBtn");
+      const manual=document.getElementById("coManualTokenBtn");
       const assist=document.getElementById("assistCheckoutBtn");
       const staff=document.getElementById("staffBtn");
       const voidBtn=document.getElementById("voidBtn");
       const co=document.getElementById("coBtn");
+      const lockMsg=document.getElementById("recordLockMsg");
       if(!select)return;
       const selected=rows.find(r=>r.id===select.value);
       const done=Boolean(selected?.checkoutAt);
       const selectedActivity=selected
         ? activities.find(a=>a.id===(selected.activity?.id||selected.activityId)) || selected.activity || null
         : null;
+      const immutableClosed=Boolean(selectedActivity?.pilotClosedAt);
+      if(lockMsg){
+        lockMsg.innerHTML=immutableClosed
+          ? '<div class="alert info"><b>กิจกรรมถูกปิดแบบ Immutable แล้ว</b><br>รายการนี้อ่านอย่างเดียว ระบบไม่อนุญาต Check-out, Reviewer Verification, Void หรือการแก้หลักฐานย้อนหลัง</div>'
+          : "";
+      }
       const isSelf=Boolean(selected && (
         selected.userId===session?.id ||
         selected.user?.id===session?.id ||
@@ -2906,36 +2948,40 @@
 
       // Normal Dynamic QR checkout is always self-only.
       if(scan){
-        scan.disabled=!selected||done||!isSelf;
-        scan.textContent=done?"Check-out แล้ว":(!isSelf?"Check-out ได้เฉพาะตนเอง":"📷 สแกน Check-out QR");
-        scan.title=!isSelf?"Dynamic QR Check-out เป็นหลักฐานส่วนบุคคล ใช้แทนผู้อื่นไม่ได้":"";
+        scan.disabled=immutableClosed||!selected||done||!isSelf;
+        scan.textContent=immutableClosed?"กิจกรรมปิดแล้ว • Check-out ถูกล็อก":(done?"Check-out แล้ว":(!isSelf?"Check-out ได้เฉพาะตนเอง":"📷 สแกน Check-out QR"));
+        scan.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"Dynamic QR Check-out เป็นหลักฐานส่วนบุคคล ใช้แทนผู้อื่นไม่ได้":"");
       }
       if(testBtn){
-        testBtn.disabled=!selected||done||!isSelf;
-        testBtn.title=!isSelf?"ทดสอบ Check-out ได้เฉพาะ Attendance ของตนเอง":"";
+        testBtn.disabled=immutableClosed||!selected||done||!isSelf;
+        testBtn.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"ทดสอบ Check-out ได้เฉพาะ Attendance ของตนเอง":"");
+      }
+      if(manual){
+        manual.disabled=immutableClosed||!selected||done||!isSelf;
+        manual.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"กรอก Check-out Token ได้เฉพาะ Attendance ของตนเอง":"");
       }
       if(co){
-        co.disabled=!selected||done||!isSelf;
-        co.title=!isSelf?"ยืนยัน Check-out จาก Token ได้เฉพาะตนเอง":"";
+        co.disabled=immutableClosed||!selected||done||!isSelf;
+        co.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!isSelf?"ยืนยัน Check-out จาก Token ได้เฉพาะตนเอง":"");
       }
 
       // Assisted checkout is operational work: Owner / Co-organizer / ADMIN only.
       if(assist){
-        assist.disabled=!selected||done||!canOperateSelected;
-        assist.title=!canOperateSelected?"เฉพาะผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ADMIN ของกิจกรรมนี้":"";
+        assist.disabled=immutableClosed||!selected||done||!canOperateSelected;
+        assist.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(!canOperateSelected?"เฉพาะผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ADMIN ของกิจกรรมนี้":"");
       }
 
       // Reviewer may verify others only; never own Attendance.
       if(staff){
-        staff.disabled=!selected||Boolean(selected?.staffVerification)||!isAssignedReviewer||isSelf;
-        staff.textContent=selected?.staffVerification?"Reviewer ยืนยันแล้ว":(isSelf?"ห้ามยืนยันรายการตนเอง":"Reviewer ยืนยัน");
-        staff.title=isSelf?"SELF_REVIEW_FORBIDDEN — Reviewer ห้ามยืนยัน Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+        staff.disabled=immutableClosed||!selected||Boolean(selected?.staffVerification)||!isAssignedReviewer||isSelf;
+        staff.textContent=selected?.staffVerification?"Reviewer ยืนยันแล้ว":(immutableClosed?"กิจกรรมปิดแล้ว • Reviewer ถูกล็อก":(isSelf?"ห้ามยืนยันรายการตนเอง":"Reviewer ยืนยัน"));
+        staff.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว":(isSelf?"SELF_REVIEW_FORBIDDEN — Reviewer ห้ามยืนยัน Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":""));
       }
 
       // Voiding is a reviewer/governance correction and also cannot target self.
       if(voidBtn){
-        voidBtn.disabled=!selected||!isAssignedReviewer||isSelf;
-        voidBtn.title=isSelf?"Reviewer ห้ามยกเลิก Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":"");
+        voidBtn.disabled=immutableClosed||!selected||!isAssignedReviewer||isSelf;
+        voidBtn.title=immutableClosed?"กิจกรรมปิดแบบ Immutable แล้ว ไม่สามารถ Void Attendance ได้":(isSelf?"Reviewer ห้ามยกเลิก Attendance ของตนเอง":(!isAssignedReviewer?"ไม่ได้รับมอบหมายเป็น Reviewer ของกิจกรรมนี้":""));
       }
     }
     const refreshAttendanceRows=document.getElementById("refreshAttendanceRows");
@@ -3501,6 +3547,9 @@
     const readOnlyHistory=["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(workflowStatus);
     const latestReview=(r.humanReviews||[])[0]||null;
     const responseForDisplay=requestState.participantResponse||(!requestState.active?r.participantResponse:null);
+    const reviewerDisplay=latestReview?.reviewer
+      ? [latestReview.reviewer.employeeId,latestReview.reviewer.name].filter(Boolean).join(" • ")
+      : (latestReview?.reviewerId||"—");
     const decisionLabel=({
       VERIFY:"รับรองปกติ",
       OVERRIDE_VERIFY:"รับรองเป็นกรณีพิเศษ",
@@ -3530,7 +3579,7 @@
         ? '<div class="alert ok"><b>เคสนี้มีผลตัดสินสุดท้ายแล้ว — อ่านอย่างเดียว</b><br>ระบบไม่แสดงปุ่มตัดสินซ้ำในหน้า History เพื่อรักษาความถูกต้องของ Audit Trail</div>'+
           '<div class="timeline review-history-detail">'+
             '<div><b>การตัดสินล่าสุด</b> — '+esc(decisionLabel)+'</div>'+
-            '<div><b>ผู้ตรวจสอบ</b> — '+esc(latestReview?.reviewerId||"—")+'</div>'+
+            '<div><b>ผู้ตรวจสอบ</b> — '+esc(reviewerDisplay)+'</div>'+
             '<div><b>เวลาตัดสิน</b> — '+fmt(latestReview?.reviewedAt)+'</div>'+
             '<div><b>เหตุผล</b> — '+esc(latestReview?.reason||"—")+'</div>'+
           '</div>'
