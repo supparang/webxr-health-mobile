@@ -140,7 +140,7 @@ def compute_plan(plan: dict[str, Any]) -> dict[str, Any]:
 
     criterion_rows = []
     for row in result.get("results_table", []):
-        if not row or row[0] == "----":
+        if not isinstance(row, (list, tuple)) or len(row) < 8:
             continue
         criterion_rows.append({
             "criterion": row[0],
