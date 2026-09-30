@@ -27,6 +27,7 @@ jobs:
     steps:
       - name: Validate confirmation
         shell: bash
+        working-directory: .
         run: |
           test "${{ inputs.confirm }}" = "MIGRATE-ACTIVA-PRODUCTION" || {
             echo "Confirmation text does not match. Refusing production migration."
