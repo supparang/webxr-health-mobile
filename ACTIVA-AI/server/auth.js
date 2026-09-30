@@ -3,7 +3,7 @@ import { prisma } from "./db.js";
 import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
 
 let googleVerifier=null;
-let googleVerifierClientId=null;
+let googleVerifierAudienceKey="";
 
 export async function resolveUserRef(ref) {
   if (!ref) return null;
@@ -20,6 +20,14 @@ export function authenticationMode() {
 
 export function googleClientId() {
   return String(process.env.GOOGLE_CLIENT_ID || "").trim();
+}
+
+export function googlePilotClientId() {
+  return String(process.env.GOOGLE_PILOT_CLIENT_ID || "").trim();
+}
+
+export function googleClientIds() {
+  return [...new Set([googleClientId(), googlePilotClientId()].filter(validGoogleClientId))];
 }
 
 export function googleAllowedDomains() {
@@ -40,14 +48,23 @@ export function googleAllowedEmails() {
 
 function googleOidcConfigured() {
   const clientId=googleClientId();
+  const pilotClientId=googlePilotClientId();
   const domains=googleAllowedDomains();
   const emails=googleAllowedEmails();
-  // Workspace domains remain the primary route. Exact verified Google-account
-  // emails are an explicit pilot exception; wildcards are never accepted.
-  return validGoogleClientId(clientId) &&
-    (domains.length > 0 || emails.length > 0) &&
-    domains.every(validGoogleDomain) &&
-    emails.every(validGoogleEmail);
+
+  const allowlistsValid=domains.every(validGoogleDomain) && emails.every(validGoogleEmail);
+  if (!allowlistsValid) return false;
+
+  // Production/organization route remains bound to GOOGLE_CLIENT_ID.
+  // Personal Gmail pilot accounts are accepted only when a separate
+  // GOOGLE_PILOT_CLIENT_ID is configured; the Internal client is never reused.
+  const workspaceRouteReady=domains.length > 0 && validGoogleClientId(clientId);
+  const pilotEmailRouteReady=emails.length > 0 && validGoogleClientId(pilotClientId);
+  return workspaceRouteReady || pilotEmailRouteReady;
+}
+
+export function googlePilotEmailReady() {
+  return googleAllowedEmails().length > 0 && validGoogleClientId(googlePilotClientId());
 }
 
 export function productionAuthenticationReady() {
@@ -55,11 +72,12 @@ export function productionAuthenticationReady() {
 }
 
 function getGoogleVerifier() {
-  const clientId=googleClientId();
-  if (!clientId) return null;
-  if (!googleVerifier || googleVerifierClientId !== clientId) {
-    googleVerifier=new OAuth2Client(clientId);
-    googleVerifierClientId=clientId;
+  const audiences=googleClientIds();
+  if (!audiences.length) return null;
+  const key=audiences.join("|");
+  if (!googleVerifier || googleVerifierAudienceKey !== key) {
+    googleVerifier=new OAuth2Client(audiences[0]);
+    googleVerifierAudienceKey=key;
   }
   return googleVerifier;
 }
@@ -77,6 +95,8 @@ function emailDomain(email) {
 
 async function resolveGoogleUser(idToken) {
   const clientId=googleClientId();
+  const pilotClientId=googlePilotClientId();
+  const clientIds=googleClientIds();
   const allowedDomains=googleAllowedDomains();
   const allowedEmails=googleAllowedEmails();
 
@@ -93,7 +113,7 @@ async function resolveGoogleUser(idToken) {
     // Only trust claims obtained from this verified ticket.
     ticket=await verifier.verifyIdToken({
       idToken,
-      audience: clientId,
+      audience: clientIds,
     });
   } catch {
     const error=new Error("GOOGLE_ID_TOKEN_INVALID");
@@ -118,11 +138,25 @@ async function resolveGoogleUser(idToken) {
   }
 
   const domain=emailDomain(email);
+  const tokenAudience=typeof payload.aud === "string" ? payload.aud : "";
   const workspaceAllowed=Boolean(
-    domain && hd && allowedDomains.includes(domain) && allowedDomains.includes(hd)
+    tokenAudience === clientId &&
+    domain && hd &&
+    allowedDomains.includes(domain) &&
+    allowedDomains.includes(hd)
   );
-  const exactEmailAllowed=allowedEmails.includes(email);
+  const exactEmailAllowed=Boolean(
+    pilotClientId &&
+    tokenAudience === pilotClientId &&
+    allowedEmails.includes(email)
+  );
+
   if (!workspaceAllowed && !exactEmailAllowed) {
+    if (allowedEmails.includes(email) && !validGoogleClientId(pilotClientId)) {
+      const error=new Error("GOOGLE_PILOT_LOGIN_NOT_CONFIGURED");
+      error.status=503;
+      throw error;
+    }
     const error=new Error(
       allowedEmails.length > 0 ? "GOOGLE_ACCOUNT_NOT_ALLOWED" : "GOOGLE_WORKSPACE_DOMAIN_NOT_ALLOWED"
     );
