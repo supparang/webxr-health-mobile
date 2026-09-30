@@ -46,7 +46,7 @@ const good = fixture();
 const report = await verifyStaging(options, good.fetchImpl);
 assert.equal(report.automatedChecksPassed, true);
 assert.equal(report.productionGoApproved, false);
-assert.equal(report.checks.length, 21);
+assert.equal(report.checks.length, 24);
 assert.ok(report.manualAcceptanceRequired.includes("GOOGLE_SIGN_IN_TO_APPROVED_ACTIVE_USER"));
 assert.equal(good.calls.length, 14);
 assert.ok(good.calls.every(x => !x.url.includes("release-decision")));
