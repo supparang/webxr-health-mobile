@@ -1043,6 +1043,28 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
       return res.status(400).json({ ok:false, error:"CHECKOUT_WINDOW_BEFORE_ACTIVITY_START" });
     }
 
+    // Idempotency guard for the activity-creation UI: an accidental second tap
+    // with the same organizer, title, location and exact time range must not
+    // create a second event with a different activity ID.
+    const duplicateActivity = await prisma.activity.findFirst({
+      where: {
+        organizerId: primaryOrganizer.id,
+        title: { equals: String(b.title).trim(), mode: "insensitive" },
+        location: String(b.location).trim(),
+        startAt,
+        endAt,
+      },
+      select: { id:true, title:true, createdAt:true },
+    });
+    if (duplicateActivity) {
+      return res.status(409).json({
+        ok:false,
+        error:"ACTIVITY_DUPLICATE",
+        existingActivityId:duplicateActivity.id,
+        existingCreatedAt:duplicateActivity.createdAt,
+      });
+    }
+
     const activity = await prisma.activity.create({
       data: {
         title: b.title,
@@ -1125,6 +1147,61 @@ app.get("/api/activities/:activityId/manage", async (req, res) => {
       coAdminOverrideRequired:coGov.adminOverrideRequired,
     },
   });
+});
+
+app.delete("/api/activities/:activityId", requireRoles("ADMIN"), async (req, res) => {
+  const activity = await prisma.activity.findUnique({
+    where:{id:req.params.activityId},
+    include:{
+      _count:{
+        select:{
+          participants:true,
+          roleAssignments:true,
+          qrTokens:true,
+          attendanceRecords:true,
+        },
+      },
+    },
+  });
+  if (!activity) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (activity.pilotClosedAt) {
+    return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE"});
+  }
+
+  const linked={
+    participants:activity._count.participants,
+    assignments:activity._count.roleAssignments,
+    qrTokens:activity._count.qrTokens,
+    attendanceRecords:activity._count.attendanceRecords,
+  };
+  if (Object.values(linked).some(Number)) {
+    return res.status(409).json({
+      ok:false,
+      error:"ACTIVITY_DELETE_BLOCKED_HAS_LINKED_DATA",
+      linked,
+    });
+  }
+
+  await prisma.$transaction([
+    prisma.auditLog.create({
+      data:{
+        actorId:actorId(req),
+        action:"EMPTY_ACTIVITY_DELETED",
+        entityType:"Activity",
+        entityId:activity.id,
+        metadata:{
+          title:activity.title,
+          startAt:activity.startAt,
+          endAt:activity.endAt,
+          createdAt:activity.createdAt,
+          reason:"empty-duplicate-or-draft-cleanup",
+        },
+      },
+    }),
+    prisma.activity.delete({where:{id:activity.id}}),
+  ]);
+
+  res.json({ok:true,deletedActivityId:activity.id});
 });
 
 app.put("/api/activities/:activityId/assignments", async (req, res) => {
