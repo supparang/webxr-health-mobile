@@ -2,11 +2,18 @@ name: ACTIVA-AI Production Monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Create a safe synthetic monitor failure to test GitHub alert routing"
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: "17 */6 * * *"
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   verify-production:
@@ -22,6 +29,9 @@ jobs:
       ACTIVA_PRODUCTION_URL: https://activa-ai-production-api.onrender.com
       ACTIVA_EXPECTED_RELEASE: ACTIVA-AI-1.0.15
       ACTIVA_EXPECTED_GOOGLE_DOMAIN: chandra.ac.th
+      ALERT_ISSUE_TITLE: "[PRODUCTION ALERT] ACTIVA-AI monitor failure"
+      ALERT_ASSIGNEE: supparang
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout main
@@ -35,4 +45,97 @@ jobs:
           node-version: 22
 
       - name: Verify production liveness, readiness and governance invariants
-        run: node scripts/verify-production.mjs
+        id: verify
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [[ "${{ inputs.simulate_failure || false }}" == "true" ]]; then
+            echo "Synthetic alert-routing test requested; no production mutation performed."
+            exit 1
+          fi
+          node scripts/verify-production.mjs
+
+      - name: Create or update GitHub production incident
+        if: steps.verify.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          NOW_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          ISSUE_NUMBER="$(
+            gh issue list               --repo "${GITHUB_REPOSITORY}"               --state open               --limit 100               --json number,title |
+            jq -r --arg title "${ALERT_ISSUE_TITLE}"               '.[] | select(.title == $title) | .number' |
+            head -n 1
+          )"
+
+          ALERT_BODY="$(cat <<EOF
+          ACTIVA-AI production monitoring detected a failed operational verification.
+
+          - Detected at (UTC): ${NOW_UTC}
+          - Expected release: ${ACTIVA_EXPECTED_RELEASE}
+          - Production endpoint: ${ACTIVA_PRODUCTION_URL}
+          - Workflow run: ${RUN_URL}
+          - Commit: ${GITHUB_SHA}
+
+          This alert contains no participant-level data, OAuth token, database credential, or other secret.
+
+          Required operator action:
+          1. Open the failed workflow run and inspect the non-PII verification output.
+          2. Check /api/live and /api/ready first.
+          3. If readiness is degraded, investigate hosting/database/authentication before changing application data.
+          4. Do not use this alert itself as a Human GO/HOLD or personnel decision.
+
+          The issue will be automatically closed after a subsequent successful production-monitor run.
+          EOF
+          )"
+
+          if [[ -n "${ISSUE_NUMBER}" ]]; then
+            gh issue comment "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --body "${ALERT_BODY}"
+            echo "Updated existing production incident #${ISSUE_NUMBER}."
+          else
+            gh issue create               --repo "${GITHUB_REPOSITORY}"               --title "${ALERT_ISSUE_TITLE}"               --body "${ALERT_BODY}"               --assignee "${ALERT_ASSIGNEE}"
+          fi
+
+          {
+            echo "## ACTIVA-AI Production Alert"
+            echo ""
+            echo "Production verification failed."
+            echo ""
+            echo "- Run: ${RUN_URL}"
+            echo "- GitHub incident: ${ALERT_ISSUE_TITLE}"
+            echo "- No PII or secrets were included in the alert."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          exit 1
+
+      - name: Resolve recovered GitHub production incident
+        if: steps.verify.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          NOW_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          ISSUE_NUMBER="$(
+            gh issue list               --repo "${GITHUB_REPOSITORY}"               --state open               --limit 100               --json number,title |
+            jq -r --arg title "${ALERT_ISSUE_TITLE}"               '.[] | select(.title == $title) | .number' |
+            head -n 1
+          )"
+
+          if [[ -n "${ISSUE_NUMBER}" ]]; then
+            gh issue comment "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --body "RECOVERED: ACTIVA-AI production verification passed again at ${NOW_UTC}. Successful run: ${RUN_URL}"
+            gh issue close "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --reason completed
+            echo "Closed recovered production incident #${ISSUE_NUMBER}."
+          else
+            echo "No open production incident to resolve."
+          fi
+
+          {
+            echo "## ACTIVA-AI Production Monitor"
+            echo ""
+            echo "Production verification passed."
+            echo ""
+            echo "- Run: ${RUN_URL}"
+            echo "- Alert routing: GitHub incident workflow enabled"
+          } >> "${GITHUB_STEP_SUMMARY}"
