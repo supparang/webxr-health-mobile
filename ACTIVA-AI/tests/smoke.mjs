@@ -1022,12 +1022,23 @@ assert(tamperedCheck.data?.error==="BACKUP_CHECKSUM_MISMATCH","tampered backup c
 
 const gateAfterRecovery=await req("/api/operations/release-gate",{actor:"ADM001"});
 assert(gateAfterRecovery.backupRecovery?.passed===true,"recent V1 recovery check must satisfy backup gate");
-assert(gateAfterRecovery.gate === "HOLD" && gateAfterRecovery.blockers.includes("PRODUCTION_GO_DISABLED"), "Recovery must not enable Production GO");
+assert(gateAfterRecovery.deploymentTier === "STAGING", "CI release gate must expose STAGING deployment tier");
+assert(
+  gateAfterRecovery.gate === "HOLD" &&
+  gateAfterRecovery.blockers.includes("PRODUCTION_TIER_REQUIRED") &&
+  gateAfterRecovery.blockers.includes("PRODUCTION_GO_DISABLED"),
+  "Staging recovery must not enable Production GO"
+);
 const blockedGo = await reqError("/api/operations/release-decision", {
   actor: "ADM001", method: "POST",
-  body: { decision: "GO", reason: "CI must reject GO while deployment approval is disabled" }
+  body: { decision: "GO", reason: "CI must reject GO from the staging deployment tier" }
 });
-assert(blockedGo.status === 409 && blockedGo.data.blockers.includes("PRODUCTION_GO_DISABLED"), "GO must be rejected while disabled");
+assert(
+  blockedGo.status === 409 &&
+  blockedGo.data.blockers.includes("PRODUCTION_TIER_REQUIRED") &&
+  blockedGo.data.blockers.includes("PRODUCTION_GO_DISABLED"),
+  "GO must be rejected by the backend on staging even if a client attempts the request"
+);
 
 const holdDecision=await req("/api/operations/release-decision",{
   actor:"ADM001",
