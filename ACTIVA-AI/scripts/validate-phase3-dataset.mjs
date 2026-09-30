@@ -134,6 +134,8 @@ export function validatePhase3Dataset(payload, options = {}) {
   const minParticipants = positiveInt(options.minParticipants);
   const minEvents = positiveInt(options.minEvents);
   const minPerClass = positiveInt(options.minPerClass);
+  const minReviewRequired = positiveInt(options.minReviewRequired);
+  const minNoReviewRequired = positiveInt(options.minNoReviewRequired);
   const samplePlanApproved = options.samplePlanApproved === true;
 
   if (minRecords && records.length < minRecords) fail("MIN_RECORDS_NOT_MET", `${records.length}<${minRecords}`);
@@ -144,8 +146,11 @@ export function validatePhase3Dataset(payload, options = {}) {
       if (count < minPerClass) fail("MIN_PER_CLASS_NOT_MET", `${label}:${count}<${minPerClass}`);
     }
   }
+  if (minReviewRequired && targetCounts.REVIEW_REQUIRED < minReviewRequired) fail("MIN_REVIEW_REQUIRED_NOT_MET", `${targetCounts.REVIEW_REQUIRED}<${minReviewRequired}`);
+  if (minNoReviewRequired && targetCounts.NO_REVIEW_REQUIRED < minNoReviewRequired) fail("MIN_NO_REVIEW_REQUIRED_NOT_MET", `${targetCounts.NO_REVIEW_REQUIRED}<${minNoReviewRequired}`);
 
-  if (!minRecords || !minParticipants || !minEvents || !minPerClass) {
+  const classThresholdsSpecified = (minReviewRequired > 0 && minNoReviewRequired > 0) || minPerClass > 0;
+  if (!minRecords || !minParticipants || !minEvents || !classThresholdsSpecified) {
     warnings.push("SAMPLE_SIZE_THRESHOLDS_NOT_FULLY_SPECIFIED: structural PASS is not approval to train empirical research models.");
   }
   if (!samplePlanApproved) {
@@ -164,9 +169,9 @@ export function validatePhase3Dataset(payload, options = {}) {
       uniqueEvents: events.size,
       targets: targetCounts,
     },
-    sampleThresholds: { minRecords, minParticipants, minEvents, minPerClass },
+    sampleThresholds: { minRecords, minParticipants, minEvents, minPerClass, minReviewRequired, minNoReviewRequired },
     samplePlanApproved,
-    researchTrainingAuthorized: errors.length === 0 && samplePlanApproved && minRecords > 0 && minParticipants > 0 && minEvents > 0 && minPerClass > 0,
+    researchTrainingAuthorized: errors.length === 0 && samplePlanApproved && minRecords > 0 && minParticipants > 0 && minEvents > 0 && classThresholdsSpecified,
   };
 }
 
@@ -205,6 +210,8 @@ async function main() {
     minParticipants: minimums.uniqueParticipants ?? argValue(args, "--min-participants"),
     minEvents: minimums.uniqueEvents ?? argValue(args, "--min-events"),
     minPerClass: minimums.perTargetClass ?? argValue(args, "--min-per-class"),
+    minReviewRequired: minimums.reviewRequired,
+    minNoReviewRequired: minimums.noReviewRequired,
     samplePlanApproved: planApproved,
   });
   report.samplePlan = plan ? {
