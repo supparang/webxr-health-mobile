@@ -1,0 +1,81 @@
+{
+  "protocolId": "ACTIVA-P3-RP-001",
+  "version": "1.0",
+  "predictionMoment": "AFTER_EVIDENCE_COLLECTION_BEFORE_HUMAN_FINAL_DECISION",
+  "dataset": {
+    "requiredStatus": "LOCKED_GROUND_TRUTH_ONLY",
+    "deidentified": true,
+    "aiPredictionsIncluded": false,
+    "syntheticAllowedForResearch": false
+  },
+  "target": {
+    "field": "final_target",
+    "positive": "REVIEW_REQUIRED",
+    "negative": "NO_REVIEW_REQUIRED"
+  },
+  "identifiers": {
+    "groupOnly": [
+      "participant_hash",
+      "event_id"
+    ],
+    "auditOnly": [
+      "record_id"
+    ],
+    "prohibitedDirect": [
+      "name",
+      "full_name",
+      "email",
+      "employee_id",
+      "employeeId",
+      "user_id",
+      "userId",
+      "phone",
+      "national_id",
+      "citizen_id"
+    ]
+  },
+  "features": {
+    "numeric": [
+      "qr_valid",
+      "identity_verified",
+      "checkin_present",
+      "checkout_present",
+      "scheduled_duration_minutes",
+      "actual_duration_minutes",
+      "duration_ratio",
+      "checkin_offset_minutes",
+      "checkout_offset_minutes",
+      "staff_verified",
+      "signature_verified",
+      "scan_attempts"
+    ],
+    "categorical": [
+      "activity_type"
+    ]
+  },
+  "auditOnly": [
+    "reason_codes",
+    "locked_at"
+  ],
+  "prohibitedLeakage": [
+    "humanDecision",
+    "human_decision",
+    "finalEvidenceStatus",
+    "final_evidence_status",
+    "reviewOutcome",
+    "review_outcome",
+    "riskProbability",
+    "risk_probability",
+    "predictedLabel",
+    "predicted_label",
+    "modelVersion",
+    "model_version",
+    "aiPrediction",
+    "ai_prediction"
+  ],
+  "split": {
+    "primaryGroup": "participant_hash",
+    "sensitivityGroup": "event_id",
+    "finalTestForTuning": false
+  }
+}
