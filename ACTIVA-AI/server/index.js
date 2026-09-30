@@ -2830,6 +2830,65 @@ app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
   });
 });
 
+app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
+  const rawCutoff = String(req.query.lockedBefore || "").trim();
+  const cutoff = rawCutoff ? new Date(rawCutoff) : new Date();
+  if (Number.isNaN(cutoff.getTime())) {
+    return res.status(400).json({ ok:false, error:"INVALID_PLANNING_COHORT_CUTOFF" });
+  }
+
+  const cases = await prisma.groundTruthCase.findMany({
+    where: {
+      status: "LOCKED",
+      finalTarget: { not: null },
+      lockedAt: { lte: cutoff },
+    },
+    include: {
+      attendance: {
+        include: { activity: true },
+      },
+    },
+    orderBy: { lockedAt: "asc" },
+  });
+
+  const participants = new Set();
+  const events = new Set();
+  const activityTypes = new Set();
+  let reviewRequired = 0;
+  let noReviewRequired = 0;
+
+  for (const c of cases) {
+    const r = c.attendance;
+    if (!r) continue;
+    participants.add(r.userId);
+    events.add(r.activityId);
+    if (r.activity?.category) activityTypes.add(String(r.activity.category));
+    if (c.finalTarget === "REVIEW_REQUIRED") reviewRequired += 1;
+    if (c.finalTarget === "NO_REVIEW_REQUIRED") noReviewRequired += 1;
+  }
+
+  const lockedCount = reviewRequired + noReviewRequired;
+  res.json({
+    ok: true,
+    planningOnly: true,
+    aggregateOnly: true,
+    directIdentifiersIncluded: false,
+    finalTestEligible: false,
+    note: "Records included in this planning snapshot must remain development-only after the sample plan is frozen.",
+    snapshotCutoffUtc: cutoff.toISOString(),
+    counts: {
+      lockedCount,
+      reviewRequired,
+      noReviewRequired,
+      anticipatedReviewRequiredPrevalence: lockedCount ? reviewRequired / lockedCount : null,
+      uniqueParticipants: participants.size,
+      uniqueEvents: events.size,
+      activityTypeLevels: activityTypes.size,
+    },
+    activityTypes: [...activityTypes].sort(),
+  });
+});
+
 app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
   const cases = await prisma.groundTruthCase.findMany({
     where: { status: "LOCKED", finalTarget: { not: null } },
