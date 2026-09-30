@@ -43,6 +43,7 @@ jobs:
       PORT: "3000"
       ALLOWED_ORIGINS: "https://pilot.example.test"
       ACTIVA_AUTH_MODE: "DEMO_HEADER"
+      ACTIVA_DEPLOYMENT_TIER: "STAGING"
       ACTIVA_PRODUCTION_GO_ENABLED: "false"
       ACTIVA_TEST_DATABASE_ONLY: "true"
 
@@ -88,6 +89,7 @@ jobs:
           node --check server/index.js
           node --check server/auth.js
           node --check server/db.js
+          node --check server/deployment-config.js
           node --check server/evidence.js
           node --check server/qr.js
           node --check prisma/seed.js
@@ -113,6 +115,7 @@ jobs:
           # Disposable CI fixtures only; real staging secrets come from its secret store.
           docker run --detach --name activa-ai-pilot-ci --network host \
             -e DATABASE_URL -e PORT=3001 -e ACTIVA_AUTH_MODE=GOOGLE_OIDC \
+            -e ACTIVA_DEPLOYMENT_TIER=STAGING \
             -e GOOGLE_CLIENT_ID=517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com \
             -e GOOGLE_ALLOWED_DOMAINS=chandra.ac.th \
             -e ALLOWED_ORIGINS=https://supparang.github.io \
