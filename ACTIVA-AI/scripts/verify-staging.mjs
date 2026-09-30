@@ -64,6 +64,7 @@ export async function verifyStaging(options, fetchImpl = fetch) {
   record("GOOGLE_OIDC_CONFIGURATION", auth?.mode === "GOOGLE_OIDC" && auth?.provider === "GOOGLE" && auth?.configurationReady === true && auth?.googleClientId === CLIENT_ID && Array.isArray(auth.allowedDomains) && auth.allowedDomains.length === 1 && auth.allowedDomains[0] === DOMAIN);
   record("PRODUCTION_GO_DISABLED", health.body?.productionGoEnabled === false);
   record("HEALTH_NOT_CACHED", health.headers.get("cache-control")?.split(",").some(x => x.trim().toLowerCase() === "no-store"));
+  record("REQUEST_ID_HEADER", /^[A-Za-z0-9._:-]{8,128}$/.test(health.headers.get("x-request-id") || ""));
   record("SECURITY_HEADERS",
     health.headers.get("x-content-type-options") === "nosniff" &&
     health.headers.get("x-frame-options") === "DENY" &&
