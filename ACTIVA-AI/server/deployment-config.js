@@ -13,6 +13,12 @@ export function configuredOrigins(env = process.env) {
   return String(env.ALLOWED_ORIGINS || "").split(",").map(x => x.trim()).filter(Boolean);
 }
 
+function validIntegerRange(value, min, max) {
+  if (value === undefined || value === null || String(value).trim() === "") return true;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= min && n <= max;
+}
+
 export function deploymentConfigurationErrors(env = process.env) {
   const errors = [];
   const tier = deploymentTier(env);
@@ -34,6 +40,16 @@ export function deploymentConfigurationErrors(env = process.env) {
       return url.protocol !== "https:" || url.origin !== value;
     } catch { return true; }
   })) errors.push("ALLOWED_ORIGINS_REQUIRE_EXACT_HTTPS_ORIGINS");
+  if (tier === "PRODUCTION" && origins.some(value => {
+    try {
+      const host = new URL(value).hostname.toLowerCase();
+      return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host);
+    } catch { return false; }
+  })) errors.push("PRODUCTION_ORIGIN_MUST_NOT_BE_LOCALHOST");
+  if (!validIntegerRange(env.PORT, 1, 65535)) errors.push("PORT_INVALID");
+  if (!validIntegerRange(env.QR_TOKEN_TTL_SECONDS, 15, 300)) errors.push("QR_TOKEN_TTL_SECONDS_INVALID");
+  if (!validIntegerRange(env.REVIEW_TARGET_HOURS, 1, 168)) errors.push("REVIEW_TARGET_HOURS_INVALID");
+  if (env.RULE_VERSION && !/^[A-Za-z0-9._-]{3,80}$/.test(String(env.RULE_VERSION))) errors.push("RULE_VERSION_INVALID");
   try {
     const url = new URL(env.DATABASE_URL || "");
     if (!["postgresql:", "postgres:"].includes(url.protocol) || !url.username || !url.password || url.pathname.length < 2 || /change[-_]?me|replace|activa_password|<|>/i.test(url.password)) errors.push("DATABASE_URL_INVALID_OR_PLACEHOLDER");
