@@ -1,5 +1,18 @@
 # ACTIVA-AI
 
+## V1.1.0 — Phase 3 AI/XAI Research Validation (STARTED)
+- Phase 2 baseline ถูก freeze ที่ branch `release/activa-ai-1.0.16-phase2-complete` จาก completion commit `acf438dfb1671fe5030aa75f011dfc8925a96d55`
+- Protocol หลัก: [Phase 3 AI/XAI Research Validation Protocol](docs/v1.1.0-phase3-research-protocol.md) (`ACTIVA-P3-RP-001`)
+- Freeze prediction moment เป็น `AFTER_EVIDENCE_COLLECTION_BEFORE_HUMAN_FINAL_DECISION`
+- เพิ่ม [feature/data contract](ml/phase3-feature-contract.json) เพื่อระบุ predictor, grouping field, audit-only field และ prohibited leakage
+- เพิ่ม empirical dataset readiness guard: `npm run phase3:dataset-check`
+- Guard ปฏิเสธ Demo/Synthetic, direct identifiers, AI prediction leakage, Human Decision leakage, duplicate record IDs และ dataset ที่ไม่ได้มาจาก LOCKED Ground Truth
+- CI มี regression test สำหรับ Phase 3 readiness contract
+- **P3.0 PASS:** Phase 2 baseline frozen
+- **P3.1 implementation:** protocol + feature contract + validator + tests
+- **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะ approve sample-size/sample-composition plan และ locked dataset ผ่าน threshold ที่ pre-specify
+- AI ยังคงเป็น decision support เท่านั้น; Human Final Decision เป็น final authority
+
 ## V1.0.16 — Production Hardening / Phase 2 Operations (COMPLETE)
 - V1.0.15 Production Acceptance ถูก freeze เป็น release/tag `ACTIVA-AI-1.0.15`; Phase 2 ไม่แก้ย้อนหลังหลักฐาน release เดิม
 - เพิ่ม `ACTIVA_DEPLOYMENT_TIER=STAGING|PRODUCTION` และ Production GO guard แบบ fail-closed
