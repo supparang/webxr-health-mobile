@@ -654,6 +654,14 @@ assert(locked.resolutionMode === "CONSENSUS", "agreeing labels must lock as CONS
 const readiness = await req("/api/ml/readiness", { actor: "ADM001" });
 assert(readiness.counts?.lockedCount >= 1, "ML readiness does not count locked case");
 
+const planningSummary = await req("/api/ml/planning-summary", { actor: "ADM001" });
+assert(planningSummary.planningOnly === true, "Phase 3 planning summary must be planning-only");
+assert(planningSummary.aggregateOnly === true, "Phase 3 planning summary must be aggregate-only");
+assert(planningSummary.directIdentifiersIncluded === false, "Phase 3 planning summary must not expose direct identifiers");
+assert(planningSummary.finalTestEligible === false, "planning-cohort records must not be eligible for final test");
+assert(planningSummary.counts?.lockedCount >= 1, "Phase 3 planning summary missing locked cases");
+assert(Number.isFinite(Number(planningSummary.counts?.anticipatedReviewRequiredPrevalence)), "Phase 3 planning prevalence missing");
+
 const mlDataset = await req("/api/ml/dataset", { actor: "ADM001" });
 const mlRecord = mlDataset.records.find((r) => r.record_id === attendanceId);
 assert(mlRecord, "locked ML dataset missing record");
