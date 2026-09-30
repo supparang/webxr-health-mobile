@@ -1,5 +1,13 @@
 # ACTIVA-AI
 
+## V1.0.16 — Production Hardening (in progress)
+- V1.0.15 Pilot Acceptance baseline is preserved on `release/v1.0.15-pilot-accepted`; Test 01–03 remain immutable and are not reopened.
+- เพิ่ม `ACTIVA_DEPLOYMENT_TIER=STAGING|PRODUCTION`; ค่าเริ่มต้นเป็น STAGING เพื่อ fail-safe กับ deployment เดิม
+- STAGING ไม่สามารถเปิด `ACTIVA_PRODUCTION_GO_ENABLED=true` และ release-decision GO ต้องรันบน PRODUCTION tier
+- เพิ่ม browser security headers โดยคง `same-origin-allow-popups` สำหรับ Google Identity Services
+- เพิ่ม `.env.production.example` และ runbook [V1.0.16 Production Hardening](docs/v1.0.16-production-hardening.md)
+- งานคงเหลือหลัก: แยก production database/service, provider backup/PITR + restore drill, monitoring/alerts, secret rotation และ production acceptance
+
 ## V1.0.15 — Backend Connection Layer / Production Pilot Preparation
 - Backend + PostgreSQL staging instructions: [V1.0.15 staging deployment](docs/v1.0.15-staging-deployment.md). Use `.env.pilot.example`, the migration container and first-admin dry run. Production GO remains disabled; older setup instructions below are historical development notes.
 - แยก public frontend ออกจาก PostgreSQL อย่างชัดเจน: Browser → HTTPS Backend API → Prisma → PostgreSQL
