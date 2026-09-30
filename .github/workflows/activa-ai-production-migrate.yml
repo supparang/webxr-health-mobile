@@ -1,0 +1,107 @@
+name: ACTIVA-AI Production DB Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MIGRATE-ACTIVA-PRODUCTION to continue'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_RELEASE_REF: 729d38e2059ae12d6135feaba71ebd5caa1728f9
+
+    steps:
+      - name: Validate confirmation
+        shell: bash
+        run: |
+          test "${{ inputs.confirm }}" = "MIGRATE-ACTIVA-PRODUCTION" || {
+            echo "Confirmation text does not match. Refusing production migration."
+            exit 1
+          }
+
+      - name: Checkout reviewed ACTIVA-AI release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACTIVA_RELEASE_REF }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Validate target database without printing credentials
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const raw = process.env.DATABASE_URL || '';
+          if (!raw) throw new Error('ACTIVA_PRODUCTION_DATABASE_URL secret is missing');
+          const url = new URL(raw);
+          if (!url.hostname.endsWith('.neon.tech')) throw new Error('Refusing migration: target is not a Neon database');
+          const prisma = new PrismaClient();
+          try {
+            const rows = await prisma.$queryRawUnsafe(
+              "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name"
+            );
+            const existing = rows.map(r => r.table_name).filter(Boolean);
+            if (existing.length > 0) {
+              throw new Error('Refusing migration: production target public schema is not empty');
+            }
+            console.log('Production target validated: Neon host and empty public schema');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Deploy reviewed Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Verify migration status
+        run: npx prisma migrate status
+
+      - name: Verify applied migration count
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const prisma = new PrismaClient();
+          try {
+            const rows = await prisma.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            );
+            const names = rows.map(r => r.migration_name);
+            const expected = [
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation'
+            ];
+            if (JSON.stringify(names) !== JSON.stringify(expected)) {
+              throw new Error('Applied migration set does not match reviewed release');
+            }
+            console.log('Migration verification passed: 3 reviewed migrations applied');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
