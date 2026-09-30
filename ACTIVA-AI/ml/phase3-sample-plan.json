@@ -5,30 +5,53 @@
   "approvedAt": null,
   "approvedBy": null,
   "target": "REVIEW_REQUIRED",
+  "planningMethod": "Riley_et_al_2018_via_pmsampsize_python_0.1.0",
   "design": {
     "outcomeType": "binary",
     "primaryGrouping": "participant_hash",
     "sensitivityGrouping": "event_id",
-    "candidatePredictorCount": 13,
+    "numericPredictorParameters": 12,
+    "anticipatedActivityTypeLevels": null,
+    "candidatePredictorParameters": null,
     "candidateModelFamilies": [
       "logistic_regression",
       "random_forest",
       "gradient_boosting"
     ],
     "primarySelectionMetric": "validation_pr_auc",
-    "calibrationRequired": true
+    "calibrationRequired": true,
+    "targetShrinkage": 0.9,
+    "finalTestHoldoutFraction": 0.2
   },
   "assumptions": {
     "anticipatedReviewRequiredPrevalence": null,
+    "prevalenceSource": null,
+    "anticipatedModelStrength": {
+      "metric": null,
+      "value": null,
+      "source": null
+    },
     "clusteringRationale": "Repeated records may occur within participant and activity; participant-group split is primary and event-group sensitivity analysis is pre-specified.",
-    "sampleSizeMethod": "PENDING: determine before empirical training using a defensible binary prediction-model sample-size method and/or simulation that accounts for prevalence, model complexity, calibration and clustering.",
     "notes": null
+  },
+  "simulationStressTest": {
+    "status": "PENDING",
+    "method": null,
+    "result": null
+  },
+  "calculatedMinimums": {
+    "rileyDevelopmentRecords": null,
+    "totalCollectionRecords": null,
+    "expectedReviewRequired": null,
+    "expectedNoReviewRequired": null,
+    "expectedFinalTestRecords": null
   },
   "minimums": {
     "records": null,
     "uniqueParticipants": null,
     "uniqueEvents": null,
-    "perTargetClass": null
+    "reviewRequired": null,
+    "noReviewRequired": null
   },
-  "approvalRule": "Set status to APPROVED only after minimums and rationale are completed and reviewed before final-test inspection."
+  "approvalRule": "APPROVED requires documented prevalence source, model-strength source, candidate parameter count, Riley/pmsampsize result, clustering minimums, and any required high-discrimination simulation stress test before final-test inspection."
 }
