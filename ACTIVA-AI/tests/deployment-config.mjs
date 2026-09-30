@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { deploymentConfigurationErrors, productionGoEnabled } from "../server/deployment-config.js";
+import { deploymentConfigurationErrors, productionGoEnabled, deploymentTier } from "../server/deployment-config.js";
 
 const valid = {
-  NODE_ENV: "production", ACTIVA_AUTH_MODE: "GOOGLE_OIDC",
+  NODE_ENV: "production", ACTIVA_DEPLOYMENT_TIER: "STAGING", ACTIVA_AUTH_MODE: "GOOGLE_OIDC",
   GOOGLE_CLIENT_ID: "517090311491-u00q8g6aonuj2251ak7erqcose70gg2h.apps.googleusercontent.com",
   GOOGLE_PILOT_CLIENT_ID: "",
   GOOGLE_ALLOWED_DOMAINS: "chandra.ac.th", GOOGLE_ALLOWED_EMAILS: "", ALLOWED_ORIGINS: "https://supparang.github.io",
@@ -11,6 +11,12 @@ const valid = {
   ACTIVA_PRODUCTION_GO_ENABLED: "false"
 };
 assert.deepEqual(deploymentConfigurationErrors(valid), []);
+assert.equal(deploymentTier(valid), "STAGING");
+assert.equal(deploymentTier({}), "STAGING");
+assert.equal(deploymentTier({ ACTIVA_DEPLOYMENT_TIER: "production" }), "PRODUCTION");
+assert.ok(deploymentConfigurationErrors({ ...valid, ACTIVA_DEPLOYMENT_TIER: "LIVE" }).includes("ACTIVA_DEPLOYMENT_TIER_INVALID"));
+assert.ok(deploymentConfigurationErrors({ ...valid, ACTIVA_PRODUCTION_GO_ENABLED: "true" }).includes("STAGING_REQUIRES_PRODUCTION_GO_DISABLED"));
+assert.deepEqual(deploymentConfigurationErrors({ ...valid, ACTIVA_DEPLOYMENT_TIER: "PRODUCTION", ACTIVA_PRODUCTION_GO_ENABLED: "true" }), []);
 assert.equal(productionGoEnabled(valid), false);
 assert.equal(productionGoEnabled({}), false);
 assert.equal(productionGoEnabled({ ACTIVA_PRODUCTION_GO_ENABLED: "TRUE" }), false);
