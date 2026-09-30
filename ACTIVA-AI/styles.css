@@ -499,3 +499,72 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
   .release-blockers{padding:12px}
   .release-blocker-code{font-size:15px}
 }
+
+
+/* =========================================================
+   ACTIVA-AI V1.0.15 — Mobile drawer precedence fix
+   Keep this block after legacy grouped-navigation media rules.
+   The sidebar must be fixed/out of document flow on mobile;
+   otherwise the hidden drawer reserves its full height and
+   body scroll locking prevents the menu itself from scrolling.
+   ========================================================= */
+@media(max-width:1000px){
+  .shell{
+    display:block;
+    min-height:100vh;
+    padding-top:64px;
+  }
+
+  .sidebar{
+    position:fixed !important;
+    top:0 !important;
+    right:auto !important;
+    bottom:0 !important;
+    left:0 !important;
+    z-index:1200;
+    width:min(86vw,340px);
+    height:auto !important;
+    max-height:100dvh;
+    padding:20px 16px max(24px,env(safe-area-inset-bottom)) !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    transform:translate3d(-105%,0,0);
+    transition:transform .22s ease;
+  }
+
+  .sidebar.mobile-open{
+    transform:translate3d(0,0,0);
+  }
+
+  .sidebar .nav{
+    display:block !important;
+    margin-top:22px;
+  }
+
+  .sidebar .nav-group{
+    width:100%;
+    min-width:0;
+    margin-bottom:8px;
+  }
+
+  .sidebar .version{
+    position:static !important;
+    display:block !important;
+    margin:22px 8px 4px;
+    padding-bottom:8px;
+  }
+
+  .main{
+    margin:0;
+    padding:20px;
+    min-height:calc(100dvh - 64px);
+  }
+}
+
+@media(max-width:680px){
+  .main{padding:14px}
+  .mobile-appbar{height:64px}
+}
