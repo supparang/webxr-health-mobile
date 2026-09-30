@@ -8,7 +8,7 @@ import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
-import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled } from "./deployment-config.js";
+import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled, deploymentTier } from "./deployment-config.js";
 
 if (process.env.NODE_ENV === "production") {
   const errors = deploymentConfigurationErrors();
@@ -23,9 +23,38 @@ const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 const allowedOrigins = configuredOrigins();
 
 app.disable("x-powered-by");
+app.use((req, res, next) => {
+  const incoming = String(req.get("x-request-id") || "").trim();
+  const requestId = /^[A-Za-z0-9._:-]{8,128}$/.test(incoming) ? incoming : crypto.randomUUID();
+  req.activaRequestId = requestId;
+  res.set("X-Request-Id", requestId);
+  const startedAt = process.hrtime.bigint();
+  res.on("finish", () => {
+    if (!req.path.startsWith("/api/")) return;
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    console.log(JSON.stringify({
+      type: "http_access",
+      requestId,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      durationMs: Math.round(durationMs * 10) / 10,
+      deploymentTier: deploymentTier()
+    }));
+  });
+  next();
+});
 app.use((_req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
+  res.set("X-Frame-Options", "DENY");
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  // Google Identity Services popup login requires opener compatibility.
+  res.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.set("X-DNS-Prefetch-Control", "off");
+  if (process.env.NODE_ENV === "production" && deploymentTier() === "PRODUCTION") {
+    res.set("Strict-Transport-Security", "max-age=31536000");
+  }
   next();
 });
 app.use("/api", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
@@ -505,6 +534,60 @@ function inferenceFeatureRow(r) {
   };
 }
 
+app.get("/api/live", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "ACTIVA-AI",
+    releaseVersion: RELEASE_VERSION,
+    deploymentTier: deploymentTier(),
+  });
+});
+
+app.get("/api/ready", async (_req, res) => {
+  try {
+    const configErrors = process.env.NODE_ENV === "production" ? deploymentConfigurationErrors() : [];
+    if (configErrors.length) {
+      return res.status(503).json({
+        ok: false,
+        ready: false,
+        releaseVersion: RELEASE_VERSION,
+        deploymentTier: deploymentTier(),
+        error: "UNSAFE_DEPLOYMENT_CONFIGURATION",
+        blockers: configErrors,
+      });
+    }
+    await prisma.$queryRawUnsafe("SELECT 1");
+    if (!productionAuthenticationReady()) {
+      return res.status(503).json({
+        ok: false,
+        ready: false,
+        releaseVersion: RELEASE_VERSION,
+        deploymentTier: deploymentTier(),
+        database: "connected",
+        error: "AUTHENTICATION_NOT_READY",
+      });
+    }
+    res.json({
+      ok: true,
+      ready: true,
+      releaseVersion: RELEASE_VERSION,
+      deploymentTier: deploymentTier(),
+      database: "connected",
+      authenticationReady: true,
+    });
+  } catch (error) {
+    console.error("Readiness check failed:", error?.name || "Error");
+    res.status(503).json({
+      ok: false,
+      ready: false,
+      releaseVersion: RELEASE_VERSION,
+      deploymentTier: deploymentTier(),
+      database: "unavailable",
+      error: "DATABASE_UNAVAILABLE",
+    });
+  }
+});
+
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
@@ -521,6 +604,7 @@ app.get("/api/health", async (_req, res) => {
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,
       autonomousDecision: false,
+      deploymentTier: deploymentTier(),
       productionGoEnabled: productionGoEnabled(),
       authentication: {
         mode: authenticationMode(),
@@ -537,7 +621,7 @@ app.get("/api/health", async (_req, res) => {
   } catch (error) {
     console.error("Database health check failed:", error?.name || "Error");
     res.status(503).json({ ok: false, version: "1.0.15",
-      releaseVersion: RELEASE_VERSION, database: "unavailable", error: "DATABASE_UNAVAILABLE" });
+      releaseVersion: RELEASE_VERSION, deploymentTier: deploymentTier(), database: "unavailable", error: "DATABASE_UNAVAILABLE" });
   }
 });
 
@@ -3260,6 +3344,7 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     : false;
 
   const blockers = [];
+  if (deploymentTier() !== "PRODUCTION") blockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) blockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (criticalIssues.length) blockers.push("CRITICAL_DATA_QUALITY");
@@ -3269,6 +3354,12 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
 
   const gate = blockers.length ? "HOLD" : "GO";
   const scenarios = [
+    {
+      id: "DEPLOYMENT_TIER",
+      title: "Production GO is available only on the production deployment tier",
+      status: deploymentTier() === "PRODUCTION" ? "PASS" : "HOLD",
+      evidence: { deploymentTier: deploymentTier(), productionGoEnabled: productionGoEnabled() },
+    },
     {
       id: "SECURITY_CONFIG",
       title: "Production signing and research hashing configuration",
@@ -3318,6 +3409,8 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
   res.json({
     ok: true,
     releaseVersion: RELEASE_VERSION,
+    deploymentTier: deploymentTier(),
+    productionGoEnabled: productionGoEnabled(),
     gate,
     blockers,
     generatedAt: now.toISOString(),
@@ -3537,6 +3630,7 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
   const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
 
   const hardBlockers = [];
+  if (deploymentTier() !== "PRODUCTION") hardBlockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) hardBlockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
   if (notClosedCount > 0) hardBlockers.push("ENDED_ACTIVITIES_NOT_IMMUTABLY_CLOSED");
@@ -4014,6 +4108,36 @@ app.use((error, _req, res, _next) => {
   res.status(status).json({ ok:false, error:code });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log("ACTIVA-AI V1.0.15 server running on http://localhost:" + port);
 });
+
+// Bound idle/header/request lifetimes so a production instance does not keep
+// incomplete HTTP connections open indefinitely.
+server.keepAliveTimeout = 5000;
+server.headersTimeout = 35000;
+server.requestTimeout = 30000;
+
+let shutdownStarted = false;
+async function gracefulShutdown(signal) {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  console.log("ACTIVA-AI graceful shutdown:", signal);
+  const forceTimer = setTimeout(() => {
+    console.error("ACTIVA-AI forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+  forceTimer.unref();
+
+  server.close(async () => {
+    try {
+      await prisma.$disconnect();
+      clearTimeout(forceTimer);
+      process.exit(0);
+    } catch {
+      process.exit(1);
+    }
+  });
+}
+process.on("SIGTERM", () => { void gracefulShutdown("SIGTERM"); });
+process.on("SIGINT", () => { void gracefulShutdown("SIGINT"); });
