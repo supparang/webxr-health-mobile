@@ -9,7 +9,7 @@
 - Guard ปฏิเสธ Demo/Synthetic, direct identifiers, AI prediction leakage, Human Decision leakage, duplicate record IDs และ dataset ที่ไม่ได้มาจาก LOCKED Ground Truth
 - CI มี regression test สำหรับ Phase 3 readiness contract
 - **P3.0 PASS:** Phase 2 baseline frozen
-- **P3.1 implementation:** protocol + feature contract + validator + tests
+- **P3.1 PASS:** protocol + feature contract + governed sample plan + validator + CI tests merged in PR #98; ACTIVA-AI CI run `36738250570` PASS
 - **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะ approve sample-size/sample-composition plan และ locked dataset ผ่าน threshold ที่ pre-specify
 - AI ยังคงเป็น decision support เท่านั้น; Human Final Decision เป็น final authority
 
