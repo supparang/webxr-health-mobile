@@ -4,10 +4,13 @@ const DEFAULT_BASE_URL = "https://activa-ai-production-api.onrender.com";
 const DEFAULT_EXPECTED_RELEASE = "ACTIVA-AI-1.0.15";
 
 function cleanBaseUrl(value) {
-  const raw = String(value || DEFAULT_BASE_URL).trim().replace(/\\/+$/, "");
+  let raw = String(value || DEFAULT_BASE_URL).trim();
+  while (raw.endsWith("/")) raw = raw.slice(0, -1);
   const url = new URL(raw);
   if (url.protocol !== "https:") throw new Error("ACTIVA_PRODUCTION_URL must use HTTPS");
-  return url.origin + url.pathname.replace(/\\/$/, "");
+  let pathname = url.pathname;
+  while (pathname.endsWith("/")) pathname = pathname.slice(0, -1);
+  return url.origin + pathname;
 }
 
 async function getJson(baseUrl, path) {
