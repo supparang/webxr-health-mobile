@@ -406,7 +406,10 @@ async function buildOperationalBackup() {
     prisma.humanReview.findMany({ orderBy: { reviewedAt: "asc" } }),
     prisma.groundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.blindReviewBatch.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.externalGroundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.externalGroundTruthLabel.findMany({
+      where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.groundTruthCase.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.modelRun.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.aIPrediction.findMany({ orderBy: { createdAt: "asc" } }),
@@ -723,6 +726,9 @@ async function resolveBlindReviewInvite(req) {
   if (invite.batch.status !== "OPEN") {
     return { error: "BLIND_REVIEW_BATCH_NOT_OPEN", status: 409 };
   }
+  if (invite.batch.attendance?.isVoided) {
+    return { error: "BLIND_REVIEW_CASE_UNAVAILABLE", status: 410 };
+  }
   if (invite.batch.attendance?.groundTruthCase?.status === "LOCKED") {
     return { error: "GROUND_TRUTH_ALREADY_LOCKED", status: 409 };
   }
@@ -778,6 +784,12 @@ app.post("/api/public/blind-review/submit", async (req, res, next) => {
       return res.status(400).json({ ok:false, error:"INVALID_REASON_CODES", invalidCodes });
     }
     const notes = String(body.notes || "").trim();
+    if (body.target === "REVIEW_REQUIRED" && reasonCodes.length === 0) {
+      return res.status(400).json({ ok:false, error:"REVIEW_REASON_REQUIRED" });
+    }
+    if (reasonCodes.includes("OTHER") && notes.length < 3) {
+      return res.status(400).json({ ok:false, error:"OTHER_REASON_REQUIRES_NOTES" });
+    }
     if (notes.length > 2000) {
       return res.status(400).json({ ok:false, error:"NOTES_TOO_LONG" });
     }
