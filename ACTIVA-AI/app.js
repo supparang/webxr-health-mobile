@@ -1810,6 +1810,24 @@
     if(guestCodeGen)guestCodeGen.onclick=()=>{
       document.getElementById("guestStudyCode").value="SUBJ-"+crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase();
     };
+    function displayIssuedGuest(response){
+      const out=document.getElementById("guestIssueMsg");
+      const link=location.origin+response.path;
+      out.innerHTML='<div class="alert warn"><b>Guest Pass แสดงครั้งเดียว:</b> ส่งลิงก์ให้ผู้เข้าร่วมจริงโดยตรง ห้ามเผยภาพหรือ URL ที่มี token • หากรั่ว ให้ Revoke ทันที</div>'+
+        '<div class="field"><label>Guest '+esc(response.guestRef)+'</label><input id="guestIssuedLink" readonly value="'+esc(link)+'"></div>'+
+        '<div class="actions"><button class="btn secondary" id="guestCopyPass">คัดลอกลิงก์ Guest</button></div>'+
+        '<div id="guestPassQR" style="margin-top:14px"></div>'+
+        '<div class="hint">ผู้รับต้องยินยอมด้วยตนเองก่อน Check-in • บัตรนี้ไม่ใช่หลักฐานยืนยันตัวตน</div>';
+      document.getElementById("guestCopyPass").onclick=async()=>{
+        try{await navigator.clipboard.writeText(link);}catch{
+          const input=document.getElementById("guestIssuedLink");input.select();document.execCommand("copy");
+        }
+        document.getElementById("guestCopyPass").textContent="คัดลอกแล้ว ✓";
+      };
+      if(window.QRCode)new QRCode(document.getElementById("guestPassQR"),{
+        text:link,width:210,height:210,correctLevel:QRCode.CorrectLevel.M
+      });
+    }
     const guestListBtn=document.getElementById("guestList");
     if(guestListBtn)guestListBtn.onclick=async()=>{
       const act=document.getElementById("guestActivity")?.value;
@@ -1818,10 +1836,52 @@
       try{
         const response=await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes");
         out.innerHTML='<div class="hint"><b>Registered Guest Passes:</b> '+esc(response.guests.length)+'</div>'+
-          (response.guests.length?'<div class="table-wrap"><table><thead><tr><th>Guest Ref</th><th>Consent</th><th>Attendance</th><th>Status</th></tr></thead><tbody>'+
+          (response.guests.length?'<div class="table-wrap"><table><thead><tr><th>Guest Ref</th><th>Consent</th><th>Attendance</th><th>Status</th><th>Admin Actions</th></tr></thead><tbody>'+
           response.guests.map(g=>'<tr><td>GUEST-'+esc(g.guestRef)+'</td><td>'+(g.consentAccepted?"✓":"รอยินยอม")+'</td>'+
           '<td>'+(g.attendance?(g.attendance.checkoutAt?"Check-out ✓":g.attendance.checkinAt?"Check-in ✓":"—"):"—")+'</td>'+
-          '<td>'+(g.withdrawn?"WITHDRAWN":g.revoked?"REVOKED":g.expired?"EXPIRED":"ACTIVE")+'</td></tr>').join("")+'</tbody></table></div>':'');
+          '<td>'+(g.withdrawn?"WITHDRAWN":g.revoked?"REVOKED":g.expired?"EXPIRED":"ACTIVE")+'</td>'+
+          '<td><div class="actions">'+
+          (!g.revoked?'<button class="btn mini secondary guestRevoke" data-id="'+esc(g.id)+'">Revoke</button>':'')+
+          (g.revoked&&!g.withdrawn&&!g.attendance&&!g.expired?'<button class="btn mini secondary guestReissue" data-id="'+esc(g.id)+'">Reissue</button>':'')+
+          (!g.withdrawn?'<button class="btn mini secondary guestWithdrawAdmin" data-id="'+esc(g.id)+'">บันทึกถอนความยินยอม</button>':'')+
+          '</div></td></tr>').join("")+'</tbody></table></div>':'');
+        out.querySelectorAll(".guestRevoke").forEach(btn=>btn.onclick=async()=>{
+          const reason=prompt("Revoke Guest Pass: ระบุเหตุผล (อย่างน้อย 10 ตัวอักษร)","Pass security or participant request");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/revoke",{
+              method:"POST",body:JSON.stringify({reason:reason.trim()})
+            });
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
+        out.querySelectorAll(".guestReissue").forEach(btn=>btn.onclick=async()=>{
+          const reason=prompt("Reissue unused revoked pass (consent must be renewed):","Secure pass replacement requested by participant");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            const result=await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/reissue",{
+              method:"POST",body:JSON.stringify({reason:reason.trim()})
+            });
+            displayIssuedGuest(result);
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
+        out.querySelectorAll(".guestWithdrawAdmin").forEach(btn=>btn.onclick=async()=>{
+          if(!confirm("ผู้เข้าร่วมคนนี้ร้องขอถอนความยินยอมจริงหรือไม่? ข้อมูลวิจัยจะถูกตัดออกทันทีและยังเก็บ Audit")){
+            return;
+          }
+          const reason=prompt("บันทึกเหตุผล/ช่องทางที่ได้รับคำขอถอนความยินยอม (อย่างน้อย 10 ตัวอักษร)","");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/withdraw",{
+              method:"POST",body:JSON.stringify({reason:reason.trim(),participantRequestConfirmed:true})
+            });
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
       }catch(e){out.innerHTML=errorBox(e);}
     };
     const guestIssueBtn=document.getElementById("guestIssue");
@@ -1839,19 +1899,7 @@
             adminAttestation:document.getElementById("guestAdminAttest").checked
           })
         });
-        const link=location.origin+response.path;
-        out.innerHTML='<div class="alert warn"><b>Guest Pass แสดงครั้งเดียว:</b> ส่งลิงก์นี้ให้ผู้เข้าร่วมจริงโดยตรง อย่าส่งภาพ/URL ที่มี token ในช่องสาธารณะ ระบบไม่เก็บ Raw Token</div>'+
-          '<div class="field"><label>Guest '+esc(response.guestRef)+'</label><input id="guestIssuedLink" readonly value="'+esc(link)+'"></div>'+
-          '<div class="actions"><button class="btn secondary" id="guestCopyPass">คัดลอกลิงก์ Guest</button></div>'+
-          '<div id="guestPassQR" style="margin-top:14px"></div>'+
-          '<div class="hint">ผู้รับต้องเปิดลิงก์และกดยินยอมด้วยตนเองก่อน Check-in • บัตรนี้ไม่ใช่หลักฐานยืนยันตัวตน</div>';
-        document.getElementById("guestCopyPass").onclick=async()=>{
-          try{await navigator.clipboard.writeText(link);}catch{
-            const input=document.getElementById("guestIssuedLink");input.select();document.execCommand("copy");
-          }
-          document.getElementById("guestCopyPass").textContent="คัดลอกแล้ว ✓";
-        };
-        if(window.QRCode) new QRCode(document.getElementById("guestPassQR"),{text:link,width:210,height:210,correctLevel:QRCode.CorrectLevel.M});
+        displayIssuedGuest(response);
         guestListBtn?.click();
       }catch(e){out.innerHTML=errorBox(e);}
       finally{guestIssueBtn.disabled=false;}
