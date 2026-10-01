@@ -626,6 +626,240 @@ app.get("/api/health", async (_req, res) => {
 });
 
 
+
+const BLIND_REVIEW_REASON_CODES = new Set([
+  "MISSING_QR",
+  "MISSING_IDENTITY",
+  "MISSING_CHECKOUT",
+  "MISSING_STAFF_VERIFICATION",
+  "SHORT_DURATION",
+  "DUPLICATE_SCAN",
+  "TEMPORAL_CONFLICT",
+  "STAFF_WITHOUT_CHECKIN",
+  "OTHER",
+]);
+
+function blindReviewTokenHash(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function blindReviewTokenFromRequest(req) {
+  const auth = String(req.get("authorization") || "").trim();
+  const match = auth.match(/^BlindReview\s+([A-Za-z0-9_-]{32,256})$/);
+  return match ? match[1] : "";
+}
+
+function blindReviewEvidence(attendance) {
+  const activity = attendance.activity;
+  const scheduledMinutes = Math.max(
+    1,
+    Math.round((activity.endAt.getTime() - activity.startAt.getTime()) / 60000)
+  );
+  const actualMinutes = attendance.checkinAt && attendance.checkoutAt
+    ? Math.max(0, Math.round((attendance.checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000))
+    : null;
+  return {
+    activity: {
+      title: activity.title,
+      category: activity.category,
+      startAt: activity.startAt,
+      endAt: activity.endAt,
+    },
+    evidence: {
+      qrValid: Boolean(attendance.qrValid),
+      identityVerified: Boolean(attendance.identityVerified),
+      checkinPresent: Boolean(attendance.checkinAt),
+      checkoutPresent: Boolean(attendance.checkoutAt),
+      checkinAt: attendance.checkinAt,
+      checkoutAt: attendance.checkoutAt,
+      checkoutQrValid: Boolean(attendance.checkoutQrValid),
+      scheduledDurationMinutes: scheduledMinutes,
+      actualDurationMinutes: actualMinutes,
+      staffVerified: Boolean(attendance.staffVerification),
+      signatureVerified: Boolean(attendance.signatureVerified),
+      scanAttempts: attendance.scanAttempts,
+    },
+  };
+}
+
+async function resolveBlindReviewInvite(req) {
+  const token = blindReviewTokenFromRequest(req);
+  if (!token) return { error: "BLIND_REVIEW_TOKEN_REQUIRED", status: 401 };
+
+  const invite = await prisma.blindReviewInvite.findUnique({
+    where: { tokenHash: blindReviewTokenHash(token) },
+    include: {
+      batch: {
+        include: {
+          attendance: {
+            include: {
+              activity: true,
+              staffVerification: true,
+              groundTruthCase: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!invite) return { error: "BLIND_REVIEW_LINK_INVALID", status: 404 };
+  const now = new Date();
+  if (invite.revokedAt || invite.batch.revokedAt || invite.batch.status === "REVOKED") {
+    return { error: "BLIND_REVIEW_LINK_REVOKED", status: 410 };
+  }
+  if (invite.expiresAt <= now || invite.batch.expiresAt <= now) {
+    return { error: "BLIND_REVIEW_LINK_EXPIRED", status: 410 };
+  }
+  if (invite.submittedAt) {
+    return { error: "BLIND_REVIEW_ALREADY_SUBMITTED", status: 409 };
+  }
+  if (invite.batch.status !== "OPEN") {
+    return { error: "BLIND_REVIEW_BATCH_NOT_OPEN", status: 409 };
+  }
+  if (invite.batch.attendance?.groundTruthCase?.status === "LOCKED") {
+    return { error: "GROUND_TRUTH_ALREADY_LOCKED", status: 409 };
+  }
+  return { invite, token };
+}
+
+// Public blind-review endpoints intentionally bypass organization login.
+// The high-entropy one-time token is carried only in the Authorization header;
+// access logs record path/status only and never record the token.
+app.get("/api/public/blind-review/session", async (req, res, next) => {
+  try {
+    const resolved = await resolveBlindReviewInvite(req);
+    if (resolved.error) return res.status(resolved.status).json({ ok:false, error:resolved.error });
+
+    const { invite } = resolved;
+    const attendance = invite.batch.attendance;
+    res.json({
+      ok: true,
+      blind: true,
+      oneTime: true,
+      containsDirectPII: false,
+      aiPredictionIncluded: false,
+      ruleConsistencyIncluded: false,
+      peerLabelsIncluded: false,
+      reviewerSlot: invite.reviewerSlot,
+      expiresAt: invite.expiresAt,
+      caseRef: attendance.id.slice(-8),
+      ...blindReviewEvidence(attendance),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/public/blind-review/submit", async (req, res, next) => {
+  try {
+    const resolved = await resolveBlindReviewInvite(req);
+    if (resolved.error) return res.status(resolved.status).json({ ok:false, error:resolved.error });
+
+    const { invite } = resolved;
+    const body = req.body || {};
+    if (!["REVIEW_REQUIRED","NO_REVIEW_REQUIRED"].includes(body.target)) {
+      return res.status(400).json({ ok:false, error:"INVALID_TARGET" });
+    }
+    if (body.independenceAttested !== true) {
+      return res.status(400).json({ ok:false, error:"INDEPENDENCE_ATTESTATION_REQUIRED" });
+    }
+    const reasonCodes = Array.isArray(body.reasonCodes)
+      ? [...new Set(body.reasonCodes.map(String))]
+      : [];
+    const invalidCodes = reasonCodes.filter((code) => !BLIND_REVIEW_REASON_CODES.has(code));
+    if (invalidCodes.length) {
+      return res.status(400).json({ ok:false, error:"INVALID_REASON_CODES", invalidCodes });
+    }
+    const notes = String(body.notes || "").trim();
+    if (notes.length > 2000) {
+      return res.status(400).json({ ok:false, error:"NOTES_TOO_LONG" });
+    }
+
+    const now = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+      const current = await tx.blindReviewInvite.findUnique({
+        where: { id: invite.id },
+        include: {
+          batch: {
+            include: {
+              attendance: { include: { groundTruthCase: true } },
+            },
+          },
+        },
+      });
+      if (!current || current.revokedAt || current.batch.revokedAt || current.batch.status !== "OPEN") {
+        throw Object.assign(new Error("BLIND_REVIEW_LINK_NO_LONGER_ACTIVE"), { status:409 });
+      }
+      if (current.submittedAt) {
+        throw Object.assign(new Error("BLIND_REVIEW_ALREADY_SUBMITTED"), { status:409 });
+      }
+      if (current.expiresAt <= now || current.batch.expiresAt <= now) {
+        throw Object.assign(new Error("BLIND_REVIEW_LINK_EXPIRED"), { status:410 });
+      }
+      if (current.batch.attendance?.groundTruthCase?.status === "LOCKED") {
+        throw Object.assign(new Error("GROUND_TRUTH_ALREADY_LOCKED"), { status:409 });
+      }
+
+      await tx.externalGroundTruthLabel.create({
+        data: {
+          attendanceId: current.batch.attendanceId,
+          inviteId: current.id,
+          reviewerSlot: current.reviewerSlot,
+          target: body.target,
+          reasonCodes,
+          notes: notes || null,
+        },
+      });
+      await tx.blindReviewInvite.update({
+        where: { id: current.id },
+        data: { submittedAt: now, independenceAttested: true },
+      });
+
+      const submittedCount = await tx.blindReviewInvite.count({
+        where: { batchId: current.batchId, submittedAt: { not: null }, revokedAt: null },
+      });
+      if (submittedCount >= 2) {
+        await tx.blindReviewBatch.update({
+          where: { id: current.batchId },
+          data: { status: "COMPLETED" },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: "EXTERNAL_BLIND_REVIEW_SUBMITTED",
+          entityType: "AttendanceRecord",
+          entityId: current.batch.attendanceId,
+          metadata: {
+            batchId: current.batchId,
+            reviewerSlot: current.reviewerSlot,
+            target: body.target,
+            independenceAttested: true,
+          },
+        },
+      });
+
+      return { submittedCount, batchId: current.batchId };
+    });
+
+    res.status(201).json({
+      ok: true,
+      submitted: true,
+      immutable: true,
+      reviewerSlot: invite.reviewerSlot,
+      batchComplete: result.submittedCount >= 2,
+      note: "Blind review submitted. The one-time link can no longer be used.",
+    });
+  } catch (error) {
+    if (Number(error?.status)) {
+      return res.status(Number(error.status)).json({ ok:false, error:String(error.message || "BLIND_REVIEW_SUBMIT_FAILED") });
+    }
+    next(error);
+  }
+});
+
 app.use("/api", attachActor);
 
 app.get("/api/me", async (req, res) => {
