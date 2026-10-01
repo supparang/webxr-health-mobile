@@ -102,6 +102,8 @@ jobs:
           node --check tests/recovery-verifier.mjs
           node --check scripts/validate-phase3-dataset.mjs
           node --check tests/phase3-dataset-readiness.mjs
+          node --check scripts/verify-phase4-closure.mjs
+          node --check tests/phase4-closure.mjs
           node --check tests/blind-review.mjs
           node --check tests/qa-isolation.mjs
           node --check tests/guest-participation.mjs
@@ -127,6 +129,11 @@ jobs:
 
       - name: Phase 3 dataset research-readiness guard
         run: npm run test:phase3-readiness
+
+      - name: Phase 4 closure must HOLD without real research evidence
+        run: |
+          npm run test:phase4-closure
+          node scripts/verify-phase4-closure.mjs --manifest research/phase4-closure.json --sample-plan ml/phase3-sample-plan.json --expect-hold
 
       - name: Build production container
         run: |
