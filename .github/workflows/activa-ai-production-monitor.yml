@@ -19,7 +19,9 @@ jobs:
   verify-production:
     runs-on: ubuntu-latest
     environment: Production
-    timeout-minutes: 5
+    # Three sequential probes can each exhaust a bounded cold-start budget.
+    # Keep a finite ceiling while avoiding false alarms on sleeping Free instances.
+    timeout-minutes: 8
 
     defaults:
       run:
