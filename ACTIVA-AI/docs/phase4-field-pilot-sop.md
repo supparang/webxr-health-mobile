@@ -2,6 +2,7 @@
 
 SOP version: ACTIVA-P4-SOP-001 | Status: DRAFT for PI/site/ethics sign-off.
 Existing protocol: ACTIVA-P3-RP-001. This is research execution, not a replacement feature contract.
+P4.3 readiness references: `phase4-cru-pilot-prelaunch-checklist.md` (authoritative human GO/HOLD decision) and `phase4-cru-data-management-plan-draft.md` (data authority/access/retention pending approval). Existing production Guest E2E PASS evidence in Issue #110 is reusable; do not require redundant test recruitment.
 
 ## Stage 0 — Before recruiting
 - Human PI obtains traceable institutional ethics approval or documented exemption where applicable and site permission. Record authorized consent wording/version, secure retention, data handling, independent contact, withdrawal process and incident escalation. Do not upload personal identity mappings to GitHub.
