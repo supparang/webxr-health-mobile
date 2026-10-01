@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { prisma } from "./db.js";
+import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
@@ -301,8 +302,9 @@ async function activityCloseAssessment(activityId) {
   const duplicateMap = new Map();
 
   records.forEach((row) => {
-    if (!duplicateMap.has(row.userId)) duplicateMap.set(row.userId, []);
-    duplicateMap.get(row.userId).push(row);
+    const ownerKey=row.guestParticipantId ? "GUEST|"+row.guestParticipantId : "USER|"+row.userId;
+    if (!duplicateMap.has(ownerKey)) duplicateMap.set(ownerKey, []);
+    duplicateMap.get(ownerKey).push(row);
   });
   duplicateMap.forEach((group) => {
     if (group.length > 1) criticalIssues.push("DUPLICATE_NONVOID_ATTENDANCE");
@@ -382,6 +384,7 @@ async function buildOperationalBackup() {
     activityPolicies,
     activityRoleAssignments,
     activityParticipants,
+    guestParticipants,
     attendanceRecords,
     staffVerifications,
     consistencyResults,
@@ -401,6 +404,7 @@ async function buildOperationalBackup() {
     prisma.activityPolicy.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.activityRoleAssignment.findMany({ orderBy: { assignedAt: "asc" } }),
     prisma.activityParticipant.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.guestParticipant.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.attendanceRecord.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.staffVerification.findMany({ orderBy: { verifiedAt: "asc" } }),
     prisma.consistencyResult.findMany({ orderBy: { evaluatedAt: "asc" } }),
@@ -425,6 +429,7 @@ async function buildOperationalBackup() {
     activityPolicies,
     activityRoleAssignments,
     activityParticipants,
+    guestParticipants: guestParticipants.map(({passTokenHash,...rest})=>rest),
     attendanceRecords,
     staffVerifications,
     consistencyResults,
@@ -449,7 +454,7 @@ async function buildOperationalBackup() {
     generatedAt: new Date().toISOString(),
     containsPII: true,
     containsSecrets: false,
-    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential", "BlindReviewInvite"],
+    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential", "BlindReviewInvite", "GuestParticipant.passTokenHash"],
     checksumAlgorithm: "SHA-256",
     checksum,
     counts,
@@ -502,6 +507,23 @@ function hashParticipant(userId) {
   const salt = process.env.RESEARCH_HASH_SALT || "ACTIVA-DEMO-SALT";
   return crypto.createHash("sha256").update(userId + "|" + salt).digest("hex");
 }
+// Stable anonymous grouping across events when a study uses the same
+// offline subject code. Never export that code or the internal study HMAC.
+function participantResearchHash(r) {
+  if (r.guestParticipantId) {
+    if (!r.guestParticipant?.studyHash) throw new Error("GUEST_RESEARCH_STUDY_HASH_MISSING");
+    return hashParticipant("GUEST|"+r.guestParticipant.studyHash);
+  }
+  if(!r.userId)throw new Error("ATTENDANCE_OWNER_MISSING");
+  return hashParticipant(r.userId);
+}
+function participantGroupingKey(r) {
+  if(r.guestParticipantId) {
+    if(!r.guestParticipant?.studyHash)throw new Error("GUEST_RESEARCH_STUDY_HASH_MISSING");
+    return "GUEST|"+r.guestParticipant.studyHash;
+  }
+  return "USER|"+r.userId;
+}
 
 function inferenceFeatureRow(r) {
   const a = r.activity;
@@ -524,7 +546,7 @@ function inferenceFeatureRow(r) {
 
   return {
     record_id: r.id,
-    participant_hash: hashParticipant(r.userId),
+    participant_hash: participantResearchHash(r),
     event_id: r.activityId,
     activity_type: a.category,
     qr_valid: Number(r.qrValid),
@@ -879,7 +901,10 @@ app.post("/api/public/blind-review/submit", async (req, res, next) => {
   }
 });
 
+registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWindowState,checkoutWindowState});
+
 app.use("/api", attachActor);
+registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
 
 app.get("/api/me", async (req, res) => {
   const activityPermissions = req.activaUser.role === "ADMIN"
@@ -1299,6 +1324,7 @@ app.get("/api/attendance", async (req, res) => {
     where,
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
+      guestParticipant:{select:{id:true,consentAt:true,withdrawnAt:true,revokedAt:true}},
       activity: {
         select: {
           id: true,
@@ -2349,6 +2375,9 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ST
   }
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
+  if (attendance.guestParticipantId && req.body?.guestIdentityWitnessed !== true) {
+    return res.status(400).json({ok:false,error:"GUEST_IN_PERSON_IDENTITY_ATTESTATION_REQUIRED"});
+  }
   if (attendance.staffVerification) {
     return res.json({ ok: true, verification: attendance.staffVerification, idempotent: true });
   }
@@ -2359,7 +2388,10 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ST
     });
     await tx.attendanceRecord.update({
       where: { id: attendance.id },
-      data: { finalEvidenceStatus: null },
+      data: {
+        finalEvidenceStatus: null,
+        ...(attendance.guestParticipantId?{identityVerified:true}:{}),
+      },
     });
     await tx.consistencyResult.deleteMany({ where: { attendanceId: attendance.id } });
     return verification;
@@ -2371,7 +2403,9 @@ app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ST
       reason: "STAFF_VERIFICATION_CHANGED",
     });
   }
-  await audit(req, "STAFF_VERIFIED", "AttendanceRecord", attendance.id, { verifierId });
+  await audit(req, attendance.guestParticipantId ? "GUEST_IDENTITY_WITNESSED" : "STAFF_VERIFIED", "AttendanceRecord", attendance.id, {
+    verifierId,method:attendance.guestParticipantId?"IN_PERSON_WITNESSED":"REGISTERED_USER",
+  });
   res.json({ ok: true, verification: row });
 });
 
@@ -2933,6 +2967,7 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
     where: { isVoided: false },
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
+      guestParticipant:{select:{id:true,consentAt:true,withdrawnAt:true,revokedAt:true}},
       activity: { include: { policy: true } },
       staffVerification: true,
       groundTruthLabels: true,
@@ -3359,7 +3394,7 @@ app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
     },
     include: {
       attendance: {
-        include: { activity: true },
+        include: { activity: true,guestParticipant:{select:{studyHash:true}} },
       },
     },
     orderBy: { lockedAt: "asc" },
@@ -3374,7 +3409,7 @@ app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
   for (const c of cases) {
     const r = c.attendance;
     if (!r) continue;
-    participants.add(r.userId);
+    participants.add(participantGroupingKey(r));
     events.add(r.activityId);
     if (r.activity?.category) activityTypes.add(String(r.activity.category));
     if (c.finalTarget === "REVIEW_REQUIRED") reviewRequired += 1;
@@ -3412,6 +3447,7 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
         include: {
           activity: true,
           staffVerification: true,
+          guestParticipant:{select:{studyHash:true}},
         },
       },
     },
@@ -3436,7 +3472,7 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
 
     return {
       record_id: r.id,
-      participant_hash: hashParticipant(r.userId),
+      participant_hash: participantResearchHash(r),
       event_id: r.activityId,
       activity_type: a.category,
       data_classification:"EMPIRICAL",
@@ -3492,6 +3528,7 @@ app.get("/api/ml/inference-dataset", requireRoles("ADMIN"), async (req, res) => 
     include: {
       activity: true,
       staffVerification: true,
+      guestParticipant:{select:{studyHash:true}},
       aiPredictions: {
         where: { modelRunId: deployed.id },
         take: 1,
@@ -4300,7 +4337,7 @@ app.get("/api/operations/pilot-readiness", requireRoles("ADMIN", "STAFF"), async
 
   const duplicateMap = new Map();
   rows.forEach((r) => {
-    const key = r.activityId + "::" + r.userId;
+    const key = r.activityId + "::" + (r.guestParticipantId || r.userId);
     if (!duplicateMap.has(key)) duplicateMap.set(key, []);
     duplicateMap.get(key).push(r);
   });
@@ -4627,6 +4664,7 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
     include: {
       activity: true,
       staffVerification: true,
+      guestParticipant:{select:{studyHash:true}},
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
       groundTruthLabels: true,
@@ -4639,7 +4677,7 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
 
   const dataset = rows.map((r) => ({
     record_id: r.id,
-    participant_hash: hashParticipant(r.userId),
+    participant_hash: participantResearchHash(r),
     event_id: r.activityId,
     activity_type: r.activity.category,
     qr_valid: Number(r.qrValid),
@@ -4688,10 +4726,10 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 // Only public browser assets may be served. Never serve server, prisma,
 // scripts, dependency, backup, or environment files from the application tree.
-const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js"];
+const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js", "guest.html", "guest.js"];
 for (const file of publicFiles) {
   app.get("/" + file, (_req, res) => {
-    if (["runtime-config.js","blind-review.html","blind-review.js"].includes(file)) {
+    if (["runtime-config.js","blind-review.html","blind-review.js","guest.html","guest.js"].includes(file)) {
       res.set("Cache-Control", "no-store");
     }
     res.sendFile(path.join(staticDir, file));
@@ -4701,6 +4739,10 @@ app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
 app.get("/blind-review", (_req, res) => {
   res.set("Cache-Control", "no-store");
   res.sendFile(path.join(staticDir, "blind-review.html"));
+});
+app.get("/guest", (_req,res) => {
+  res.set("Cache-Control","no-store");
+  res.sendFile(path.join(staticDir,"guest.html"));
 });
 app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
