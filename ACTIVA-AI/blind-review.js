@@ -55,6 +55,9 @@
       BLIND_REVIEW_BATCH_NOT_OPEN:"รอบการประเมินนี้ปิดแล้ว",
       GROUND_TRUTH_ALREADY_LOCKED:"Ground Truth ของรายการนี้ถูก Lock แล้ว",
       INDEPENDENCE_ATTESTATION_REQUIRED:"กรุณายืนยันว่าคุณประเมินอย่างอิสระก่อนส่งผล",
+      REVIEW_REASON_REQUIRED:"เมื่อเลือก REVIEW_REQUIRED กรุณาเลือก Reason Code อย่างน้อย 1 ข้อ",
+      OTHER_REASON_REQUIRES_NOTES:"เมื่อเลือก OTHER กรุณาอธิบายเหตุผลเพิ่มเติม",
+      BLIND_REVIEW_CASE_UNAVAILABLE:"รายการนี้ถูกยกเลิกหรือไม่พร้อมสำหรับการประเมินแล้ว",
     };
     return map[code] || ("ไม่สามารถดำเนินการได้: " + code);
   }
