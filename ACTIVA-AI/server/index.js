@@ -386,6 +386,8 @@ async function buildOperationalBackup() {
     consistencyResults,
     humanReviews,
     groundTruthLabels,
+    blindReviewBatches,
+    externalGroundTruthLabels,
     groundTruthCases,
     modelRuns,
     aiPredictions,
@@ -403,6 +405,8 @@ async function buildOperationalBackup() {
     prisma.consistencyResult.findMany({ orderBy: { evaluatedAt: "asc" } }),
     prisma.humanReview.findMany({ orderBy: { reviewedAt: "asc" } }),
     prisma.groundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.blindReviewBatch.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.externalGroundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.groundTruthCase.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.modelRun.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.aIPrediction.findMany({ orderBy: { createdAt: "asc" } }),
@@ -422,6 +426,8 @@ async function buildOperationalBackup() {
     consistencyResults,
     humanReviews,
     groundTruthLabels,
+    blindReviewBatches,
+    externalGroundTruthLabels,
     groundTruthCases,
     modelRuns,
     aiPredictions,
@@ -439,7 +445,7 @@ async function buildOperationalBackup() {
     generatedAt: new Date().toISOString(),
     containsPII: true,
     containsSecrets: false,
-    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential"],
+    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential", "BlindReviewInvite"],
     checksumAlgorithm: "SHA-256",
     checksum,
     counts,
@@ -4415,6 +4421,9 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
       humanReviews: { orderBy: { reviewedAt: "desc" } },
       groundTruthCase: true,
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      },
       aiPredictions: deployed
         ? { where: { modelRunId: deployed.id }, take: 1 }
         : { where: { id: "__NO_DEPLOYED_MODEL__" }, take: 1 },
@@ -4509,9 +4518,13 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     else if (actual === "REVIEW_REQUIRED" && predicted === "NO_REVIEW_REQUIRED") fn += 1;
   });
 
-  const doubleLabeled = rows.filter((r) => (r.groundTruthLabels || []).length >= 2);
+  const researchLabels = (r) => [
+    ...(r.groundTruthLabels || []),
+    ...(r.externalGroundTruthLabels || []),
+  ];
+  const doubleLabeled = rows.filter((r) => researchLabels(r).length >= 2);
   const reviewerAgreementCount = doubleLabeled.filter((r) => {
-    const targets = [...new Set(r.groundTruthLabels.map((x) => x.target))];
+    const targets = [...new Set(researchLabels(r).map((x) => x.target))];
     return targets.length === 1;
   }).length;
 
@@ -4563,6 +4576,9 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      },
       aiPredictions: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
@@ -4592,7 +4608,10 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
     ai_prediction: r.aiPredictions[0]?.predictedLabel || "",
     risk_probability: r.aiPredictions[0]?.riskProbability ?? "",
     human_decision: r.humanReviews[0]?.decision || "",
-    ground_truth_labels: r.groundTruthLabels.map((g) => g.target),
+    ground_truth_labels: [
+      ...(r.groundTruthLabels || []).map((g) => g.target),
+      ...(r.externalGroundTruthLabels || []).map((g) => g.target),
+    ],
     final_status: r.finalEvidenceStatus || r.consistencyResult?.status || "",
   }));
 
