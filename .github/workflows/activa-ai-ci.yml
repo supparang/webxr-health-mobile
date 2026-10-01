@@ -104,6 +104,9 @@ jobs:
           node --check tests/phase3-dataset-readiness.mjs
           node --check tests/blind-review.mjs
           node --check tests/qa-isolation.mjs
+          node --check tests/guest-participation.mjs
+          node --check server/guest.js
+          node --check guest.js
           node --check server/research-scope.js
           node --check blind-review.js
 
@@ -154,6 +157,10 @@ jobs:
           curl -fsS -o /tmp/activa-blind-review.js http://127.0.0.1:3001/blind-review.js
           grep -q "Independent Ground Truth Review" /tmp/activa-blind-review.html
           grep -q "BLIND_REVIEW_TOKEN_MISSING" /tmp/activa-blind-review.js
+          curl -fsS -o /tmp/activa-guest.html http://127.0.0.1:3001/guest
+          curl -fsS -o /tmp/activa-guest.js http://127.0.0.1:3001/guest.js
+          grep -q "Guest Participant Pass" /tmp/activa-guest.html
+          grep -q "GUEST_PASS_REQUIRED" /tmp/activa-guest.js
 
       - name: Start ACTIVA-AI server
         run: |
@@ -179,6 +186,9 @@ jobs:
 
       - name: Phase 3 QA data isolation regression test
         run: node tests/qa-isolation.mjs
+
+      - name: Guest accountless participation end-to-end test
+        run: node tests/guest-participation.mjs
 
       - name: Demo release guard regression test
         run: node tests/demo-release-guard.mjs
