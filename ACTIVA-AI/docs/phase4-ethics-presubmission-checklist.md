@@ -22,7 +22,7 @@ These are historical references, **not proof that forms, copy count (historicall
 | E06 Scientific protocol, operational SOP and Thai participant instruments | `docs/phase4-research-protocol.md`, `docs/phase4-field-pilot-sop.md`, `docs/phase4-instruments.md` | PI | DRAFT |
 | E07 Ground Truth codebook, two distinct independent reviewers, adjudication process | `docs/ground-truth-codebook.md`, `docs/v1.1.0-phase3-external-blind-review.md` | PI | STRUCTURAL READY; human staffing PENDING |
 | E08 Source-based size rationale and actual calculation for CRU staff (persons vs repeated attendance records) | `docs/phase4-cru-sample-planning-worksheet.md`, `ml/phase3-sample-plan.json`, `ml/plan_phase3_sample.py` and real result | PI/Statistician | PENDING — prevalence, model strength, activity types and clustered minima unavailable |
-| E09 Data security, pseudonymization, controller, retention and withdrawal/reconciliation | Sections in protocol and consent; site-specific retention/access matrix | PI/Data steward | PENDING |
+| E09 Data security, pseudonymization, controller, retention and withdrawal/reconciliation | `docs/phase4-cru-data-management-plan-draft.md`; institution-specific owner, access and retention fields still to be resolved | PI / CRU authorized data steward | DRAFT — official values PENDING |
 | E10 Funding/conflict-of-interest declaration and any training certificates | Current committee forms | PI/team | PENDING |
 | E11 Review/sign-off of all versions and translation | Version-controlled final application pack | PI | PENDING |
 | E12 Official submission/reference and later committee decision | Authorized institutional channel | PI/Office | NOT SUBMITTED |
