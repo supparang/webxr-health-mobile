@@ -103,6 +103,8 @@ jobs:
           node --check scripts/validate-phase3-dataset.mjs
           node --check tests/phase3-dataset-readiness.mjs
           node --check tests/blind-review.mjs
+          node --check tests/qa-isolation.mjs
+          node --check server/research-scope.js
           node --check blind-review.js
 
       - name: Authentication readiness guard
@@ -172,6 +174,9 @@ jobs:
 
       - name: External blind reviewer end-to-end test
         run: node tests/blind-review.mjs
+
+      - name: Phase 3 QA data isolation regression test
+        run: node tests/qa-isolation.mjs
 
       - name: Demo release guard regression test
         run: node tests/demo-release-guard.mjs
