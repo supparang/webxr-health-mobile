@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { prisma } from "./db.js";
+import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
@@ -1366,6 +1367,10 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
     if (endAt <= startAt) {
       return res.status(400).json({ ok:false, error:"INVALID_ACTIVITY_TIME_RANGE" });
     }
+    const provenance = classificationForNewActivity(b, req.activaUser.role, startAt);
+    if (provenance.error) {
+      return res.status(409).json({ ok:false, error:provenance.error });
+    }
 
     const checkinOpenAt = b.checkinOpenAt ? toIso(b.checkinOpenAt) : new Date(startAt.getTime() - 30 * 60000);
     const checkinCloseAt = b.checkinCloseAt ? toIso(b.checkinCloseAt) : new Date(startAt.getTime() + 30 * 60000);
@@ -1411,6 +1416,8 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
       data: {
         title: b.title,
         category: b.category,
+        dataClassification: provenance.value,
+        classifiedAt: provenance.classifiedAt,
         description: b.description || null,
         location: b.location,
         startAt,
@@ -1445,6 +1452,8 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
       title: activity.title,
       primaryOrganizerId: primaryOrganizer.id,
       primaryOrganizerEmployeeId: primaryOrganizer.employeeId,
+      dataClassification: provenance.value,
+      empiricalAttestation: provenance.value === "EMPIRICAL",
     });
     res.status(201).json({ ok: true, activity });
   } catch (error) {
@@ -1472,6 +1481,9 @@ app.patch("/api/activities/:activityId", async (req, res) => {
     }
 
     const b=req.body||{};
+    if (Object.prototype.hasOwnProperty.call(b,"dataClassification") || Object.prototype.hasOwnProperty.call(b,"classifiedAt")) {
+      return res.status(409).json({ok:false,error:"DATA_CLASSIFICATION_IMMUTABLE_USE_QA_DOWNGRADE"});
+    }
     const reason=String(b.changeReason||"").trim();
     const title=String(b.title ?? activity.title).trim();
     const category=String(b.category ?? activity.category).trim();
@@ -1648,6 +1660,26 @@ app.patch("/api/activities/:activityId", async (req, res) => {
   } catch(error) {
     res.status(400).json({ok:false,error:error.message});
   }
+});
+
+// One-way administrative quarantine of legacy or contaminated activity data.
+// There is deliberately no endpoint to promote existing activity/attendance to EMPIRICAL.
+app.post("/api/activities/:activityId/quarantine-qa", requireRoles("ADMIN"), async (req,res) => {
+  const reason=String(req.body?.reason||"").trim();
+  if (reason.length<10) return res.status(400).json({ok:false,error:"QA_QUARANTINE_REASON_REQUIRED"});
+  const id=req.params.activityId;
+  const existing=await prisma.activity.findUnique({where:{id},select:{id:true,dataClassification:true}});
+  if (!existing) return res.status(404).json({ok:false,error:"ACTIVITY_NOT_FOUND"});
+  if (existing.dataClassification==="QA_TEST") return res.json({ok:true,noChange:true,classification:"QA_TEST"});
+  const result=await prisma.activity.updateMany({
+    where:{id,dataClassification:{not:"QA_TEST"}},
+    data:{dataClassification:"QA_TEST",classifiedAt:new Date()},
+  });
+  if (!result.count) return res.status(409).json({ok:false,error:"CLASSIFICATION_CHANGED_RETRY"});
+  await audit(req,"ACTIVITY_QUARANTINED_QA","Activity",id,{
+    from:existing.dataClassification,to:"QA_TEST",reason,irreversiblePromotionBlocked:true,
+  });
+  res.json({ok:true,activityId:id,classification:"QA_TEST",excludedFromResearch:true});
 });
 
 app.get("/api/activities/:activityId/manage", async (req, res) => {
@@ -3270,16 +3302,17 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
+  const empiricalAttendance = EMPIRICAL_ATTENDANCE_FILTER;
   const [internalLabelCount, externalLabelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
-    prisma.groundTruthLabel.count(),
+    prisma.groundTruthLabel.count({where:{attendance:empiricalAttendance}}),
     prisma.externalGroundTruthLabel.count({
-      where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      where:{ invite:{ batch:{ status:"COMPLETED" } },attendance:empiricalAttendance },
     }),
-    prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
-    prisma.groundTruthCase.count({ where: { adjudicatedAt: { not: null } } }),
-    prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
-    prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "REVIEW_REQUIRED" } }),
-    prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "NO_REVIEW_REQUIRED" } }),
+    prisma.groundTruthCase.count({ where: { status: "ADJUDICATED",attendance:empiricalAttendance } }),
+    prisma.groundTruthCase.count({ where: { adjudicatedAt: { not: null },attendance:empiricalAttendance } }),
+    prisma.groundTruthCase.count({ where: EMPIRICAL_LOCKED_CASE_FILTER }),
+    prisma.groundTruthCase.count({ where: { ...EMPIRICAL_LOCKED_CASE_FILTER,finalTarget:"REVIEW_REQUIRED" } }),
+    prisma.groundTruthCase.count({ where: { ...EMPIRICAL_LOCKED_CASE_FILTER,finalTarget:"NO_REVIEW_REQUIRED" } }),
     prisma.modelRun.findMany({
       orderBy: { createdAt: "desc" },
       select: { id: true, version: true, modelFamily: true, status: true, dataProvenance: true, createdAt: true, approvedAt: true, deployedAt: true },
@@ -3299,6 +3332,7 @@ app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
       ? "A deployed empirical model is available for decision support only; human review remains final."
       : "AI remains disabled until an evaluated and approved empirical model is deployed.",
     counts: { labelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked },
+    scope:"EMPIRICAL_ONLY",
     modelReadiness: {
       modelCount: models.length,
       evaluatedCount: evaluatedModels.length,
@@ -3320,8 +3354,7 @@ app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
 
   const cases = await prisma.groundTruthCase.findMany({
     where: {
-      status: "LOCKED",
-      finalTarget: { not: null },
+      ...EMPIRICAL_LOCKED_CASE_FILTER,
       lockedAt: { lte: cutoff },
     },
     include: {
@@ -3353,6 +3386,7 @@ app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
     ok: true,
     planningOnly: true,
     aggregateOnly: true,
+    scope:"EMPIRICAL_ONLY",
     directIdentifiersIncluded: false,
     finalTestEligible: false,
     note: "Records included in this planning snapshot must remain development-only after the sample plan is frozen.",
@@ -3372,7 +3406,7 @@ app.get("/api/ml/planning-summary", requireRoles("ADMIN"), async (req, res) => {
 
 app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
   const cases = await prisma.groundTruthCase.findMany({
-    where: { status: "LOCKED", finalTarget: { not: null } },
+    where: EMPIRICAL_LOCKED_CASE_FILTER,
     include: {
       attendance: {
         include: {
@@ -3405,6 +3439,7 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
       participant_hash: hashParticipant(r.userId),
       event_id: r.activityId,
       activity_type: a.category,
+      data_classification:"EMPIRICAL",
       qr_valid: Number(r.qrValid),
       identity_verified: Number(r.identityVerified),
       checkin_present: Number(Boolean(r.checkinAt)),
@@ -3426,6 +3461,9 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
   res.json({
     ok: true,
     datasetStatus: "LOCKED_GROUND_TRUTH_ONLY",
+    dataProvenance:"EMPIRICAL_LOCKED_GROUND_TRUTH",
+    scope:"EMPIRICAL_ONLY",
+    syntheticDemo:deploymentTier()!=="PRODUCTION",
     aiPredictionsIncluded: false,
     deidentified: true,
     records,
@@ -3450,7 +3488,7 @@ app.get("/api/ml/inference-dataset", requireRoles("ADMIN"), async (req, res) => 
 
   const includeScored = String(req.query.includeScored || "false") === "true";
   const rows = await prisma.attendanceRecord.findMany({
-    where: { isVoided: false },
+    where: EMPIRICAL_ATTENDANCE_FILTER,
     include: {
       activity: true,
       staffVerification: true,
@@ -3475,6 +3513,7 @@ app.get("/api/ml/inference-dataset", requireRoles("ADMIN"), async (req, res) => 
       status: deployed.status,
     },
     datasetStatus: "LIVE_INFERENCE_FEATURES",
+    scope:"EMPIRICAL_ONLY",
     deidentified: true,
     groundTruthIncluded: false,
     alreadyScoredExcluded: !includeScored,
@@ -4428,7 +4467,7 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
   const rows = await prisma.attendanceRecord.findMany({
     where: { isVoided: false },
     include: {
-      activity: { select: { id: true, title: true, category: true, startAt: true, endAt: true } },
+      activity: { select: { id: true, title: true, category: true, dataClassification:true, startAt: true, endAt: true } },
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" } },
       groundTruthCase: true,
@@ -4515,7 +4554,8 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     }))
     .sort((a, b) => b.recordCount - a.recordCount || a.title.localeCompare(b.title));
 
-  const lockedRows = rows.filter((r) =>
+  const researchRows = rows.filter((r) => r.activity?.dataClassification === "EMPIRICAL");
+  const lockedRows = researchRows.filter((r) =>
     r.groundTruthCase?.status === "LOCKED" && r.groundTruthCase?.finalTarget
   );
   const comparable = lockedRows.filter((r) => r.aiPredictions[0]);
@@ -4534,7 +4574,7 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     ...(r.groundTruthLabels || []),
     ...(r.externalGroundTruthLabels || []),
   ];
-  const doubleLabeled = rows.filter((r) => researchLabels(r).length >= 2);
+  const doubleLabeled = researchRows.filter((r) => researchLabels(r).length >= 2);
   const reviewerAgreementCount = doubleLabeled.filter((r) => {
     const targets = [...new Set(researchLabels(r).map((x) => x.target))];
     return targets.length === 1;
@@ -4565,6 +4605,8 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     },
     researchSnapshot: {
       separatedFromOperationalOutcomes: true,
+      scope:"EMPIRICAL_ONLY",
+      includedRecords:researchRows.length,
       deployedModel: deployed,
       lockedGroundTruthCount: lockedRows.length,
       comparableModelGroundTruthCount: comparable.length,
@@ -4581,7 +4623,7 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
 
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
-    where: { isVoided: false },
+    where: EMPIRICAL_ATTENDANCE_FILTER,
     include: {
       activity: true,
       staffVerification: true,
@@ -4629,6 +4671,8 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
 
   res.json({
     ok: true,
+    scope:"EMPIRICAL_ONLY",
+    excludedClasses:["UNCLASSIFIED","QA_TEST"],
     deidentified: true,
     generatedAt: new Date().toISOString(),
     records: dataset,

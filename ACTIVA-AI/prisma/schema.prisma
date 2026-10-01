@@ -67,6 +67,13 @@ enum HumanDecision {
   REJECT
 }
 
+// Research provenance is assigned at activity creation. Legacy data fails closed.
+enum ActivityDataClass {
+  UNCLASSIFIED
+  QA_TEST
+  EMPIRICAL
+}
+
 enum GroundTruthTarget {
   REVIEW_REQUIRED
   NO_REVIEW_REQUIRED
@@ -165,6 +172,8 @@ model Activity {
   id               String             @id @default(cuid())
   title            String
   category         String
+  dataClassification ActivityDataClass @default(UNCLASSIFIED)
+  classifiedAt      DateTime?
   description      String?
   location         String
   startAt          DateTime
@@ -192,6 +201,8 @@ model Activity {
   pilotClosureSnapshot Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+
+  @@index([dataClassification])
 }
 
 model ActivityRoleAssignment {

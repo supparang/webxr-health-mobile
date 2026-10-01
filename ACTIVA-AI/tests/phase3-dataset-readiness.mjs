@@ -4,6 +4,7 @@ import { validatePhase3Dataset, PHASE3_PROTOCOL_ID } from "../scripts/validate-p
 function record(i, target) {
   return {
     record_id: `R${i}`,
+    data_classification:"EMPIRICAL",
     participant_hash: `P${Math.floor(i / 2)}`,
     event_id: `E${i % 3}`,
     activity_type: i % 2 ? "อบรม" : "ประชุม",
@@ -31,6 +32,8 @@ const records = Array.from({ length: 12 }, (_, i) =>
 const good = {
   ok: true,
   datasetStatus: "LOCKED_GROUND_TRUTH_ONLY",
+  dataProvenance:"EMPIRICAL_LOCKED_GROUND_TRUTH",
+  scope:"EMPIRICAL_ONLY",
   aiPredictionsIncluded: false,
   deidentified: true,
   records,
@@ -63,6 +66,15 @@ const thresholdsWithoutApproval = validatePhase3Dataset(good, {
 assert.equal(thresholdsWithoutApproval.ok, true);
 assert.equal(thresholdsWithoutApproval.researchTrainingAuthorized, false);
 assert(thresholdsWithoutApproval.warnings.some(x => x.includes("SAMPLE_PLAN_NOT_APPROVED")));
+
+const qaRows = records.map(x => ({ ...x }));
+qaRows[0].data_classification = "QA_TEST";
+const qa = validatePhase3Dataset({ ...good, records:qaRows });
+assert.equal(qa.ok,false);
+assert(qa.errors.some(x=>x.includes("NON_EMPIRICAL_RECORD_PROHIBITED")));
+const unknown = validatePhase3Dataset({ ...good, scope:"UNCLASSIFIED" });
+assert.equal(unknown.ok,false);
+assert(unknown.errors.some(x=>x.includes("EMPIRICAL_RESEARCH_PROVENANCE_REQUIRED")));
 
 const synthetic = validatePhase3Dataset({ ...good, syntheticDemo:true });
 assert.equal(synthetic.ok, false);

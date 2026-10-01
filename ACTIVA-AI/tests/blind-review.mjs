@@ -36,6 +36,8 @@ const now = Date.now();
 const activity = await prisma.activity.create({
   data:{
     title:"CI External Blind Review Activity",
+    dataClassification:"QA_TEST",
+    classifiedAt:new Date(),
     category:"วิจัย",
     location:"CI",
     startAt:new Date(now - 2*3600000),
@@ -188,5 +190,62 @@ const auditCount = await prisma.auditLog.count({
 });
 assert(auditCount === 2, "external blind review audit trail incomplete");
 
-console.log("ACTIVA-AI external blind reviewer end-to-end test passed");
+// A locked QA record must be excluded by EVERY empirical research endpoint,
+// while staying visible in operational Ground Truth/audit for QA traceability.
+const [planning, dataset, exportData, readiness, analytics] = await Promise.all([
+  api("/api/ml/planning-summary",{actor:"ADM001"}),
+  api("/api/ml/dataset",{actor:"ADM001"}),
+  api("/api/research/export",{actor:"ADM001"}),
+  api("/api/ml/readiness",{actor:"ADM001"}),
+  api("/api/analytics/verified",{actor:"ADM001"}),
+]);
+assert(planning.data.scope==="EMPIRICAL_ONLY", "planning provenance scope missing");
+assert(dataset.data.scope==="EMPIRICAL_ONLY", "ML provenance scope missing");
+assert(exportData.data.scope==="EMPIRICAL_ONLY", "research export provenance scope missing");
+assert(readiness.data.scope==="EMPIRICAL_ONLY", "ML readiness provenance scope missing");
+assert(analytics.data.researchSnapshot?.scope==="EMPIRICAL_ONLY", "research analytics scope missing");
+assert(!(dataset.data.records||[]).some(x=>x.record_id===attendance.id), "LOCKED QA leaked into ML dataset");
+assert(!(exportData.data.records||[]).some(x=>x.record_id===attendance.id), "QA leaked into research export");
+assert(planning.data.counts.lockedCount===readiness.data.counts.lockedCount, "QA contaminated planning/readiness counts");
+
+// Legacy/unclassified locked rows must also fail closed, even if labels are present.
+const legacyActivity = await prisma.activity.create({
+  data:{
+    title:"CI legacy unclassified",
+    category:"ประชุม",
+    location:"CI",
+    startAt:new Date(now-3*3600000),
+    endAt:new Date(now-2*3600000),
+    organizerId:admin.id,
+  },
+});
+const legacyAttendance = await prisma.attendanceRecord.create({
+  data:{
+    activityId:legacyActivity.id,
+    userId:participant.id,
+    checkinAt:new Date(now-175*60000),
+    checkoutAt:new Date(now-135*60000),
+    qrValid:true,
+    identityVerified:true,
+  },
+});
+await prisma.groundTruthCase.create({
+  data:{
+    attendanceId:legacyAttendance.id,
+    status:"LOCKED",
+    finalTarget:"REVIEW_REQUIRED",
+    reasonCodes:["OTHER"],
+    lockedAt:new Date(),
+  },
+});
+const [afterPlan, afterDataset, afterExport] = await Promise.all([
+  api("/api/ml/planning-summary",{actor:"ADM001"}),
+  api("/api/ml/dataset",{actor:"ADM001"}),
+  api("/api/research/export",{actor:"ADM001"}),
+]);
+assert(afterPlan.data.counts.lockedCount===planning.data.counts.lockedCount, "legacy locked records leaked into planning");
+assert(!(afterDataset.data.records||[]).some(x=>x.record_id===legacyAttendance.id), "UNCLASSIFIED leaked into ML");
+assert(!(afterExport.data.records||[]).some(x=>x.record_id===legacyAttendance.id), "UNCLASSIFIED leaked into research export");
+
+console.log("ACTIVA-AI external blind reviewer + QA isolation test passed");
 await prisma.$disconnect();

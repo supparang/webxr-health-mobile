@@ -8,7 +8,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "ml"))
 
-from train_baselines import empirical_temporal_group_split
+from train_baselines import empirical_temporal_group_split, validate_empirical_export
 
 CUTOFF = "2026-09-30T12:00:00Z"
 
@@ -80,3 +80,37 @@ except ValueError as exc:
     assert "FINAL_TEST_MIN_RECORDS_NOT_MET" in str(exc)
 
 print("ACTIVA-AI Phase 3 final-test firewall tests passed")
+
+
+# Verify empirical trainer rejects mislabeled, synthetic and QA exports before fitting.
+from tempfile import TemporaryDirectory
+
+with TemporaryDirectory() as directory:
+    source = Path(directory) / "export.json"
+    metadata = {
+        "dataProvenance": "EMPIRICAL_LOCKED_GROUND_TRUTH",
+        "scope": "EMPIRICAL_ONLY",
+        "datasetStatus": "LOCKED_GROUND_TRUTH_ONLY",
+        "aiPredictionsIncluded": False,
+        "syntheticDemo": False,
+        "deidentified": True,
+        "records": [{"record_id":"TEST-1","data_classification":"EMPIRICAL"}],
+    }
+    source.write_text(json.dumps(metadata), encoding="utf-8")
+    validate_empirical_export(source)
+
+    for mutation in (
+        {"scope":"UNCLASSIFIED"},
+        {"syntheticDemo":True},
+        {"records":[{"record_id":"QA-1","data_classification":"QA_TEST"}]},
+        {"records":[{"record_id":"OLD-1"}]},
+    ):
+        payload = {**metadata, **mutation}
+        source.write_text(json.dumps(payload), encoding="utf-8")
+        try:
+            validate_empirical_export(source)
+            raise AssertionError("Empirical provenance guard accepted unsafe dataset")
+        except ValueError:
+            pass
+
+print("ACTIVA-AI Phase 3 empirical provenance guard passed")

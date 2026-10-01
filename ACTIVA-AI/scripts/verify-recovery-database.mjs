@@ -6,6 +6,7 @@ const EXPECTED_MIGRATIONS = [
   "20260927170000_participant_response_workflow",
   "20260928094500_position_role_separation",
   "20261001110000_external_blind_reviewer_sessions",
+  "20261001133000_activity_research_classification",
 ];
 
 const EXPECTED_TABLES = [

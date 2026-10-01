@@ -1504,6 +1504,14 @@
         '<div class="field"><label>ประเภทกิจกรรม</label><select id="aCat"><option>พัฒนาบุคลากร</option><option>ประชุม</option><option>บริการวิชาการ</option><option>วิจัย</option><option>ประกันคุณภาพ</option></select></div>'+
         field("วันที่","aDate","","date",new Date().toISOString().slice(0,10))+
         field("สถานที่","aLoc","ห้องประชุม")+
+        (can("ADMIN") ?
+          '<div class="field full"><label>ประเภทข้อมูลสำหรับ Phase 3 (กำหนดก่อนเริ่มกิจกรรม)</label>'+
+          '<select id="aDataClass"><option value="UNCLASSIFIED">UNCLASSIFIED — ไม่ใช้ในงานวิจัย</option>'+
+          '<option value="QA_TEST">QA_TEST — ทดสอบระบบเท่านั้น</option>'+
+          '<option value="EMPIRICAL">EMPIRICAL — เก็บข้อมูลวิจัยจริง (ต้องเริ่มในอนาคต)</option></select>'+
+          '<label class="check"><input type="checkbox" id="aEmpiricalAttest"> ยืนยันว่าเป็นกิจกรรมวิจัยจริง ไม่ใช่ QA/Demo และการจัดประเภทนี้ทำก่อนเริ่มกิจกรรม</label>'+
+          '<small class="muted">ระบบไม่อนุญาตให้ยกระดับกิจกรรมเดิมย้อนหลังเป็น EMPIRICAL; สามารถกักกันข้อมูลที่ปนเปื้อนเป็น QA_TEST ได้เท่านั้น</small></div>'
+          : '<div class="hint full">ประเภทข้อมูล: UNCLASSIFIED (ผู้ดูแลระบบต้องเป็นผู้กำหนดงานวิจัยจริงก่อนเริ่ม)</div>')+
         field("เวลาเริ่ม","aStart","","time","09:00")+
         field("เวลาสิ้นสุด","aEnd","","time","16:00")+
         field("เปิด Check-in QR","aCiOpen","","time","08:30")+
@@ -1736,7 +1744,7 @@
           const reviewCount=activityReviewCount(a.id);
           const lifecycleLabel=life==="ACTIVE"?"กำลังดำเนินอยู่":life==="UPCOMING"?"กำลังจะมาถึง":"สิ้นสุดแล้ว";
           return '<article class="activity-center-row">'+
-            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+' • #'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</small></div>'+
+            '<div class="activity-center-main"><b>'+esc(a.title)+'</b><span>'+esc(a.category)+' • '+fmt(a.startAt)+' → '+fmt(a.endAt)+' • DATA: '+esc(a.dataClassification||"UNCLASSIFIED")+'</span><small>'+esc(a.location)+' • ผู้จัด '+esc(a.organizer?.name||a.organizerId||"—")+' • #'+esc(shortActivityId(a))+(a.createdAt?' • สร้าง '+esc(fmt(a.createdAt)):'')+'</small></div>'+
             '<div class="activity-center-status"><span class="status '+(life==="ACTIVE"?"s-ok":life==="UPCOMING"?"s-info":"s-warn")+'">'+lifecycleLabel+'</span>'+
               (reviewCount?'<span class="status s-bad">ต้องตรวจ '+reviewCount+'</span>':'')+'</div>'+
             '<div class="activity-center-actions">'+
@@ -1744,6 +1752,7 @@
               '<button class="btn mini secondary openQrActivity" data-id="'+esc(a.id)+'">QR</button>'+
               (canManageActivityClient(a)&&life!=="ENDED"&&!a.pilotClosedAt?'<button class="btn mini secondary editActivity" data-id="'+esc(a.id)+'">แก้ไข</button>':'')+
               (canManageActivityClient(a)?'<button class="btn mini primary manageActivity" data-id="'+esc(a.id)+'">จัดการ</button>':'')+
+              (can("ADMIN")&&a.dataClassification!=="QA_TEST"?'<button class="btn mini secondary quarantineQaActivity" data-id="'+esc(a.id)+'">กักกันเป็น QA</button>':'')+
             '</div></article>';
         }).join(""):'<div class="empty">ไม่พบกิจกรรมตามเงื่อนไข</div>')+'</div>'+
         '<div class="pagination"><button class="btn mini secondary" id="actPrev" '+(activityState.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+activityState.page+' / '+pages+'</span><button class="btn mini secondary" id="actNext" '+(activityState.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
@@ -1754,6 +1763,21 @@
       document.getElementById("actPrev").onclick=()=>{activityState.page--;renderActivityCenter();};
       document.getElementById("actNext").onclick=()=>{activityState.page++;renderActivityCenter();};
 
+      host.querySelectorAll(".quarantineQaActivity").forEach(btn=>btn.onclick=async()=>{
+        const activity=activities.find(a=>a.id===btn.dataset.id);
+        if(!activity)return;
+        const reason=prompt("ยืนยันกักกันกิจกรรมเป็น QA_TEST อย่างถาวร (เหตุผลอย่างน้อย 10 ตัวอักษร):", "QA activity excluded from Phase 3 empirical research");
+        if(reason===null)return;
+        if(reason.trim().length<10){alert("กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร");return;}
+        if(!confirm("ยืนยัน? กิจกรรมนี้และ Attendance ทั้งหมดจะถูกตัดออกจาก Research Export / Planning / ML อย่างถาวร และไม่สามารถยกระดับกลับเป็น EMPIRICAL"))return;
+        btn.disabled=true;
+        try{
+          await api("/api/activities/"+encodeURIComponent(activity.id)+"/quarantine-qa",{
+            method:"POST",body:JSON.stringify({reason:reason.trim()})
+          });
+          await renderActivities(v);
+        }catch(e){alert(String(e?.message||e));btn.disabled=false;}
+      });
       host.querySelectorAll(".editActivity").forEach(btn=>btn.onclick=()=>{
         const activity=activities.find(a=>a.id===btn.dataset.id);
         if(activity) renderActivityEdit(document.getElementById("activityManager"),activity);
@@ -1817,6 +1841,8 @@
           body:JSON.stringify({
             title,
             category:document.getElementById("aCat").value,
+            dataClassification:document.getElementById("aDataClass")?.value || "UNCLASSIFIED",
+            empiricalAttestation:document.getElementById("aEmpiricalAttest")?.checked === true,
             location:document.getElementById("aLoc").value || "ไม่ระบุ",
             startAt:startDt.toISOString(),
             endAt:endDt.toISOString(),
@@ -3936,6 +3962,7 @@
         card("NO_REVIEW_REQUIRED",negative)+
       '</div>'+
       '<div class="panel"><h2>AI Readiness Gate</h2>'+
+        '<div class="hint"><b>Phase 3 empirical-only:</b> จำนวนด้านบนไม่รวม QA_TEST / UNCLASSIFIED แม้จะมี 2 labels หรือ LOCKED; ดูข้อมูล QA ได้ใน Ground Truth Workspace แต่จะไม่รวมใน research dataset</div>'+
         '<div class="research-gate">'+
           gate("1","Independent Labels",Number(c.labelCount||0)>0)+
           gate("2","Adjudication",adjudicatedEver>0)+
@@ -3950,6 +3977,7 @@
         '<div id="mlMsg"></div>'+
       '</div>'+
       '<div class="panel"><h2>Phase 3 Planning Cohort</h2>'+
+        '<div class="hint"><b>Scope = EMPIRICAL_ONLY:</b> ไม่รวม QA_TEST / UNCLASSIFIED ทุกกรณี</div>'+
         '<div class="hint"><b>Aggregate only:</b> ใช้สำหรับวางแผน sample size เท่านั้น ไม่แสดงรหัสบุคลากร ชื่อ หรืออีเมล และไม่ใช่ผล AI</div>'+
         '<div class="hint"><b>Final-test firewall:</b> record ที่อยู่ใน planning snapshot จะถูกกำหนดเป็น development-only หลัง sample plan ถูก freeze</div>'+
         '<div class="form-grid" style="margin-top:12px">'+
