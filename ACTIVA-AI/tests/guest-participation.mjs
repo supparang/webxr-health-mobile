@@ -137,6 +137,29 @@ assert(exportResult.data.records.some(x=>x.record_id===attendance.id && x.partic
 
 const qaIssued=await issue(qa,"SUBJ-CIGUESTQA1");
 assert(qaIssued.status===201,"QA guest issuance failed");
+// Credential compromise: a revoked, unused QA pass can be replaced,
+ // but the old bearer remains invalid and consent must be renewed.
+const qaOldPass=tokenFromPath(qaIssued.data.path);
+const revoked=await req("/api/activities/"+qa.id+"/guest-passes/"+qaIssued.data.guestId+"/revoke",{
+ actor:"ADM001",method:"POST",body:{reason:"CI leaked credential must be revoked immediately"},
+});
+assert(revoked.status===200,"admin revocation failed");
+assert((await req("/api/public/guest/session",{guest:qaOldPass})).status===410,"revoked bearer still active");
+const replacement=await req("/api/activities/"+qa.id+"/guest-passes/"+qaIssued.data.guestId+"/reissue",{
+ actor:"ADM001",method:"POST",body:{reason:"CI participant required new secure QR pass"},
+});
+assert(replacement.status===201 && replacement.data.tokenReturnedOnce,"unused pass could not be securely reissued");
+const qaNewPass=tokenFromPath(replacement.data.path);
+assert(qaNewPass!==qaOldPass && (await req("/api/public/guest/session",{guest:qaNewPass})).data.consent.accepted===false,
+ "reissue must rotate bearer and require renewed consent");
+const administrativeWithdrawal=await req("/api/activities/"+qa.id+"/guest-passes/"+qaIssued.data.guestId+"/withdraw",{
+ actor:"ADM001",method:"POST",
+ body:{participantRequestConfirmed:true,reason:"CI offline participant withdrawal request documented"},
+});
+assert(administrativeWithdrawal.status===200 && administrativeWithdrawal.data.researchUseExcluded,
+ "documented withdrawal by ADMIN failed");
+assert((await req("/api/public/guest/session",{guest:qaNewPass})).status===410,"ADMIN withdrawal failed to revoke new pass");
+
 const qaGuest=await prisma.guestParticipant.findUnique({where:{id:qaIssued.data.guestId}});
 assert(qaGuest,"QA guest missing");
 assert(!ds.data.records.some(x=>x.participant_hash===qaGuest.studyHash),"QA guest leaked into research");
