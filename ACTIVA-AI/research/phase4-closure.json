@@ -1,0 +1,71 @@
+{
+  "workstreamId": "ACTIVA-P4-RESEARCH-001",
+  "protocolId": "ACTIVA-P3-RP-001",
+  "status": "HOLD",
+  "softwareBaseline": "10b8b60e7ed9081bd5e3eb1640824c77d9f2071a",
+  "note": "Do not alter status to COMPLETE without genuine external evidence and human review. No identifiers, bearer credentials or raw data in this file.",
+  "operational": {
+    "renderCommit": null,
+    "monitorRunUrl": null,
+    "mobileQrAcceptanceRef": null
+  },
+  "governance": {
+    "ethicsDecision": "PENDING",
+    "decisionRef": null,
+    "approvedConsentVersion": null,
+    "sitePermissionRef": null,
+    "retentionPlanRef": null
+  },
+  "samplePlan": {
+    "approval": "PENDING",
+    "planningSnapshotSha256": null,
+    "planningCutoffUtc": null
+  },
+  "fieldPilot": {
+    "approvedInstrumentVersion": "ACTIVA-P4-INST-001",
+    "pilotReportSha256": null,
+    "consentedParticipants": null,
+    "eligibleAttendanceRecords": null,
+    "withdrawalReconciliationRef": null,
+    "uniqueParticipants": null,
+    "uniqueEvents": null
+  },
+  "groundTruth": {
+    "distinctRealReviewersConfirmed": null,
+    "lockedEmpiricalCases": null,
+    "agreementReportSha256": null,
+    "adjudicationReportSha256": null,
+    "reviewRequiredCount": null,
+    "noReviewRequiredCount": null
+  },
+  "dataset": {
+    "scope": null,
+    "datasetStatus": null,
+    "deidentified": null,
+    "aiPredictionsIncluded": null,
+    "syntheticDemo": null,
+    "qaRecordsIncluded": null,
+    "validatorAuthorized": null,
+    "datasetSha256": null,
+    "validatorReportSha256": null
+  },
+  "evaluation": {
+    "modelStatus": null,
+    "modelProvenance": null,
+    "finalTestFirewallPass": null,
+    "finalTestReportSha256": null,
+    "modelManifestSha256": null,
+    "humanModelApprovalRef": null
+  },
+  "shadowPilot": {
+    "status": "PENDING",
+    "humanAuthorityPreserved": null,
+    "reportSha256": null
+  },
+  "closure": {
+    "reproducibilityIndexSha256": null,
+    "finalResearchReportSha256": null,
+    "humanSignoffRef": null,
+    "decisionAtUtc": null
+  }
+}
