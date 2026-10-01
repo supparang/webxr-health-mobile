@@ -13,7 +13,7 @@ const NUMERIC_FEATURES = [
 ];
 const CATEGORICAL_FEATURES = ["activity_type"];
 const REQUIRED_RECORD_FIELDS = [
-  "record_id","participant_hash","event_id","final_target",
+  "record_id","participant_hash","event_id","final_target","data_classification",
   ...NUMERIC_FEATURES,...CATEGORICAL_FEATURES,
 ];
 const BINARY_FEATURES = new Set([
@@ -58,6 +58,9 @@ export function validatePhase3Dataset(payload, options = {}) {
   if (payload.datasetStatus !== "LOCKED_GROUND_TRUTH_ONLY") {
     fail("DATASET_STATUS_NOT_LOCKED_GROUND_TRUTH_ONLY", String(payload.datasetStatus ?? "missing"));
   }
+  if (payload.dataProvenance !== "EMPIRICAL_LOCKED_GROUND_TRUTH" || payload.scope !== "EMPIRICAL_ONLY") {
+    fail("EMPIRICAL_RESEARCH_PROVENANCE_REQUIRED");
+  }
   if (payload.deidentified !== true) fail("DATASET_MUST_BE_DEIDENTIFIED");
   if (payload.aiPredictionsIncluded !== false) fail("AI_PREDICTIONS_MUST_BE_EXCLUDED");
   if (payload.syntheticDemo === true || payload.synthetic === true) fail("SYNTHETIC_DATA_NOT_ALLOWED_FOR_EMPIRICAL_PHASE3");
@@ -87,6 +90,9 @@ export function validatePhase3Dataset(payload, options = {}) {
       if (PROHIBITED_LEAKAGE.has(nk)) fail("PREDICTION_OR_HUMAN_OUTCOME_LEAKAGE_PROHIBITED", `index=${index} field=${key}`);
     }
 
+    if (row.data_classification !== "EMPIRICAL") {
+      fail("NON_EMPIRICAL_RECORD_PROHIBITED", `index=${index} value=${String(row.data_classification)}`);
+    }
     const recordId = String(row.record_id ?? "").trim();
     if (!recordId) fail("RECORD_ID_REQUIRED", `index=${index}`);
     else if (ids.has(recordId)) fail("DUPLICATE_RECORD_ID", recordId);
