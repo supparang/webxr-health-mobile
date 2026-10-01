@@ -3,6 +3,17 @@ import crypto from "node:crypto";
 
 const base=process.env.ACTIVA_BASE_URL||"http://127.0.0.1:3000";
 const assert=(x,m)=>{if(!x)throw Error(m);};
+// Fail closed: this integration test may mutate only the disposable CI PostgreSQL service.
+assert(process.env.CI==="true","Guest E2E requires GitHub CI");
+assert(process.env.ACTIVA_TEST_DATABASE_ONLY==="true","Disposable CI database required");
+assert(process.env.ALLOW_SYNTHETIC_CI==="true","Synthetic CI fixtures must be explicitly enabled");
+assert(process.env.ACTIVA_AUTH_MODE==="DEMO_HEADER","CI-only demo authentication required");
+assert(process.env.ACTIVA_DEPLOYMENT_TIER==="STAGING","Production deployment forbidden");
+assert(process.env.ACTIVA_PRODUCTION_GO_ENABLED==="false","Production GO must remain disabled");
+assert(Boolean(process.env.DATABASE_URL),"CI DATABASE_URL is required");
+const testDbUrl=new URL(process.env.DATABASE_URL);
+assert(["postgres:","postgresql:"].includes(testDbUrl.protocol),"PostgreSQL required");
+assert(["127.0.0.1","localhost"].includes(testDbUrl.hostname),"Refusing any remote database target");
 async function req(path,{actor,guest,blind,body,method="GET"}={}){
  const headers={Accept:"application/json"};
  if(actor)headers["x-activa-user-id"]=actor;
@@ -109,6 +120,38 @@ assert(queue.data.records.some(x=>x.id===attendance.id && x.guestParticipant?.id
 const issuedOther=await issue(other);
 const otherPass=tokenFromPath(issuedOther.data.path);
 assert((await prisma.guestParticipant.findUnique({where:{id:issuedOther.data.guestId}})).studyHash===stored.studyHash,"stable pseudonym differs across events");
+
+// P3.2.3 regression: invalid/tampered credentials and a real pass whose CI expiry is advanced.
+// The 'other' fixture has no attendance and is never used by the primary empirical flow.
+const validOtherSession=await req("/api/public/guest/session",{guest:otherPass});
+assert(validOtherSession.status===200,"repeat Guest Pass must be valid before expiry");
+const invalidPass="A".repeat(otherPass.length);
+assert(invalidPass!==otherPass,"invalid CI pass unexpectedly equals issued pass");
+const invalidSession=await req("/api/public/guest/session",{guest:invalidPass});
+assert(invalidSession.status===401 && invalidSession.data.error==="GUEST_PASS_INVALID","unknown pass accepted");
+const tamperedPass=(otherPass[0]==="A"?"B":"A")+otherPass.slice(1);
+const tamperedSession=await req("/api/public/guest/session",{guest:tamperedPass});
+assert(tamperedSession.status===401 && tamperedSession.data.error==="GUEST_PASS_INVALID","tampered pass accepted");
+const otherCheckinQr=await qr(other,"CHECKIN");
+assert(otherCheckinQr.status===200,"repeat activity QR issuance failed");
+
+await prisma.guestParticipant.update({
+ where:{id:issuedOther.data.guestId},
+ data:{expiresAt:new Date(Date.now()-60_000)},
+});
+const expiredSession=await req("/api/public/guest/session",{guest:otherPass});
+assert(expiredSession.status===410 && expiredSession.data.error==="GUEST_PASS_EXPIRED","expired guest session accepted");
+const expiredConsent=await req("/api/public/guest/consent",{
+ guest:otherPass,method:"POST",body:{accepted:true,version:"CI-CONSENT-V1"},
+});
+assert(expiredConsent.status===410 && expiredConsent.data.error==="GUEST_PASS_EXPIRED","expired pass accepted consent");
+const expiredCheckin=await checkin(otherPass,otherCheckinQr.data.token);
+assert(expiredCheckin.status===410 && expiredCheckin.data.error==="GUEST_PASS_EXPIRED","expired pass allowed check-in");
+const expiredCheckout=await checkout(otherPass,otherCheckinQr.data.token);
+assert(expiredCheckout.status===410 && expiredCheckout.data.error==="GUEST_PASS_EXPIRED","expired pass allowed check-out");
+const expiredAttendanceCount=await prisma.attendanceRecord.count({where:{guestParticipantId:issuedOther.data.guestId}});
+assert(expiredAttendanceCount===0,"expired pass created attendance evidence");
+console.log("P3.2.3 invalid/tampered/expired Guest Pass regression PASS (disposable CI)");
 
 async function lockByBlindPair(attendanceId){
  const batch=await req("/api/ground-truth/"+attendanceId+"/blind-batch",{
