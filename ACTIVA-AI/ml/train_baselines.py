@@ -69,6 +69,27 @@ def load_records(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def validate_empirical_export(path: Path) -> None:
+    """Fail closed before loading records into an empirical model."""
+    if path.suffix.lower() != ".json":
+        raise ValueError("Empirical Phase 3 training requires the signed-off JSON research export, not CSV.")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Empirical export must be a JSON object with provenance metadata.")
+    if payload.get("dataProvenance") != "EMPIRICAL_LOCKED_GROUND_TRUTH" or payload.get("scope") != "EMPIRICAL_ONLY":
+        raise ValueError("EMPIRICAL_RESEARCH_PROVENANCE_REQUIRED")
+    if payload.get("datasetStatus") != "LOCKED_GROUND_TRUTH_ONLY" or payload.get("aiPredictionsIncluded") is not False:
+        raise ValueError("LOCKED_DATASET_WITHOUT_AI_PREDICTIONS_REQUIRED")
+    if payload.get("syntheticDemo") is not False or payload.get("deidentified") is not True:
+        raise ValueError("SYNTHETIC_OR_UNVERIFIED_DATASET_NOT_ALLOWED")
+    rows = payload.get("records")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("EMPIRICAL_DATASET_EMPTY")
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict) or row.get("data_classification") != "EMPIRICAL":
+            raise ValueError(f"NON_EMPIRICAL_RECORD_PROHIBITED: index={i}")
+
+
 def load_dataset(path: Path) -> pd.DataFrame:
     df = load_records(path)
     required = {"record_id", "participant_hash", "event_id", "final_target", *FEATURES}
@@ -431,6 +452,8 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.data_provenance == "EMPIRICAL_LOCKED_GROUND_TRUTH":
+        validate_empirical_export(args.input)
     df = load_dataset(args.input)
     split_info = {"strategy": "synthetic_group_random_split"}
     if args.data_provenance == "EMPIRICAL_LOCKED_GROUND_TRUTH":
