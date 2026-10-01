@@ -1533,9 +1533,21 @@
         '</div><div class="actions"><button class="btn primary" id="createAct">บันทึกกิจกรรม</button></div><div id="actMsg"></div></div>'
       : '<div class="panel"><div class="hint"><b>สิทธิ์ปัจจุบัน:</b> คุณจัดการกิจกรรมที่ได้รับสิทธิ์ได้ แต่ไม่มีสิทธิ์สร้างกิจกรรมใหม่</div></div>';
 
+    const guestActivities=activities.filter(a=>["EMPIRICAL","QA_TEST"].includes(a.dataClassification)&&!a.pilotClosedAt&&new Date(a.checkoutCloseAt||a.endAt).getTime()>Date.now());
+    const guestPanel=can("ADMIN") && appMode==="server"
+      ? '<div class="panel"><h2>P3.2.3 — Guest Participant Pass (ไม่ต้องมีบัญชี)</h2>'+
+        '<div class="hint"><b>การเก็บข้อมูลจริง:</b> เลือกกิจกรรม EMPIRICAL ที่สร้างไว้ก่อนเริ่ม • ใช้ Study Code นิรนามเดิมเมื่อบุคคลเดียวกันร่วมหลายกิจกรรม เพื่อป้องกันข้อมูลรั่วระหว่าง Train/Final Test • ห้ามใช้ชื่อ อีเมล หรือรหัสพนักงานเป็น Study Code</div>'+
+        '<div class="form-grid"><div class="field"><label>กิจกรรม</label><select id="guestActivity">'+guestActivities.map(a=>'<option value="'+esc(a.id)+'">'+esc(activityChoiceLabel(a)+' • DATA '+a.dataClassification)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>Study Code (SUBJ-...; บันทึกทะเบียนจับคู่แบบปลอดภัยแยกต่างหาก)</label><input id="guestStudyCode" placeholder="SUBJ-EXAMPLE001"><button class="btn mini secondary" id="guestGenerateCode" type="button">สุ่ม Study Code</button></div>'+
+        '<div class="field"><label>Consent Protocol Version</label><input id="guestConsentVersion" placeholder="ACTIVA-P3-CONSENT-V1"></div>'+
+        '<div class="field full"><label>ข้อความขอความยินยอมฉบับที่ได้รับอนุมัติ (อย่างน้อย 30 ตัวอักษร)</label><textarea id="guestConsentText" rows="5" placeholder="วางข้อความที่ผ่านการอนุมัติจาก protocol ของงานวิจัยจริง ห้ามใช้ข้อความตัวอย่างเพื่อเก็บข้อมูลจริง"></textarea></div></div>'+
+        '<label class="check"><input type="checkbox" id="guestAdminAttest"> ยืนยันว่าผู้นี้มีอยู่จริงและ Study Code ไม่ใช่ข้อมูลระบุตัวตน • ผู้เข้าร่วมจะต้องกดยินยอมด้วยตนเองใน Guest Page</label>'+
+        '<div class="actions"><button class="btn primary" id="guestIssue" '+(!guestActivities.length?'disabled':'')+'>ออก Guest Pass (แสดงลิงก์ครั้งเดียว)</button><button class="btn secondary" id="guestList">รีเฟรชสถานะ Guest</button></div>'+
+        '<div id="guestIssueMsg"></div><div id="guestListMsg"></div>'+
+        '</div>' : "";
     v.innerHTML =
       '<div class="panel"><div id="activityCenter"></div></div>'+
-      createPanel+
+      createPanel+guestPanel+
       '<div id="activityManager"></div>';
 
     const activityState={filter:"RELEVANT",search:"",page:1,pageSize:20};
@@ -1793,6 +1805,105 @@
       });
     }
     renderActivityCenter();
+
+    const guestCodeGen=document.getElementById("guestGenerateCode");
+    if(guestCodeGen)guestCodeGen.onclick=()=>{
+      document.getElementById("guestStudyCode").value="SUBJ-"+crypto.randomUUID().replace(/-/g,"").slice(0,12).toUpperCase();
+    };
+    function displayIssuedGuest(response){
+      const out=document.getElementById("guestIssueMsg");
+      const link=location.origin+response.path;
+      out.innerHTML='<div class="alert warn"><b>Guest Pass แสดงครั้งเดียว:</b> ส่งลิงก์ให้ผู้เข้าร่วมจริงโดยตรง ห้ามเผยภาพหรือ URL ที่มี token • หากรั่ว ให้ Revoke ทันที</div>'+
+        '<div class="field"><label>Guest '+esc(response.guestRef)+'</label><input id="guestIssuedLink" readonly value="'+esc(link)+'"></div>'+
+        '<div class="actions"><button class="btn secondary" id="guestCopyPass">คัดลอกลิงก์ Guest</button></div>'+
+        '<div id="guestPassQR" style="margin-top:14px"></div>'+
+        '<div class="hint">ผู้รับต้องยินยอมด้วยตนเองก่อน Check-in • บัตรนี้ไม่ใช่หลักฐานยืนยันตัวตน</div>';
+      document.getElementById("guestCopyPass").onclick=async()=>{
+        try{await navigator.clipboard.writeText(link);}catch{
+          const input=document.getElementById("guestIssuedLink");input.select();document.execCommand("copy");
+        }
+        document.getElementById("guestCopyPass").textContent="คัดลอกแล้ว ✓";
+      };
+      if(window.QRCode)new QRCode(document.getElementById("guestPassQR"),{
+        text:link,width:210,height:210,correctLevel:QRCode.CorrectLevel.M
+      });
+    }
+    const guestListBtn=document.getElementById("guestList");
+    if(guestListBtn)guestListBtn.onclick=async()=>{
+      const act=document.getElementById("guestActivity")?.value;
+      const out=document.getElementById("guestListMsg");
+      if(!act)return;
+      try{
+        const response=await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes");
+        out.innerHTML='<div class="hint"><b>Registered Guest Passes:</b> '+esc(response.guests.length)+'</div>'+
+          (response.guests.length?'<div class="table-wrap"><table><thead><tr><th>Guest Ref</th><th>Consent</th><th>Attendance</th><th>Status</th><th>Admin Actions</th></tr></thead><tbody>'+
+          response.guests.map(g=>'<tr><td>GUEST-'+esc(g.guestRef)+'</td><td>'+(g.consentAccepted?"✓":"รอยินยอม")+'</td>'+
+          '<td>'+(g.attendance?(g.attendance.checkoutAt?"Check-out ✓":g.attendance.checkinAt?"Check-in ✓":"—"):"—")+'</td>'+
+          '<td>'+(g.withdrawn?"WITHDRAWN":g.revoked?"REVOKED":g.expired?"EXPIRED":"ACTIVE")+'</td>'+
+          '<td><div class="actions">'+
+          (!g.revoked?'<button class="btn mini secondary guestRevoke" data-id="'+esc(g.id)+'">Revoke</button>':'')+
+          (g.revoked&&!g.withdrawn&&!g.attendance&&!g.expired?'<button class="btn mini secondary guestReissue" data-id="'+esc(g.id)+'">Reissue</button>':'')+
+          (!g.withdrawn?'<button class="btn mini secondary guestWithdrawAdmin" data-id="'+esc(g.id)+'">บันทึกถอนความยินยอม</button>':'')+
+          '</div></td></tr>').join("")+'</tbody></table></div>':'');
+        out.querySelectorAll(".guestRevoke").forEach(btn=>btn.onclick=async()=>{
+          const reason=prompt("Revoke Guest Pass: ระบุเหตุผล (อย่างน้อย 10 ตัวอักษร)","Pass security or participant request");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/revoke",{
+              method:"POST",body:JSON.stringify({reason:reason.trim()})
+            });
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
+        out.querySelectorAll(".guestReissue").forEach(btn=>btn.onclick=async()=>{
+          const reason=prompt("Reissue unused revoked pass (consent must be renewed):","Secure pass replacement requested by participant");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            const result=await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/reissue",{
+              method:"POST",body:JSON.stringify({reason:reason.trim()})
+            });
+            displayIssuedGuest(result);
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
+        out.querySelectorAll(".guestWithdrawAdmin").forEach(btn=>btn.onclick=async()=>{
+          if(!confirm("ผู้เข้าร่วมคนนี้ร้องขอถอนความยินยอมจริงหรือไม่? ข้อมูลวิจัยจะถูกตัดออกทันทีและยังเก็บ Audit")){
+            return;
+          }
+          const reason=prompt("บันทึกเหตุผล/ช่องทางที่ได้รับคำขอถอนความยินยอม (อย่างน้อย 10 ตัวอักษร)","");
+          if(reason===null)return;
+          btn.disabled=true;
+          try{
+            await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes/"+encodeURIComponent(btn.dataset.id)+"/withdraw",{
+              method:"POST",body:JSON.stringify({reason:reason.trim(),participantRequestConfirmed:true})
+            });
+            guestListBtn.click();
+          }catch(e){alert(e.message);btn.disabled=false;}
+        });
+      }catch(e){out.innerHTML=errorBox(e);}
+    };
+    const guestIssueBtn=document.getElementById("guestIssue");
+    if(guestIssueBtn)guestIssueBtn.onclick=async()=>{
+      const act=document.getElementById("guestActivity")?.value;
+      const out=document.getElementById("guestIssueMsg");
+      if(!act)return out.innerHTML='<div class="alert warn">ยังไม่มีกิจกรรม QA_TEST/EMPIRICAL ที่เปิดรับ Guest</div>';
+      guestIssueBtn.disabled=true;
+      try{
+        const response=await api("/api/activities/"+encodeURIComponent(act)+"/guest-passes",{
+          method:"POST",body:JSON.stringify({
+            studyCode:document.getElementById("guestStudyCode").value,
+            consentVersion:document.getElementById("guestConsentVersion").value,
+            consentText:document.getElementById("guestConsentText").value,
+            adminAttestation:document.getElementById("guestAdminAttest").checked
+          })
+        });
+        displayIssuedGuest(response);
+        guestListBtn?.click();
+      }catch(e){out.innerHTML=errorBox(e);}
+      finally{guestIssueBtn.disabled=false;}
+    };
 
     const createBtn=document.getElementById("createAct");
     if(!createBtn) return;
@@ -2386,7 +2497,7 @@
   }
 
   function recordOptionLabel(r) {
-    const person = r.user?.employeeId || r.userId || "";
+    const person = r.user?.employeeId || (r.guestParticipantId ? "GUEST-"+r.guestParticipantId.slice(-8) : r.userId) || "";
     const title = r.activity?.title || r.activityId || "";
     const inTime = r.checkinAt ? new Date(r.checkinAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
     const outTime = r.checkoutAt ? new Date(r.checkoutAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "ยังไม่ออก";
@@ -2397,7 +2508,7 @@
     const seen = new Set();
     let duplicates = 0;
     for (const r of rows) {
-      const key = (r.user?.id || r.userId || "")+"|"+(r.activity?.id || r.activityId || "");
+      const key = (r.guestParticipantId||r.user?.id||r.userId||"")+"|"+(r.activity?.id || r.activityId || "");
       if (seen.has(key)) duplicates++;
       else seen.add(key);
     }
@@ -2443,7 +2554,7 @@
   }
 
   function compactAttendanceCard(r, actionButtons) {
-    const u=r.user||{};
+    const u=r.user||{employeeId:r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"",name:r.guestParticipantId?"Accountless participant":""};
     const c=effectiveConsistencyResult(r);
     const reasons=[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
     const pct=r.attendancePercentage==null?"—":Number(r.attendancePercentage).toFixed(1)+"%";
@@ -2558,7 +2669,7 @@
         '<div class="actions"><button class="btn secondary" id="coBtn">ยืนยัน Check-out จาก Token</button></div></div>'+
       '<div class="hint">Check-out ปกติเป็นหลักฐานส่วนบุคคล ต้องใช้ Dynamic CHECKOUT QR ของตนเอง ณ จุดกิจกรรม หากสแกนไม่ได้จริง ผู้จัดกิจกรรมหลัก/ผู้จัดร่วม/ผู้ดูแลระบบจึงใช้ “Check-out กรณีพิเศษ” พร้อมเหตุผล ส่วน Reviewer มีหน้าที่ตรวจหลักฐานและห้ามยืนยันรายการของตนเอง</div>'+
       '<div id="coMsg"></div></div></div>'+
-      ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
+      ((()=>{const seen=new Set();let dup=0;for(const r of rows){const k=(r.guestParticipantId||r.user?.id||r.userId)+"|"+(r.activity?.id||r.activityId);if(seen.has(k))dup++;else seen.add(k);}return dup>0&&can("ADMIN","STAFF")?'<div class="alert warn"><b>พบรายการซ้ำจากข้อมูล Demo เก่า '+dup+' รายการ</b><br>เลือกแถวที่ผิดจากรายการด้านบน แล้วกด “ยกเลิกรายการผิด” ระบบจะเก็บ Audit Trail ไว้</div>':'';})())+
       '<div class="panel"><div id="attendanceDashboard"></div></div>';
 
 
@@ -2629,7 +2740,7 @@
       let filtered=eventRows.filter(r=>{
         if(!attendanceFilterMatch(r,dashboardState.filter)) return false;
         if(!term) return true;
-        const hay=[r.user?.employeeId,r.user?.name,r.userId].filter(Boolean).join(" ").toLowerCase();
+        const hay=[r.user?.employeeId,r.user?.name,r.userId,r.guestParticipantId, r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):""].filter(Boolean).join(" ").toLowerCase();
         return hay.includes(term);
       });
 
@@ -3138,8 +3249,14 @@
       const id = document.getElementById("coRecord").value;
       const msg = document.getElementById("coMsg");
       if (!id) return msg.innerHTML = '<div class="alert warn">ยังไม่มีรายการสำหรับยืนยัน</div>';
+      const selected=rows.find(r=>r.id===id);
+      let witness=false;
+      if(selected?.guestParticipantId){
+        witness=confirm("ยืนยันการตรวจสอบตัวตนผู้เข้าร่วม Guest ด้วยตนเอง ณ จุดกิจกรรมแล้วจริง ๆ? การถือ Guest Pass อย่างเดียวไม่เพียงพอ และระบบจะบันทึก Audit");
+        if(!witness)return;
+      }
       try {
-        await api("/api/attendance/"+encodeURIComponent(id)+"/staff-verify", {method:"POST"});
+        await api("/api/attendance/"+encodeURIComponent(id)+"/staff-verify", {method:"POST",body:JSON.stringify({guestIdentityWitnessed:witness})});
         msg.innerHTML = '<div class="alert ok">บันทึกการยืนยันโดยเจ้าหน้าที่แล้ว</div>';
         setTimeout(() => renderAttendance(v), 350);
       } catch (e) { msg.innerHTML = errorBox(e); }
@@ -3178,7 +3295,7 @@
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
         const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
-        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        return '<tr><td>'+esc(((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+" • "+((r.user?.name||(r.guestParticipantId?"Accountless participant":""))))+'</td>'+
           '<td>'+esc(r.activity?.title||"")+'</td>'+
           '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
           '<td>'+(r.checkoutQrValid?"✓":"✕")+'</td><td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
@@ -3194,7 +3311,7 @@
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
         const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
-        return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc(r.user?.employeeId||"")+'</b><div>'+esc(r.user?.name||"")+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
+        return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+'</b><div>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
           '<div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div>'+
           '<div class="evidence-grid"><span>Check-in QR <b>'+(r.qrValid?"✓":"✕")+'</b></span><span>ตัวตน <b>'+(r.identityVerified?"✓":"✕")+'</b></span>'+
           '<span>เข้า <b>'+(r.checkinAt?"✓":"✕")+'</b></span><span>ออก <b>'+(r.checkoutAt?"✓":"✕")+'</b></span>'+
@@ -3487,7 +3604,7 @@
           const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
           const status=reviewWorkflowStatus(r);
           const prediction=riskByAttendance.get(r.id)||null;
-          return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
+          return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+'</b><span>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</span></span>'+
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
             '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Reviewer</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
@@ -3591,7 +3708,7 @@
     const started=new Date().toISOString();
 
     box.innerHTML=
-      '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
+      '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>Reviewer ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
@@ -3686,7 +3803,7 @@
       '<div class="panel"><h2>Ground Truth Workspace</h2>'+
       '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div>'+
       '<div class="hint"><b>Eligibility guard:</b> แสดงเฉพาะ Attendance ที่พร้อมติดป้ายแล้ว — Check-out เสร็จ หรือพ้น Check-out Window แล้ว และผู้ประเมินจะไม่เห็น Attendance ของตนเอง</div>'+
-      (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||r.userId)+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
+      (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):r.userId))+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
       '</div>';
 
@@ -4187,7 +4304,7 @@
         const r = p.attendance || {};
         const explanation = formatExplanation(p.explanation);
         const decision = r.humanReviews?.[0]?.decision || "ยังไม่ตัดสิน";
-        return '<tr><td><b>#'+esc(p.priorityRank||"—")+'</b></td><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        return '<tr><td><b>#'+esc(p.priorityRank||"—")+'</b></td><td>'+esc(((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+" • "+((r.user?.name||(r.guestParticipantId?"Accountless participant":""))))+'</td>'+
           '<td>'+esc(r.activity?.title||r.activityId||"")+'</td>'+
           '<td><b>'+Math.round(Number(p.riskProbability)*100)+'%</b></td>'+
           '<td>'+statusBadge(p.predictedLabel)+'</td>'+

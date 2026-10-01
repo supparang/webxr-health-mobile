@@ -122,6 +122,7 @@ model User {
   activityParticipants ActivityParticipant[] @relation("ActivityParticipantUser")
   activityParticipantsAdded ActivityParticipant[] @relation("ActivityParticipantAddedBy")
   attendanceRecords       AttendanceRecord[]
+  guestPassesIssued        GuestParticipant[] @relation("GuestPassIssuer")
   voidedAttendanceRecords AttendanceRecord[] @relation("AttendanceVoidedBy")
   staffVerifications StaffVerification[]   @relation("StaffVerifier")
   humanReviews      HumanReview[]           @relation("HumanReviewer")
@@ -191,6 +192,7 @@ model Activity {
   policy           ActivityPolicy?
   qrTokens         QrToken[]
   attendanceRecords AttendanceRecord[]
+  guestParticipants GuestParticipant[]
   assignmentsUpdatedAt DateTime?
   pilotClosedAt       DateTime?
   pilotClosedById     String?
@@ -269,12 +271,39 @@ model QrToken {
   @@index([activityId, expiresAt])
 }
 
+// No ACTIVA-AI/Google account is created for a guest. One pass is scoped to
+// one activity; the HMAC studyHash remains stable for repeated study codes
+// across distinct events, supporting grouped research splits.
+model GuestParticipant {
+  id                String    @id @default(cuid())
+  activityId        String
+  activity          Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  studyHash         String
+  passTokenHash     String    @unique
+  consentVersion    String
+  consentText       String
+  consentAt         DateTime?
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  withdrawnAt       DateTime?
+  issuedById        String
+  issuedBy          User      @relation("GuestPassIssuer", fields: [issuedById], references: [id])
+  attendance        AttendanceRecord?
+  createdAt         DateTime  @default(now())
+
+  @@unique([activityId, studyHash])
+  @@index([activityId, revokedAt])
+  @@index([expiresAt])
+}
+
 model AttendanceRecord {
   id                    String                @id @default(cuid())
   activityId            String
   activity              Activity              @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  userId                String
-  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String?
+  user                  User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestParticipantId    String?               @unique
+  guestParticipant      GuestParticipant?     @relation(fields: [guestParticipantId], references: [id], onDelete: Cascade)
   checkinAt             DateTime?
   checkoutAt            DateTime?
   checkoutQrValid       Boolean               @default(false)

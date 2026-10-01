@@ -1,9 +1,15 @@
 // Phase 3: persisted research provenance; never infer empirical status from titles.
 export const ACTIVITY_DATA_CLASSES = Object.freeze(["UNCLASSIFIED","QA_TEST","EMPIRICAL"]);
 export const EMPIRICAL_ACTIVITY_FILTER = Object.freeze({ dataClassification:"EMPIRICAL" });
+// Guests may enter research only after explicit consent; withdrawing consent
+// or revoking a compromised pass removes their records without deleting audit.
 export const EMPIRICAL_ATTENDANCE_FILTER = Object.freeze({
   isVoided:false,
   activity:EMPIRICAL_ACTIVITY_FILTER,
+  OR:[
+    { guestParticipantId:null, userId:{not:null} },
+    { guestParticipant:{consentAt:{not:null},withdrawnAt:null,revokedAt:null} },
+  ],
 });
 export const EMPIRICAL_LOCKED_CASE_FILTER = Object.freeze({
   status:"LOCKED",

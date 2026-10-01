@@ -12,7 +12,7 @@ RUN npm ci --include=dev && npm run prisma:generate
 FROM dependencies AS migrate
 COPY --chown=node:node server ./server
 COPY --chown=node:node scripts ./scripts
-COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css blind-review.html blind-review.js ./
+COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css blind-review.html blind-review.js guest.html guest.js ./
 USER node
 CMD ["npm", "run", "prisma:deploy"]
 
@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node server ./server
-COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css blind-review.html blind-review.js ./
+COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css blind-review.html blind-review.js guest.html guest.js ./
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

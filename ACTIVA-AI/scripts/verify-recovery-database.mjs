@@ -7,6 +7,7 @@ const EXPECTED_MIGRATIONS = [
   "20260928094500_position_role_separation",
   "20261001110000_external_blind_reviewer_sessions",
   "20261001133000_activity_research_classification",
+  "20261001150000_guest_participation",
 ];
 
 const EXPECTED_TABLES = [
@@ -17,6 +18,7 @@ const EXPECTED_TABLES = [
   "BlindReviewBatch",
   "BlindReviewInvite",
   "ExternalGroundTruthLabel",
+  "GuestParticipant",
   "AuditLog",
 ];
 
