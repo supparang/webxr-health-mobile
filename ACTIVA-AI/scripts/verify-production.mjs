@@ -24,7 +24,7 @@ export const DEFAULT_PROBE_POLICY = Object.freeze({
 const RETRYABLE_HTTP = new Set([408, 429, 502, 503, 504]);
 const RETRYABLE_TRANSPORT = new Set(["AbortError", "TimeoutError", "TypeError"]);
 
-async function getJson(baseUrl, path, { timeoutMs, fetchImpl = fetch, now = Date.now } = {}) {
+export async function getJson(baseUrl, path, { timeoutMs, fetchImpl = fetch, now = Date.now } = {}) {
   const started = now();
   const response = await fetchImpl(baseUrl + path, {
     method: "GET",
@@ -34,10 +34,15 @@ async function getJson(baseUrl, path, { timeoutMs, fetchImpl = fetch, now = Date
     },
     signal: AbortSignal.timeout(timeoutMs),
   });
-  const durationMs = now() - started;
   let body = null;
-  try { body = await response.json(); } catch { body = null; }
-  return { status: response.status, durationMs, body };
+  try {
+    body = await response.json();
+  } catch (error) {
+    // A timeout while reading the response body is still transient; malformed
+    // JSON (SyntaxError) from an HTTP 200 is a permanent invalid snapshot.
+    if (RETRYABLE_TRANSPORT.has(String(error?.name || ""))) throw error;
+  }
+  return { status: response.status, durationMs: now() - started, body };
 }
 
 async function defaultSleep(ms) {
