@@ -150,8 +150,10 @@ jobs:
 
       - name: Verify blind-review assets in production runtime
         run: |
-          curl -fsS http://127.0.0.1:3001/blind-review | grep -q "Independent Ground Truth Review"
-          curl -fsS http://127.0.0.1:3001/blind-review.js | grep -q "EXTERNAL BLIND REVIEW"
+          curl -fsS -o /tmp/activa-blind-review.html http://127.0.0.1:3001/blind-review
+          curl -fsS -o /tmp/activa-blind-review.js http://127.0.0.1:3001/blind-review.js
+          grep -q "Independent Ground Truth Review" /tmp/activa-blind-review.html
+          grep -q "BLIND_REVIEW_TOKEN_MISSING" /tmp/activa-blind-review.js
 
       - name: Start ACTIVA-AI server
         run: |
