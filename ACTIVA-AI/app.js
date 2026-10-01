@@ -3247,7 +3247,7 @@
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
         const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
-        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        return '<tr><td>'+esc(((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+" • "+((r.user?.name||(r.guestParticipantId?"Accountless participant":""))))+'</td>'+
           '<td>'+esc(r.activity?.title||"")+'</td>'+
           '<td>'+(r.qrValid?"✓":"✕")+'</td><td>'+(r.identityVerified?"✓":"✕")+'</td><td>'+(r.checkinAt?"✓":"✕")+'</td><td>'+(r.checkoutAt?"✓":"✕")+'</td>'+
           '<td>'+(r.checkoutQrValid?"✓":"✕")+'</td><td>'+(c?.durationRatio==null?"—":(Number(c.durationRatio)*100).toFixed(1)+"%")+'</td><td>'+(r.staffVerification?"✓":"✕")+'</td>'+
@@ -3263,7 +3263,7 @@
         const active=Boolean(r.checkinAt&&!r.checkoutAt);
         const c=active?null:effectiveConsistencyResult(r);
         const reasons=active?[]:[].concat(c?.missingCodes||[],c?.reasonCodes||[]);
-        return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc(r.user?.employeeId||"")+'</b><div>'+esc(r.user?.name||"")+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
+        return '<article class="evidence-card"><div class="attendance-card-head"><div><b>'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+'</b><div>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</div></div>'+statusBadge(evidenceStatusOf(r))+'</div>'+
           '<div class="attendance-card-title">'+esc(r.activity?.title||"")+'</div>'+
           '<div class="evidence-grid"><span>Check-in QR <b>'+(r.qrValid?"✓":"✕")+'</b></span><span>ตัวตน <b>'+(r.identityVerified?"✓":"✕")+'</b></span>'+
           '<span>เข้า <b>'+(r.checkinAt?"✓":"✕")+'</b></span><span>ออก <b>'+(r.checkoutAt?"✓":"✕")+'</b></span>'+
@@ -3556,7 +3556,7 @@
           const blockers=[...(c?.missingCodes||[]),...(c?.reasonCodes||[])];
           const status=reviewWorkflowStatus(r);
           const prediction=riskByAttendance.get(r.id)||null;
-          return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc(r.user?.employeeId||"")+'</b><span>'+esc(r.user?.name||"")+'</span></span>'+
+          return '<details class="attendance-compact review-case" '+(rowIndex===0&&pendingStatus(status)?'open':'')+'><summary><span class="compact-person"><b>'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+'</b><span>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</span></span>'+
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
             '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Reviewer</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
@@ -3660,7 +3660,7 @@
     const started=new Date().toISOString();
 
     box.innerHTML=
-      '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc(r.user?.name||"")+'</b> • '+esc(r.activity?.title||"")+'</p>'+
+      '<div class="panel"><h2>'+(readOnlyHistory?'ประวัติการตัดสิน':'ตรวจสอบรายการ')+'</h2><p><b>'+esc((r.user?.name||(r.guestParticipantId?"Accountless participant":"")))+'</b> • '+esc(r.activity?.title||"")+'</p>'+
       '<div class="review-status-grid"><div><small>ผลตรวจหลักฐานของระบบ</small>'+statusBadge(evidenceStatusOf(r))+'</div><div><small>ผลตัดสินสุดท้าย</small>'+statusBadge(finalStatusOf(r))+'</div></div>'+
       (prediction?'<div class="hint"><b>AI Decision Support • Priority #'+esc(prediction.priorityRank||"—")+'</b><br>Risk probability <b>'+Math.round(reviewAiRisk(prediction)*100)+'%</b> • '+statusBadge(prediction.predictedLabel)+' • Model '+esc(prediction.modelVersion||deployedModel?.version||"—")+'<div style="margin-top:8px">'+formatExplanation(prediction.explanation)+'</div><small>ใช้เพื่อจัดลำดับและช่วยอธิบายการตรวจเท่านั้น ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่เปลี่ยนผลรับรองอัตโนมัติ</small></div>':'<div class="hint"><b>AI Decision Support:</b> ยังไม่มี prediction สำหรับ case นี้ การตัดสินยังอิงหลักฐานและ Human Review ตามปกติ</div>')+
       '<div class="timeline"><div><b>เวลาเข้า</b> — '+fmt(r.checkinAt)+'</div><div><b>เวลาออก</b> — '+fmt(r.checkoutAt)+'</div><div><b>วิธี Check-out</b> — '+esc(r.checkoutMethod||"—")+' / QR '+(r.checkoutQrValid?"✓":"✕")+'</div><div><b>Reviewer ยืนยัน</b> — '+(r.staffVerification?fmt(r.staffVerification.verifiedAt):"ไม่มี")+'</div>'+
@@ -4256,7 +4256,7 @@
         const r = p.attendance || {};
         const explanation = formatExplanation(p.explanation);
         const decision = r.humanReviews?.[0]?.decision || "ยังไม่ตัดสิน";
-        return '<tr><td><b>#'+esc(p.priorityRank||"—")+'</b></td><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+        return '<tr><td><b>#'+esc(p.priorityRank||"—")+'</b></td><td>'+esc(((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):"")))+" • "+((r.user?.name||(r.guestParticipantId?"Accountless participant":""))))+'</td>'+
           '<td>'+esc(r.activity?.title||r.activityId||"")+'</td>'+
           '<td><b>'+Math.round(Number(p.riskProbability)*100)+'%</b></td>'+
           '<td>'+statusBadge(p.predictedLabel)+'</td>'+
