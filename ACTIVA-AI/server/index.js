@@ -4632,14 +4632,20 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 // Only public browser assets may be served. Never serve server, prisma,
 // scripts, dependency, backup, or environment files from the application tree.
-const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css"];
+const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js"];
 for (const file of publicFiles) {
   app.get("/" + file, (_req, res) => {
-    if (file === "runtime-config.js") res.set("Cache-Control", "no-store");
+    if (["runtime-config.js","blind-review.html","blind-review.js"].includes(file)) {
+      res.set("Cache-Control", "no-store");
+    }
     res.sendFile(path.join(staticDir, file));
   });
 }
 app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
+app.get("/blind-review", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(staticDir, "blind-review.html"));
+});
 app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
 app.use((error, _req, res, _next) => {
