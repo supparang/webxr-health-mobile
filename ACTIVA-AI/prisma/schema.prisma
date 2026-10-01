@@ -122,6 +122,7 @@ model User {
   personalQrCredentials PersonalQrCredential[] @relation("PersonalQrUser")
   groundTruthLabels        GroundTruthLabel[] @relation("GroundTruthReviewer")
   groundTruthAdjudications GroundTruthCase[]  @relation("GroundTruthAdjudicator")
+  blindReviewBatchesCreated BlindReviewBatch[] @relation("BlindReviewBatchCreator")
   auditLogs                AuditLog[]         @relation("AuditActor")
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -285,9 +286,11 @@ model AttendanceRecord {
   consistencyResult     ConsistencyResult?
   humanReviews          HumanReview[]
   participantResponses  ParticipantResponse[]
-  groundTruthLabels     GroundTruthLabel[]
-  groundTruthCase       GroundTruthCase?
-  aiPredictions         AIPrediction[]
+  groundTruthLabels          GroundTruthLabel[]
+  externalGroundTruthLabels  ExternalGroundTruthLabel[]
+  blindReviewBatches         BlindReviewBatch[]
+  groundTruthCase             GroundTruthCase?
+  aiPredictions               AIPrediction[]
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
@@ -360,6 +363,53 @@ model GroundTruthLabel {
   createdAt     DateTime          @default(now())
 
   @@unique([attendanceId, reviewerId])
+}
+
+model BlindReviewBatch {
+  id            String           @id @default(cuid())
+  attendanceId  String
+  attendance    AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User             @relation("BlindReviewBatchCreator", fields: [createdById], references: [id])
+  status        String           @default("OPEN")
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime         @default(now())
+  invites       BlindReviewInvite[]
+
+  @@index([attendanceId, status])
+  @@index([expiresAt])
+}
+
+model BlindReviewInvite {
+  id            String                   @id @default(cuid())
+  batchId       String
+  batch         BlindReviewBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  reviewerSlot  String
+  tokenHash     String                   @unique
+  expiresAt     DateTime
+  submittedAt   DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime                 @default(now())
+  label         ExternalGroundTruthLabel?
+
+  @@unique([batchId, reviewerSlot])
+  @@index([expiresAt])
+}
+
+model ExternalGroundTruthLabel {
+  id            String            @id @default(cuid())
+  attendanceId  String
+  attendance    AttendanceRecord  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  inviteId      String            @unique
+  invite        BlindReviewInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  reviewerSlot  String
+  target        GroundTruthTarget
+  reasonCodes   Json
+  notes         String?
+  createdAt     DateTime          @default(now())
+
+  @@index([attendanceId, createdAt])
 }
 
 model GroundTruthCase {
