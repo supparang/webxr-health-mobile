@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { validateProductionSnapshot, probeWithRetry, verifyProduction } from "../scripts/verify-production.mjs";
+import { getJson, validateProductionSnapshot, probeWithRetry, verifyProduction } from "../scripts/verify-production.mjs";
 
 const expectedRelease = "ACTIVA-AI-1.0.15";
 const good = {
@@ -149,6 +149,22 @@ const unsafe=await verifyProduction({
 assert.equal(unsafe.ok,false,"governance breach must never be hidden by retries");
 assert.equal(unsafe.monitor.classification,"GOVERNANCE_OR_READINESS_FAILURE");
 assert(unsafe.errors.includes("HEALTH_AUTONOMOUS_DECISION_MUST_BE_FALSE"));
+
+const bodyTimeout=Object.assign(new Error("synthetic body timeout"),{name:"TimeoutError"});
+await assert.rejects(
+  getJson("https://safe-monitor.example.test","/api/live",{
+    timeoutMs:50,
+    fetchImpl:async()=>({status:200,json:async()=>{throw bodyTimeout;}}),
+  }),
+  /synthetic body timeout/,
+  "aborted JSON body read must remain a retryable transport error"
+);
+const malformedBody=await getJson("https://safe-monitor.example.test","/api/live",{
+  timeoutMs:50,
+  fetchImpl:async()=>({status:200,json:async()=>{throw new SyntaxError("bad JSON");}}),
+});
+assert.equal(malformedBody.status,200);
+assert.equal(malformedBody.body,null,"malformed 200 must not be considered valid JSON");
 
 await assert.rejects(
   probeWithRetry("https://safe-monitor.example.test","/api/live",{policy:{timeoutsMs:[],backoffMs:[]}}),
