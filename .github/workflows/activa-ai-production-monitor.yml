@@ -76,6 +76,7 @@ jobs:
 
           - Detected at (UTC): ${NOW_UTC}
           - Expected release: ${ACTIVA_EXPECTED_RELEASE}
+          - Failure classification: ${{ steps.verify.outputs.monitor_classification || 'SYNTHETIC_OR_UNCLASSIFIED' }}
           - Production endpoint: ${ACTIVA_PRODUCTION_URL}
           - Workflow run: ${RUN_URL}
           - Commit: ${GITHUB_SHA}
@@ -126,7 +127,7 @@ jobs:
           )"
 
           if [[ -n "${ISSUE_NUMBER}" ]]; then
-            gh issue comment "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --body "RECOVERED: ACTIVA-AI production verification passed again at ${NOW_UTC}. Successful run: ${RUN_URL}"
+            gh issue comment "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --body "RECOVERED: ACTIVA-AI production verification passed again at ${NOW_UTC}. Successful run: ${RUN_URL}. Monitor classification: ${{ steps.verify.outputs.monitor_classification || 'HEALTHY_UNCLASSIFIED' }}"
             gh issue close "${ISSUE_NUMBER}"               --repo "${GITHUB_REPOSITORY}"               --reason completed
             echo "Closed recovered production incident #${ISSUE_NUMBER}."
           else
@@ -137,6 +138,7 @@ jobs:
             echo "## ACTIVA-AI Production Monitor"
             echo ""
             echo "Production verification passed."
+            echo "- Monitor classification: ${{ steps.verify.outputs.monitor_classification || 'HEALTHY_UNCLASSIFIED' }}"
             echo ""
             echo "- Run: ${RUN_URL}"
             echo "- Alert routing: GitHub incident workflow enabled"
