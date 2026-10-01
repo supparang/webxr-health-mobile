@@ -2886,6 +2886,34 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
       activity: { include: { policy: true } },
       staffVerification: true,
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        include: {
+          invite: {
+            select: {
+              id:true,
+              reviewerSlot:true,
+              batchId:true,
+              batch:{ select:{ status:true } },
+            },
+          },
+        },
+      },
+      blindReviewBatches: {
+        include: {
+          invites: {
+            orderBy:{ reviewerSlot:"asc" },
+            select:{
+              id:true,
+              reviewerSlot:true,
+              expiresAt:true,
+              submittedAt:true,
+              revokedAt:true,
+              independenceAttested:true,
+            },
+          },
+        },
+        orderBy:{ createdAt:"desc" },
+      },
       groundTruthCase: true,
     },
     orderBy: { createdAt: "asc" },
@@ -2906,6 +2934,22 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
       req.activaUser.role === "ADMIN"
         ? row.groundTruthLabels
         : row.groundTruthLabels.filter((label) => label.reviewerId === req.activaUser.id),
+    externalGroundTruthLabels:
+      req.activaUser.role === "ADMIN"
+        ? (row.externalGroundTruthLabels || []).filter((label) => label.invite?.batch?.status === "COMPLETED")
+        : [],
+    blindReviewBatches:
+      req.activaUser.role === "ADMIN"
+        ? (row.blindReviewBatches || []).map((batch) => ({
+            id:batch.id,
+            status:batch.status,
+            expiresAt:batch.expiresAt,
+            revokedAt:batch.revokedAt,
+            createdAt:batch.createdAt,
+            submittedCount:(batch.invites || []).filter((x) => Boolean(x.submittedAt)).length,
+            invites:batch.invites || [],
+          }))
+        : [],
   }));
   res.json({
     ok: true,
@@ -3047,11 +3091,8 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
     return res.status(400).json({ ok: false, error: "INVALID_FINAL_TARGET" });
   }
 
-  const labels = await prisma.groundTruthLabel.findMany({
-    where: { attendanceId },
-    orderBy: { createdAt: "asc" },
-  });
-  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  const labels = await combinedGroundTruthLabels(attendanceId);
+  const reviewerCount = new Set(labels.map((x) => x.reviewerKey)).size;
   if (reviewerCount < 2) {
     return res.status(409).json({
       ok: false,
@@ -3119,11 +3160,8 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
 
 app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (req, res) => {
   const attendanceId = req.params.attendanceId;
-  const labels = await prisma.groundTruthLabel.findMany({
-    where: { attendanceId },
-    orderBy: { createdAt: "asc" },
-  });
-  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  const labels = await combinedGroundTruthLabels(attendanceId);
+  const reviewerCount = new Set(labels.map((x) => x.reviewerKey)).size;
   if (reviewerCount < 2) {
     return res.status(409).json({
       ok: false,
@@ -3187,6 +3225,18 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
     }
   }
 
+  const lockedAt = groundTruthCase.lockedAt || new Date();
+  await prisma.$transaction([
+    prisma.blindReviewInvite.updateMany({
+      where:{ batch:{ attendanceId }, submittedAt:null, revokedAt:null },
+      data:{ revokedAt:lockedAt },
+    }),
+    prisma.blindReviewBatch.updateMany({
+      where:{ attendanceId, status:"OPEN", revokedAt:null },
+      data:{ status:"REVOKED", revokedAt:lockedAt },
+    }),
+  ]);
+
   await audit(req, "GROUND_TRUTH_LOCKED", "AttendanceRecord", attendanceId, {
     finalTarget: groundTruthCase.finalTarget,
     labelCount: labels.length,
@@ -3202,8 +3252,11 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
-  const [labelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
+  const [internalLabelCount, externalLabelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
     prisma.groundTruthLabel.count(),
+    prisma.externalGroundTruthLabel.count({
+      where:{ invite:{ batch:{ status:"COMPLETED" } } },
+    }),
     prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
     prisma.groundTruthCase.count({ where: { adjudicatedAt: { not: null } } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
@@ -3215,6 +3268,7 @@ app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
     }),
   ]);
 
+  const labelCount = internalLabelCount + externalLabelCount;
   const evaluatedModels = models.filter((m) => ["EVALUATED", "APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
   const approvedModels = models.filter((m) => ["APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
   const deployedModel = models.find((m) => m.status === "DEPLOYED") || null;
