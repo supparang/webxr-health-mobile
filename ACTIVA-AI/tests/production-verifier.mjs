@@ -30,7 +30,7 @@ const good = {
       database: "connected",
       autonomousDecision: false,
       productionGoEnabled: true,
-      authentication: { productionReady: true, allowedDomains: ["chandra.ac.th"] },
+      authentication: { mode: "GOOGLE_OIDC", productionReady: true, allowedDomains: ["chandra.ac.th"] },
     },
   },
 };
@@ -55,6 +55,20 @@ const autonomousAi = validateProductionSnapshot({
 });
 assert.equal(autonomousAi.ok, false);
 assert(autonomousAi.errors.includes("HEALTH_AUTONOMOUS_DECISION_MUST_BE_FALSE"));
+
+const goDisabled = validateProductionSnapshot({
+  ...good, health:{...good.health,body:{...good.health.body,productionGoEnabled:false}},
+  expectedRelease,
+});
+assert.equal(goDisabled.ok,false);
+assert(goDisabled.errors.includes("HEALTH_PRODUCTION_GO_NOT_ENABLED"));
+const wrongAuthMode = validateProductionSnapshot({
+  ...good, health:{...good.health,body:{...good.health.body,
+    authentication:{...good.health.body.authentication,mode:"DEMO_HEADER"}}},
+  expectedRelease,
+});
+assert.equal(wrongAuthMode.ok,false);
+assert(wrongAuthMode.errors.includes("HEALTH_AUTHENTICATION_MODE_MISMATCH"));
 
 const authDown = validateProductionSnapshot({
   ...good,
