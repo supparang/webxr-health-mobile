@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { appendFileSync } from "node:fs";
 
 const DEFAULT_BASE_URL = "https://activa-ai-production-api.onrender.com";
 const DEFAULT_EXPECTED_RELEASE = "ACTIVA-AI-1.0.15";
@@ -101,6 +102,8 @@ export function validateProductionSnapshot({ live, ready, health, expectedReleas
   check(health?.body?.releaseVersion === expectedRelease, "HEALTH_RELEASE_MISMATCH");
   check(health?.body?.database === "connected", "HEALTH_DATABASE_NOT_CONNECTED");
   check(health?.body?.autonomousDecision === false, "HEALTH_AUTONOMOUS_DECISION_MUST_BE_FALSE");
+  check(health?.body?.productionGoEnabled === true, "HEALTH_PRODUCTION_GO_NOT_ENABLED");
+  check(health?.body?.authentication?.mode === "GOOGLE_OIDC", "HEALTH_AUTHENTICATION_MODE_MISMATCH");
   check(health?.body?.authentication?.productionReady === true, "HEALTH_AUTHENTICATION_NOT_PRODUCTION_READY");
 
   if (expectedGoogleDomain) {
@@ -157,6 +160,9 @@ async function main() {
   try {
     const result = await verifyProduction();
     console.log(JSON.stringify(result, null, 2));
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT, "monitor_classification=" + result.monitor.classification + "\n");
+    }
     if (!result.ok) process.exitCode = 1;
   } catch (error) {
     console.error(JSON.stringify({
