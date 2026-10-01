@@ -2703,6 +2703,181 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
   });
 });
 
+
+async function combinedGroundTruthLabels(attendanceId) {
+  const [internal, external] = await Promise.all([
+    prisma.groundTruthLabel.findMany({
+      where: { attendanceId },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.externalGroundTruthLabel.findMany({
+      where: {
+        attendanceId,
+        invite: { batch: { status: "COMPLETED" } },
+      },
+      include: {
+        invite: { select: { id:true, reviewerSlot:true, batchId:true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  return [
+    ...internal.map((x) => ({
+      ...x,
+      reviewerKey: "USER:" + x.reviewerId,
+      reviewerType: "INTERNAL",
+      reviewerSlot: null,
+    })),
+    ...external.map((x) => ({
+      ...x,
+      reviewerKey: "EXTERNAL:" + x.inviteId,
+      reviewerType: "EXTERNAL_BLIND",
+      reviewerId: null,
+    })),
+  ];
+}
+
+app.get("/api/ground-truth/:attendanceId/blind-batches", requireRoles("ADMIN"), async (req, res) => {
+  const batches = await prisma.blindReviewBatch.findMany({
+    where: { attendanceId: req.params.attendanceId },
+    include: {
+      invites: {
+        orderBy: { reviewerSlot: "asc" },
+        select: {
+          id:true,
+          reviewerSlot:true,
+          expiresAt:true,
+          submittedAt:true,
+          revokedAt:true,
+          independenceAttested:true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    ok:true,
+    tokenValuesIncluded:false,
+    batches:batches.map((b) => ({
+      id:b.id,
+      status:b.status,
+      expiresAt:b.expiresAt,
+      revokedAt:b.revokedAt,
+      createdAt:b.createdAt,
+      submittedCount:b.invites.filter((x) => Boolean(x.submittedAt)).length,
+      invites:b.invites,
+    })),
+  });
+});
+
+app.post("/api/ground-truth/:attendanceId/blind-batch", requireRoles("ADMIN"), async (req, res, next) => {
+  try {
+    const attendanceId = req.params.attendanceId;
+    const attendance = await prisma.attendanceRecord.findUnique({
+      where: { id: attendanceId },
+      include: { activity:true, groundTruthCase:true },
+    });
+    if (!attendance || attendance.isVoided) {
+      return res.status(404).json({ ok:false, error:"ATTENDANCE_NOT_FOUND" });
+    }
+    if (attendance.groundTruthCase?.status === "LOCKED") {
+      return res.status(409).json({ ok:false, error:"GROUND_TRUTH_ALREADY_LOCKED" });
+    }
+    if (!attendance.checkoutAt && checkoutWindowState(attendance.activity).code !== "QR_CHECKOUT_CLOSED") {
+      return res.status(409).json({
+        ok:false,
+        error:"GROUND_TRUTH_ATTENDANCE_NOT_MATURE",
+        note:"Wait until checkout is complete or the checkout window has closed.",
+      });
+    }
+
+    const rawHours = Number(req.body?.expiresHours ?? 24);
+    if (!Number.isInteger(rawHours) || rawHours < 1 || rawHours > 168) {
+      return res.status(400).json({ ok:false, error:"BLIND_REVIEW_EXPIRY_HOURS_INVALID" });
+    }
+    const replaceActive = req.body?.replaceActive === true;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + rawHours * 3600000);
+
+    const active = await prisma.blindReviewBatch.findFirst({
+      where: {
+        attendanceId,
+        status:"OPEN",
+        revokedAt:null,
+        expiresAt:{ gt:now },
+      },
+      orderBy:{ createdAt:"desc" },
+    });
+    if (active && !replaceActive) {
+      return res.status(409).json({
+        ok:false,
+        error:"ACTIVE_BLIND_REVIEW_BATCH_EXISTS",
+        batchId:active.id,
+        expiresAt:active.expiresAt,
+      });
+    }
+
+    const tokens = {
+      A: crypto.randomBytes(32).toString("base64url"),
+      B: crypto.randomBytes(32).toString("base64url"),
+    };
+
+    const batch = await prisma.$transaction(async (tx) => {
+      if (active && replaceActive) {
+        await tx.blindReviewInvite.updateMany({
+          where:{ batchId:active.id, submittedAt:null },
+          data:{ revokedAt:now },
+        });
+        await tx.blindReviewBatch.update({
+          where:{ id:active.id },
+          data:{ status:"REVOKED", revokedAt:now },
+        });
+      }
+
+      return tx.blindReviewBatch.create({
+        data:{
+          attendanceId,
+          createdById:req.activaUser.id,
+          status:"OPEN",
+          expiresAt,
+          invites:{
+            create:[
+              { reviewerSlot:"A", tokenHash:blindReviewTokenHash(tokens.A), expiresAt },
+              { reviewerSlot:"B", tokenHash:blindReviewTokenHash(tokens.B), expiresAt },
+            ],
+          },
+        },
+        include:{ invites:{ orderBy:{ reviewerSlot:"asc" } } },
+      });
+    });
+
+    await audit(req,"EXTERNAL_BLIND_REVIEW_BATCH_CREATED","AttendanceRecord",attendanceId,{
+      batchId:batch.id,
+      expiresAt:expiresAt.toISOString(),
+      reviewerSlots:["A","B"],
+      replacedBatchId:active && replaceActive ? active.id : null,
+      rawTokensPersisted:false,
+    });
+
+    res.status(201).json({
+      ok:true,
+      batchId:batch.id,
+      expiresAt,
+      tokenReturnedOnce:true,
+      rawTokensPersisted:false,
+      containsPII:false,
+      links:[
+        { reviewerSlot:"A", path:"/blind-review#token=" + encodeURIComponent(tokens.A) },
+        { reviewerSlot:"B", path:"/blind-review#token=" + encodeURIComponent(tokens.B) },
+      ],
+      note:"Share each link with a different real reviewer. Tokens are not recoverable after this response.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     where: { isVoided: false },
