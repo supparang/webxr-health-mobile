@@ -1,0 +1,142 @@
+name: ACTIVA-AI Phase 3 Blind Review DB Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MIGRATE-ACTIVA-PHASE3-BLIND-REVIEW to continue'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_MIGRATION_REF: 9ab3b546518bbddffee3c2cfc270e87c7744af18
+
+    steps:
+      - name: Validate operator confirmation
+        shell: bash
+        working-directory: .
+        run: |
+          test "${{ inputs.confirm }}" = "MIGRATE-ACTIVA-PHASE3-BLIND-REVIEW" || {
+            echo "Confirmation text does not match. Refusing production migration."
+            exit 1
+          }
+
+      - name: Checkout reviewed migration commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACTIVA_MIGRATION_REF }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Validate current Production schema state
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+
+          const raw = process.env.DATABASE_URL || '';
+          if (!raw) throw new Error('ACTIVA_PRODUCTION_DATABASE_URL secret is missing');
+          const url = new URL(raw);
+          if (!url.hostname.endsWith('.neon.tech')) {
+            throw new Error('Refusing migration: target is not a Neon database');
+          }
+
+          const prisma = new PrismaClient();
+          try {
+            const rows = await prisma.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            );
+            const names = rows.map(r => r.migration_name);
+            const before = [
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation'
+            ];
+            const after = [
+              ...before,
+              '20261001110000_external_blind_reviewer_sessions'
+            ];
+            const current = JSON.stringify(names);
+            if (current !== JSON.stringify(before) && current !== JSON.stringify(after)) {
+              throw new Error('Refusing migration: unexpected Production migration set');
+            }
+
+            const tables = await prisma.$queryRawUnsafe(
+              "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name"
+            );
+            const tableNames = tables.map(r => r.table_name);
+            for (const required of ['User','Activity','AttendanceRecord','AuditLog']) {
+              if (!tableNames.includes(required)) throw new Error('Required Production table missing: ' + required);
+            }
+            console.log(names.includes('20261001110000_external_blind_reviewer_sessions')
+              ? 'Phase 3 blind-review migration already present; idempotent verification will continue'
+              : 'Production baseline verified; ready for additive Phase 3 blind-review migration');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Deploy reviewed additive migration
+        run: npx prisma migrate deploy
+
+      - name: Verify Phase 3 migration and tables
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const prisma = new PrismaClient();
+          try {
+            const migrationRows = await prisma.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            );
+            const names = migrationRows.map(r => r.migration_name);
+            const expected = [
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation',
+              '20261001110000_external_blind_reviewer_sessions'
+            ];
+            if (JSON.stringify(names) !== JSON.stringify(expected)) {
+              throw new Error('Production migration set does not match reviewed Phase 3 schema');
+            }
+
+            const tableRows = await prisma.$queryRawUnsafe(
+              "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name"
+            );
+            const tables = tableRows.map(r => r.table_name);
+            for (const required of ['BlindReviewBatch','BlindReviewInvite','ExternalGroundTruthLabel']) {
+              if (!tables.includes(required)) throw new Error('Phase 3 table missing: ' + required);
+            }
+
+            console.log('Phase 3 blind-review Production migration verification passed');
+          } finally {
+            await prisma.$disconnect();
+          }
+          NODE
+
+      - name: Verify Prisma migration status
+        run: npx prisma migrate status
