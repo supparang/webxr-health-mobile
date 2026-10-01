@@ -2332,11 +2332,20 @@
       draw();
     }
 
+    let renderedQrToken=null;
     function draw() {
       if(!qrState)return;
       const remain=Math.max(0,Math.ceil((new Date(qrState.expiresAt).getTime()-Date.now())/1000));
       const area=document.getElementById("qrArea");
       if(!area)return;
+      // Update only the countdown for an unchanged token. Rebuilding innerHTML
+      // each second used to collapse an open test-token disclosure and redraw the QR.
+      const countdown=area.querySelector("[data-qr-remain]");
+      if(renderedQrToken===qrState.token && countdown){
+        countdown.textContent=String(remain);
+        return;
+      }
+      renderedQrToken=qrState.token;
       const purpose=qrState.purpose||selectedPurpose();
       const closeAt=purpose==="CHECKOUT"?qrState.checkoutCloseAt:qrState.checkinCloseAt;
       const label=purpose==="CHECKOUT"?"CHECK-OUT QR":"CHECK-IN QR";
@@ -2344,7 +2353,7 @@
         '<div class="qrbox" style="margin-top:18px">'+
           '<div class="qr-visual"><div id="qrcode" class="qr" aria-label="'+esc(label)+'"></div></div>'+
           '<div class="qr-meta">'+
-            '<p class="qr-title"><b>'+label+'</b> • หมดอายุใน <b>'+remain+'</b> วินาที</p>'+
+            '<p class="qr-title"><b>'+label+'</b> • หมดอายุใน <b data-qr-remain>'+remain+'</b> วินาที</p>'+
             '<p class="muted">'+(purpose==="CHECKOUT"?"Check-out":"Check-in")+' ได้ถึง '+esc(fmt(closeAt))+'</p>'+
             '<details class="qr-token-details"><summary>แสดง Token สำหรับทดสอบ</summary><div class="token">'+esc(qrState.token)+'</div></details>'+
           '</div>'+

@@ -105,6 +105,7 @@ jobs:
           node --check tests/blind-review.mjs
           node --check tests/qa-isolation.mjs
           node --check tests/guest-participation.mjs
+          node --check tests/qr-render.mjs
           node --check server/guest.js
           node --check guest.js
           node --check server/research-scope.js
@@ -114,6 +115,7 @@ jobs:
         run: |
           npm run test:auth
           npm run test:frontend-auth
+          node tests/qr-render.mjs
           npm run test:deployment
           node tests/bootstrap-admin.mjs
 
