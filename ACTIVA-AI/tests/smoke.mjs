@@ -1,3 +1,5 @@
+import { prisma } from "../server/db.js";
+// CI-only simulated research-class fixture; never publication evidence.
 const base = process.env.ACTIVA_BASE_URL || "http://127.0.0.1:3000";
 
 function assert(condition, message) {
@@ -651,8 +653,15 @@ const locked = await req("/api/ground-truth/" + encodeURIComponent(attendanceId)
 assert(locked.groundTruthCase?.status === "LOCKED", "ground-truth direct consensus lock failed");
 assert(locked.resolutionMode === "CONSENSUS", "agreeing labels must lock as CONSENSUS without adjudication");
 
+// This artificial CI fixture exercises the empirical-only query path without
+// representing actual research. Staging dataset responses remain syntheticDemo=true.
+// Production API has no post-hoc EMPIRICAL promotion endpoint.
+await prisma.activity.update({
+  where:{id:activity.id},
+  data:{dataClassification:"EMPIRICAL",classifiedAt:new Date()},
+});
 const readiness = await req("/api/ml/readiness", { actor: "ADM001" });
-assert(readiness.counts?.lockedCount >= 1, "ML readiness does not count locked case");
+assert(readiness.scope === "EMPIRICAL_ONLY" && readiness.counts?.lockedCount >= 1, "ML readiness must count only CI empirical-scoped case");
 
 const planningSummary = await req("/api/ml/planning-summary", { actor: "ADM001" });
 assert(planningSummary.planningOnly === true, "Phase 3 planning summary must be planning-only");
@@ -664,7 +673,8 @@ assert(Number.isFinite(Number(planningSummary.counts?.anticipatedReviewRequiredP
 
 const mlDataset = await req("/api/ml/dataset", { actor: "ADM001" });
 const mlRecord = mlDataset.records.find((r) => r.record_id === attendanceId);
-assert(mlRecord, "locked ML dataset missing record");
+assert(mlDataset.scope==="EMPIRICAL_ONLY" && mlDataset.syntheticDemo===true, "CI dataset must expose provenance and remain synthetic");
+assert(mlRecord?.data_classification==="EMPIRICAL", "locked ML dataset missing classified fixture");
 assert(mlRecord.participant_hash && mlRecord.participant_hash !== "P001", "ML dataset is not de-identified");
 assert(mlRecord.final_target === "REVIEW_REQUIRED", "ML final target mismatch");
 assert(!Object.prototype.hasOwnProperty.call(mlRecord, "risk_probability"), "AI output leaked into training dataset");
@@ -737,7 +747,7 @@ assert(participantAttendance.attendance.every((r) => r.user?.employeeId === "P00
 
 const research = await req("/api/research/export", { actor: "ADM001" });
 const exported = research.records.find((r) => r.record_id === attendanceId);
-assert(exported, "research export missing test record");
+assert(research.scope==="EMPIRICAL_ONLY" && exported, "research export missing empirical-scoped CI fixture");
 assert(exported.participant_hash && exported.participant_hash !== "P001", "research de-identification failed");
 
 const modelImport = await req("/api/models/import-evaluation", {
