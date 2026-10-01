@@ -102,6 +102,8 @@ jobs:
           node --check tests/recovery-verifier.mjs
           node --check scripts/validate-phase3-dataset.mjs
           node --check tests/phase3-dataset-readiness.mjs
+          node --check tests/blind-review.mjs
+          node --check blind-review.js
 
       - name: Authentication readiness guard
         run: |
@@ -162,6 +164,9 @@ jobs:
 
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
+
+      - name: External blind reviewer end-to-end test
+        run: node tests/blind-review.mjs
 
       - name: Demo release guard regression test
         run: node tests/demo-release-guard.mjs

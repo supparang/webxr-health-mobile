@@ -5,6 +5,7 @@ const EXPECTED_MIGRATIONS = [
   "20260926000000_initial_baseline",
   "20260927170000_participant_response_workflow",
   "20260928094500_position_role_separation",
+  "20261001110000_external_blind_reviewer_sessions",
 ];
 
 const EXPECTED_TABLES = [
@@ -12,6 +13,9 @@ const EXPECTED_TABLES = [
   "User",
   "Activity",
   "AttendanceRecord",
+  "BlindReviewBatch",
+  "BlindReviewInvite",
+  "ExternalGroundTruthLabel",
   "AuditLog",
 ];
 

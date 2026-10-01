@@ -12,7 +12,7 @@ RUN npm ci --include=dev && npm run prisma:generate
 FROM dependencies AS migrate
 COPY --chown=node:node server ./server
 COPY --chown=node:node scripts ./scripts
-COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css ./
+COPY --chown=node:node index.html Login.html app.js demo-api.js runtime-config.js styles.css blind-review.html blind-review.js ./
 USER node
 CMD ["npm", "run", "prisma:deploy"]
 

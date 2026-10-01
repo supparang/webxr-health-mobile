@@ -386,6 +386,8 @@ async function buildOperationalBackup() {
     consistencyResults,
     humanReviews,
     groundTruthLabels,
+    blindReviewBatches,
+    externalGroundTruthLabels,
     groundTruthCases,
     modelRuns,
     aiPredictions,
@@ -403,6 +405,11 @@ async function buildOperationalBackup() {
     prisma.consistencyResult.findMany({ orderBy: { evaluatedAt: "asc" } }),
     prisma.humanReview.findMany({ orderBy: { reviewedAt: "asc" } }),
     prisma.groundTruthLabel.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.blindReviewBatch.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.externalGroundTruthLabel.findMany({
+      where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.groundTruthCase.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.modelRun.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.aIPrediction.findMany({ orderBy: { createdAt: "asc" } }),
@@ -422,6 +429,8 @@ async function buildOperationalBackup() {
     consistencyResults,
     humanReviews,
     groundTruthLabels,
+    blindReviewBatches,
+    externalGroundTruthLabels,
     groundTruthCases,
     modelRuns,
     aiPredictions,
@@ -439,7 +448,7 @@ async function buildOperationalBackup() {
     generatedAt: new Date().toISOString(),
     containsPII: true,
     containsSecrets: false,
-    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential"],
+    excludedEphemeralSecurityData: ["QrToken", "PersonalQrCredential", "BlindReviewInvite"],
     checksumAlgorithm: "SHA-256",
     checksum,
     counts,
@@ -625,6 +634,249 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+
+
+const BLIND_REVIEW_REASON_CODES = new Set([
+  "MISSING_QR",
+  "MISSING_IDENTITY",
+  "MISSING_CHECKOUT",
+  "MISSING_STAFF_VERIFICATION",
+  "SHORT_DURATION",
+  "DUPLICATE_SCAN",
+  "TEMPORAL_CONFLICT",
+  "STAFF_WITHOUT_CHECKIN",
+  "OTHER",
+]);
+
+function blindReviewTokenHash(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function blindReviewTokenFromRequest(req) {
+  const auth = String(req.get("authorization") || "").trim();
+  const match = auth.match(/^BlindReview\s+([A-Za-z0-9_-]{32,256})$/);
+  return match ? match[1] : "";
+}
+
+function blindReviewEvidence(attendance) {
+  const activity = attendance.activity;
+  const scheduledMinutes = Math.max(
+    1,
+    Math.round((activity.endAt.getTime() - activity.startAt.getTime()) / 60000)
+  );
+  const actualMinutes = attendance.checkinAt && attendance.checkoutAt
+    ? Math.max(0, Math.round((attendance.checkoutAt.getTime() - attendance.checkinAt.getTime()) / 60000))
+    : null;
+  return {
+    activity: {
+      title: activity.title,
+      category: activity.category,
+      startAt: activity.startAt,
+      endAt: activity.endAt,
+    },
+    evidence: {
+      qrValid: Boolean(attendance.qrValid),
+      identityVerified: Boolean(attendance.identityVerified),
+      checkinPresent: Boolean(attendance.checkinAt),
+      checkoutPresent: Boolean(attendance.checkoutAt),
+      checkinAt: attendance.checkinAt,
+      checkoutAt: attendance.checkoutAt,
+      checkoutQrValid: Boolean(attendance.checkoutQrValid),
+      scheduledDurationMinutes: scheduledMinutes,
+      actualDurationMinutes: actualMinutes,
+      staffVerified: Boolean(attendance.staffVerification),
+      signatureVerified: Boolean(attendance.signatureVerified),
+      scanAttempts: attendance.scanAttempts,
+    },
+  };
+}
+
+async function resolveBlindReviewInvite(req) {
+  const token = blindReviewTokenFromRequest(req);
+  if (!token) return { error: "BLIND_REVIEW_TOKEN_REQUIRED", status: 401 };
+
+  const invite = await prisma.blindReviewInvite.findUnique({
+    where: { tokenHash: blindReviewTokenHash(token) },
+    include: {
+      batch: {
+        include: {
+          attendance: {
+            include: {
+              activity: true,
+              staffVerification: true,
+              groundTruthCase: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!invite) return { error: "BLIND_REVIEW_LINK_INVALID", status: 404 };
+  const now = new Date();
+  if (invite.revokedAt || invite.batch.revokedAt || invite.batch.status === "REVOKED") {
+    return { error: "BLIND_REVIEW_LINK_REVOKED", status: 410 };
+  }
+  if (invite.expiresAt <= now || invite.batch.expiresAt <= now) {
+    return { error: "BLIND_REVIEW_LINK_EXPIRED", status: 410 };
+  }
+  if (invite.submittedAt) {
+    return { error: "BLIND_REVIEW_ALREADY_SUBMITTED", status: 409 };
+  }
+  if (invite.batch.status !== "OPEN") {
+    return { error: "BLIND_REVIEW_BATCH_NOT_OPEN", status: 409 };
+  }
+  if (invite.batch.attendance?.isVoided) {
+    return { error: "BLIND_REVIEW_CASE_UNAVAILABLE", status: 410 };
+  }
+  if (invite.batch.attendance?.groundTruthCase?.status === "LOCKED") {
+    return { error: "GROUND_TRUTH_ALREADY_LOCKED", status: 409 };
+  }
+  return { invite, token };
+}
+
+// Public blind-review endpoints intentionally bypass organization login.
+// The high-entropy one-time token is carried only in the Authorization header;
+// access logs record path/status only and never record the token.
+app.get("/api/public/blind-review/session", async (req, res, next) => {
+  try {
+    const resolved = await resolveBlindReviewInvite(req);
+    if (resolved.error) return res.status(resolved.status).json({ ok:false, error:resolved.error });
+
+    const { invite } = resolved;
+    const attendance = invite.batch.attendance;
+    res.json({
+      ok: true,
+      blind: true,
+      oneTime: true,
+      containsDirectPII: false,
+      aiPredictionIncluded: false,
+      ruleConsistencyIncluded: false,
+      peerLabelsIncluded: false,
+      reviewerSlot: invite.reviewerSlot,
+      expiresAt: invite.expiresAt,
+      caseRef: attendance.id.slice(-8),
+      ...blindReviewEvidence(attendance),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/public/blind-review/submit", async (req, res, next) => {
+  try {
+    const resolved = await resolveBlindReviewInvite(req);
+    if (resolved.error) return res.status(resolved.status).json({ ok:false, error:resolved.error });
+
+    const { invite } = resolved;
+    const body = req.body || {};
+    if (!["REVIEW_REQUIRED","NO_REVIEW_REQUIRED"].includes(body.target)) {
+      return res.status(400).json({ ok:false, error:"INVALID_TARGET" });
+    }
+    if (body.independenceAttested !== true) {
+      return res.status(400).json({ ok:false, error:"INDEPENDENCE_ATTESTATION_REQUIRED" });
+    }
+    const reasonCodes = Array.isArray(body.reasonCodes)
+      ? [...new Set(body.reasonCodes.map(String))]
+      : [];
+    const invalidCodes = reasonCodes.filter((code) => !BLIND_REVIEW_REASON_CODES.has(code));
+    if (invalidCodes.length) {
+      return res.status(400).json({ ok:false, error:"INVALID_REASON_CODES", invalidCodes });
+    }
+    const notes = String(body.notes || "").trim();
+    if (body.target === "REVIEW_REQUIRED" && reasonCodes.length === 0) {
+      return res.status(400).json({ ok:false, error:"REVIEW_REASON_REQUIRED" });
+    }
+    if (reasonCodes.includes("OTHER") && notes.length < 3) {
+      return res.status(400).json({ ok:false, error:"OTHER_REASON_REQUIRES_NOTES" });
+    }
+    if (notes.length > 2000) {
+      return res.status(400).json({ ok:false, error:"NOTES_TOO_LONG" });
+    }
+
+    const now = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+      const current = await tx.blindReviewInvite.findUnique({
+        where: { id: invite.id },
+        include: {
+          batch: {
+            include: {
+              attendance: { include: { groundTruthCase: true } },
+            },
+          },
+        },
+      });
+      if (!current || current.revokedAt || current.batch.revokedAt || current.batch.status !== "OPEN") {
+        throw Object.assign(new Error("BLIND_REVIEW_LINK_NO_LONGER_ACTIVE"), { status:409 });
+      }
+      if (current.submittedAt) {
+        throw Object.assign(new Error("BLIND_REVIEW_ALREADY_SUBMITTED"), { status:409 });
+      }
+      if (current.expiresAt <= now || current.batch.expiresAt <= now) {
+        throw Object.assign(new Error("BLIND_REVIEW_LINK_EXPIRED"), { status:410 });
+      }
+      if (current.batch.attendance?.groundTruthCase?.status === "LOCKED") {
+        throw Object.assign(new Error("GROUND_TRUTH_ALREADY_LOCKED"), { status:409 });
+      }
+
+      await tx.externalGroundTruthLabel.create({
+        data: {
+          attendanceId: current.batch.attendanceId,
+          inviteId: current.id,
+          reviewerSlot: current.reviewerSlot,
+          target: body.target,
+          reasonCodes,
+          notes: notes || null,
+        },
+      });
+      await tx.blindReviewInvite.update({
+        where: { id: current.id },
+        data: { submittedAt: now, independenceAttested: true },
+      });
+
+      const submittedCount = await tx.blindReviewInvite.count({
+        where: { batchId: current.batchId, submittedAt: { not: null }, revokedAt: null },
+      });
+      if (submittedCount >= 2) {
+        await tx.blindReviewBatch.update({
+          where: { id: current.batchId },
+          data: { status: "COMPLETED" },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorId: null,
+          action: "EXTERNAL_BLIND_REVIEW_SUBMITTED",
+          entityType: "AttendanceRecord",
+          entityId: current.batch.attendanceId,
+          metadata: {
+            batchId: current.batchId,
+            reviewerSlot: current.reviewerSlot,
+            target: body.target,
+            independenceAttested: true,
+          },
+        },
+      });
+
+      return { submittedCount, batchId: current.batchId };
+    });
+
+    res.status(201).json({
+      ok: true,
+      submitted: true,
+      immutable: true,
+      reviewerSlot: invite.reviewerSlot,
+      batchComplete: result.submittedCount >= 2,
+      note: "Blind review submitted. The one-time link can no longer be used.",
+    });
+  } catch (error) {
+    if (Number(error?.status)) {
+      return res.status(Number(error.status)).json({ ok:false, error:String(error.message || "BLIND_REVIEW_SUBMIT_FAILED") });
+    }
+    next(error);
+  }
+});
 
 app.use("/api", attachActor);
 
@@ -2469,6 +2721,181 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
   });
 });
 
+
+async function combinedGroundTruthLabels(attendanceId) {
+  const [internal, external] = await Promise.all([
+    prisma.groundTruthLabel.findMany({
+      where: { attendanceId },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.externalGroundTruthLabel.findMany({
+      where: {
+        attendanceId,
+        invite: { batch: { status: "COMPLETED" } },
+      },
+      include: {
+        invite: { select: { id:true, reviewerSlot:true, batchId:true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  return [
+    ...internal.map((x) => ({
+      ...x,
+      reviewerKey: "USER:" + x.reviewerId,
+      reviewerType: "INTERNAL",
+      reviewerSlot: null,
+    })),
+    ...external.map((x) => ({
+      ...x,
+      reviewerKey: "EXTERNAL:" + x.inviteId,
+      reviewerType: "EXTERNAL_BLIND",
+      reviewerId: null,
+    })),
+  ];
+}
+
+app.get("/api/ground-truth/:attendanceId/blind-batches", requireRoles("ADMIN"), async (req, res) => {
+  const batches = await prisma.blindReviewBatch.findMany({
+    where: { attendanceId: req.params.attendanceId },
+    include: {
+      invites: {
+        orderBy: { reviewerSlot: "asc" },
+        select: {
+          id:true,
+          reviewerSlot:true,
+          expiresAt:true,
+          submittedAt:true,
+          revokedAt:true,
+          independenceAttested:true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({
+    ok:true,
+    tokenValuesIncluded:false,
+    batches:batches.map((b) => ({
+      id:b.id,
+      status:b.status,
+      expiresAt:b.expiresAt,
+      revokedAt:b.revokedAt,
+      createdAt:b.createdAt,
+      submittedCount:b.invites.filter((x) => Boolean(x.submittedAt)).length,
+      invites:b.invites,
+    })),
+  });
+});
+
+app.post("/api/ground-truth/:attendanceId/blind-batch", requireRoles("ADMIN"), async (req, res, next) => {
+  try {
+    const attendanceId = req.params.attendanceId;
+    const attendance = await prisma.attendanceRecord.findUnique({
+      where: { id: attendanceId },
+      include: { activity:true, groundTruthCase:true },
+    });
+    if (!attendance || attendance.isVoided) {
+      return res.status(404).json({ ok:false, error:"ATTENDANCE_NOT_FOUND" });
+    }
+    if (attendance.groundTruthCase?.status === "LOCKED") {
+      return res.status(409).json({ ok:false, error:"GROUND_TRUTH_ALREADY_LOCKED" });
+    }
+    if (!attendance.checkoutAt && checkoutWindowState(attendance.activity).code !== "QR_CHECKOUT_CLOSED") {
+      return res.status(409).json({
+        ok:false,
+        error:"GROUND_TRUTH_ATTENDANCE_NOT_MATURE",
+        note:"Wait until checkout is complete or the checkout window has closed.",
+      });
+    }
+
+    const rawHours = Number(req.body?.expiresHours ?? 24);
+    if (!Number.isInteger(rawHours) || rawHours < 1 || rawHours > 168) {
+      return res.status(400).json({ ok:false, error:"BLIND_REVIEW_EXPIRY_HOURS_INVALID" });
+    }
+    const replaceActive = req.body?.replaceActive === true;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + rawHours * 3600000);
+
+    const active = await prisma.blindReviewBatch.findFirst({
+      where: {
+        attendanceId,
+        status:"OPEN",
+        revokedAt:null,
+        expiresAt:{ gt:now },
+      },
+      orderBy:{ createdAt:"desc" },
+    });
+    if (active && !replaceActive) {
+      return res.status(409).json({
+        ok:false,
+        error:"ACTIVE_BLIND_REVIEW_BATCH_EXISTS",
+        batchId:active.id,
+        expiresAt:active.expiresAt,
+      });
+    }
+
+    const tokens = {
+      A: crypto.randomBytes(32).toString("base64url"),
+      B: crypto.randomBytes(32).toString("base64url"),
+    };
+
+    const batch = await prisma.$transaction(async (tx) => {
+      if (active && replaceActive) {
+        await tx.blindReviewInvite.updateMany({
+          where:{ batchId:active.id, submittedAt:null },
+          data:{ revokedAt:now },
+        });
+        await tx.blindReviewBatch.update({
+          where:{ id:active.id },
+          data:{ status:"REVOKED", revokedAt:now },
+        });
+      }
+
+      return tx.blindReviewBatch.create({
+        data:{
+          attendanceId,
+          createdById:req.activaUser.id,
+          status:"OPEN",
+          expiresAt,
+          invites:{
+            create:[
+              { reviewerSlot:"A", tokenHash:blindReviewTokenHash(tokens.A), expiresAt },
+              { reviewerSlot:"B", tokenHash:blindReviewTokenHash(tokens.B), expiresAt },
+            ],
+          },
+        },
+        include:{ invites:{ orderBy:{ reviewerSlot:"asc" } } },
+      });
+    });
+
+    await audit(req,"EXTERNAL_BLIND_REVIEW_BATCH_CREATED","AttendanceRecord",attendanceId,{
+      batchId:batch.id,
+      expiresAt:expiresAt.toISOString(),
+      reviewerSlots:["A","B"],
+      replacedBatchId:active && replaceActive ? active.id : null,
+      rawTokensPersisted:false,
+    });
+
+    res.status(201).json({
+      ok:true,
+      batchId:batch.id,
+      expiresAt,
+      tokenReturnedOnce:true,
+      rawTokensPersisted:false,
+      containsPII:false,
+      links:[
+        { reviewerSlot:"A", path:"/blind-review#token=" + encodeURIComponent(tokens.A) },
+        { reviewerSlot:"B", path:"/blind-review#token=" + encodeURIComponent(tokens.B) },
+      ],
+      note:"Share each link with a different real reviewer. Tokens are not recoverable after this response.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     where: { isVoided: false },
@@ -2477,6 +2904,34 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
       activity: { include: { policy: true } },
       staffVerification: true,
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        include: {
+          invite: {
+            select: {
+              id:true,
+              reviewerSlot:true,
+              batchId:true,
+              batch:{ select:{ status:true } },
+            },
+          },
+        },
+      },
+      blindReviewBatches: {
+        include: {
+          invites: {
+            orderBy:{ reviewerSlot:"asc" },
+            select:{
+              id:true,
+              reviewerSlot:true,
+              expiresAt:true,
+              submittedAt:true,
+              revokedAt:true,
+              independenceAttested:true,
+            },
+          },
+        },
+        orderBy:{ createdAt:"desc" },
+      },
       groundTruthCase: true,
     },
     orderBy: { createdAt: "asc" },
@@ -2497,6 +2952,22 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
       req.activaUser.role === "ADMIN"
         ? row.groundTruthLabels
         : row.groundTruthLabels.filter((label) => label.reviewerId === req.activaUser.id),
+    externalGroundTruthLabels:
+      req.activaUser.role === "ADMIN"
+        ? (row.externalGroundTruthLabels || []).filter((label) => label.invite?.batch?.status === "COMPLETED")
+        : [],
+    blindReviewBatches:
+      req.activaUser.role === "ADMIN"
+        ? (row.blindReviewBatches || []).map((batch) => ({
+            id:batch.id,
+            status:batch.status,
+            expiresAt:batch.expiresAt,
+            revokedAt:batch.revokedAt,
+            createdAt:batch.createdAt,
+            submittedCount:(batch.invites || []).filter((x) => Boolean(x.submittedAt)).length,
+            invites:batch.invites || [],
+          }))
+        : [],
   }));
   res.json({
     ok: true,
@@ -2638,11 +3109,8 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
     return res.status(400).json({ ok: false, error: "INVALID_FINAL_TARGET" });
   }
 
-  const labels = await prisma.groundTruthLabel.findMany({
-    where: { attendanceId },
-    orderBy: { createdAt: "asc" },
-  });
-  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  const labels = await combinedGroundTruthLabels(attendanceId);
+  const reviewerCount = new Set(labels.map((x) => x.reviewerKey)).size;
   if (reviewerCount < 2) {
     return res.status(409).json({
       ok: false,
@@ -2710,11 +3178,8 @@ app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), as
 
 app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (req, res) => {
   const attendanceId = req.params.attendanceId;
-  const labels = await prisma.groundTruthLabel.findMany({
-    where: { attendanceId },
-    orderBy: { createdAt: "asc" },
-  });
-  const reviewerCount = new Set(labels.map((x) => x.reviewerId)).size;
+  const labels = await combinedGroundTruthLabels(attendanceId);
+  const reviewerCount = new Set(labels.map((x) => x.reviewerKey)).size;
   if (reviewerCount < 2) {
     return res.status(409).json({
       ok: false,
@@ -2778,6 +3243,18 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
     }
   }
 
+  const lockedAt = groundTruthCase.lockedAt || new Date();
+  await prisma.$transaction([
+    prisma.blindReviewInvite.updateMany({
+      where:{ batch:{ attendanceId }, submittedAt:null, revokedAt:null },
+      data:{ revokedAt:lockedAt },
+    }),
+    prisma.blindReviewBatch.updateMany({
+      where:{ attendanceId, status:"OPEN", revokedAt:null },
+      data:{ status:"REVOKED", revokedAt:lockedAt },
+    }),
+  ]);
+
   await audit(req, "GROUND_TRUTH_LOCKED", "AttendanceRecord", attendanceId, {
     finalTarget: groundTruthCase.finalTarget,
     labelCount: labels.length,
@@ -2793,8 +3270,11 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
 });
 
 app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
-  const [labelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
+  const [internalLabelCount, externalLabelCount, adjudicatedCount, adjudicatedEverCount, lockedCount, reviewLocked, noReviewLocked, models] = await Promise.all([
     prisma.groundTruthLabel.count(),
+    prisma.externalGroundTruthLabel.count({
+      where:{ invite:{ batch:{ status:"COMPLETED" } } },
+    }),
     prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
     prisma.groundTruthCase.count({ where: { adjudicatedAt: { not: null } } }),
     prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
@@ -2806,6 +3286,7 @@ app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
     }),
   ]);
 
+  const labelCount = internalLabelCount + externalLabelCount;
   const evaluatedModels = models.filter((m) => ["EVALUATED", "APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
   const approvedModels = models.filter((m) => ["APPROVED", "DEPLOYED", "RETIRED"].includes(m.status));
   const deployedModel = models.find((m) => m.status === "DEPLOYED") || null;
@@ -3952,6 +4433,9 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
       humanReviews: { orderBy: { reviewedAt: "desc" } },
       groundTruthCase: true,
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      },
       aiPredictions: deployed
         ? { where: { modelRunId: deployed.id }, take: 1 }
         : { where: { id: "__NO_DEPLOYED_MODEL__" }, take: 1 },
@@ -4046,9 +4530,13 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     else if (actual === "REVIEW_REQUIRED" && predicted === "NO_REVIEW_REQUIRED") fn += 1;
   });
 
-  const doubleLabeled = rows.filter((r) => (r.groundTruthLabels || []).length >= 2);
+  const researchLabels = (r) => [
+    ...(r.groundTruthLabels || []),
+    ...(r.externalGroundTruthLabels || []),
+  ];
+  const doubleLabeled = rows.filter((r) => researchLabels(r).length >= 2);
   const reviewerAgreementCount = doubleLabeled.filter((r) => {
-    const targets = [...new Set(r.groundTruthLabels.map((x) => x.target))];
+    const targets = [...new Set(researchLabels(r).map((x) => x.target))];
     return targets.length === 1;
   }).length;
 
@@ -4100,6 +4588,9 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
       groundTruthLabels: true,
+      externalGroundTruthLabels: {
+        where:{ invite:{ batch:{ status:"COMPLETED" } } },
+      },
       aiPredictions: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
@@ -4129,7 +4620,10 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
     ai_prediction: r.aiPredictions[0]?.predictedLabel || "",
     risk_probability: r.aiPredictions[0]?.riskProbability ?? "",
     human_decision: r.humanReviews[0]?.decision || "",
-    ground_truth_labels: r.groundTruthLabels.map((g) => g.target),
+    ground_truth_labels: [
+      ...(r.groundTruthLabels || []).map((g) => g.target),
+      ...(r.externalGroundTruthLabels || []).map((g) => g.target),
+    ],
     final_status: r.finalEvidenceStatus || r.consistencyResult?.status || "",
   }));
 
@@ -4150,14 +4644,20 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 // Only public browser assets may be served. Never serve server, prisma,
 // scripts, dependency, backup, or environment files from the application tree.
-const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css"];
+const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js"];
 for (const file of publicFiles) {
   app.get("/" + file, (_req, res) => {
-    if (file === "runtime-config.js") res.set("Cache-Control", "no-store");
+    if (["runtime-config.js","blind-review.html","blind-review.js"].includes(file)) {
+      res.set("Cache-Control", "no-store");
+    }
     res.sendFile(path.join(staticDir, file));
   });
 }
 app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
+app.get("/blind-review", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(staticDir, "blind-review.html"));
+});
 app.use((_req, res) => res.status(404).json({ ok: false, error: "NOT_FOUND" }));
 
 app.use((error, _req, res, _next) => {

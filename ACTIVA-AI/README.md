@@ -13,6 +13,7 @@
 - **P3.2 IMPLEMENTING:** เพิ่ม governed sample-size planner ตาม Riley/pmsampsize, target-specific class minima และ high-discrimination simulation safeguard
 - เพิ่ม **Planning Cohort Dashboard** ใน AI Readiness สำหรับ ADMIN เพื่อดู aggregate prevalence, unique participants/events และ activity-type levels โดยไม่เปิดเผย direct identifiers
 - เพิ่ม **prospective final-test firewall**: planning participants เป็น development-only ถาวร; final test รับเฉพาะ post-cutoff participants ที่ไม่เคยอยู่ใน planning cohort และต้องผ่าน class minima ที่ล็อกไว้
+- เพิ่ม **P3.2.1 External Blind Reviewer Access**: ADMIN สร้าง one-time Reviewer A/B links ได้โดยไม่ต้องสร้างบัญชีเพิ่ม; token เก็บเป็น hash, reviewer ไม่เห็น PII/AI/rule/peer label, submit แล้ว immutable และต้อง attest ว่าเป็นคนละผู้ประเมินจริง
 - **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะใส่แหล่งอ้างอิง prevalence/model strength, อนุมัติ sample plan และ locked dataset ผ่าน threshold ที่ pre-specify
 - AI ยังคงเป็น decision support เท่านั้น; Human Final Decision เป็น final authority
 

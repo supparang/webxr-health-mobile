@@ -3628,13 +3628,21 @@
     const rows = data.records || [];
     const reasonCodes = ["MISSING_QR","MISSING_IDENTITY","MISSING_CHECKOUT","MISSING_STAFF_VERIFICATION","SHORT_DURATION","DUPLICATE_SCAN","TEMPORAL_CONFLICT","STAFF_WITHOUT_CHECKIN","OTHER"];
 
-    const withTwo = rows.filter(r => (r.groundTruthLabels || []).length >= 2).length;
+    const visibleLabels = (r) => [
+      ...(r.groundTruthLabels || []),
+      ...(r.externalGroundTruthLabels || []).map((x) => ({
+        ...x,
+        reviewerType:"EXTERNAL_BLIND",
+        reviewerSlot:x.reviewerSlot || x.invite?.reviewerSlot || "?",
+      })),
+    ];
+    const withTwo = rows.filter(r => visibleLabels(r).length >= 2).length;
     const labelSignature = (x) => JSON.stringify([
       x.target || "",
       [...new Set(x.reasonCodes || [])].sort()
     ]);
     const disagreements = can("ADMIN") ? rows.filter(r => {
-      const labels = r.groundTruthLabels || [];
+      const labels = visibleLabels(r);
       const signatures = [...new Set(labels.map(labelSignature))];
       return labels.length >= 2 && signatures.length > 1;
     }).length : "—";
@@ -3675,8 +3683,14 @@
 
     const renderForm = () => {
       const r = rows.find(x => x.id === document.getElementById("gtRecord").value);
-      const labels = r.groundTruthLabels || [];
-      const mine = labels.find(x => x.reviewerId === session.id);
+      const internalLabels = r.groundTruthLabels || [];
+      const externalLabels = (r.externalGroundTruthLabels || []).map((x) => ({
+        ...x,
+        reviewerType:"EXTERNAL_BLIND",
+        reviewerSlot:x.reviewerSlot || x.invite?.reviewerSlot || "?",
+      }));
+      const labels = [...internalLabels, ...externalLabels];
+      const mine = internalLabels.find(x => x.reviewerId === session.id);
       const gtCase = r.groundTruthCase || null;
       const lockedCase = gtCase?.status === "LOCKED";
 
@@ -3707,15 +3721,39 @@
             ? "ผู้ประเมินสอดคล้องกัน — ไม่จำเป็นต้อง Adjudicate สามารถ Lock Ground Truth ได้"
             : "พบความเห็นไม่ตรงกัน — ต้องทำ Admin Adjudication ก่อน Lock Ground Truth";
 
-        const labelRows = labels.length ? labels.map((x,i) =>
-          '<tr><td>Reviewer '+(i+1)+'</td><td>'+esc(x.target)+'</td><td>'+esc((x.reasonCodes||[]).join(" • ")||"—")+'</td></tr>'
-        ).join("") : '<tr><td colspan="3">ยังไม่มีฉลาก</td></tr>';
+        const labelRows = labels.length ? labels.map((x,i) => {
+          const reviewerName = x.reviewerType === "EXTERNAL_BLIND"
+            ? "Blind Reviewer " + esc(x.reviewerSlot || "?")
+            : "Internal Reviewer " + (i+1);
+          return '<tr><td>'+reviewerName+'</td><td>'+esc(x.target)+'</td><td>'+esc((x.reasonCodes||[]).join(" • ")||"—")+'</td></tr>';
+        }).join("") : '<tr><td colspan="3">ยังไม่มีฉลาก</td></tr>';
 
         const adjudicatedReady = gtCase?.status === "ADJUDICATED";
         const canLockNow = !lockedCase && (directLockEligible || adjudicatedReady);
         const disableAdjudicationFields = adminAdjudicationEligible ? "" : " disabled";
 
-        adminPanel =
+        const latestBlindBatch = (r.blindReviewBatches || [])[0] || null;
+        const blindBatchOpen = Boolean(
+          latestBlindBatch &&
+          latestBlindBatch.status === "OPEN" &&
+          !latestBlindBatch.revokedAt &&
+          new Date(latestBlindBatch.expiresAt).getTime() > Date.now()
+        );
+        const blindReviewPanel =
+          '<hr><h3>External Blind Review — ไม่ต้องมีบัญชี ACTIVA-AI</h3>'+
+          '<div class="hint"><b>ใช้เมื่อไม่มี STAFF account เพิ่ม:</b> ระบบสร้าง one-time links สำหรับคนจริง 2 คน โดยแต่ละคนเห็นเฉพาะ Raw Evidence และไม่เห็น AI, Rule Consistency หรือผลของอีกคน</div>'+
+          '<div class="hint"><b>ข้อกำหนดงานวิจัย:</b> Reviewer A และ Reviewer B ต้องเป็นคนละคนจริง ๆ การเปิดสองลิงก์โดยคนเดียวไม่ถือเป็น independent review</div>'+
+          (latestBlindBatch
+            ? '<div class="alert '+(latestBlindBatch.status==="COMPLETED"?"ok":blindBatchOpen?"info":"warn")+'"><b>Blind batch ล่าสุด:</b> '+esc(latestBlindBatch.status)+
+              ' • ส่งแล้ว '+esc(latestBlindBatch.submittedCount||0)+'/2 • หมดอายุ '+esc(fmt(latestBlindBatch.expiresAt))+'</div>'
+            : '<div class="hint">ยังไม่มี External Blind Review batch สำหรับรายการนี้</div>')+
+          '<div class="form-grid"><div class="field"><label>อายุลิงก์ (ชั่วโมง)</label><input id="blindExpiryHours" type="number" min="1" max="168" value="24"></div></div>'+
+          '<div class="actions">'+
+            '<button class="btn secondary" id="blindBatchBtn">'+(blindBatchOpen?'สร้างลิงก์ใหม่แทนชุดเดิม':'สร้าง Reviewer A/B Links')+'</button>'+
+            '<button class="btn secondary" id="blindRefreshBtn">↻ รีเฟรชสถานะ</button>'+
+          '</div><div id="blindBatchMsg"></div>';
+
+        adminPanel = blindReviewPanel+
           '<hr><h3>ส่วนผู้ตัดสินข้อขัดแย้ง (Admin Adjudication)</h3>'+
           '<p>'+statusBadge(gtCase?.status || "OPEN")+' <span class="muted">'+esc(agreement)+'</span></p>'+
           '<div class="table-wrap"><table><thead><tr><th>ฉลาก</th><th>Target</th><th>Reason Codes</th></tr></thead><tbody>'+labelRows+'</tbody></table></div>'+
@@ -3773,6 +3811,58 @@
           document.getElementById("gtMsg").innerHTML = '<div class="alert ok">บันทึก Independent Label แล้ว และตรวจสอบข้อมูลที่บันทึกสำเร็จ</div>';
           setTimeout(() => renderGroundTruth(document.getElementById("view"), r.id), 350);
         } catch (e) { document.getElementById("gtMsg").innerHTML = errorBox(e); }
+      };
+
+      const blindRefreshBtn = document.getElementById("blindRefreshBtn");
+      if (blindRefreshBtn) blindRefreshBtn.onclick = () => renderGroundTruth(document.getElementById("view"), r.id);
+
+      const blindBatchBtn = document.getElementById("blindBatchBtn");
+      if (blindBatchBtn && !lockedCase) blindBatchBtn.onclick = async () => {
+        const msg = document.getElementById("blindBatchMsg");
+        const currentBatch = (r.blindReviewBatches || [])[0] || null;
+        const replaceActive = Boolean(
+          currentBatch &&
+          currentBatch.status === "OPEN" &&
+          !currentBatch.revokedAt &&
+          new Date(currentBatch.expiresAt).getTime() > Date.now()
+        );
+        if (replaceActive && !confirm("มี Blind Review links ที่ยังใช้งานได้ การสร้างใหม่จะยกเลิกลิงก์เดิมที่ยังไม่ส่งผล ยืนยันหรือไม่")) return;
+
+        const expiresHours = Number(document.getElementById("blindExpiryHours")?.value || 24);
+        blindBatchBtn.disabled = true;
+        try {
+          const result = await api("/api/ground-truth/"+encodeURIComponent(r.id)+"/blind-batch", {
+            method:"POST",
+            body:JSON.stringify({ expiresHours, replaceActive })
+          });
+          const linkHtml = (result.links || []).map((item) => {
+            const full = location.origin + item.path;
+            return '<div class="field"><label>Reviewer '+esc(item.reviewerSlot)+'</label>'+
+              '<input class="blindLinkValue" data-slot="'+esc(item.reviewerSlot)+'" value="'+esc(full)+'" readonly>'+
+              '<button class="btn secondary mini copyBlindLink" data-slot="'+esc(item.reviewerSlot)+'">คัดลอกลิงก์ Reviewer '+esc(item.reviewerSlot)+'</button></div>';
+          }).join("");
+          msg.innerHTML =
+            '<div class="alert warn"><b>ลิงก์จะแสดงครั้งนี้ครั้งเดียว</b><br>ส่ง Reviewer A และ B ให้คนละคนจริง ๆ และอย่าเปิดลิงก์แทนผู้ประเมิน</div>'+
+            linkHtml+
+            '<div class="hint">Raw token ไม่ถูกบันทึกในฐานข้อมูล; server เก็บเฉพาะ SHA-256 hash และลิงก์ใช้ส่งผลได้ครั้งเดียว</div>';
+          msg.querySelectorAll(".copyBlindLink").forEach((button) => {
+            button.onclick = async () => {
+              const slot = button.dataset.slot;
+              const input = msg.querySelector('.blindLinkValue[data-slot="'+CSS.escape(slot)+'"]');
+              try {
+                await navigator.clipboard.writeText(input.value);
+                button.textContent = "คัดลอกแล้ว ✓";
+              } catch {
+                input.select();
+                document.execCommand("copy");
+                button.textContent = "คัดลอกแล้ว ✓";
+              }
+            };
+          });
+        } catch (e) {
+          msg.innerHTML = errorBox(e);
+          blindBatchBtn.disabled = false;
+        }
       };
 
       const adjBtn = document.getElementById("adjBtn");
