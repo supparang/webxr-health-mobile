@@ -201,6 +201,8 @@ model Activity {
   pilotClosureSnapshot Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+
+  @@index([dataClassification])
 }
 
 model ActivityRoleAssignment {
