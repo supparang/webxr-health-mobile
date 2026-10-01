@@ -14,6 +14,10 @@ assert(Boolean(process.env.DATABASE_URL),"CI DATABASE_URL is required");
 const testDbUrl=new URL(process.env.DATABASE_URL);
 assert(["postgres:","postgresql:"].includes(testDbUrl.protocol),"PostgreSQL required");
 assert(["127.0.0.1","localhost"].includes(testDbUrl.hostname),"Refusing any remote database target");
+const testApiUrl=new URL(base);
+assert(testApiUrl.protocol==="http:","Guest E2E must use plain HTTP for local API only");
+assert(["127.0.0.1","localhost"].includes(testApiUrl.hostname),"Refusing any remote ACTIVA_BASE_URL target");
+assert(testApiUrl.port==="3000","Guest E2E must target the expected disposable CI API port");
 async function req(path,{actor,guest,blind,body,method="GET"}={}){
  const headers={Accept:"application/json"};
  if(actor)headers["x-activa-user-id"]=actor;
