@@ -1,6 +1,13 @@
 name: ACTIVA-AI Production Monitor
 
 on:
+  # Verify the new monitor automatically once it is merged to main.
+  # This is a read-only health/governance check, NOT a deployment.
+  push:
+    branches: [main]
+    paths:
+      - "ACTIVA-AI/scripts/verify-production.mjs"
+      - ".github/workflows/activa-ai-production-monitor.yml"
   workflow_dispatch:
     inputs:
       simulate_failure:
