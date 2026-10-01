@@ -53,5 +53,16 @@
     "reviewRequired": null,
     "noReviewRequired": null
   },
-  "approvalRule": "APPROVED requires documented prevalence source, model-strength source, candidate parameter count, Riley/pmsampsize result, clustering minimums, and any required high-discrimination simulation stress test before final-test inspection."
+  "approvalRule": "APPROVED requires documented prevalence source, model-strength source, candidate parameter count, Riley/pmsampsize result, clustering minimums, and any required high-discrimination simulation stress test before final-test inspection.",
+  "planningSnapshot": {
+    "cutoffUtc": null,
+    "source": "GET /api/ml/planning-summary",
+    "developmentOnly": true,
+    "snapshotSha256": null
+  },
+  "finalTestMinimums": {
+    "records": null,
+    "reviewRequired": null,
+    "noReviewRequired": null
+  }
 }

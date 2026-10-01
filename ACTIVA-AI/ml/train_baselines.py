@@ -123,6 +123,120 @@ def load_dataset(path: Path) -> pd.DataFrame:
     return df
 
 
+def _split_two_class_grouped(df: pd.DataFrame, group_col: str, test_size: float, random_state: int, split_name: str):
+    if group_col not in df.columns:
+        raise ValueError(f"Group column not found: {group_col}")
+    groups = df[group_col].astype(str)
+    if groups.nunique() < 4:
+        raise ValueError(f"Only {groups.nunique()} unique groups available for {split_name} split.")
+
+    splitter = GroupShuffleSplit(n_splits=40, test_size=test_size, random_state=random_state)
+    for left_idx, right_idx in splitter.split(df, df["target"], groups=groups):
+        left = df.iloc[left_idx].copy()
+        right = df.iloc[right_idx].copy()
+        if left["target"].nunique() == 2 and right["target"].nunique() == 2:
+            return left, right
+    raise ValueError(
+        f"Unable to create a group-separated {split_name} split containing both target classes. "
+        "Collect more LOCKED ground truth before training."
+    )
+
+
+def load_approved_phase3_sample_plan(path: Path) -> dict:
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    if plan.get("protocolId") != "ACTIVA-P3-RP-001":
+        raise ValueError("Empirical training requires Phase 3 protocol ACTIVA-P3-RP-001.")
+    if plan.get("status") != "APPROVED":
+        raise ValueError("Empirical training is HOLD until the Phase 3 sample plan status is APPROVED.")
+    snapshot = plan.get("planningSnapshot") or {}
+    cutoff = snapshot.get("cutoffUtc")
+    if not cutoff or snapshot.get("developmentOnly") is not True:
+        raise ValueError("Approved sample plan must freeze planningSnapshot.cutoffUtc with developmentOnly=true.")
+    final_min = plan.get("finalTestMinimums") or {}
+    for key in ("records", "reviewRequired", "noReviewRequired"):
+        value = final_min.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(f"Approved sample plan must define positive finalTestMinimums.{key}.")
+    return plan
+
+
+def empirical_temporal_group_split(df: pd.DataFrame, group_col: str, sample_plan: dict):
+    if "locked_at" not in df.columns:
+        raise ValueError("Empirical final-test firewall requires locked_at in every ML record.")
+
+    cutoff_raw = (sample_plan.get("planningSnapshot") or {}).get("cutoffUtc")
+    cutoff = pd.to_datetime(cutoff_raw, utc=True, errors="raise")
+    locked_at = pd.to_datetime(df["locked_at"], utc=True, errors="coerce")
+    if locked_at.isna().any():
+        bad = df.loc[locked_at.isna(), "record_id"].astype(str).tolist()
+        raise ValueError(f"Invalid or missing locked_at values for records: {bad[:10]}")
+
+    groups = df[group_col].astype(str)
+    planning_mask = locked_at <= cutoff
+    planning_groups = set(groups[planning_mask].tolist())
+    if len(planning_groups) < 4:
+        raise ValueError(
+            "Planning cohort has fewer than 4 unique participant groups; "
+            "cannot create a stable group-separated development/validation split."
+        )
+
+    # Final test is prospective relative to the frozen planning cutoff and may
+    # contain only participants never seen in the planning cohort.
+    test_mask = (locked_at > cutoff) & (~groups.isin(planning_groups))
+    test = df.loc[test_mask].copy()
+    development = df.loc[~test_mask].copy()
+
+    if test.empty:
+        raise ValueError(
+            "FINAL_TEST_FIREWALL_NO_ELIGIBLE_TEST_RECORDS: collect LOCKED records after the "
+            "planning cutoff from participants not present in the planning cohort."
+        )
+    if test["target"].nunique() < 2:
+        raise ValueError("Final test contains only one target class; collect more prospective LOCKED records.")
+
+    dev_groups = set(development[group_col].astype(str))
+    test_groups = set(test[group_col].astype(str))
+    overlap = dev_groups.intersection(test_groups)
+    if overlap:
+        raise ValueError(f"Participant group leakage across development/final test: {sorted(overlap)[:10]}")
+
+    if (pd.to_datetime(test["locked_at"], utc=True) <= cutoff).any():
+        raise ValueError("Planning-cutoff leakage detected in final test.")
+
+    final_min = sample_plan["finalTestMinimums"]
+    review_count = int((test["target"] == 1).sum())
+    no_review_count = int((test["target"] == 0).sum())
+    if len(test) < int(final_min["records"]):
+        raise ValueError(f"FINAL_TEST_MIN_RECORDS_NOT_MET: {len(test)}<{final_min['records']}")
+    if review_count < int(final_min["reviewRequired"]):
+        raise ValueError(f"FINAL_TEST_MIN_REVIEW_REQUIRED_NOT_MET: {review_count}<{final_min['reviewRequired']}")
+    if no_review_count < int(final_min["noReviewRequired"]):
+        raise ValueError(f"FINAL_TEST_MIN_NO_REVIEW_REQUIRED_NOT_MET: {no_review_count}<{final_min['noReviewRequired']}")
+
+    train, val = _split_two_class_grouped(
+        development,
+        group_col,
+        test_size=0.25,
+        random_state=RANDOM_STATE + 1,
+        split_name="development/validation",
+    )
+
+    split_info = {
+        "strategy": "phase3_temporal_planning_cutoff_plus_unseen_participant_final_test",
+        "planning_cutoff_utc": cutoff.isoformat(),
+        "planning_groups": len(planning_groups),
+        "development_records": int(len(development)),
+        "development_groups": int(development[group_col].nunique()),
+        "final_test_records": int(len(test)),
+        "final_test_groups": int(test[group_col].nunique()),
+        "final_test_review_required": review_count,
+        "final_test_no_review_required": no_review_count,
+        "participant_group_overlap": 0,
+        "planning_records_in_final_test": 0,
+    }
+    return train, val, test, split_info
+
+
 def group_split(df: pd.DataFrame, group_col: str):
     if group_col not in df.columns:
         raise ValueError(f"Group column not found: {group_col}")
@@ -310,10 +424,22 @@ def main():
         default="f1_validation",
     )
     parser.add_argument("--fixed-threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--sample-plan",
+        type=Path,
+        help="Required for EMPIRICAL_LOCKED_GROUND_TRUTH. Must be an APPROVED ACTIVA-P3-RP-001 plan.",
+    )
     args = parser.parse_args()
 
     df = load_dataset(args.input)
-    train, val, test = group_split(df, args.group_column)
+    split_info = {"strategy": "synthetic_group_random_split"}
+    if args.data_provenance == "EMPIRICAL_LOCKED_GROUND_TRUTH":
+        if not args.sample_plan:
+            raise ValueError("--sample-plan is required for empirical Phase 3 training.")
+        sample_plan = load_approved_phase3_sample_plan(args.sample_plan)
+        train, val, test, split_info = empirical_temporal_group_split(df, args.group_column, sample_plan)
+    else:
+        train, val, test = group_split(df, args.group_column)
 
     min_train_class = int(train["target"].value_counts().min())
     if min_train_class < 3:
@@ -417,6 +543,7 @@ def main():
         "threshold_selection": threshold_info,
         "calibration_method": "sigmoid_cv3",
         "group_split_column": args.group_column,
+        "split_governance": split_info,
         "reference_values": reference_values(development),
         "decision_support_only": True,
         "warnings": [
@@ -436,6 +563,7 @@ def main():
         "selection_metric": "validation_pr_auc",
         "selected_metric_value": validation[selected_name]["pr_auc"],
         "group_split_column": args.group_column,
+        "split_governance": split_info,
         "threshold": threshold,
         "threshold_selection": threshold_info,
         "counts": {
@@ -487,7 +615,9 @@ def main():
         },
         "notes": (
             "Offline evaluation package. Approval and deployment are separate governance gates. "
-            "Final test metrics must not be used for additional tuning."
+            "Final test metrics must not be used for additional tuning. "
+            "For empirical Phase 3 models, the final test is protected by the frozen planning-cutoff "
+            "and unseen-participant firewall."
         ),
     }
     registry_path.write_text(

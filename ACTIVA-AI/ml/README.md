@@ -84,3 +84,28 @@ npm run phase3:dataset-check -- \
 
 Prediction bundle มี riskProbability, predictedLabel, threshold และ local explanation
 โดยไม่เปลี่ยนผลรับรองของบุคลากรอัตโนมัติ
+
+
+## Phase 3 empirical final-test firewall
+
+Empirical training requires an APPROVED `ACTIVA-P3-RP-001` sample plan:
+
+```bash
+python ml/train_baselines.py \
+  --input locked_dataset.json \
+  --sample-plan ml/phase3-sample-plan.json \
+  --output-dir ml/out \
+  --model-version ACTIVA-ML-v1 \
+  --data-provenance EMPIRICAL_LOCKED_GROUND_TRUTH
+```
+
+The trainer enforces:
+
+- the planning snapshot cutoff from the approved plan;
+- all participants seen at/before the cutoff remain development-only;
+- later records from those same participants also remain development-only;
+- final test uses only post-cutoff participants unseen in planning;
+- zero participant-group overlap across development and final test;
+- final-test record/class minimums from the approved sample plan.
+
+Synthetic CI training keeps the existing deterministic group-random split and cannot be reported as empirical evidence.

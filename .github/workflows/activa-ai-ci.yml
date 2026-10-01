@@ -177,6 +177,9 @@ jobs:
       - name: Phase 3 sample-size planner tool check
         run: python ml/tests/check_phase3_sample_planner.py
 
+      - name: Phase 3 final-test firewall check
+        run: python ml/tests/check_phase3_final_test_firewall.py
+
       - name: Generate synthetic CI dataset
         run: python ml/tests/generate_synthetic_ci.py
 

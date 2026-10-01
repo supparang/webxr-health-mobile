@@ -12,6 +12,7 @@
 - **P3.1 PASS:** protocol + feature contract + governed sample plan + validator + CI tests merged in PR #98; ACTIVA-AI CI run `36738250570` PASS
 - **P3.2 IMPLEMENTING:** เพิ่ม governed sample-size planner ตาม Riley/pmsampsize, target-specific class minima และ high-discrimination simulation safeguard
 - เพิ่ม **Planning Cohort Dashboard** ใน AI Readiness สำหรับ ADMIN เพื่อดู aggregate prevalence, unique participants/events และ activity-type levels โดยไม่เปิดเผย direct identifiers
+- เพิ่ม **prospective final-test firewall**: planning participants เป็น development-only ถาวร; final test รับเฉพาะ post-cutoff participants ที่ไม่เคยอยู่ใน planning cohort และต้องผ่าน class minima ที่ล็อกไว้
 - **P3.2 HOLD:** ยังไม่อนุญาต empirical training จนกว่าจะใส่แหล่งอ้างอิง prevalence/model strength, อนุมัติ sample plan และ locked dataset ผ่าน threshold ที่ pre-specify
 - AI ยังคงเป็น decision support เท่านั้น; Human Final Decision เป็น final authority
 
