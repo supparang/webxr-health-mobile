@@ -44,5 +44,31 @@ const stored=await prisma.activity.findUnique({where:{id},select:{dataClassifica
 assert(stored.dataClassification==="QA_TEST","QA downgrade not persisted");
 const audit=await prisma.auditLog.count({where:{action:"ACTIVITY_QUARANTINED_QA",entityId:id}});
 assert(audit===1,"QA quarantine audit missing");
+
+const fixtureUser=await prisma.user.findUnique({where:{employeeId:"ADM001"},select:{id:true}});
+assert(Boolean(fixtureUser),"CI admin fixture absent");
+const qaAttendance=await prisma.attendanceRecord.create({data:{
+  activityId:id,userId:fixtureUser.id,checkinAt:new Date(),checkoutAt:new Date(),
+  attendanceStatus:"CHECKED_OUT",qrValid:true,identityVerified:true,
+}});
+const empiricalExportActivity=await api("/api/activities",{
+  method:"POST",body:{...body,title:"CI empirical research-export control",
+    dataClassification:"EMPIRICAL",empiricalAttestation:true},
+});
+assert(empiricalExportActivity.status===201,"CI empirical export control activity missing");
+const controlAttendance=await prisma.attendanceRecord.create({data:{
+  activityId:empiricalExportActivity.data.activity.id,userId:fixtureUser.id,
+  checkinAt:new Date(),checkoutAt:new Date(),attendanceStatus:"CHECKED_OUT",
+  qrValid:true,identityVerified:true,
+}});
+const exportResult=await api("/api/research/export");
+assert(exportResult.status===200 && exportResult.data.ok &&
+  exportResult.data.scope==="EMPIRICAL_ONLY","research export failed");
+assert(exportResult.data.records.some(r=>r.record_id===controlAttendance.id),
+  "eligible empirical control omitted from actual research export");
+assert(!exportResult.data.records.some(r=>r.record_id===qaAttendance.id || r.event_id===id),
+  "completed QA_TEST attendance leaked into actual research export");
+console.log("P3.3 research-export QA_TEST exclusion PASS (isolated CI data only)");
+
 console.log("ACTIVA-AI Phase 3 activity provenance and one-way QA quarantine tests passed");
 await prisma.$disconnect();
