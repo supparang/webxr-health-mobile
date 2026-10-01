@@ -1,0 +1,143 @@
+name: ACTIVA-AI Phase 3 Guest Participation DB Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MIGRATE-ACTIVA-PHASE3-GUEST to continue'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: Production
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_GUEST_MIGRATION_REF: 81c611f90825ba5e0a271f712801ac17209a5bb4
+
+    steps:
+      - name: Validate human operator confirmation
+        working-directory: .
+        shell: bash
+        run: |
+          test "${{ inputs.confirm }}" = "MIGRATE-ACTIVA-PHASE3-GUEST" || {
+            echo "Confirmation mismatch; refusing Production database migration."
+            exit 1
+          }
+
+      - name: Checkout pinned Guest schema and migration
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACTIVA_GUEST_MIGRATION_REF }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies and generate reviewed Prisma Client
+        run: |
+          npm ci
+          npx prisma generate
+
+      - name: Verify Neon and exact five-migration baseline
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {PrismaClient} from '@prisma/client';
+          import fs from 'node:fs';
+          const raw=String(process.env.DATABASE_URL||'');
+          if(!raw)throw new Error('Production database secret missing');
+          const url=new URL(raw);
+          if(!['postgres:','postgresql:'].includes(url.protocol)||!url.hostname.endsWith('.neon.tech'))
+            throw new Error('Refusing unexpected Production database target');
+          const p=new PrismaClient();
+          try{
+            const names=(await p.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            )).map(x=>x.migration_name);
+            const before=[
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation',
+              '20261001110000_external_blind_reviewer_sessions',
+              '20261001133000_activity_research_classification'
+            ];
+            const after=[...before,'20261001150000_guest_participation'];
+            if(JSON.stringify(names)!==JSON.stringify(before)&&JSON.stringify(names)!==JSON.stringify(after))
+              throw new Error('Unexpected migration baseline; refusing Production changes');
+            const counts=(await p.$queryRawUnsafe(
+              'SELECT (SELECT COUNT(*)::int FROM "User") AS users, (SELECT COUNT(*)::int FROM "Activity") AS activities, (SELECT COUNT(*)::int FROM "AttendanceRecord") AS attendance'
+            ))[0];
+            const qa=(await p.$queryRawUnsafe(
+              'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE "dataClassification" = $$QA_TEST$$)::int AS excluded FROM "Activity" WHERE "title" = $$ACTIVA Phase 3 Blind Review QA$$ AND "location" = $$QA Test$$ AND "category" = $$วิจัย$$'
+            ))[0];
+            if(Number(qa.total)<1||Number(qa.total)!==Number(qa.excluded))
+              throw new Error('Known QA acceptance activity is not isolated');
+            fs.writeFileSync('/tmp/activa-guest-baseline.json',JSON.stringify(counts));
+            console.log('Neon target, baseline migration set and QA isolation verified');
+          }finally{await p.$disconnect();}
+          NODE
+
+      - name: Apply pinned additive Guest migration
+        run: npx prisma migrate deploy
+
+      - name: Verify Guest schema and old row preservation
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {PrismaClient} from '@prisma/client';
+          import fs from 'node:fs';
+          const p=new PrismaClient();
+          try{
+            const names=(await p.$queryRawUnsafe(
+              'SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name'
+            )).map(x=>x.migration_name);
+            const expected=[
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation',
+              '20261001110000_external_blind_reviewer_sessions',
+              '20261001133000_activity_research_classification',
+              '20261001150000_guest_participation'
+            ];
+            if(JSON.stringify(names)!==JSON.stringify(expected))throw new Error('Guest migration set mismatch');
+            const tables=(await p.$queryRawUnsafe(
+              "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"
+            )).map(x=>x.table_name);
+            if(!tables.includes('GuestParticipant'))throw new Error('GuestParticipant table missing');
+            const owner=await p.$queryRawUnsafe(
+              "SELECT column_name,is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='AttendanceRecord' AND column_name IN ('userId','guestParticipantId')"
+            );
+            if(owner.length!==2||owner.some(x=>x.is_nullable!=='YES'))
+              throw new Error('Guest attendance optional owner columns invalid');
+            const guard=await p.$queryRawUnsafe(
+              "SELECT conname FROM pg_constraint WHERE conname='AttendanceRecord_exactly_one_participant_chk'"
+            );
+            if(guard.length!==1)throw new Error('Exclusive User XOR Guest owner constraint missing');
+            const current=(await p.$queryRawUnsafe(
+              'SELECT (SELECT COUNT(*)::int FROM "User") AS users, (SELECT COUNT(*)::int FROM "Activity") AS activities, (SELECT COUNT(*)::int FROM "AttendanceRecord") AS attendance'
+            ))[0];
+            const original=JSON.parse(fs.readFileSync('/tmp/activa-guest-baseline.json','utf8'));
+            for(const name of ['users','activities','attendance']){
+              if(current[name]!==original[name])throw new Error('Operational row count changed: '+name);
+            }
+            const qa=(await p.$queryRawUnsafe(
+              'SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE "dataClassification" = $$QA_TEST$$)::int AS excluded FROM "Activity" WHERE "title" = $$ACTIVA Phase 3 Blind Review QA$$ AND "location" = $$QA Test$$ AND "category" = $$วิจัย$$'
+            ))[0];
+            if(Number(qa.total)!==Number(qa.excluded))throw new Error('Known QA quarantine changed');
+            console.log('Guest schema verified: six migrations, owner XOR guard, unchanged operational counts and QA isolation');
+          }finally{await p.$disconnect();}
+          NODE
+
+      - name: Confirm Prisma migration status
+        run: npx prisma migrate status
