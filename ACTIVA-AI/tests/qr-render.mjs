@@ -21,7 +21,7 @@ const area={
   set innerHTML(value){
     this._html=value;
     redraws++;
-    const seconds=value.match(/data-qr-remain>(\\d+)<\\/b>/);
+    const seconds=value.match(/data-qr-remain>(\d+)<\/b>/);
     assert(seconds,"new QR must contain an addressable countdown");
     this.countdown={textContent:seconds[1]};
     this.details={open:false};
@@ -33,8 +33,8 @@ const area={
     return null;
   },
 };
-const code="(function(){let qrState=null;\\n"+source.slice(start,end)+
-  "\\nreturn {draw,setState(value){qrState=value;}};})()";
+const code="(function(){let qrState=null;\n"+source.slice(start,end)+
+  "\nreturn {draw,setState(value){qrState=value;}};})()";
 const renderer=vm.runInNewContext(code,{
   document:{getElementById:id=>id==="qrArea"?area:null},
   window:{}, Date:TestDate, Math, String,
