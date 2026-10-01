@@ -1066,3 +1066,4 @@ const holdDecision=await req("/api/operations/release-decision",{
 assert(holdDecision.decision==="HOLD","release HOLD decision was not recorded");
 
 console.log("ACTIVA-AI V1.0.15 smoke test passed");
+await prisma.$disconnect();
