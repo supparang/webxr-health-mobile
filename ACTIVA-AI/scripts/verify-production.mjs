@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { appendFileSync } from "node:fs";
 
 const DEFAULT_BASE_URL = "https://activa-ai-production-api.onrender.com";
 const DEFAULT_EXPECTED_RELEASE = "ACTIVA-AI-1.0.15";
@@ -13,20 +14,75 @@ function cleanBaseUrl(value) {
   return url.origin + pathname;
 }
 
-async function getJson(baseUrl, path) {
-  const started = Date.now();
-  const response = await fetch(baseUrl + path, {
+// Bounded retry policy for Render Free cold starts. One probe is attempted at
+// a time, so /api/live wakes the service before readiness/governance checks.
+// Only transport failures and temporary gateway statuses qualify for retry.
+export const DEFAULT_PROBE_POLICY = Object.freeze({
+  timeoutsMs: Object.freeze([12000, 25000, 65000]),
+  backoffMs: Object.freeze([1500, 3500]),
+});
+const RETRYABLE_HTTP = new Set([408, 429, 502, 503, 504]);
+const RETRYABLE_TRANSPORT = new Set(["AbortError", "TimeoutError", "TypeError"]);
+
+export async function getJson(baseUrl, path, { timeoutMs, fetchImpl = fetch, now = Date.now } = {}) {
+  const started = now();
+  const response = await fetchImpl(baseUrl + path, {
     method: "GET",
     headers: {
-      "Accept": "application/json",
-      "User-Agent": "ACTIVA-AI-Production-Monitor/1.0",
+      Accept: "application/json",
+      "User-Agent": "ACTIVA-AI-Production-Monitor/1.1",
     },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
-  const durationMs = Date.now() - started;
   let body = null;
-  try { body = await response.json(); } catch { body = null; }
-  return { status: response.status, durationMs, body };
+  try {
+    body = await response.json();
+  } catch (error) {
+    // A timeout while reading the response body is still transient; malformed
+    // JSON (SyntaxError) from an HTTP 200 is a permanent invalid snapshot.
+    if (RETRYABLE_TRANSPORT.has(String(error?.name || ""))) throw error;
+  }
+  return { status: response.status, durationMs: now() - started, body };
+}
+
+async function defaultSleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function probeWithRetry(baseUrl, path, {
+  request = getJson, sleep = defaultSleep, policy = DEFAULT_PROBE_POLICY,
+} = {}) {
+  const timeouts = policy.timeoutsMs;
+  const backoffs = policy.backoffMs;
+  if (!Array.isArray(timeouts) || !timeouts.length ||
+      !timeouts.every(n => Number.isInteger(n) && n > 0) ||
+      !Array.isArray(backoffs) || backoffs.length !== timeouts.length - 1 ||
+      !backoffs.every(n => Number.isInteger(n) && n >= 0)) {
+    throw new Error("INVALID_MONITOR_PROBE_POLICY");
+  }
+  const attempts = [];
+  let final = null;
+  for (let i = 0; i < timeouts.length; i++) {
+    let retryable = false;
+    try {
+      const response = await request(baseUrl, path, { timeoutMs: timeouts[i] });
+      // Never log returned body or request credentials. A malformed 200 response
+      // must be evaluated and FAILED by the strict snapshot validator, not retried.
+      final = response;
+      retryable = RETRYABLE_HTTP.has(response.status);
+      attempts.push({ number: i + 1, status: response.status,
+        durationMs: response.durationMs ?? null, reason: retryable ? "TRANSIENT_HTTP" : "RESPONSE" });
+    } catch (error) {
+      const name = String(error?.name || "Error");
+      retryable = RETRYABLE_TRANSPORT.has(name);
+      final = { status: 0, durationMs: null, body: null };
+      attempts.push({ number: i + 1, status: 0, durationMs: null,
+        reason: retryable ? "TRANSIENT_TRANSPORT" : "NON_RETRYABLE_TRANSPORT" });
+    }
+    if (!retryable) return { response: final, attempts, exhaustedTransient: false };
+    if (i < timeouts.length - 1) await sleep(backoffs[i]);
+  }
+  return { response: final, attempts, exhaustedTransient: true };
 }
 
 export function validateProductionSnapshot({ live, ready, health, expectedRelease = DEFAULT_EXPECTED_RELEASE, expectedGoogleDomain = "" } = {}) {
@@ -51,6 +107,8 @@ export function validateProductionSnapshot({ live, ready, health, expectedReleas
   check(health?.body?.releaseVersion === expectedRelease, "HEALTH_RELEASE_MISMATCH");
   check(health?.body?.database === "connected", "HEALTH_DATABASE_NOT_CONNECTED");
   check(health?.body?.autonomousDecision === false, "HEALTH_AUTONOMOUS_DECISION_MUST_BE_FALSE");
+  check(health?.body?.productionGoEnabled === true, "HEALTH_PRODUCTION_GO_NOT_ENABLED");
+  check(health?.body?.authentication?.mode === "GOOGLE_OIDC", "HEALTH_AUTHENTICATION_MODE_MISMATCH");
   check(health?.body?.authentication?.productionReady === true, "HEALTH_AUTHENTICATION_NOT_PRODUCTION_READY");
 
   if (expectedGoogleDomain) {
@@ -77,21 +135,39 @@ export async function verifyProduction({
   baseUrl = process.env.ACTIVA_PRODUCTION_URL || DEFAULT_BASE_URL,
   expectedRelease = process.env.ACTIVA_EXPECTED_RELEASE || DEFAULT_EXPECTED_RELEASE,
   expectedGoogleDomain = process.env.ACTIVA_EXPECTED_GOOGLE_DOMAIN || "",
+  request = getJson, sleep = defaultSleep, policy = DEFAULT_PROBE_POLICY,
 } = {}) {
   const normalizedBaseUrl = cleanBaseUrl(baseUrl);
-  const [live, ready, health] = await Promise.all([
-    getJson(normalizedBaseUrl, "/api/live"),
-    getJson(normalizedBaseUrl, "/api/ready"),
-    getJson(normalizedBaseUrl, "/api/health"),
-  ]);
-  const result = validateProductionSnapshot({ live, ready, health, expectedRelease, expectedGoogleDomain });
-  return { ...result, checkedAt: new Date().toISOString(), baseUrl: normalizedBaseUrl };
+  // Sequential probes prevent three simultaneous cold-start requests and keep
+  // the existing strict readiness/authentication/governance validation intact.
+  const liveProbe = await probeWithRetry(normalizedBaseUrl, "/api/live", { request, sleep, policy });
+  const readyProbe = await probeWithRetry(normalizedBaseUrl, "/api/ready", { request, sleep, policy });
+  const healthProbe = await probeWithRetry(normalizedBaseUrl, "/api/health", { request, sleep, policy });
+  const probes = { live: liveProbe, ready: readyProbe, health: healthProbe };
+  const result = validateProductionSnapshot({
+    live: liveProbe.response, ready: readyProbe.response, health: healthProbe.response,
+    expectedRelease, expectedGoogleDomain,
+  });
+  const hadTransient = Object.values(probes).some(p => p.attempts.some(a => a.reason.startsWith("TRANSIENT")));
+  const exhausted = Object.values(probes).some(p => p.exhaustedTransient);
+  return {
+    ...result, checkedAt: new Date().toISOString(), baseUrl: normalizedBaseUrl,
+    monitor: {
+      classification: !result.ok ? (exhausted ? "TRANSIENT_PROBE_EXHAUSTED" : "GOVERNANCE_OR_READINESS_FAILURE")
+        : hadTransient ? "TRANSIENT_RESPONSE_RECOVERED" : "HEALTHY_FIRST_ATTEMPT",
+      // Metadata only; endpoint bodies, tokens and direct participant data are never logged.
+      attempts: Object.fromEntries(Object.entries(probes).map(([name, p]) => [name, p.attempts])),
+    },
+  };
 }
 
 async function main() {
   try {
     const result = await verifyProduction();
     console.log(JSON.stringify(result, null, 2));
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT, "monitor_classification=" + result.monitor.classification + "\n");
+    }
     if (!result.ok) process.exitCode = 1;
   } catch (error) {
     console.error(JSON.stringify({
