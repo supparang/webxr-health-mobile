@@ -389,6 +389,7 @@ model BlindReviewInvite {
   tokenHash     String                   @unique
   expiresAt     DateTime
   submittedAt   DateTime?
+  independenceAttested Boolean @default(false)
   revokedAt     DateTime?
   createdAt     DateTime                 @default(now())
   label         ExternalGroundTruthLabel?
