@@ -146,6 +146,11 @@ jobs:
           done
           node tests/pilot-http.mjs
 
+      - name: Verify blind-review assets in production runtime
+        run: |
+          curl -fsS http://127.0.0.1:3001/blind-review | grep -q "Independent Ground Truth Review"
+          curl -fsS http://127.0.0.1:3001/blind-review.js | grep -q "EXTERNAL BLIND REVIEW"
+
       - name: Start ACTIVA-AI server
         run: |
           node server/index.js > /tmp/activa-ai.log 2>&1 &
