@@ -255,6 +255,54 @@ export function registerGuestAdminRoutes(app,{prisma,requireRoles,audit}) {
     }
   });
 
+  // Reissue only an unused, revoked pass; old credential stays permanently invalid.
+  app.post("/api/activities/:activityId/guest-passes/:guestId/reissue",requireRoles("ADMIN"),async(req,res,next)=>{
+    try{
+      const reason=String(req.body?.reason||"").trim();
+      if(reason.length<10)return res.status(400).json({ok:false,error:"REISSUE_REASON_REQUIRED"});
+      const g=await prisma.guestParticipant.findFirst({
+        where:{id:req.params.guestId,activityId:req.params.activityId},
+        include:{attendance:true,activity:true},
+      });
+      if(!g)return res.status(404).json({ok:false,error:"GUEST_NOT_FOUND"});
+      if(g.withdrawnAt)return res.status(410).json({ok:false,error:"GUEST_WITHDRAWAL_FINAL"});
+      if(!g.revokedAt)return res.status(409).json({ok:false,error:"REVOKE_OLD_PASS_FIRST"});
+      if(g.attendance)return res.status(409).json({ok:false,error:"ATTENDANCE_ALREADY_EXISTS_CANNOT_REISSUE"});
+      if(g.activity.pilotClosedAt || g.expiresAt<=new Date())return res.status(409).json({ok:false,error:"GUEST_REGISTRATION_CLOSED"});
+      const raw=crypto.randomBytes(32).toString("base64url");
+      await prisma.guestParticipant.update({
+        where:{id:g.id},
+        data:{passTokenHash:hash(raw),revokedAt:null,consentAt:null},
+      });
+      await audit(req,"GUEST_PASS_REISSUED","GuestParticipant",g.id,{activityId:g.activityId,reason,consentMustBeRenewed:true});
+      res.status(201).json({ok:true,path:"/guest#token="+encodeURIComponent(raw),guestRef:g.id.slice(-8),
+        tokenReturnedOnce:true,rawTokenPersisted:false,consentAccepted:false});
+    }catch(e){next(e);}
+  });
+
+  // Supports withdrawal when a participant has lost the original pass.
+  app.post("/api/activities/:activityId/guest-passes/:guestId/withdraw",requireRoles("ADMIN"),async(req,res,next)=>{
+    try{
+      const reason=String(req.body?.reason||"").trim();
+      if(reason.length<10 || req.body?.participantRequestConfirmed!==true)
+        return res.status(400).json({ok:false,error:"DOCUMENTED_PARTICIPANT_WITHDRAWAL_REQUIRED"});
+      const g=await prisma.guestParticipant.findFirst({
+        where:{id:req.params.guestId,activityId:req.params.activityId},
+      });
+      if(!g)return res.status(404).json({ok:false,error:"GUEST_NOT_FOUND"});
+      if(g.withdrawnAt)return res.json({ok:true,withdrawn:true,idempotent:true});
+      await prisma.$transaction(async(tx)=>{
+        await tx.guestParticipant.update({where:{id:g.id},data:{withdrawnAt:new Date(),revokedAt:new Date()}});
+        await tx.auditLog.create({data:{
+          actorId:req.activaUser.id,action:"GUEST_CONSENT_WITHDRAWN_BY_ADMIN",
+          entityType:"GuestParticipant",entityId:g.id,
+          metadata:{activityId:g.activityId,reason,participantRequestConfirmed:true,researchUseExcluded:true},
+        }});
+      });
+      res.json({ok:true,withdrawn:true,researchUseExcluded:true});
+    }catch(e){next(e);}
+  });
+
   app.post("/api/activities/:activityId/guest-passes/:guestId/revoke",requireRoles("ADMIN"),async(req,res,next)=>{
     try{
       const reason=String(req.body?.reason||"").trim();
