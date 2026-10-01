@@ -26,13 +26,17 @@
     "pilotReportSha256": null,
     "consentedParticipants": null,
     "eligibleAttendanceRecords": null,
-    "withdrawalReconciliationRef": null
+    "withdrawalReconciliationRef": null,
+    "uniqueParticipants": null,
+    "uniqueEvents": null
   },
   "groundTruth": {
     "distinctRealReviewersConfirmed": null,
     "lockedEmpiricalCases": null,
     "agreementReportSha256": null,
-    "adjudicationReportSha256": null
+    "adjudicationReportSha256": null,
+    "reviewRequiredCount": null,
+    "noReviewRequiredCount": null
   },
   "dataset": {
     "scope": null,
