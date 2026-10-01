@@ -3962,6 +3962,7 @@
         card("NO_REVIEW_REQUIRED",negative)+
       '</div>'+
       '<div class="panel"><h2>AI Readiness Gate</h2>'+
+        '<div class="hint"><b>Phase 3 empirical-only:</b> จำนวนด้านบนไม่รวม QA_TEST / UNCLASSIFIED แม้จะมี 2 labels หรือ LOCKED; ดูข้อมูล QA ได้ใน Ground Truth Workspace แต่จะไม่รวมใน research dataset</div>'+
         '<div class="research-gate">'+
           gate("1","Independent Labels",Number(c.labelCount||0)>0)+
           gate("2","Adjudication",adjudicatedEver>0)+
@@ -3976,6 +3977,7 @@
         '<div id="mlMsg"></div>'+
       '</div>'+
       '<div class="panel"><h2>Phase 3 Planning Cohort</h2>'+
+        '<div class="hint"><b>Scope = EMPIRICAL_ONLY:</b> ไม่รวม QA_TEST / UNCLASSIFIED ทุกกรณี</div>'+
         '<div class="hint"><b>Aggregate only:</b> ใช้สำหรับวางแผน sample size เท่านั้น ไม่แสดงรหัสบุคลากร ชื่อ หรืออีเมล และไม่ใช่ผล AI</div>'+
         '<div class="hint"><b>Final-test firewall:</b> record ที่อยู่ใน planning snapshot จะถูกกำหนดเป็น development-only หลัง sample plan ถูก freeze</div>'+
         '<div class="form-grid" style="margin-top:12px">'+
