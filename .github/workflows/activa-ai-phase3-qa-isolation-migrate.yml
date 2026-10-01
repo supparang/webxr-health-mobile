@@ -1,0 +1,119 @@
+name: ACTIVA-AI Phase 3 QA Isolation DB Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MIGRATE-ACTIVA-PHASE3-QA-ISOLATION to continue'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: Production
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+    env:
+      DATABASE_URL: ${{ secrets.ACTIVA_PRODUCTION_DATABASE_URL }}
+      ACTIVA_REVIEWED_REF: 1f4d5314c597d46696e654a4056e7e0f34fc905a
+
+    steps:
+      - name: Require human operator confirmation
+        working-directory: .
+        shell: bash
+        run: |
+          test "${{ inputs.confirm }}" = "MIGRATE-ACTIVA-PHASE3-QA-ISOLATION" || {
+            echo "Confirmation mismatch; refusing Production migration."
+            exit 1
+          }
+
+      - name: Checkout pinned reviewed migration
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACTIVA_REVIEWED_REF }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ACTIVA-AI/package-lock.json
+
+      - name: Install dependencies and generate client
+        run: |
+          npm ci
+          npx prisma generate
+
+      - name: Verify current Neon schema and migration baseline
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const raw=process.env.DATABASE_URL || '';
+          if(!raw)throw new Error('ACTIVA_PRODUCTION_DATABASE_URL missing');
+          const target=new URL(raw);
+          if(!['postgres:','postgresql:'].includes(target.protocol)||!target.hostname.endsWith('.neon.tech'))
+            throw new Error('Migration target must be Neon PostgreSQL');
+          const p=new PrismaClient();
+          try{
+            const rows=await p.$queryRawUnsafe('SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name');
+            const found=rows.map(x=>x.migration_name);
+            const before=[
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation',
+              '20261001110000_external_blind_reviewer_sessions'
+            ];
+            const after=[...before,'20261001133000_activity_research_classification'];
+            if(JSON.stringify(found)!==JSON.stringify(before)&&JSON.stringify(found)!==JSON.stringify(after))
+              throw new Error('Unexpected Production migration baseline; refusing schema change');
+            console.log(found.length===after.length
+              ? 'QA isolation migration already deployed; performing idempotent verification'
+              : 'Expected four-migration Production baseline verified');
+          }finally{await p.$disconnect();}
+          NODE
+
+      - name: Apply pinned additive classification migration
+        run: npx prisma migrate deploy
+
+      - name: Verify classification and known QA quarantine
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { PrismaClient } from '@prisma/client';
+          const p=new PrismaClient();
+          try{
+            const rows=await p.$queryRawUnsafe('SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name');
+            const expected=[
+              '20260926000000_initial_baseline',
+              '20260927170000_participant_response_workflow',
+              '20260928094500_position_role_separation',
+              '20261001110000_external_blind_reviewer_sessions',
+              '20261001133000_activity_research_classification'
+            ];
+            if(JSON.stringify(rows.map(x=>x.migration_name))!==JSON.stringify(expected))
+              throw new Error('QA isolation migration set mismatch');
+            const qa=await p.$queryRawUnsafe(`
+              SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE "dataClassification" = 'QA_TEST')::int AS excluded
+              FROM "Activity"
+              WHERE "title" = 'ACTIVA Phase 3 Blind Review QA'
+                AND "location" = 'QA Test'
+                AND "category" = 'วิจัย'
+            `);
+            if(Number(qa[0]?.total)<1 || Number(qa[0]?.total)!==Number(qa[0]?.excluded))
+              throw new Error('Existing ACTIVA Blind Review QA activity was not fully quarantined');
+            const legacy=await p.$queryRawUnsafe(`SELECT COUNT(*)::int AS n FROM "Activity" WHERE "dataClassification" = 'EMPIRICAL'`);
+            if(Number(legacy[0]?.n)!==0)
+              throw new Error('Unexpected historical EMPIRICAL classifications after migration');
+            console.log('Production QA isolation migration verified; known QA excluded and no legacy activities promoted');
+          }finally{await p.$disconnect();}
+          NODE
+
+      - name: Confirm migration status
+        run: npx prisma migrate status
