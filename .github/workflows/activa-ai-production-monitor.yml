@@ -10,6 +10,11 @@ on:
       - ".github/workflows/activa-ai-production-monitor.yml"
   workflow_dispatch:
     inputs:
+      expected_source_commit:
+        description: "Optional 40-character Render-deployed commit SHA for strict P4.5 release audit"
+        required: false
+        type: string
+        default: ""
       simulate_failure:
         description: "Create a safe synthetic monitor failure to test GitHub alert routing"
         required: false
@@ -37,6 +42,7 @@ jobs:
     env:
       ACTIVA_PRODUCTION_URL: https://activa-ai-production-api.onrender.com
       ACTIVA_EXPECTED_RELEASE: ACTIVA-AI-1.0.15
+      ACTIVA_EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit || '' }}
       ACTIVA_EXPECTED_GOOGLE_DOMAIN: chandra.ac.th
       ALERT_ISSUE_TITLE: "[PRODUCTION ALERT] ACTIVA-AI monitor failure"
       ALERT_ASSIGNEE: supparang
