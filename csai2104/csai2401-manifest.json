@@ -1,0 +1,26 @@
+{
+  "course": "CSAI2401",
+  "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "bossGates": [
+    5,
+    10,
+    15
+  ],
+  "source": "CSAI2401_FINAL_TEACHING_MASTER_v4_THAI_DOMINANT_CLASSROOM_EDITION"
+}
