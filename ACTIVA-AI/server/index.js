@@ -2056,6 +2056,11 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
   if (!["CHECKIN","CHECKOUT"].includes(purpose)) {
     return res.status(400).json({ ok:false, error:"INVALID_QR_PURPOSE" });
   }
+  // Checkout remains operationally available for someone already checked in,
+  // but no fresh empirical CHECKIN QR can be issued while research is paused.
+  if (purpose === "CHECKIN" && activity.dataClassification === "EMPIRICAL" && !empiricalCollectionGate().enabled) {
+    return res.status(409).json({ok:false,error:"EMPIRICAL_COLLECTION_GATE_HOLD"});
+  }
 
   const windowState = purpose === "CHECKOUT"
     ? checkoutWindowState(activity)
@@ -2127,6 +2132,9 @@ app.post("/api/attendance/checkin", async (req, res) => {
   });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
   if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (activity.dataClassification === "EMPIRICAL" && !empiricalCollectionGate().enabled) {
+    return res.status(409).json({ok:false,error:"EMPIRICAL_COLLECTION_GATE_HOLD"});
+  }
 
   const windowState = checkinWindowState(activity);
   if (!windowState.ok) {
