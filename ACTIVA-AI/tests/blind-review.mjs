@@ -1,4 +1,11 @@
 import { prisma } from "../server/db.js";
+// This is a MUTATING, SYNTHETIC integration test. Never run against Production.
+if (process.env.CI!=="true" || process.env.ACTIVA_TEST_DATABASE_ONLY!=="true" ||
+    process.env.ALLOW_SYNTHETIC_CI!=="true" || process.env.ACTIVA_DEPLOYMENT_TIER!=="STAGING" ||
+    process.env.ACTIVA_AUTH_MODE!=="DEMO_HEADER" ||
+    !/^(?:postgres(?:ql)?:\/\/)[^@]+@(?:127\.0\.0\.1|localhost):\d+\//.test(process.env.DATABASE_URL||"")) {
+  throw new Error("BLIND_REVIEW_REQUIRES_DISPOSABLE_LOCAL_CI_POSTGRES");
+}
 
 const base = process.env.ACTIVA_BASE_URL || "http://127.0.0.1:3000";
 
@@ -30,7 +37,8 @@ function tokenFromPath(path) {
 const admin = await prisma.user.findUnique({ where:{ employeeId:"ADM001" } });
 const participant = await prisma.user.findUnique({ where:{ employeeId:"P002" } });
 const verifier = await prisma.user.findUnique({ where:{ employeeId:"STF001" } });
-assert(admin && participant && verifier, "blind-review CI users missing");
+const unassigned = await prisma.user.findUnique({ where:{ employeeId:"STF002" } });
+assert(admin && participant && verifier && unassigned, "blind-review CI users missing");
 
 const now = Date.now();
 const activity = await prisma.activity.create({
@@ -164,10 +172,55 @@ const queueAdmin = await api("/api/ground-truth/queue", { actor:"ADM001" });
 const adminRow = (queueAdmin.data.records || []).find((x) => x.id === attendance.id);
 assert((adminRow?.externalGroundTruthLabels || []).length === 2, "ADMIN must see both labels after batch completion");
 
+const queueStaffUnassigned = await api("/api/ground-truth/queue", { actor:"STF002" });
+assert(!(queueStaffUnassigned.data.records || []).some(x=>x.id===attendance.id),
+  "Unassigned STAFF must not see Ground Truth case");
+const unassignedLabel = await api("/api/ground-truth/"+encodeURIComponent(attendance.id)+"/labels", {
+  actor:"STF002",method:"POST",body:{target:"NO_REVIEW_REQUIRED",reasonCodes:[]},
+});
+assert(unassignedLabel.response.status===403 &&
+  unassignedLabel.data.error==="GROUND_TRUTH_REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",
+  "Unassigned STAFF must not submit Ground Truth label");
+await prisma.activityRoleAssignment.create({data:{
+  activityId:activity.id,userId:unassigned.id,role:"VERIFIER",assignedById:admin.id,
+}});
 const queueStaff = await api("/api/ground-truth/queue", { actor:"STF002" });
 const staffRow = (queueStaff.data.records || []).find((x) => x.id === attendance.id);
-assert(staffRow, "STAFF Ground Truth queue missing eligible attendance");
+assert(staffRow, "Assigned STAFF Ground Truth queue missing eligible attendance");
 assert((staffRow.externalGroundTruthLabels || []).length === 0, "STAFF must not see external blind labels");
+assert(staffRow.user===null && staffRow.userId===null &&
+  staffRow.guestParticipant===null && staffRow.guestParticipantId===null,
+  "Assigned reviewer queue leaked participant identity fields");
+
+
+// An ADMIN must not label their own QA attendance, and an ADMIN is an
+// adjudicator/manager rather than an independent EMPIRICAL label reviewer.
+const selfAttendance=await prisma.attendanceRecord.create({data:{
+  activityId:activity.id,userId:admin.id,checkinAt:new Date(now-115*60000),
+  checkoutAt:new Date(now-62*60000),qrValid:true,identityVerified:true,
+}});
+const selfLabel=await api("/api/ground-truth/"+encodeURIComponent(selfAttendance.id)+"/labels",{
+  actor:"ADM001",method:"POST",body:{target:"NO_REVIEW_REQUIRED",reasonCodes:[]},
+});
+assert(selfLabel.response.status===409 && selfLabel.data.error==="GROUND_TRUTH_SELF_LABEL_FORBIDDEN",
+  "ADMIN must not label their own attendance");
+const simulatedEmpirical=await prisma.activity.create({data:{
+  title:"CI Synthetic empirical reviewer governance (NOT actual human research)",
+  category:"วิจัย",location:"CI",dataClassification:"EMPIRICAL",classifiedAt:new Date(),
+  startAt:new Date(now-2*3600000),endAt:new Date(now-60*60000),
+  organizerId:admin.id,
+}});
+const simulatedEmpiricalAttendance=await prisma.attendanceRecord.create({data:{
+  activityId:simulatedEmpirical.id,userId:participant.id,checkinAt:new Date(now-115*60000),
+  checkoutAt:new Date(now-62*60000),qrValid:true,identityVerified:true,
+}});
+const adminEmpiricalLabel=await api("/api/ground-truth/"+
+  encodeURIComponent(simulatedEmpiricalAttendance.id)+"/labels",{
+  actor:"ADM001",method:"POST",body:{target:"NO_REVIEW_REQUIRED",reasonCodes:[]},
+});
+assert(adminEmpiricalLabel.response.status===409 &&
+  adminEmpiricalLabel.data.error==="EMPIRICAL_REQUIRES_INDEPENDENT_REVIEWER",
+  "ADMIN must not replace independent empirical reviewer");
 
 const lock = await api("/api/ground-truth/" + encodeURIComponent(attendance.id) + "/lock", {
   actor:"ADM001",
