@@ -26,6 +26,10 @@ export function empiricalCollectionGate(env=process.env, now=new Date()) {
   const add=(condition,code)=>{if(!condition)blockers.push(code);};
   const stage=v(env,"ACTIVA_APPROVED_STUDY_STAGE");
   add(env.ACTIVA_EMPIRICAL_COLLECTION_ENABLED==="true","EMPIRICAL_SWITCH_DISABLED");
+  if(env.ACTIVA_DEPLOYMENT_TIER==="PRODUCTION") {
+    add(env.ACTIVA_AUTH_MODE==="GOOGLE_OIDC" && env.ACTIVA_PRODUCTION_GO_ENABLED==="true",
+      "PRODUCTION_AUTHENTICATION_OR_GO_NOT_READY");
+  }
   add(["FEASIBILITY","MAIN"].includes(stage),"APPROVED_STUDY_STAGE_REQUIRED");
   for(const key of ["ACTIVA_ETHICS_DECISION_REF","ACTIVA_SITE_PERMISSION_REF"]) {
     add(validRef(v(env,key),env),key+"_MISSING_OR_INVALID");
