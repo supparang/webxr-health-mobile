@@ -40,6 +40,29 @@ assert.equal(pass.ok, true);
 assert.deepEqual(pass.errors, []);
 assert.equal(pass.summary.aiAutonomousDecision, false);
 
+const sha="a".repeat(40);
+const pinned={
+  ...good,
+  live:{...good.live,body:{...good.live.body,sourceCommit:sha}},
+  ready:{...good.ready,body:{...good.ready.body,sourceCommit:sha}},
+  health:{...good.health,body:{...good.health.body,sourceCommit:sha}},
+};
+const matched=validateProductionSnapshot({...pinned,expectedRelease,expectedSourceCommit:sha});
+assert.equal(matched.ok,true,JSON.stringify(matched.errors));
+assert.equal(matched.summary.sourceCommit,sha);
+const missingSource=validateProductionSnapshot({...good,expectedRelease,expectedSourceCommit:sha});
+assert.equal(missingSource.ok,false,"Pinned deployment must not accept old endpoints with no SHA");
+assert(missingSource.errors.includes("LIVE_SOURCE_COMMIT_MISMATCH_OR_UNAVAILABLE"));
+const staleReady=validateProductionSnapshot({...pinned,
+  ready:{...pinned.ready,body:{...pinned.ready.body,sourceCommit:"b".repeat(40)}},
+  expectedRelease,expectedSourceCommit:sha});
+assert.equal(staleReady.ok,false,"Mixed deployment revisions must fail");
+assert(staleReady.errors.includes("READY_SOURCE_COMMIT_MISMATCH_OR_UNAVAILABLE"));
+const invalidTarget=validateProductionSnapshot({...pinned,expectedRelease,expectedSourceCommit:"not-a-sha"});
+assert.equal(invalidTarget.ok,false);
+assert(invalidTarget.errors.includes("EXPECTED_SOURCE_COMMIT_INVALID"));
+
+
 const wrongTier = validateProductionSnapshot({
   ...good,
   live: { ...good.live, body: { ...good.live.body, deploymentTier: "STAGING" } },

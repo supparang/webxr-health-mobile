@@ -8,6 +8,7 @@ import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
 import { empiricalCollectionGate } from "./empirical-gate.js";
+import { deployedSourceCommit } from "./source-revision.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
@@ -572,6 +573,7 @@ app.get("/api/live", (_req, res) => {
     ok: true,
     service: "ACTIVA-AI",
     releaseVersion: RELEASE_VERSION,
+    sourceCommit: deployedSourceCommit(),
     deploymentTier: deploymentTier(),
   });
 });
@@ -604,6 +606,7 @@ app.get("/api/ready", async (_req, res) => {
       ok: true,
       ready: true,
       releaseVersion: RELEASE_VERSION,
+      sourceCommit: deployedSourceCommit(),
       deploymentTier: deploymentTier(),
       database: "connected",
       authenticationReady: true,
@@ -633,6 +636,7 @@ app.get("/api/health", async (_req, res) => {
       ok: true,
       version: "1.0.15",
       releaseVersion: RELEASE_VERSION,
+      sourceCommit: deployedSourceCommit(),
       database: "connected",
       ai: deployedModel ? "decision-support-active" : "no-deployed-model",
       deployedModelVersion: deployedModel?.version || null,

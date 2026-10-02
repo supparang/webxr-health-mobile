@@ -85,7 +85,7 @@ export async function probeWithRetry(baseUrl, path, {
   return { response: final, attempts, exhaustedTransient: true };
 }
 
-export function validateProductionSnapshot({ live, ready, health, expectedRelease = DEFAULT_EXPECTED_RELEASE, expectedGoogleDomain = "" } = {}) {
+export function validateProductionSnapshot({ live, ready, health, expectedRelease = DEFAULT_EXPECTED_RELEASE, expectedGoogleDomain = "", expectedSourceCommit = "" } = {}) {
   const errors = [];
   const check = (condition, message) => { if (!condition) errors.push(message); };
 
@@ -111,6 +111,16 @@ export function validateProductionSnapshot({ live, ready, health, expectedReleas
   check(health?.body?.authentication?.mode === "GOOGLE_OIDC", "HEALTH_AUTHENTICATION_MODE_MISMATCH");
   check(health?.body?.authentication?.productionReady === true, "HEALTH_AUTHENTICATION_NOT_PRODUCTION_READY");
 
+  // Optional strict release assertion. Existing scheduled monitor remains backward-compatible
+  // until the operator pins the desired revision after a verified Render deployment.
+  if (expectedSourceCommit) {
+    const target=String(expectedSourceCommit).trim().toLowerCase();
+    check(/^[0-9a-f]{40}$/.test(target),"EXPECTED_SOURCE_COMMIT_INVALID");
+    check(live?.body?.sourceCommit === target,"LIVE_SOURCE_COMMIT_MISMATCH_OR_UNAVAILABLE");
+    check(ready?.body?.sourceCommit === target,"READY_SOURCE_COMMIT_MISMATCH_OR_UNAVAILABLE");
+    check(health?.body?.sourceCommit === target,"HEALTH_SOURCE_COMMIT_MISMATCH_OR_UNAVAILABLE");
+  }
+
   if (expectedGoogleDomain) {
     const domains = Array.isArray(health?.body?.authentication?.allowedDomains) ? health.body.authentication.allowedDomains : [];
     check(domains.includes(expectedGoogleDomain), "HEALTH_EXPECTED_GOOGLE_DOMAIN_MISSING");
@@ -121,6 +131,7 @@ export function validateProductionSnapshot({ live, ready, health, expectedReleas
     errors,
     summary: {
       releaseVersion: live?.body?.releaseVersion || null,
+      sourceCommit: live?.body?.sourceCommit || null,
       deploymentTier: live?.body?.deploymentTier || null,
       database: ready?.body?.database || null,
       authenticationReady: ready?.body?.authenticationReady === true,
@@ -135,6 +146,7 @@ export async function verifyProduction({
   baseUrl = process.env.ACTIVA_PRODUCTION_URL || DEFAULT_BASE_URL,
   expectedRelease = process.env.ACTIVA_EXPECTED_RELEASE || DEFAULT_EXPECTED_RELEASE,
   expectedGoogleDomain = process.env.ACTIVA_EXPECTED_GOOGLE_DOMAIN || "",
+  expectedSourceCommit = process.env.ACTIVA_EXPECTED_SOURCE_COMMIT || "",
   request = getJson, sleep = defaultSleep, policy = DEFAULT_PROBE_POLICY,
 } = {}) {
   const normalizedBaseUrl = cleanBaseUrl(baseUrl);
@@ -146,7 +158,7 @@ export async function verifyProduction({
   const probes = { live: liveProbe, ready: readyProbe, health: healthProbe };
   const result = validateProductionSnapshot({
     live: liveProbe.response, ready: readyProbe.response, health: healthProbe.response,
-    expectedRelease, expectedGoogleDomain,
+    expectedRelease, expectedGoogleDomain, expectedSourceCommit,
   });
   const hadTransient = Object.values(probes).some(p => p.attempts.some(a => a.reason.startsWith("TRANSIENT")));
   const exhausted = Object.values(probes).some(p => p.exhaustedTransient);
