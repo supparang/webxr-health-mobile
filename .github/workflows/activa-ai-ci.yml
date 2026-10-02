@@ -216,7 +216,7 @@ jobs:
         run: node tests/demo-release-guard.mjs
 
       - name: Setup Python for ML pipeline
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
