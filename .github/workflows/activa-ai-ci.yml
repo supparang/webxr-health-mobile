@@ -123,6 +123,8 @@ jobs:
           node --check server/research-scope.js
           node --check server/empirical-gate.js
           node --check tests/empirical-gate.mjs
+          node --check server/source-revision.js
+          node --check tests/source-revision.mjs
           node --check blind-review.js
 
       - name: Authentication readiness guard
@@ -144,6 +146,7 @@ jobs:
 
       - name: Phase 4 closure must HOLD without real research evidence
         run: |
+          node tests/source-revision.mjs
           npm run test:phase4-empirical-gate
           npm run test:phase4-closure
           node scripts/verify-phase4-closure.mjs --manifest research/phase4-closure.json --sample-plan ml/phase3-sample-plan.json --expect-hold
