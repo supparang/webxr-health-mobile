@@ -191,6 +191,22 @@ assert((staffRow.externalGroundTruthLabels || []).length === 0, "STAFF must not 
 assert(staffRow.user===null && staffRow.userId===null &&
   staffRow.guestParticipant===null && staffRow.guestParticipantId===null,
   "Assigned reviewer queue leaked participant identity fields");
+const badReason=await api("/api/ground-truth/"+encodeURIComponent(attendance.id)+"/labels",{
+  actor:"STF002",method:"POST",body:{target:"REVIEW_REQUIRED",reasonCodes:["INVALID_SCIENTIFIC_CODE"]},
+});
+assert(badReason.response.status===400 && badReason.data.error==="INVALID_REASON_CODES",
+  "Internal reviewer accepted reason code absent from frozen external codebook");
+const missingReason=await api("/api/ground-truth/"+encodeURIComponent(attendance.id)+"/labels",{
+  actor:"STF002",method:"POST",body:{target:"REVIEW_REQUIRED",reasonCodes:[]},
+});
+assert(missingReason.response.status===400 && missingReason.data.error==="REVIEW_REASON_REQUIRED",
+  "Internal REVIEW_REQUIRED label must explain its code");
+const otherMissingNote=await api("/api/ground-truth/"+encodeURIComponent(attendance.id)+"/labels",{
+  actor:"STF002",method:"POST",body:{target:"REVIEW_REQUIRED",reasonCodes:["OTHER"],notes:""},
+});
+assert(otherMissingNote.response.status===400 && otherMissingNote.data.error==="OTHER_REASON_REQUIRES_NOTES",
+  "OTHER reason must have supporting notes for either reviewer route");
+
 
 
 // An ADMIN must not label their own QA attendance, and an ADMIN is an
