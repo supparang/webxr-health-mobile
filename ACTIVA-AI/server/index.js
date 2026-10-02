@@ -4532,6 +4532,7 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
       consistencyResult: true,
       humanReviews: { orderBy: { reviewedAt: "desc" } },
       groundTruthCase: true,
+      guestParticipant:{select:{consentAt:true,withdrawnAt:true,revokedAt:true}},
       groundTruthLabels: true,
       externalGroundTruthLabels: {
         where:{ invite:{ batch:{ status:"COMPLETED" } } },
@@ -4615,7 +4616,11 @@ app.get("/api/analytics/verified", requireRoles("ADMIN", "STAFF"), async (_req, 
     }))
     .sort((a, b) => b.recordCount - a.recordCount || a.title.localeCompare(b.title));
 
-  const researchRows = rows.filter((r) => r.activity?.dataClassification === "EMPIRICAL");
+  // Research-only aggregates must use the same versioned-consent eligibility
+  // as /api/ml/dataset and /api/research/export, not merely activity class.
+  const researchRows = rows.filter((r) => r.activity?.dataClassification === "EMPIRICAL" &&
+    Boolean(r.guestParticipantId && r.guestParticipant?.consentAt &&
+      !r.guestParticipant?.withdrawnAt && !r.guestParticipant?.revokedAt));
   const lockedRows = researchRows.filter((r) =>
     r.groundTruthCase?.status === "LOCKED" && r.groundTruthCase?.finalTarget
   );
