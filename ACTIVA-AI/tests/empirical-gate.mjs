@@ -43,6 +43,9 @@ assert.equal(check({ACTIVA_APPROVED_STUDY_STAGE:"MAIN",
 // Copying CI placeholders into a production process must never satisfy the gate.
 const production={...env,CI:"false",ACTIVA_TEST_DATABASE_ONLY:"false",
  ALLOW_SYNTHETIC_CI:"false",ACTIVA_DEPLOYMENT_TIER:"PRODUCTION"};
+assert(empiricalCollectionGate(production,clock).blockers.includes("PRODUCTION_AUTHENTICATION_OR_GO_NOT_READY"));
+assert(empiricalCollectionGate({...production,ACTIVA_AUTH_MODE:"GOOGLE_OIDC",ACTIVA_PRODUCTION_GO_ENABLED:"true"},clock).enabled===false,
+ "CI reference placeholders must stay invalid in Production even after GO");
 assert.equal(empiricalCollectionGate(production,clock).enabled,false);
 assert.equal(empiricalCollectionGate(production,clock).blockers.some(x=>x.endsWith("_MISSING_OR_INVALID")),true);
 const result=check({});
