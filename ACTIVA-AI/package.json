@@ -31,7 +31,8 @@
     "test:phase3-readiness": "node tests/phase3-dataset-readiness.mjs",
     "phase3:sample-plan": "python ml/plan_phase3_sample.py",
     "phase4:verify": "node scripts/verify-phase4-closure.mjs --manifest research/phase4-closure.json --sample-plan ml/phase3-sample-plan.json",
-    "test:phase4-closure": "node tests/phase4-closure.mjs"
+    "test:phase4-closure": "node tests/phase4-closure.mjs",
+    "test:phase4-empirical-gate": "node tests/empirical-gate.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

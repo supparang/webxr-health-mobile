@@ -4,6 +4,22 @@ SOP version: ACTIVA-P4-SOP-001 | Status: DRAFT for PI/site/ethics sign-off.
 Existing protocol: ACTIVA-P3-RP-001. This is research execution, not a replacement feature contract.
 P4.3 readiness references: `phase4-cru-pilot-prelaunch-checklist.md` (authoritative human GO/HOLD decision) and `phase4-cru-data-management-plan-draft.md` (data authority/access/retention pending approval). Existing production Guest E2E PASS evidence in Issue #110 is reusable; do not require redundant test recruitment.
 
+## P4 software interlock — implemented prior to field authorization
+
+**Current research state is HOLD:** `ACTIVA_EMPIRICAL_COLLECTION_ENABLED=false` in the Production template. `QA_TEST` and ordinary operational events continue to work. Server-side API prevents new `EMPIRICAL` activities, signed empirical CHECKIN issuance/attendance check-in, empirical Guest Pass issuance/reissue, and empirical Guest consent/check-in while the gate is disabled or its authorization window has expired. Existing CHECKOUT/withdrawal remains available for operational safety.
+
+Only after an authorized human PI verifies the actual CRU site/ethics decision, covered units, approved consent text/version, valid dates, non-research alternative, named independent coordinator and the **specific study stage**, the authorized deployment operator may set these PRIVATE configuration keys (never paste values into public GitHub or chat):
+
+- `ACTIVA_EMPIRICAL_COLLECTION_ENABLED=true`; `ACTIVA_APPROVED_STUDY_STAGE=FEASIBILITY` or `MAIN`.
+- `ACTIVA_ETHICS_DECISION_REF`, `ACTIVA_SITE_PERMISSION_REF` (non-placeholder references stored separately in restricted institutional records).
+- `ACTIVA_APPROVED_CONSENT_VERSION` and `ACTIVA_APPROVED_CONSENT_TEXT_SHA256` — SHA-256 over the EXACT UTF-8 consent text that ADMIN enters for the Guest Pass, after normal field trimming; version and fingerprint must both match.
+- `ACTIVA_ETHICS_VALID_FROM_UTC`, `ACTIVA_ETHICS_VALID_UNTIL_UTC` in UTC ISO format, with start inclusive/end exclusive.
+- For `MAIN`, `ACTIVA_SAMPLE_PLAN_SIGNOFF_REF` must also identify the signed, source-backed prospective plan, not QA/test labels.
+
+Production additionally requires normal Google OIDC and Production GO. An ADMIN can inspect `GET /api/research/collection-preflight`; it exposes only booleans, stage and blocking **codes**, never the private refs, signed consent text or hash. `collectionEnabled=true` is a configuration check, NOT independent authentication of institutional approval. The PI must still sign the specific field `P4.3 GO` in protected records. If the decision is revoked, a date expires, a consent version changes, or a new stage requires amendment, turn the switch OFF pending review; do not silently reuse earlier consent or promote QA_TEST rows.
+
+CI uses a clearly synthetic, **disposable STAGING** configuration to exercise this guard; CI labels, synthetic sample counts and synthetic consent never constitute real approval or empirical study data. CI-only reference prefixes are rejected if copied to Production.
+
 ## Stage 0 — Before recruiting
 - Human PI obtains traceable institutional ethics approval or documented exemption where applicable and site permission. Record authorized consent wording/version, secure retention, data handling, independent contact, withdrawal process and incident escalation. Do not upload personal identity mappings to GitHub.
 - Train two different real independent AI-blinded human reviewers plus separate adjudicator using docs/ground-truth-codebook.md. Separate private bearer links do not prove reviewer independence on their own.

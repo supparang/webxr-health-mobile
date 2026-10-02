@@ -7,6 +7,7 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
+import { empiricalCollectionGate } from "./empirical-gate.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
@@ -1397,6 +1398,11 @@ app.post("/api/activities", requireActivityPermission("CAN_CREATE_ACTIVITY"), as
     if (provenance.error) {
       return res.status(409).json({ ok:false, error:provenance.error });
     }
+    // New empirical activities require the separately enabled Phase 4 study gate.
+    // The ADMIN provenance checkbox by itself is not institutional authorization.
+    if (provenance.value === "EMPIRICAL" && !empiricalCollectionGate().enabled) {
+      return res.status(409).json({ ok:false, error:"EMPIRICAL_COLLECTION_GATE_HOLD" });
+    }
 
     const checkinOpenAt = b.checkinOpenAt ? toIso(b.checkinOpenAt) : new Date(startAt.getTime() - 30 * 60000);
     const checkinCloseAt = b.checkinCloseAt ? toIso(b.checkinCloseAt) : new Date(startAt.getTime() + 30 * 60000);
@@ -2050,6 +2056,11 @@ app.post("/api/activities/:activityId/qr", async (req, res) => {
   if (!["CHECKIN","CHECKOUT"].includes(purpose)) {
     return res.status(400).json({ ok:false, error:"INVALID_QR_PURPOSE" });
   }
+  // Checkout remains operationally available for someone already checked in,
+  // but no fresh empirical CHECKIN QR can be issued while research is paused.
+  if (purpose === "CHECKIN" && activity.dataClassification === "EMPIRICAL" && !empiricalCollectionGate().enabled) {
+    return res.status(409).json({ok:false,error:"EMPIRICAL_COLLECTION_GATE_HOLD"});
+  }
 
   const windowState = purpose === "CHECKOUT"
     ? checkoutWindowState(activity)
@@ -2121,6 +2132,9 @@ app.post("/api/attendance/checkin", async (req, res) => {
   });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
   if (activity.pilotClosedAt) return res.status(423).json({ok:false,error:"ACTIVITY_PILOT_CLOSED_IMMUTABLE",pilotClosedAt:activity.pilotClosedAt});
+  if (activity.dataClassification === "EMPIRICAL" && !empiricalCollectionGate().enabled) {
+    return res.status(409).json({ok:false,error:"EMPIRICAL_COLLECTION_GATE_HOLD"});
+  }
 
   const windowState = checkinWindowState(activity);
   if (!windowState.ok) {
@@ -3333,6 +3347,16 @@ app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (r
     ok: true,
     groundTruthCase,
     resolutionMode: hasDisagreement ? "ADJUDICATED" : "CONSENSUS",
+  });
+});
+
+// Read-only stage-specific governance readiness: no decision refs or consent hashes exposed.
+app.get("/api/research/collection-preflight", requireRoles("ADMIN"), (_req, res) => {
+  const gate=empiricalCollectionGate();
+  res.json({
+    ok:true,collectionEnabled:gate.enabled,studyStage:gate.studyStage,
+    blockers:gate.blockers,consentVersion:gate.approvedConsentVersion,
+    actualInstitutionalApprovalAuthenticatedBySoftware:false,caution:gate.caution,
   });
 });
 

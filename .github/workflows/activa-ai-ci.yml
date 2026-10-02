@@ -46,6 +46,16 @@ jobs:
       ACTIVA_DEPLOYMENT_TIER: "STAGING"
       ACTIVA_PRODUCTION_GO_ENABLED: "false"
       ACTIVA_TEST_DATABASE_ONLY: "true"
+      # CI-only synthetic controls to exercise empirical branches on disposable local PostgreSQL.
+      # NOT institutional approvals; copied CI refs are rejected in Production.
+      ACTIVA_EMPIRICAL_COLLECTION_ENABLED: "true"
+      ACTIVA_APPROVED_STUDY_STAGE: FEASIBILITY
+      ACTIVA_ETHICS_DECISION_REF: CI-SYNTHETIC-ETHICS-NOT-APPROVAL
+      ACTIVA_SITE_PERMISSION_REF: CI-SYNTHETIC-SITE-NOT-AUTHORIZED
+      ACTIVA_APPROVED_CONSENT_VERSION: CI-CONSENT-V1
+      ACTIVA_APPROVED_CONSENT_TEXT_SHA256: 9e2d2b337c60db3530a352c3eaa0be5a7c91b1b28b83a294b04f1a87e5dcb188
+      ACTIVA_ETHICS_VALID_FROM_UTC: "2026-01-01T00:00:00Z"
+      ACTIVA_ETHICS_VALID_UNTIL_UTC: "2099-01-01T00:00:00Z"
 
     steps:
       - name: Checkout
@@ -111,6 +121,8 @@ jobs:
           node --check server/guest.js
           node --check guest.js
           node --check server/research-scope.js
+          node --check server/empirical-gate.js
+          node --check tests/empirical-gate.mjs
           node --check blind-review.js
 
       - name: Authentication readiness guard
@@ -132,6 +144,7 @@ jobs:
 
       - name: Phase 4 closure must HOLD without real research evidence
         run: |
+          npm run test:phase4-empirical-gate
           npm run test:phase4-closure
           node scripts/verify-phase4-closure.mjs --manifest research/phase4-closure.json --sample-plan ml/phase3-sample-plan.json --expect-hold
 
