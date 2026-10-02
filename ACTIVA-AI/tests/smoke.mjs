@@ -572,7 +572,9 @@ const queue = await req("/api/ground-truth/queue", { actor: "STF001" });
 const gtRecord = queue.records.find((r) => r.id === attendanceId);
 assert(gtRecord, "ground-truth queue missing record");
 assert(!Object.prototype.hasOwnProperty.call(gtRecord, "aiPredictions"), "AI leakage into ground-truth queue");
-assert(gtRecord.user?.employeeId === "P001", "reviewer-safe identity lookup missing");
+assert(gtRecord.user===null && gtRecord.userId===null &&
+  gtRecord.guestParticipant===null && gtRecord.guestParticipantId===null,
+  "Internal blinded STAFF queue must not expose direct participant identifiers");
 
 await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
   actor: "STF001",
@@ -620,6 +622,25 @@ const oneLabelAdjudication = await reqError("/api/ground-truth/" + encodeURIComp
 assert(oneLabelAdjudication.status === 409, "admin adjudication must be blocked with one independent label");
 assert(oneLabelAdjudication.data?.error === "TWO_INDEPENDENT_LABELS_REQUIRED", "wrong one-label adjudication guard");
 
+const unassignedGroundTruth=await reqError(
+  "/api/ground-truth/"+encodeURIComponent(attendanceId)+"/labels",{
+    actor:"STF002",method:"POST",
+    body:{target:"REVIEW_REQUIRED",reasonCodes:["SHORT_DURATION"],
+      notes:"CI must block unassigned Ground Truth reviewer"},
+});
+assert(unassignedGroundTruth.status===403 &&
+  unassignedGroundTruth.data?.error==="GROUND_TRUTH_REVIEWER_NOT_ASSIGNED_TO_ACTIVITY",
+  "unassigned STAFF labeled Ground Truth");
+const temporaryReviewer=await prisma.user.findUnique({
+  where:{employeeId:"STF002"},select:{id:true},
+});
+assert(temporaryReviewer,"CI independent reviewer missing");
+// Assign the second real-user fixture only for the specific synthetic Ground Truth
+// action, then revoke the temporary assignment so the later ordinary-review
+// unauthorized-access regression remains meaningful.
+const temporaryAssignment=await prisma.activityRoleAssignment.create({data:{
+  activityId:activity.id,userId:temporaryReviewer.id,role:"VERIFIER",
+}});
 await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
   actor: "STF002",
   method: "POST",
@@ -629,6 +650,7 @@ await req("/api/ground-truth/" + encodeURIComponent(attendanceId) + "/labels", {
     notes: "Second independent CI label",
   },
 });
+await prisma.activityRoleAssignment.delete({where:{id:temporaryAssignment.id}});
 
 const staffQueueAfterTwoLabels = await req("/api/ground-truth/queue", { actor: "STF001" });
 const staffRecordAfterTwoLabels = staffQueueAfterTwoLabels.records.find((r) => r.id === attendanceId);
