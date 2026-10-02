@@ -35,7 +35,7 @@
     "test:phase4-empirical-gate": "node tests/empirical-gate.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.16.2",
+    "@prisma/client": "^7.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
