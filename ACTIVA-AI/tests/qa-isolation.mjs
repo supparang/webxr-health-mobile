@@ -12,6 +12,14 @@ async function api(path,{actor="ADM001",method="GET",body}={}){
   const data=await r.json();
   return {status:r.status,data};
 }
+const preflight=await api("/api/research/collection-preflight");
+assert(preflight.status===200&&preflight.data.collectionEnabled===true&&preflight.data.studyStage==="FEASIBILITY",
+  "CI synthetic collection gate is not ready");
+assert(preflight.data.actualInstitutionalApprovalAuthenticatedBySoftware===false,"preflight cannot claim authentic ethics approval");
+assert(!JSON.stringify(preflight.data).includes(process.env.ACTIVA_ETHICS_DECISION_REF),
+  "preflight exposed private reference");
+assert((await api("/api/research/collection-preflight",{actor:"ORG001"})).status===403,
+  "non-admin may access Phase 4 preflight");
 assert(classificationForNewActivity({}, "ADMIN", future).value==="UNCLASSIFIED","fail-closed default");
 assert(classificationForNewActivity({dataClassification:"EMPIRICAL"},"ADMIN",future).error==="EMPIRICAL_PROVENANCE_ATTESTATION_REQUIRED","missing research attestation");
 assert(classificationForNewActivity({dataClassification:"EMPIRICAL",empiricalAttestation:true},"ORGANIZER",future).error==="ADMIN_REQUIRED_FOR_RESEARCH_CLASSIFICATION","non-admin promotion");
