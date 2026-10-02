@@ -32,6 +32,8 @@ CI uses a clearly synthetic, **disposable STAGING** configuration to exercise th
 - A human reviews deviations and approves any prospective protocol/instrument amendment before recruitment.
 
 ## Stage 2 — Prospective EMPIRICAL collection
+
+**Eligibility boundary:** current empirical research export is consented GuestParticipant-only; ordinary authenticated User attendance in an EMPIRICAL activity remains operational and is NOT research enrollment without a separately implemented, approved and versioned logged-in consent registry. This prevents a normal staff Check-in from being treated as research agreement.
 1. Following approvals, ADMIN creates a new future, OPEN EMPIRICAL activity with proper provenance attestation and time windows.
 2. Coordinator privately assigns a pseudonymous offline SUBJ-... code and protects the re-identification key in a separate access-controlled registry. Plain code must not be exported.
 3. Explain actual approved participant information and obtain explicit, voluntary, versioned research consent. Provide a non-research operational path where institutionally required.
