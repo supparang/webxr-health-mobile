@@ -2981,8 +2981,18 @@ app.post("/api/ground-truth/:attendanceId/blind-batch", requireRoles("ADMIN"), a
 });
 
 app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, res) => {
+  // Limit STAFF reviewer records at DB-query level to their assigned VERIFIER
+  // activities. Merely having the STAFF role is not a research-case assignment.
+  const allowedActivityIds=req.activaUser.role==="ADMIN" ? null :
+    (await prisma.activityRoleAssignment.findMany({
+      where:{userId:req.activaUser.id,role:"VERIFIER"},
+      select:{activityId:true},
+    })).map(x=>x.activityId);
   const rows = await prisma.attendanceRecord.findMany({
-    where: { isVoided: false },
+    where: {
+      isVoided:false,
+      ...(allowedActivityIds===null ? {} : {activityId:{in:allowedActivityIds}}),
+    },
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
       guestParticipant:{select:{id:true,consentAt:true,withdrawnAt:true,revokedAt:true}},
@@ -3033,6 +3043,12 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, r
 
   const safeRows = eligibleRows.map((row) => ({
     ...row,
+    // Identity disclosure is unnecessary for AI-blinded Ground Truth review.
+    // ADMIN retains the existing case-management view; assigned STAFF sees only
+    // an attendance reference and evidence, not name/employee ID/user ID.
+    ...(req.activaUser.role === "ADMIN" ? {} : {
+      user:null,userId:null,guestParticipant:null,guestParticipantId:null,
+    }),
     groundTruthLabels:
       req.activaUser.role === "ADMIN"
         ? row.groundTruthLabels
@@ -3074,7 +3090,15 @@ app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"
   if (!attendance || attendance.isVoided) {
     return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
   }
-  if (req.activaUser.role !== "ADMIN" && attendance.userId === reviewerId) {
+  if (!(await canReviewActivity(req,attendance.activityId))) {
+    return res.status(403).json({ok:false,error:"GROUND_TRUTH_REVIEWER_NOT_ASSIGNED_TO_ACTIVITY"});
+  }
+  // Administrators may manage/resolve Ground Truth, but must not substitute
+  // their own label for one of the two independent empirical reviewers.
+  if (attendance.activity.dataClassification==="EMPIRICAL" && req.activaUser.role==="ADMIN") {
+    return res.status(409).json({ok:false,error:"EMPIRICAL_REQUIRES_INDEPENDENT_REVIEWER"});
+  }
+  if (attendance.userId === reviewerId) {
     return res.status(409).json({ ok: false, error: "GROUND_TRUTH_SELF_LABEL_FORBIDDEN" });
   }
   if (!attendance.checkoutAt && checkoutWindowState(attendance.activity).code !== "QR_CHECKOUT_CLOSED") {
