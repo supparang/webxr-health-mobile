@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { empiricalGuestConsentGate } from "./empirical-gate.js";
 
 // Accountless participation: no User rows, names, emails or employee IDs.
 // Public routes must be mounted BEFORE attachActor; ADMIN routes AFTER it.
@@ -79,6 +80,8 @@ export function registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWi
       if(found.error)return res.status(found.status).json({ok:false,error:found.error});
       const g=found.guest;
       if(g.activity.pilotClosedAt)return res.status(423).json({ok:false,error:"ACTIVITY_CLOSED"});
+      const researchConsent=empiricalGuestConsentGate(g.activity.dataClassification,g.consentVersion,g.consentText);
+      if(!researchConsent.ok)return res.status(409).json({ok:false,error:researchConsent.error});
       if(req.body?.accepted!==true || req.body?.version!==g.consentVersion)
         return res.status(400).json({ok:false,error:"EXPLICIT_CONSENT_AND_VERSION_REQUIRED"});
       if(g.consentAt)return res.json({ok:true,accepted:true,idempotent:true});
@@ -102,6 +105,8 @@ export function registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWi
       if(found.error)return res.status(found.status).json({ok:false,error:found.error});
       const g=found.guest;
       if(g.activity.pilotClosedAt)return res.status(423).json({ok:false,error:"ACTIVITY_CLOSED"});
+      const researchCheckin=empiricalGuestConsentGate(g.activity.dataClassification,g.consentVersion,g.consentText);
+      if(!researchCheckin.ok)return res.status(409).json({ok:false,error:researchCheckin.error});
       if(!g.consentAt)return res.status(409).json({ok:false,error:"GUEST_CONSENT_REQUIRED"});
       if(g.attendance)return res.status(409).json({ok:false,error:g.attendance.checkoutAt?"ACTIVITY_ALREADY_COMPLETED":"ALREADY_CHECKED_IN"});
       const window=checkinWindowState(g.activity);
@@ -229,6 +234,8 @@ export function registerGuestAdminRoutes(app,{prisma,requireRoles,audit}) {
         return res.status(400).json({ok:false,error:"PSEUDONYMOUS_STUDY_CODE_REQUIRED"});
       if(!/^[A-Za-z0-9._-]{3,60}$/.test(version) || statement.length<30 || statement.length>4000)
         return res.status(400).json({ok:false,error:"APPROVED_CONSENT_TEXT_AND_VERSION_REQUIRED"});
+      const researchIssue=empiricalGuestConsentGate(activity.dataClassification,version,statement);
+      if(!researchIssue.ok)return res.status(409).json({ok:false,error:researchIssue.error});
       if(req.body?.adminAttestation!==true)
         return res.status(400).json({ok:false,error:"ADMIN_GUEST_ENROLLMENT_ATTESTATION_REQUIRED"});
       const raw=crypto.randomBytes(32).toString("base64url");
@@ -265,6 +272,8 @@ export function registerGuestAdminRoutes(app,{prisma,requireRoles,audit}) {
         include:{attendance:true,activity:true},
       });
       if(!g)return res.status(404).json({ok:false,error:"GUEST_NOT_FOUND"});
+      const researchReissue=empiricalGuestConsentGate(g.activity.dataClassification,g.consentVersion,g.consentText);
+      if(!researchReissue.ok)return res.status(409).json({ok:false,error:researchReissue.error});
       if(g.withdrawnAt)return res.status(410).json({ok:false,error:"GUEST_WITHDRAWAL_FINAL"});
       if(!g.revokedAt)return res.status(409).json({ok:false,error:"REVOKE_OLD_PASS_FIRST"});
       if(g.attendance)return res.status(409).json({ok:false,error:"ATTENDANCE_ALREADY_EXISTS_CANNOT_REISSUE"});
