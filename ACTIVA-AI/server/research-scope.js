@@ -1,15 +1,16 @@
 // Phase 3: persisted research provenance; never infer empirical status from titles.
 export const ACTIVITY_DATA_CLASSES = Object.freeze(["UNCLASSIFIED","QA_TEST","EMPIRICAL"]);
 export const EMPIRICAL_ACTIVITY_FILTER = Object.freeze({ dataClassification:"EMPIRICAL" });
-// Guests may enter research only after explicit consent; withdrawing consent
-// or revoking a compromised pass removes their records without deleting audit.
+// Phase 4 CRU research: registered-user attendance is OPERATIONAL only unless
+// a separately authorized/versioned logged-in consent registry is implemented.
+// Current EMPIRICAL research eligibility is limited to explicit Guest consent.
+// No silent research opt-in from merely being assigned to/attending an event.
+// Withdrawal/revocation excludes the row while immutable operational audit remains.
 export const EMPIRICAL_ATTENDANCE_FILTER = Object.freeze({
   isVoided:false,
   activity:EMPIRICAL_ACTIVITY_FILTER,
-  OR:[
-    { guestParticipantId:null, userId:{not:null} },
-    { guestParticipant:{consentAt:{not:null},withdrawnAt:null,revokedAt:null} },
-  ],
+  guestParticipantId:{not:null},
+  guestParticipant:{consentAt:{not:null},withdrawnAt:null,revokedAt:null},
 });
 export const EMPIRICAL_LOCKED_CASE_FILTER = Object.freeze({
   status:"LOCKED",

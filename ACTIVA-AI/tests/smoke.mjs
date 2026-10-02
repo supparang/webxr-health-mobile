@@ -1,5 +1,12 @@
 import { prisma } from "../server/db.js";
 // CI-only simulated research-class fixture; never publication evidence.
+// This test MUTATES database fixtures and must never target Neon Production.
+if(process.env.CI!=="true" || process.env.ACTIVA_TEST_DATABASE_ONLY!=="true" ||
+   process.env.ALLOW_SYNTHETIC_CI!=="true" || process.env.ACTIVA_DEPLOYMENT_TIER!=="STAGING" ||
+   process.env.ACTIVA_AUTH_MODE!=="DEMO_HEADER" ||
+   !/^(?:postgres(?:ql)?:\/\/)[^@]+@(?:127\.0\.0\.1|localhost):\d+\//.test(process.env.DATABASE_URL||"")) {
+  throw new Error("SMOKE_REQUIRES_DISPOSABLE_LOCAL_CI_POSTGRES");
+}
 const base = process.env.ACTIVA_BASE_URL || "http://127.0.0.1:3000";
 
 function assert(condition, message) {
@@ -659,6 +666,20 @@ assert(locked.resolutionMode === "CONSENSUS", "agreeing labels must lock as CONS
 await prisma.activity.update({
   where:{id:activity.id},
   data:{dataClassification:"EMPIRICAL",classifiedAt:new Date()},
+});
+// Convert the already-simulated fixture to an explicitly consented synthetic
+// Guest to test research inclusion. The original registered-user operational
+// path must NOT silently qualify for research without its own consent registry.
+const ciAdmin=await prisma.user.findUnique({where:{employeeId:"ADM001"},select:{id:true}});
+assert(ciAdmin?.id,"CI ADMIN fixture missing");
+const ciConsentedGuest=await prisma.guestParticipant.create({data:{
+  activityId:activity.id,studyHash:"a".repeat(64),passTokenHash:"b".repeat(64),
+  consentVersion:"CI-CONSENT-V1",
+  consentText:"CI-only synthetic research-scope fixture, not real consent or approval.",
+  consentAt:new Date(),expiresAt:new Date(Date.now()+60*60000),issuedById:ciAdmin.id,
+}});
+await prisma.attendanceRecord.update({
+  where:{id:attendanceId},data:{userId:null,guestParticipantId:ciConsentedGuest.id},
 });
 const readiness = await req("/api/ml/readiness", { actor: "ADM001" });
 assert(readiness.scope === "EMPIRICAL_ONLY" && readiness.counts?.lockedCount >= 1, "ML readiness must count only CI empirical-scoped case");

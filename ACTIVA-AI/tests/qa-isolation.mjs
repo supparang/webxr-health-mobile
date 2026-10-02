@@ -72,8 +72,23 @@ const controlAttendance=await prisma.attendanceRecord.create({data:{
 const exportResult=await api("/api/research/export");
 assert(exportResult.status===200 && exportResult.data.ok &&
   exportResult.data.scope==="EMPIRICAL_ONLY","research export failed");
-assert(exportResult.data.records.some(r=>r.record_id===controlAttendance.id),
-  "eligible empirical control omitted from actual research export");
+// Merely attending an EMPIRICAL activity with a registered account is not consent.
+assert(!exportResult.data.records.some(r=>r.record_id===controlAttendance.id),
+  "registered user without research consent leaked into empirical export");
+const ciGuest=await prisma.guestParticipant.create({data:{
+  activityId:empiricalExportActivity.data.activity.id,studyHash:"e".repeat(64),
+  passTokenHash:"f".repeat(64),consentVersion:"CI-CONSENT-V1",
+  consentText:"CI-only synthetic consent fixture; not approved human recruitment.",
+  consentAt:new Date(),expiresAt:new Date(Date.now()+60*60000),issuedById:fixtureUser.id,
+}});
+const consentedGuestAttendance=await prisma.attendanceRecord.create({data:{
+  activityId:empiricalExportActivity.data.activity.id,guestParticipantId:ciGuest.id,
+  checkinAt:new Date(),checkoutAt:new Date(),attendanceStatus:"CHECKED_OUT",
+  qrValid:true,identityVerified:true,
+}});
+const consentedExport=await api("/api/research/export");
+assert(consentedExport.status===200 && consentedExport.data.records.some(r=>r.record_id===consentedGuestAttendance.id),
+  "explicitly consented Guest attendance omitted from research export");
 assert(!exportResult.data.records.some(r=>r.record_id===qaAttendance.id || r.event_id===id),
   "completed QA_TEST attendance leaked into actual research export");
 console.log("P3.3 research-export QA_TEST exclusion PASS (isolated CI data only)");
