@@ -24,7 +24,8 @@
         "architecture",
         "evolution"
       ],
-      "note": "ใช้เป็นหนังสือหลักสำหรับกรอบคิดและหลักการวิศวกรรมซอฟต์แวร์"
+      "note": "ใช้เป็นหนังสือหลักสำหรับกรอบคิดและหลักการวิศวกรรมซอฟต์แวร์",
+      "pages": 696
     },
     {
       "id": "pressman-7e",
@@ -48,7 +49,8 @@
         "testing",
         "maintenance"
       ],
-      "note": "ใช้เทียบวงจรชีวิต การวิเคราะห์ การออกแบบ การทดสอบ และการบำรุงรักษา"
+      "note": "ใช้เทียบวงจรชีวิต การวิเคราะห์ การออกแบบ การทดสอบ และการบำรุงรักษา",
+      "pages": 930
     },
     {
       "id": "dcap405",
@@ -70,7 +72,8 @@
         "project planning",
         "testing"
       ],
-      "note": "เอกสารประกอบสำหรับทบทวนภาพรวมและศัพท์พื้นฐาน"
+      "note": "เอกสารประกอบสำหรับทบทวนภาพรวมและศัพท์พื้นฐาน",
+      "pages": 258
     },
     {
       "id": "mall-4e",
@@ -93,7 +96,8 @@
         "verification",
         "maintenance"
       ],
-      "note": "อ่านประกอบเรื่อง specification, verification และการจัดการการเปลี่ยนแปลง"
+      "note": "อ่านประกอบเรื่อง specification, verification และการจัดการการเปลี่ยนแปลง",
+      "pages": 712
     },
     {
       "id": "essentials-modern",
@@ -117,7 +121,8 @@
         "evidence",
         "release"
       ],
-      "note": "เชื่อมการพัฒนาแบบสมัยใหม่กับการตัดสินใจเชิงหลักฐาน"
+      "note": "เชื่อมการพัฒนาแบบสมัยใหม่กับการตัดสินใจเชิงหลักฐาน",
+      "pages": 401
     },
     {
       "id": "pg-msc-material",
@@ -139,7 +144,8 @@
         "testing",
         "project management"
       ],
-      "note": "ใช้เป็นเอกสารทบทวนภาพรวมรายวิชาและคำศัพท์"
+      "note": "ใช้เป็นเอกสารทบทวนภาพรวมรายวิชาและคำศัพท์",
+      "pages": 248
     },
     {
       "id": "se2-8-2018",
@@ -163,7 +169,150 @@
         "testing",
         "responsibility"
       ],
-      "note": "อ่านเสริมสำหรับตัวอย่างและการทบทวนภาษาไทย"
+      "note": "อ่านเสริมสำหรับตัวอย่างและการทบทวนภาษาไทย",
+      "pages": 153
+    },
+    {
+      "id": "sommerville-10e",
+      "title": "Software Engineering",
+      "author": "Ian Sommerville",
+      "edition": "10th Global Edition",
+      "pages": 812,
+      "sourceFile": "Software Engineering - Ian Sommerville.pdf",
+      "weeks": [
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11,
+        12
+      ],
+      "topics": [
+        "requirements",
+        "architecture",
+        "testing",
+        "evolution",
+        "dependability"
+      ],
+      "note": "อ่านเสริมเพื่อเปรียบเทียบ process, requirements, architecture, testing และ dependability"
+    },
+    {
+      "id": "sommerville-9e",
+      "title": "Software Engineering",
+      "author": "Ian Sommerville",
+      "edition": "9th Edition",
+      "pages": 790,
+      "sourceFile": "Software Engineering (9th Edition) by Ian Sommerville.pdf",
+      "weeks": [
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11,
+        12
+      ],
+      "topics": [
+        "software process",
+        "requirements",
+        "design",
+        "validation",
+        "maintenance"
+      ],
+      "note": "ใช้เป็น textbook สำรองสำหรับ lifecycle, requirements, validation และ maintenance"
+    },
+    {
+      "id": "mrcetit-software-engineering",
+      "title": "Software Engineering",
+      "author": "MRCETIT",
+      "edition": "course material",
+      "pages": 65,
+      "sourceFile": "Software Engineering.pdf",
+      "weeks": [
+        1,
+        2,
+        5,
+        9
+      ],
+      "topics": [
+        "fundamentals",
+        "process",
+        "quality",
+        "testing"
+      ],
+      "note": "เอกสารสั้นสำหรับปูพื้นฐานและทบทวนคำศัพท์ก่อนเริ่ม mission"
+    },
+    {
+      "id": "swe-at-google",
+      "title": "Software Engineering at Google",
+      "author": "Titus Winters; Tom Manshreck; Hyrum Wright",
+      "edition": "ไม่ระบุฉบับในไฟล์ต้นฉบับ",
+      "pages": 602,
+      "sourceFile": "swe_at_google.2.pdf",
+      "weeks": [
+        3,
+        4,
+        9,
+        10,
+        11,
+        12,
+        13,
+        15
+      ],
+      "topics": [
+        "engineering productivity",
+        "code review",
+        "testing",
+        "reliability",
+        "culture"
+      ],
+      "note": "เชื่อมแนวปฏิบัติระดับทีมกับ testing, review, reliability และการวิวัฒนาการระบบ"
+    },
+    {
+      "id": "new-software-engineering",
+      "title": "The New Software Engineering",
+      "author": "ไม่ระบุใน metadata ของไฟล์",
+      "edition": "ไม่ระบุฉบับในไฟล์ต้นฉบับ",
+      "pages": 831,
+      "sourceFile": "The_New_Software_Engineering.pdf",
+      "weeks": [
+        3,
+        4,
+        7,
+        10,
+        11,
+        15
+      ],
+      "topics": [
+        "modern engineering",
+        "architecture",
+        "agile",
+        "quality",
+        "evolution"
+      ],
+      "note": "อ่านเสริมเรื่องมุมมองวิศวกรรมซอฟต์แวร์สมัยใหม่และการเปลี่ยนแปลงระบบ"
+    },
+    {
+      "id": "unit1",
+      "title": "Software Engineering — Unit 1",
+      "author": "Ravi",
+      "edition": "เอกสารหน่วยที่ 1",
+      "pages": 18,
+      "sourceFile": "unit1.pdf",
+      "weeks": [
+        1,
+        2,
+        3
+      ],
+      "topics": [
+        "introduction",
+        "software process",
+        "basic concepts"
+      ],
+      "note": "อ่านก่อนเริ่ม W1 เพื่อทำความคุ้นเคยกับคำศัพท์พื้นฐาน"
     }
   ]
 }
