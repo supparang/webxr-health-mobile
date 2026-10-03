@@ -1,0 +1,62 @@
+/* Kept separate so legacy pages do not need their gameplay styles changed. */
+.csai2401-legacy-bridge {
+  position: relative;
+  z-index: 20;
+  margin: 10px auto 0;
+  max-width: 1120px;
+  padding: 12px 14px;
+  border: 1px solid #315779;
+  border-radius: 14px;
+  background: #0c1c2e;
+  color: #eef7ff;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 5px 18px #0003;
+}
+
+.csai2401-legacy-bridge[hidden] { display: none; }
+.csai2401-legacy-bridge.compact .csai2401-legacy-intro,
+.csai2401-legacy-bridge.compact [data-legacy-list],
+.csai2401-legacy-bridge.compact .csai2401-legacy-message { display: none; }
+.csai2401-legacy-head,
+.csai2401-legacy-row,
+.csai2401-legacy-actions,
+.csai2401-legacy-nav { display: flex; align-items: center; gap: 9px; }
+.csai2401-legacy-head,
+.csai2401-legacy-row { justify-content: space-between; }
+.csai2401-legacy-head strong { display: block; margin-top: 2px; }
+.csai2401-legacy-kicker { display: block; color: #8fb8e8; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.csai2401-legacy-intro { margin: 7px 0 8px; color: #b7cbe1; }
+.csai2401-legacy-message { margin: 7px 0; padding: 8px 10px; border-radius: 9px; background: #172b43; }
+.csai2401-legacy-message[data-kind="success"] { background: #0d2b23; color: #aaf2d2; }
+.csai2401-legacy-message[data-kind="error"] { background: #321a20; color: #ffd1d6; }
+.csai2401-legacy-row { padding: 9px 0; border-top: 1px solid #26445f; }
+.csai2401-legacy-row small { display: block; color: #94abc3; }
+.csai2401-legacy-actions { flex-wrap: wrap; justify-content: flex-end; }
+.csai2401-legacy-bridge button,
+.csai2401-legacy-bridge a { min-height: 44px; box-sizing: border-box; }
+.csai2401-legacy-verify,
+.csai2401-legacy-link,
+.csai2401-legacy-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border-radius: 9px;
+  border: 1px solid #3d6a92;
+  text-decoration: none;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.csai2401-legacy-verify { background: #70a5ff; color: #07111f; }
+.csai2401-legacy-link { background: #172d47; color: #d8e9ff; }
+.csai2401-legacy-dismiss { min-height: 36px !important; background: transparent; color: #b7cbe1; }
+.csai2401-legacy-verify:disabled { opacity: .5; cursor: wait; }
+.csai2401-legacy-nav { margin-top: 9px; flex-wrap: wrap; }
+.csai2401-legacy-nav a { color: #a8ccff; padding: 3px 0; }
+@media (max-width: 640px) {
+  .csai2401-legacy-row { align-items: flex-start; flex-direction: column; }
+  .csai2401-legacy-actions { width: 100%; justify-content: flex-start; }
+  .csai2401-legacy-actions > * { flex: 1 1 145px; }
+}
+

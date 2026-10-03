@@ -1,5 +1,7 @@
 {
   "course": "CSAI2401",
+  "source": "CSAI2401_FINAL_TEACHING_MASTER_v4_THAI_DOMINANT_CLASSROOM_EDITION",
+  "entry": "csai2104/learning-lab.html",
   "weeks": [
     1,
     2,
@@ -18,9 +20,34 @@
     15
   ],
   "bossGates": [
-    5,
-    10,
-    15
+    {
+      "week": 5,
+      "label": "Quality Gate",
+      "requires": [
+        "w1-w5 evidence"
+      ]
+    },
+    {
+      "week": 10,
+      "label": "Evidence-based Debugging Gate",
+      "requires": [
+        "w6",
+        "w7",
+        "w8",
+        "w9"
+      ]
+    },
+    {
+      "week": 15,
+      "label": "Release Readiness Gate",
+      "requires": [
+        "w10",
+        "w11",
+        "w12",
+        "w13",
+        "w14"
+      ]
+    }
   ],
-  "source": "CSAI2401_FINAL_TEACHING_MASTER_v4_THAI_DOMINANT_CLASSROOM_EDITION"
+  "storageSchema": "csai2401_progress_v3"
 }

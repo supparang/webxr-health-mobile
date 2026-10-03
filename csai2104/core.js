@@ -1,0 +1,31 @@
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.CSAICore=factory()})(typeof self!=='undefined'?self:this,function(){
+'use strict';
+const KEY='csai2401_progress_v3', VERSION=3, MAX_HISTORY=100;
+const PREREQ={1:[],2:[1],3:[2],4:[3],5:[4],6:[5],7:[6],8:[7],9:[8],10:[6,7,8,9],11:[10],12:[11],13:[12],14:[13],15:[10,11,12,13,14]};
+const now=()=>new Date().toISOString();
+function randomId(){try{if(globalThis.crypto&&typeof globalThis.crypto.randomUUID==='function')return globalThis.crypto.randomUUID();if(globalThis.crypto&&crypto.getRandomValues){const a=new Uint32Array(4);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(8,'0')).join('-')}}catch(_){}return `local-${Date.now()}-${String(typeof performance!=='undefined'&&performance.now?performance.now():0).replace('.','')}`}
+function storage(s){if(s&&typeof s.getItem==='function'&&typeof s.setItem==='function')return s;try{return globalThis.localStorage}catch(_){return null}}
+function empty(){return {version:VERSION,weeks:{},gates:{},attempts:{},drafts:{},history:[],updatedAt:null}}
+function normalize(input){const s=input&&typeof input==='object'?input:empty();return {version:VERSION,weeks:s.weeks&&typeof s.weeks==='object'?s.weeks:{},gates:s.gates&&typeof s.gates==='object'?s.gates:{},attempts:s.attempts&&typeof s.attempts==='object'?s.attempts:{},drafts:s.drafts&&typeof s.drafts==='object'?s.drafts:{},history:Array.isArray(s.history)?s.history.slice(-MAX_HISTORY):[],updatedAt:s.updatedAt||null}}
+function load(s){const st=storage(s);if(!st)return empty();try{const raw=st.getItem(KEY);return raw?normalize(JSON.parse(raw)):empty()}catch(_){return empty()}}
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function persist(state,s){const st=storage(s);if(!st)return {ok:false,reason:'storage-unavailable',state};const next=normalize(clone(state));next.updatedAt=now();try{st.setItem(KEY,JSON.stringify(next));const raw=st.getItem(KEY);const read=raw?normalize(JSON.parse(raw)):null;const ok=!!read&&read.updatedAt===next.updatedAt&&JSON.stringify(read)===JSON.stringify(next);return {ok,reason:ok?null:'readback-mismatch',state:read||next}}catch(_){return {ok:false,reason:'storage-write-failed',state:next}}}
+function weekKey(n){return 'w'+Number(n)}
+function completed(state,n){return !!(state.weeks[weekKey(n)]&&state.weeks[weekKey(n)].status==='completed')}
+function prerequisites(n){return (PREREQ[Number(n)]||[]).slice()}
+function isUnlocked(n,state){const req=prerequisites(n);return req.every(x=>completed(state,x))}
+function status(n,state){const k=weekKey(n),w=state.weeks[k];if(w&&w.status==='completed')return 'completed';if(state.attempts[k]&&!state.attempts[k].used)return 'in-progress';return isUnlocked(n,state)?'available':'locked'}
+function result(ok,reason,state){return {ok,reason:reason||null,state}}
+function recordHistory(state,event){state.history.push({...event,at:now()});if(state.history.length>MAX_HISTORY)state.history=state.history.slice(-MAX_HISTORY)}
+function begin(week,scenarioId,s){const state=load(s),n=Number(week),k=weekKey(n);if(!isUnlocked(n,state))return result(false,'prerequisite-not-complete',state);const existing=state.attempts[k];if(existing&&!existing.used&&existing.challengeId)return {...result(true,'resumed',state),challengeId:existing.challengeId};const a={challengeId:randomId(),week:n,scenarioId:String(scenarioId||''),stepIndex:0,answers:[],score:0,used:false,startedAt:now()};state.attempts[k]=a;const saved=persist(state,s);return {...saved,challengeId:saved.state.attempts[k]&&saved.state.attempts[k].challengeId}}
+function submitStep(week,challengeId,stepIndex,optionId,score,evidenceRefs,s){const state=load(s),k=weekKey(week),a=state.attempts[k];if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);if(a.used)return result(false,'challenge-already-used',state);if(a.stepIndex!==Number(stepIndex))return result(false,'step-replay-or-out-of-order',state);if(!String(optionId||'').trim())return result(false,'option-required',state);const answer={stepIndex:Number(stepIndex),optionId:String(optionId),evidenceRefs:Array.isArray(evidenceRefs)?evidenceRefs.map(String).slice(0,10):[],at:now()};a.answers.push(answer);a.score+=Number(score||0);a.stepIndex+=1;const saved=persist(state,s);return {...saved,attempt:saved.state.attempts[k]}}
+function finish(week,challengeId,score,artifact,s){const state=load(s),k=weekKey(week),a=state.attempts[k];if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);if(a.used)return result(false,'challenge-already-used',state);if(a.stepIndex<3)return result(false,'steps-incomplete',state);a.used=true;const finalScore=Number.isFinite(Number(score))?Number(score):a.score;const passed=finalScore>=4;recordHistory(state,{type:'attempt-finished',week:Number(week),challengeId,score:finalScore,passed});if(passed){state.weeks[k]={status:'completed',completed:true,score:finalScore,artifact:artifact||null,evidenceRefs:a.answers.flatMap(x=>x.evidenceRefs||[]),completedAt:now()};}else{state.weeks[k]={status:'available',completed:false,lastScore:finalScore,artifact:artifact||null,updatedAt:now()};}const saved=persist(state,s);if(!saved.ok)return {...saved,reason:'pending-save',passed:false};return {...saved,passed,score:finalScore,status:saved.state.weeks[k].status}}
+function recordLegacy(week,payload,s){const state=load(s),k=typeof week==='string'?week:weekKey(week);const body=payload&&typeof payload==='object'?payload:{};const bucket=k.charAt(0).toLowerCase()==='b'?'gates':'weeks';state[bucket][k]={status:'completed',completed:true,score:Number(body.score||0),artifact:body.artifact||null,source:body.source||'legacy',legacyKey:body.legacyKey||null,verifiedAt:now()};recordHistory(state,{type:'legacy-import',week:k,source:body.source||'legacy'});const saved=persist(state,s);return {...saved,passed:saved.ok}}
+function clear(s){const st=storage(s);if(!st)return {ok:false,reason:'storage-unavailable'};try{st.removeItem(KEY);return {ok:st.getItem(KEY)===null}}catch(_){return {ok:false,reason:'storage-remove-failed'}}}
+return {KEY,VERSION,PREREQ,load,save:(state,s)=>persist(normalize(state),s),status,isUnlocked,prerequisites,begin,submitStep,finish,recordLegacy,clear};
+});
+
+
+
+
+
