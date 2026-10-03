@@ -1,8 +1,8 @@
 {
   "course": "CSAI2401",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "purpose": "reading-shelf",
-  "copyrightNote": "รายการนี้เป็น metadata และ reading guidance เท่านั้น ไม่ได้แจกจ่ายไฟล์หนังสือใน public repository.",
+  "copyrightNote": "รายการนี้เป็น metadata และ reading guidance เท่านั้น ไม่ได้แจกจ่ายไฟล์หนังสือใน public repository. ไฟล์ที่ผู้สอนเก็บไว้ในเครื่องต้องตรวจสิทธิ์ก่อนเผยแพร่.",
   "books": [
     {
       "id": "vliet-principles",
@@ -313,6 +313,51 @@
         "basic concepts"
       ],
       "note": "อ่านก่อนเริ่ม W1 เพื่อทำความคุ้นเคยกับคำศัพท์พื้นฐาน"
+    },
+    {
+      "id": "modi-software-engineering",
+      "title": "Software Engineering",
+      "author": "Dr. Nilesh Modi",
+      "edition": "ไม่ระบุฉบับในไฟล์ต้นฉบับ",
+      "pages": 17,
+      "sourceFile": "1.1.SoftwareEngineering.4pp.pdf",
+      "weeks": [
+        1,
+        2,
+        3
+      ],
+      "topics": [
+        "introduction",
+        "software process",
+        "fundamentals"
+      ],
+      "note": "เอกสารสั้นสำหรับปูพื้นฐานก่อนเริ่ม W1",
+      "access": "instructor-local-only"
+    },
+    {
+      "id": "bscit-303",
+      "title": "Software Engineering",
+      "author": "ไม่ระบุใน metadata ของไฟล์",
+      "edition": "BSCIT 303 course material",
+      "pages": 223,
+      "sourceFile": "BSCIT_303_slm.pdf",
+      "weeks": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        9,
+        13
+      ],
+      "topics": [
+        "software lifecycle",
+        "requirements",
+        "testing",
+        "project management"
+      ],
+      "note": "เอกสารประกอบการเรียนสำหรับทบทวนวงจรชีวิตและการจัดการโครงการ",
+      "access": "instructor-local-only"
     }
   ]
 }
