@@ -1,0 +1,170 @@
+{
+  "course": "CSAI2401",
+  "version": "1.0.0",
+  "purpose": "reading-shelf",
+  "copyrightNote": "รายการนี้เป็น metadata และ reading guidance เท่านั้น ไม่ได้แจกจ่ายไฟล์หนังสือใน public repository.",
+  "books": [
+    {
+      "id": "vliet-principles",
+      "title": "Software Engineering Principles",
+      "author": "Hans van Vliet",
+      "edition": "ไม่ระบุในไฟล์ต้นฉบับ",
+      "sourceFile": "[Hans_van_Vliet]_Software_Engineering_Principles_(BookFi)-2.pdf",
+      "weeks": [
+        1,
+        2,
+        3,
+        6,
+        7,
+        11
+      ],
+      "topics": [
+        "principles",
+        "software process",
+        "architecture",
+        "evolution"
+      ],
+      "note": "ใช้เป็นหนังสือหลักสำหรับกรอบคิดและหลักการวิศวกรรมซอฟต์แวร์"
+    },
+    {
+      "id": "pressman-7e",
+      "title": "Software Engineering: A Practitioner's Approach",
+      "author": "Roger S. Pressman",
+      "edition": "7th edition",
+      "sourceFile": "16_EBOOK-7th_ed_software_engineering_a_practitioners_approach_by_roger_s._pressman_.pdf",
+      "weeks": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        9,
+        12
+      ],
+      "topics": [
+        "process",
+        "requirements",
+        "design",
+        "testing",
+        "maintenance"
+      ],
+      "note": "ใช้เทียบวงจรชีวิต การวิเคราะห์ การออกแบบ การทดสอบ และการบำรุงรักษา"
+    },
+    {
+      "id": "dcap405",
+      "title": "Software Engineering",
+      "author": "ไม่ระบุใน metadata ของไฟล์",
+      "edition": "เอกสารประกอบรายวิชา DCAP405",
+      "sourceFile": "DCAP405_SOFTWARE_ENGINEERING.pdf",
+      "weeks": [
+        1,
+        2,
+        4,
+        5,
+        9,
+        13
+      ],
+      "topics": [
+        "software process",
+        "requirements",
+        "project planning",
+        "testing"
+      ],
+      "note": "เอกสารประกอบสำหรับทบทวนภาพรวมและศัพท์พื้นฐาน"
+    },
+    {
+      "id": "mall-4e",
+      "title": "Fundamentals of Software Engineering",
+      "author": "Rajib Mall",
+      "edition": "4th edition",
+      "sourceFile": "Fundamentals of Software Engineering, Fourth Edition, Rajib Mall ( PDFDrive ).pdf",
+      "weeks": [
+        2,
+        5,
+        6,
+        8,
+        9,
+        12
+      ],
+      "topics": [
+        "requirements",
+        "specification",
+        "design",
+        "verification",
+        "maintenance"
+      ],
+      "note": "อ่านประกอบเรื่อง specification, verification และการจัดการการเปลี่ยนแปลง"
+    },
+    {
+      "id": "essentials-modern",
+      "title": "The Essentials of Modern Software Engineering",
+      "author": "Ivar Jacobson; Harold Lawson; Pan-Wei Ng; Paul E. McMahon; Michael Goedicke",
+      "edition": "ไม่ระบุฉบับในไฟล์ต้นฉบับ",
+      "sourceFile": "libro_689e1ad6e7d34.pdf",
+      "weeks": [
+        3,
+        4,
+        7,
+        8,
+        10,
+        11,
+        15
+      ],
+      "topics": [
+        "modern methods",
+        "architecture",
+        "evolution",
+        "evidence",
+        "release"
+      ],
+      "note": "เชื่อมการพัฒนาแบบสมัยใหม่กับการตัดสินใจเชิงหลักฐาน"
+    },
+    {
+      "id": "pg-msc-material",
+      "title": "Software Engineering",
+      "author": "ไม่ระบุใน metadata ของไฟล์",
+      "edition": "เอกสารหลักสูตร PG M.Sc. Information Technology",
+      "sourceFile": "PG_M.Sc._Information Technology_313 42 - Software Engineering.pdf",
+      "weeks": [
+        1,
+        2,
+        5,
+        6,
+        9,
+        13
+      ],
+      "topics": [
+        "software lifecycle",
+        "requirements",
+        "testing",
+        "project management"
+      ],
+      "note": "ใช้เป็นเอกสารทบทวนภาพรวมรายวิชาและคำศัพท์"
+    },
+    {
+      "id": "se2-8-2018",
+      "title": "Software Engineering (SE 2/8 2018)",
+      "author": "ไม่ระบุใน metadata ของไฟล์",
+      "edition": "เอกสารประกอบการเรียน",
+      "sourceFile": "SE2_8_2018pdf.pdf",
+      "weeks": [
+        1,
+        2,
+        3,
+        5,
+        9,
+        12,
+        14
+      ],
+      "topics": [
+        "software engineering overview",
+        "process",
+        "quality",
+        "testing",
+        "responsibility"
+      ],
+      "note": "อ่านเสริมสำหรับตัวอย่างและการทบทวนภาษาไทย"
+    }
+  ]
+}
+
