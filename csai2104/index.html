@@ -34,7 +34,7 @@ function render(){
    const done=completed(m.id),open=unlocked(m.id),boss=(m.id==='B1'||m.id==='W10'||m.id==='W15');
    const w1Incident=m.id==='W1'&&state.w1===true,w1Lab=m.id==='W1'&&localStorage.csai2401_w1_lab_complete==='true';
    const status=m.id==='W1'&&w1Incident&&!w1Lab?' • INCIDENT CLEARED • LAB PENDING':(done?' • CLEARED':'');
-   const label=m.id==='W1'&&w1Incident&&!w1Lab?'ทำ Practice Lab':done?(m.id==='W1'?'ทบทวน Practice Lab':'เล่น/ทบทวนอีกครั้ง'):(open?'เข้าสู่ภารกิจ':'LOCKED');
+   const label=m.id==='W1'&&w1Incident&&!w1Lab?'ทำ Practice Lab':done?'เล่น/ทบทวนอีกครั้ง':(open?'เข้าสู่ภารกิจ':'LOCKED');
    const c=document.createElement('article');c.className='card '+(boss?'boss ':'')+(!open?'locked':'');
    c.innerHTML=`<div class="week">${m.id}${status}</div><h3>${m.title}</h3><p>${m.desc}</p><div class="tags">${m.tags.split(' • ').map(x=>`<span class="tag">${x}</span>`).join('')}</div><button ${open?'':'disabled'}>${label}</button>`;
    const b=c.querySelector('button');if(open)b.onclick=()=>{if(m.id==='W1'&&!state.w1)start();else location.href=m.href};
