@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Integrated Flow Receiver v1.3.2
+ * CSAI2102 AI Quest Integrated Flow Receiver v1.3.3
  * Google Sheet is the sole authority. No doGet(e) / doPost(e).
  *
  * Official progression rules:
@@ -11,7 +11,7 @@
  */
 var AIQFLOW = AIQFLOW || {};
 
-AIQFLOW.VERSION = '20260728-AIQ-FLOW-V1.3.2-GRADED-ONLY-THAI-SAFE';
+AIQFLOW.VERSION = '20261006-AIQ-FLOW-V1.3.3-ROSTER-FAST-LOOKUP';
 AIQFLOW.SECTION = '101';
 AIQFLOW.REFLECTION_SHEET = 'aiquest_reflections';
 AIQFLOW.COMPLETION_SHEET = 'aiquest_session_completion';
@@ -188,21 +188,57 @@ AIQFLOW.requestExists_ = function(requestId){
 };
 
 AIQFLOW.findProfile_ = function(studentId,section){
-  var names=['students_profile','student_profiles','students-profile','profiles','student_profile'];
+  var names=['students_roster','students_profile','student_profiles','students-profile','profiles','student_profile'];
+  var wantedId=AIQFLOW.idKey_(studentId),wantedSection=AIQFLOW.sectionKey_(section);
   for(var n=0;n<names.length;n++){
     var sh=AIQFLOW.ss_().getSheetByName(names[n]);
-    if(!sh)continue;
-    var data=AIQFLOW.rows_(sh),h=data.headers;
-    var iId=AIQFLOW.headerIndex_(h,['student_id','studentId','id']);
-    var iSec=AIQFLOW.headerIndex_(h,['section','class_section']);
-    var iName=AIQFLOW.headerIndex_(h,['student_name','studentName','name','full_name']);
+    if(!sh||sh.getLastRow()<2||sh.getLastColumn()<1)continue;
+    var h=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
+    var iId=AIQFLOW.headerIndex_(h,['student_id','studentId','id','student_no','studentNo']);
+    var iSec=AIQFLOW.headerIndex_(h,['section','class_section','classSection']);
+    var iName=AIQFLOW.headerIndex_(h,['student_name','studentName','name','full_name','display_name','displayName']);
+    var iProgram=AIQFLOW.headerIndex_(h,['program','program_name','programName','course']);
+    var iStatus=AIQFLOW.headerIndex_(h,['status','student_status','studentStatus']);
+    var iRole=AIQFLOW.headerIndex_(h,['role','user_role','userRole']);
     if(iId<0)continue;
-    for(var r=data.rows.length-1;r>=0;r--){
-      var row=data.rows[r];
-      if(AIQFLOW.idKey_(row[iId])===AIQFLOW.idKey_(studentId)&&
-        (iSec<0||AIQFLOW.sectionKey_(row[iSec])===AIQFLOW.sectionKey_(section))){
-        return {studentId:studentId,studentName:iName>=0?AIQFLOW.text_(row[iName]):'',section:section,sourceSheet:names[n]};
+
+    /* Fast path: search only the ID column instead of reading the whole sheet. */
+    var idRange=sh.getRange(2,iId+1,sh.getLastRow()-1,1);
+    var finder=idRange.createTextFinder(AIQFLOW.text_(studentId)).matchEntireCell(true);
+    var cell=finder.findNext();
+    while(cell){
+      var rowNo=cell.getRow();
+      var row=sh.getRange(rowNo,1,1,sh.getLastColumn()).getDisplayValues()[0];
+      if(AIQFLOW.idKey_(row[iId])===wantedId&&
+        (iSec<0||AIQFLOW.sectionKey_(row[iSec])===wantedSection)){
+        return {
+          studentId:AIQFLOW.text_(row[iId])||studentId,
+          studentName:iName>=0?AIQFLOW.text_(row[iName]):'',
+          section:iSec>=0?AIQFLOW.text_(row[iSec]):section,
+          program:iProgram>=0?AIQFLOW.text_(row[iProgram]):'',
+          status:iStatus>=0?AIQFLOW.text_(row[iStatus]):'',
+          role:iRole>=0?AIQFLOW.text_(row[iRole]):'',
+          sourceSheet:names[n]
+        };
       }
+      cell=finder.findNext();
+    }
+
+    /* Compatibility fallback for numeric/formatted IDs that TextFinder may miss. */
+    var values=idRange.getDisplayValues();
+    for(var r=values.length-1;r>=0;r--){
+      if(AIQFLOW.idKey_(values[r][0])!==wantedId)continue;
+      var rowNo=r+2,row=sh.getRange(rowNo,1,1,sh.getLastColumn()).getDisplayValues()[0];
+      if(iSec>=0&&AIQFLOW.sectionKey_(row[iSec])!==wantedSection)continue;
+      return {
+        studentId:AIQFLOW.text_(row[iId])||studentId,
+        studentName:iName>=0?AIQFLOW.text_(row[iName]):'',
+        section:iSec>=0?AIQFLOW.text_(row[iSec]):section,
+        program:iProgram>=0?AIQFLOW.text_(row[iProgram]):'',
+        status:iStatus>=0?AIQFLOW.text_(row[iStatus]):'',
+        role:iRole>=0?AIQFLOW.text_(row[iRole]):'',
+        sourceSheet:names[n]
+      };
     }
   }
   return null;
