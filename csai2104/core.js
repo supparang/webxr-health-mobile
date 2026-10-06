@@ -12,7 +12,18 @@ function load(s){const st=storage(s);if(!st)return empty();try{const raw=st.getI
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function persist(state,s){const st=storage(s);if(!st)return {ok:false,reason:'storage-unavailable',state};const next=normalize(clone(state));next.updatedAt=now();try{st.setItem(KEY,JSON.stringify(next));const raw=st.getItem(KEY);const read=raw?normalize(JSON.parse(raw)):null;const ok=!!read&&read.updatedAt===next.updatedAt&&JSON.stringify(read)===JSON.stringify(next);return {ok,reason:ok?null:'readback-mismatch',state:read||next}}catch(_){return {ok:false,reason:'storage-write-failed',state:next}}}
 function weekKey(n){return 'w'+Number(n)}
-function completed(state,n){return !!(state.weeks[weekKey(n)]&&state.weeks[weekKey(n)].status==='completed')}
+function completed(state,n){
+ const k=weekKey(n);
+ if(state.weeks[k]&&state.weeks[k].status==='completed')return true;
+ try{
+   if(n===1){const v=JSON.parse(globalThis.localStorage.getItem('csai2104_diag_v4')||'{}');return v.w1===true}
+   if(n===2)return String(globalThis.localStorage.getItem('csai2104_w2_complete')||'').toLowerCase()==='true';
+   if(n===3)return String(globalThis.localStorage.getItem('csai2104_w3')||'').toLowerCase()==='cleared';
+   if(n===4)return String(globalThis.localStorage.getItem('csai2104_w4')||'').toLowerCase()==='cleared';
+   if(n===5)return String(globalThis.localStorage.getItem('csai2104_w5')||'').toLowerCase()==='cleared';
+ }catch(_){}
+ return false;
+}
 function prerequisites(n){return (PREREQ[Number(n)]||[]).slice()}
 function isUnlocked(n,state){const req=prerequisites(n);return req.every(x=>completed(state,x))}
 function status(n,state){const k=weekKey(n),w=state.weeks[k];if(w&&w.status==='completed')return 'completed';if(state.attempts[k]&&!state.attempts[k].used)return 'in-progress';return isUnlocked(n,state)?'available':'locked'}
