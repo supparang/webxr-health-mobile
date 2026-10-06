@@ -14,9 +14,17 @@ function persist(state,s){const st=storage(s);if(!st)return {ok:false,reason:'st
 function weekKey(n){return 'w'+Number(n)}
 function completed(state,n){
  const k=weekKey(n);
+ try{
+   if(n===1){
+     const lab=String(globalThis.localStorage.getItem('csai2401_w1_lab_complete')||'').toLowerCase()==='true';
+     if(!lab)return false;
+     if(state.weeks[k]&&state.weeks[k].status==='completed')return true;
+     const v=JSON.parse(globalThis.localStorage.getItem('csai2104_diag_v4')||'{}');
+     return v.w1===true;
+   }
+ }catch(_){if(n===1)return false}
  if(state.weeks[k]&&state.weeks[k].status==='completed')return true;
  try{
-   if(n===1){const v=JSON.parse(globalThis.localStorage.getItem('csai2104_diag_v4')||'{}');return v.w1===true}
    if(n===2)return String(globalThis.localStorage.getItem('csai2104_w2_complete')||'').toLowerCase()==='true';
    if(n===3)return String(globalThis.localStorage.getItem('csai2104_w3')||'').toLowerCase()==='cleared';
    if(n===4)return String(globalThis.localStorage.getItem('csai2104_w4')||'').toLowerCase()==='cleared';
