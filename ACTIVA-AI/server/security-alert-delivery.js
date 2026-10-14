@@ -56,7 +56,7 @@ export function createSecurityAlertDispatcher({
 } = {}) {
   const errors = securityAlertDeliveryErrors(env);
   if (errors.length) throw new Error("UNSAFE_SECURITY_ALERT_DELIVERY_CONFIGURATION: " + errors.join(","));
-  const enabled = (env.ACTIVA_SECURITY_ALERT_MODE || "DISABLED") === "GITHUB_ISSUE";
+  const enabled = String(env.ACTIVA_SECURITY_ALERT_MODE || "DISABLED").trim() === "GITHUB_ISSUE";
   const repo = enabled ? env.ACTIVA_SECURITY_ALERT_GITHUB_REPO : "";
   const assignee = enabled ? String(env.ACTIVA_SECURITY_ALERT_GITHUB_ASSIGNEE || "") : "";
   const token = enabled ? env.ACTIVA_SECURITY_ALERT_GITHUB_TOKEN : "";
