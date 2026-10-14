@@ -36,7 +36,9 @@ app.use((req, res, next) => {
   res.set("X-Request-Id", requestId);
   const startedAt = process.hrtime.bigint();
   res.on("finish", () => {
-    if (!req.path.startsWith("/api/")) return;
+    // Express may rewrite req.path within mounted authentication middleware.
+    // Inspect the original path only to classify API traffic; log route templates.
+    if (!String(req.originalUrl || req.path || "").startsWith("/api/")) return;
     securityMonitor.recordHttp(req, res.statusCode);
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
     console.log(JSON.stringify({
