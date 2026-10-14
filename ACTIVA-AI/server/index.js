@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
+import { createSecurityAlertDispatcher } from "./security-alert-delivery.js";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
@@ -26,7 +27,17 @@ const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
 const allowedOrigins = configuredOrigins();
-const securityMonitor = createSecurityMonitor();
+const securityAlertDispatcher = createSecurityAlertDispatcher();
+const securityMonitor = createSecurityMonitor({
+  write:(event)=>{
+    console.warn(JSON.stringify(event));
+    if (event.type==="security_alert") {
+      // Async delivery must never hold the request response, and any failure
+      // is safely reported by dispatcher without exposing credentials.
+      void securityAlertDispatcher.enqueue(event);
+    }
+  },
+});
 
 app.disable("x-powered-by");
 app.use((req, res, next) => {
@@ -922,7 +933,7 @@ app.use("/api", attachActor);
 // The permanent operational record remains in the existing database AuditLog.
 app.get("/api/operations/security-summary", requireRoles("ADMIN"), (_req, res) => {
   res.set("Cache-Control", "no-store");
-  res.json({ok:true,monitor:securityMonitor.snapshot()});
+  res.json({ok:true,monitor:securityMonitor.snapshot(),delivery:securityAlertDispatcher.snapshot()});
 });
 registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
 
