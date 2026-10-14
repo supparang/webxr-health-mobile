@@ -29,7 +29,9 @@ export function routeTemplateForLog(req) {
 }
 
 function scopeFor(req) {
-  const path = String(req?.path || "");
+  // originalUrl survives Express mount rewriting (e.g. attachActor mounted at /api).
+  // It is used only for classification and is NEVER written to logs.
+  const path = String(req?.originalUrl || req?.path || "");
   if (path.startsWith("/api/public/guest/")) return "GUEST";
   if (path.startsWith("/api/public/blind-review/")) return "BLIND_REVIEW";
   return "ORGANIZATION";
@@ -115,7 +117,7 @@ export function createSecurityMonitor({
   return {
     recordHttp(req, statusCode) {
       if (!req || typeof statusCode !== "number" ||
-          !String(req.path || "").startsWith("/api/")) return;
+          !String(req.originalUrl || req.path || "").startsWith("/api/")) return;
       const category = statusCode === 401 ? "AUTH_DENIED"
         : statusCode === 403 ? "ACCESS_DENIED"
         : statusCode === 429 ? "RATE_LIMITED"
