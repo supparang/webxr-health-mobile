@@ -141,6 +141,11 @@ jobs:
       - name: S2.4 security alert GitHub delivery mock tests
         run: node tests/security-alert-delivery.mjs
 
+      - name: S2.2 API rate limiting and S2.5 combined security tests
+        run: |
+          node tests/rate-limit.mjs
+          node tests/security-integration.mjs
+
       - name: Authentication readiness guard
         run: |
           npm run test:auth
@@ -219,6 +224,9 @@ jobs:
 
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
+
+      - name: S2.1 authorization object-scope regression
+        run: node tests/security-object-scope.mjs
 
       - name: External blind reviewer end-to-end test
         run: node tests/blind-review.mjs
