@@ -17,7 +17,7 @@ export function securityAlertDeliveryErrors(env = process.env) {
     const repo = String(env.ACTIVA_SECURITY_ALERT_GITHUB_REPO || "");
     const token = String(env.ACTIVA_SECURITY_ALERT_GITHUB_TOKEN || "");
     const assignee = String(env.ACTIVA_SECURITY_ALERT_GITHUB_ASSIGNEE || "");
-    if (!/^[A-Za-z0-9-]{1,39}\\/[A-Za-z0-9_.-]{1,100}$/.test(repo)) {
+    if (!new RegExp("^[A-Za-z0-9-]{1,39}/[A-Za-z0-9_.-]{1,100}$").test(repo)) {
       errors.push("ACTIVA_SECURITY_ALERT_GITHUB_REPO_INVALID");
     }
     if (!/^[A-Za-z0-9_-]{20,512}$/.test(token) ||
