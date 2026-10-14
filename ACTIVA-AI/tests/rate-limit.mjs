@@ -138,6 +138,52 @@ try {
   await new Promise((resolve,reject)=>server.close((error)=>error?reject(error):resolve()));
 }
 
+// Synthetic classroom fairness: 250 guests, three requests each, sharing one NAT.
+// This is a deterministic functional check, NOT a measured concurrency/load test.
+const classroomLimiters=createActivaRateLimiters({
+  NODE_ENV:"test",ACTIVA_RATE_LIMIT_ENABLED:"true",
+},()=>tick);
+for(let participant=0;participant<250;participant++) {
+  const token=String(participant).padStart(43,"G");
+  const req={
+    ip:"shared-classroom-gateway",path:"/session",method:"GET",
+    get:(name)=>name==="authorization"?"GuestPass "+token:"",
+  };
+  for(let request=0;request<3;request++) {
+    for(const limiter of [
+      classroomLimiters.perIp,classroomLimiters.guestIp,classroomLimiters.guestPass
+    ]) {
+      const result=invoke(limiter,req);
+      assert.equal(result.nextCount,1,"Shared NAT must not block legitimate 250-guest synthetic flow");
+    }
+  }
+}
+
+// A forged X-Forwarded-For must not create a fresh IP bucket while
+// Express trust proxy remains disabled (the secure default).
+const spoofLimits=createActivaRateLimiters({
+  NODE_ENV:"test",ACTIVA_RATE_LIMIT_ENABLED:"true",
+  ACTIVA_RATE_LIMIT_ALL_IP:"2",
+},()=>tick);
+const spoofApp=express();
+spoofApp.use("/api",spoofLimits.perIp);
+spoofApp.get("/api/data",(_req,res)=>res.json({ok:true}));
+const spoofServer=await new Promise(resolve=>{
+  const listener=spoofApp.listen(0,"127.0.0.1",()=>resolve(listener));
+});
+try {
+  const url="http://127.0.0.1:"+spoofServer.address().port+"/api/data";
+  for(const [n,status] of [[1,200],[2,200],[3,429]]) {
+    const response=await fetch(url,{
+      headers:{"X-Forwarded-For":"198.51.100."+n},
+    });
+    assert.equal(response.status,status,"Forged X-Forwarded-For must not evade IP quota");
+  }
+} finally {
+  await new Promise((resolve,reject)=>
+    spoofServer.close(error=>error?reject(error):resolve()));
+}
+
 // Fail-closed quota configuration, with valid full Production mock controls.
 const config={
   NODE_ENV:"production",
