@@ -370,11 +370,11 @@
       ? '<button id="logout" class="nav-item nav-logout">ออกจากระบบ</button>'
       : items;
 
-    return '<section class="nav-group '+(active?"has-active":"")+'" data-nav-group="'+group.key+'">'+
-      '<button type="button" class="nav-group-toggle" data-nav-toggle="'+group.key+'" aria-expanded="'+(open?"true":"false")+'">'+
+    return '<section class="nav-group '+(active?"has-active":"")+'" data-nav-group="'+esc(group.key)+'">'+
+      '<button type="button" class="nav-group-toggle" data-nav-toggle="'+esc(group.key)+'" aria-expanded="'+(open?"true":"false")+'">'+
         '<span>'+esc(group.label)+'</span><span class="nav-chevron" aria-hidden="true">⌄</span>'+
       '</button>'+
-      '<div class="nav-group-items" data-nav-items="'+group.key+'" '+(open?"":"hidden")+'>'+systemItems+'</div>'+
+      '<div class="nav-group-items" data-nav-items="'+esc(group.key)+'" '+(open?"":"hidden")+'>'+systemItems+'</div>'+
     '</section>';
   }
 
@@ -1344,18 +1344,18 @@
       document.getElementById("userList").innerHTML=
         '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>หน่วยงาน</th><th>บทบาทระบบ</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
         visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.positionTitle||"—")+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
-          '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
-          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button> '+
-          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+          '<button class="btn mini secondary editUser" data-id="'+esc(u.id)+'">แก้ไข</button> '+
+          '<button class="btn mini secondary permUser" data-id="'+esc(u.id)+'">สิทธิ์กิจกรรม</button> '+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+esc(u.id)+'" data-status="'+esc(u.status)+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
         '</td></tr>').join("")+'</tbody></table></div>'+
         '<div class="attendance-cards">'+visible.map(u=>
           '<article class="attendance-card"><div class="attendance-card-head"><div><b>'+esc(u.employeeId)+'</b><div>'+esc(u.name)+'</div></div>'+
           '<span class="status '+(u.status==="ACTIVE"?"s-ok":"s-warn")+'">'+esc(userStatusLabel(u.status))+'</span></div>'+
           '<div class="attendance-meta"><span><b>ตำแหน่ง</b>'+esc(u.positionTitle||"—")+'</span><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาทระบบ</b>'+esc(roleLabel(u.role))+'</span></div>'+
           (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
-          '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
-          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button>'+
-          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+          '<div class="actions"><button class="btn mini secondary editUser" data-id="'+esc(u.id)+'">แก้ไข</button>'+
+          '<button class="btn mini secondary permUser" data-id="'+esc(u.id)+'">สิทธิ์กิจกรรม</button>'+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+esc(u.id)+'" data-status="'+esc(u.status)+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
           '</div></article>'
         ).join("")+'</div>';
 
@@ -2046,12 +2046,12 @@
     return '<div class="assignment-tools">'+
       '<div class="field"><label>ค้นหาเพื่อเลือกรายชื่อ</label><input id="'+searchId+'" class="assignment-search" placeholder="พิมพ์รหัสหรือชื่อ เช่น '+esc(exampleCode||"P001")+'"></div>'+
       '<div class="assignment-selection-bar"><span id="'+countId+'" class="status s-info">เลือก '+selected.size+' คน</span>'+
-      (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+className+'">ล้างที่เลือก</button>':'')+
+      (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+esc(className)+'">ล้างที่เลือก</button>':'')+
       '</div></div>'+
       '<div id="'+countId+'Names" class="assignment-selected-summary"><b>รายชื่อที่เลือกจริง:</b> '+esc(selectedText)+'</div>'+
       '<div id="'+countId+'Hidden" class="alert warn assignment-hidden-warning" style="display:none"></div>'+
-      '<div class="assignment-list" data-search-for="'+searchId+'">'+users.map(u=>
-      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
+      '<div class="assignment-list" data-search-for="'+esc(searchId)+'">'+users.map(u=>
+      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+esc(className)+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
       '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
     ).join("")+'</div>';
   }
@@ -2124,7 +2124,7 @@
 
       const bindAssignmentTools=(searchId,className,countId)=>{
         const input=document.getElementById(searchId);
-        const list=host.querySelector('.assignment-list[data-search-for="'+searchId+'"]');
+        const list=host.querySelector('.assignment-list[data-search-for="'+esc(searchId)+'"]');
         const count=document.getElementById(countId);
         const summary=document.getElementById(countId+"Names");
         const hiddenWarning=document.getElementById(countId+"Hidden");
@@ -4284,9 +4284,9 @@
           .filter(k => tm[k] !== undefined && tm[k] !== null)
           .map(k => k+"="+Number(tm[k]).toFixed(3)).join(" • ");
         const actions = m.status==="EVALUATED"
-          ? '<button class="btn mini ok approveModel" data-id="'+m.id+'">Approve</button>'
+          ? '<button class="btn mini ok approveModel" data-id="'+esc(m.id)+'">Approve</button>'
           : m.status==="APPROVED"
-            ? '<button class="btn mini primary deployModel" data-id="'+m.id+'">Deploy</button>'
+            ? '<button class="btn mini primary deployModel" data-id="'+esc(m.id)+'">Deploy</button>'
             : '—';
         return '<tr><td><b>'+esc(m.version)+'</b></td><td>'+esc(m.modelFamily)+'</td><td>'+esc(m.dataProvenance)+'</td><td>'+statusBadge(m.status)+'</td><td>'+esc(metricText||"—")+'</td><td>'+esc(tests||"—")+'</td><td>'+actions+'</td></tr>';
       }).join("")+'</tbody></table></div>';
