@@ -84,8 +84,11 @@ assert(staffAttendance.status===200 &&
     r.userId===staffId || verifierIds.includes(r.activityId)),
   "STAFF attendance list returned unassigned activity");
 
-const qr=await request("/api/personal-qr/me","P001");
-assert(qr.status===200 && qr.data.token,"P001 personal QR unavailable");
+const assignedRecord=records.find(r=>
+  r.user?.employeeId && verifierIds.includes(r.activityId));
+assert(assignedRecord,"Missing attendance in an assigned verifier activity");
+const qr=await request("/api/personal-qr/me",assignedRecord.user.employeeId);
+assert(qr.status===200 && qr.data.token,"Assigned participant personal QR unavailable");
 const outsiderResolve=await request("/api/personal-qr/resolve","STFSEC","POST",{
   token:qr.data.token
 });
@@ -93,13 +96,11 @@ assert(outsiderResolve.status===403 &&
   outsiderResolve.data.error==="PERSONAL_QR_ACTIVITY_SCOPE_FORBIDDEN",
   "Unassigned STAFF resolved another person's personal QR");
 
-const assignedP1=records.find(r=>r.userId===p1.id && verifierIds.includes(r.activityId));
-assert(assignedP1,"Missing P001 record under assigned verifier");
 const allowedResolve=await request("/api/personal-qr/resolve","STF001","POST",{
-  token:qr.data.token, activityId:assignedP1.activityId
+  token:qr.data.token, activityId:assignedRecord.activityId
 });
 assert(allowedResolve.status===200 &&
-  allowedResolve.data.attendance.some(r=>r.id===assignedP1.id),
+  allowedResolve.data.attendance.some(r=>r.id===assignedRecord.id),
   "Assigned verifier must resolve personal QR for own activity");
 
 const activities=await request("/api/activities","ADM001");
