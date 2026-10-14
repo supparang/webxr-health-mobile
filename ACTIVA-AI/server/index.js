@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
+import { createActivaRateLimiters } from "./rate-limit.js";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
@@ -25,6 +26,7 @@ const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
 const allowedOrigins = configuredOrigins();
+const rateLimiters = createActivaRateLimiters();
 
 app.disable("x-powered-by");
 app.use((req, res, next) => {
@@ -73,6 +75,13 @@ app.use(cors({
     return callback(error);
   },
 }));
+// Keep health/readiness probes outside the shared IP bucket so operations
+// monitoring is not blocked by excessive traffic on application endpoints.
+app.use("/api", rateLimiters.perIp);
+// Public bearer flows bypass organization login; protect IP and pass separately.
+// The bearer limiter keys are SHA-256 fingerprints, never cleartext tokens.
+app.use("/api/public/guest", rateLimiters.guestIp, rateLimiters.guestPass);
+app.use("/api/public/blind-review", rateLimiters.reviewerIp, rateLimiters.reviewerPass);
 app.use(express.json({ limit: "1mb" }));
 
 function actorId(req) {
@@ -909,6 +918,8 @@ app.post("/api/public/blind-review/submit", async (req, res, next) => {
 registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWindowState,checkoutWindowState});
 
 app.use("/api", attachActor);
+// These quotas are per authenticated user, not per shared classroom Wi-Fi IP.
+app.use("/api", rateLimiters.authenticated, rateLimiters.authenticatedWrite);
 registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
 
 app.get("/api/me", async (req, res) => {
