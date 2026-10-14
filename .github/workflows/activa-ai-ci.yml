@@ -106,6 +106,10 @@ jobs:
           node --check tests/security-monitor.mjs
           node --check server/security-alert-delivery.js
           node --check tests/security-alert-delivery.mjs
+          node --check server/rate-limit.js
+          node --check tests/rate-limit.mjs
+          node --check tests/security-object-scope.mjs
+          node --check tests/security-integration.mjs
           node --check prisma/seed.js
           node --check tests/smoke.mjs
           node --check tests/demo-release-guard.mjs
