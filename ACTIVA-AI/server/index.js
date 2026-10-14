@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
+import { setFrontendHtmlSecurityHeaders } from "./frontend-security.js";
 import { createActivaRateLimiters } from "./rate-limit.js";
 import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
 import { createSecurityAlertDispatcher } from "./security-alert-delivery.js";
@@ -4872,21 +4873,27 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 // Only public browser assets may be served. Never serve server, prisma,
 // scripts, dependency, backup, or environment files from the application tree.
-const publicFiles = ["index.html", "Login.html", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js", "guest.html", "guest.js"];
+const publicFiles = ["index.html", "Login.html", "login-redirect.js", "app.js", "demo-api.js", "runtime-config.js", "styles.css", "blind-review.html", "blind-review.js", "guest.html", "guest.js"];
 for (const file of publicFiles) {
   app.get("/" + file, (_req, res) => {
-    if (["runtime-config.js","blind-review.html","blind-review.js","guest.html","guest.js"].includes(file)) {
+    if (file.endsWith(".html")) setFrontendHtmlSecurityHeaders(res);
+    if (["runtime-config.js","blind-review.html","blind-review.js","guest.html","guest.js","login-redirect.js"].includes(file)) {
       res.set("Cache-Control", "no-store");
     }
     res.sendFile(path.join(staticDir, file));
   });
 }
-app.get("/", (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
+app.get("/", (_req, res) => {
+  setFrontendHtmlSecurityHeaders(res);
+  res.sendFile(path.join(staticDir, "index.html"));
+});
 app.get("/blind-review", (_req, res) => {
+  setFrontendHtmlSecurityHeaders(res);
   res.set("Cache-Control", "no-store");
   res.sendFile(path.join(staticDir, "blind-review.html"));
 });
 app.get("/guest", (_req,res) => {
+  setFrontendHtmlSecurityHeaders(res);
   res.set("Cache-Control","no-store");
   res.sendFile(path.join(staticDir,"guest.html"));
 });
