@@ -110,6 +110,8 @@ jobs:
           node --check login-redirect.js
           node --check tests/frontend-csp.mjs
           node --check tests/frontend-xss-dependencies.mjs
+          node --check tests/discover-cdn-integrity.mjs
+          node --check tests/browser-sri.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -155,6 +157,12 @@ jobs:
 
       - name: S2.7 XSS data context and dependency provenance regression
         run: node tests/frontend-xss-dependencies.mjs
+
+      - name: S2.8 enforce QR browser SRI script inventory
+        run: node tests/browser-sri.mjs
+
+      - name: S2.8 verify exact live QR CDN integrity and CORS
+        run: node tests/discover-cdn-integrity.mjs
 
       - name: Authentication readiness guard
         run: |
