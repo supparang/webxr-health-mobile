@@ -109,6 +109,7 @@ jobs:
           node --check server/frontend-security.js
           node --check login-redirect.js
           node --check tests/frontend-csp.mjs
+          node --check tests/frontend-xss-dependencies.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -151,6 +152,9 @@ jobs:
 
       - name: S2.6 frontend CSP and XSS regression
         run: node tests/frontend-csp.mjs
+
+      - name: S2.7 XSS data context and dependency provenance regression
+        run: node tests/frontend-xss-dependencies.mjs
 
       - name: Authentication readiness guard
         run: |
