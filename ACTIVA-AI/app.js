@@ -399,8 +399,8 @@
         '<div class="version">V1.0.15 • Google OIDC + Backend Connection Layer</div>'+
       '</aside>'+
       '<main class="main">'+
-        '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
-        '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+roleLabel(session.role)+'</span></div></div>'+
+        '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+esc(viewTitle())+'</h1></div>'+
+        '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+esc(roleLabel(session.role))+'</span></div></div>'+
         '<div id="view"></div>'+
       '</main></div>';
   }
@@ -3360,7 +3360,7 @@
         seedSyntheticQa.textContent="กำลังสร้างเคสทดสอบ…";
         try{
           const result=await api("/api/demo/qa-cases",{method:"POST"});
-          if(msg)msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบแล้ว</b><br>'+(result.idempotent?'ชุด Synthetic QA มีอยู่แล้ว ไม่สร้างซ้ำ':'สร้าง '+result.created+' เคสเรียบร้อย')+' • ไม่กระทบ Ground Truth ที่ Lock แล้ว</div>';
+          if(msg)msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบแล้ว</b><br>'+(result.idempotent?'ชุด Synthetic QA มีอยู่แล้ว ไม่สร้างซ้ำ':'สร้าง '+esc(result.created)+' เคสเรียบร้อย')+' • ไม่กระทบ Ground Truth ที่ Lock แล้ว</div>';
           sessionStorage.setItem(SELECTED_ACTIVITY_KEY,result.activityId);
           setTimeout(()=>renderEvidence(v),350);
         }catch(e){
