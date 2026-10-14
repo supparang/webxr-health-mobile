@@ -1,4 +1,5 @@
 import { prisma } from "../server/db.js";
+import { readFile } from "node:fs/promises";
 // CI-only simulated research-class fixture; never publication evidence.
 // This test MUTATES database fixtures and must never target Neon Production.
 if(process.env.CI!=="true" || process.env.ACTIVA_TEST_DATABASE_ONLY!=="true" ||
@@ -75,6 +76,19 @@ for (const htmlPath of ["/","/index.html","/Login.html","/guest.html","/blind-re
 const redirectAsset=await fetch(base+"/login-redirect.js");
 assert(redirectAsset.status===200,"Login redirect script absent from server asset allowlist");
 assert((await redirectAsset.text()).includes("window.location.replace"),"Login redirect script unexpectedly missing code");
+
+// S2.8: ensure the ACTUAL served HTML (including runtime Docker image) retains
+// reviewed QR script URLs, pinned SHA-384 and anonymous cross-origin attributes.
+const manifest = JSON.parse(await readFile(
+  new URL("./browser-asset-integrity.json",import.meta.url),"utf8"
+));
+const servedHtml = await (await fetch(base+"/index.html")).text();
+for (const asset of manifest.assets) {
+  const required = '<script src="'+asset.url+'" integrity="'+asset.sha384+
+    '" crossorigin="anonymous" defer></script>';
+  assert(servedHtml.includes(required),"Served frontend missing verified QR SRI: "+asset.id);
+}
+
 
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
