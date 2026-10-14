@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
+import { createActivaRateLimiters } from "./rate-limit.js";
 import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
 import { createSecurityAlertDispatcher } from "./security-alert-delivery.js";
 import { prisma } from "./db.js";
@@ -27,6 +28,7 @@ const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
 const allowedOrigins = configuredOrigins();
+const rateLimiters = createActivaRateLimiters();
 const securityAlertDispatcher = createSecurityAlertDispatcher();
 const securityMonitor = createSecurityMonitor({
   write:(event)=>{
@@ -90,6 +92,10 @@ app.use(cors({
     return callback(error);
   },
 }));
+// Bound unauthenticated and public traffic before parsing request bodies.
+app.use("/api", rateLimiters.perIp);
+app.use("/api/public/guest", rateLimiters.guestIp, rateLimiters.guestPass);
+app.use("/api/public/blind-review", rateLimiters.reviewerIp, rateLimiters.reviewerPass);
 app.use(express.json({ limit: "1mb" }));
 
 function actorId(req) {
@@ -259,6 +265,26 @@ async function canReviewActivity(req, activityId) {
   if (req.activaUser?.role === "ADMIN") return true;
   if (req.activaUser?.role !== "STAFF") return false;
   return Boolean(await activeActivityAssignment(req.activaUser.id, activityId, "VERIFIER"));
+}
+
+// Least-privilege object scope: null means an explicitly authorized global scope.
+async function accessibleActivityIdsForUser(user) {
+  if (!user) return [];
+  if (user.role === "ADMIN" || await userHasActivityPermission(user, "CAN_MANAGE_ALL_ACTIVITIES")) return null;
+  const mayManageOwn =
+    await userHasActivityPermission(user, "CAN_CREATE_ACTIVITY") ||
+    await userHasActivityPermission(user, "CAN_EDIT_OWN_ACTIVITY");
+  const scopedAssignments = user.role === "STAFF"
+    ? ["CO_ORGANIZER", "VERIFIER"] : ["CO_ORGANIZER"];
+  const predicates = [
+    { roleAssignments: { some: { userId: user.id, role: { in: scopedAssignments } } } },
+  ];
+  if (mayManageOwn) predicates.push({ organizerId: user.id });
+  const rows = await prisma.activity.findMany({
+    where: { OR: predicates },
+    select: { id: true },
+  });
+  return rows.map((row) => row.id);
 }
 
 async function audit(req, action, entityType, entityId, metadata = {}) {
@@ -929,6 +955,8 @@ app.post("/api/public/blind-review/submit", async (req, res, next) => {
 registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWindowState,checkoutWindowState});
 
 app.use("/api", attachActor);
+// Authenticated user quotas remain distinct for users sharing a campus IP.
+app.use("/api", rateLimiters.authenticated, rateLimiters.authenticatedWrite);
 // Process-local aggregate only: counts and thresholds, no user/IP/token IDs.
 // The permanent operational record remains in the existing database AuditLog.
 app.get("/api/operations/security-summary", requireRoles("ADMIN"), (_req, res) => {
@@ -1012,11 +1040,25 @@ app.post("/api/personal-qr/resolve", requireRoles("ADMIN","STAFF"), async (req,r
   }
 
   const activityId=String(req.body?.activityId||"").trim()||null;
+  // STAFF can resolve only records for activities where they are assigned VERIFIER.
+  // An omitted activityId means only their assigned activities, never the whole institution.
+  let allowedActivityIds = null;
+  if (req.activaUser.role !== "ADMIN") {
+    const assignments = await prisma.activityRoleAssignment.findMany({
+      where: { userId:req.activaUser.id, role:"VERIFIER" },
+      select: { activityId:true },
+    });
+    const assignedIds = assignments.map((x) => x.activityId);
+    if (!assignedIds.length || (activityId && !assignedIds.includes(activityId))) {
+      return res.status(403).json({ok:false,error:"PERSONAL_QR_ACTIVITY_SCOPE_FORBIDDEN"});
+    }
+    allowedActivityIds = activityId ? [activityId] : assignedIds;
+  }
   const rows=await prisma.attendanceRecord.findMany({
     where:{
       userId:credential.userId,
       isVoided:false,
-      ...(activityId?{activityId}:{}),
+      ...(allowedActivityIds ? { activityId:{in:allowedActivityIds} } : activityId ? {activityId} : {}),
     },
     include:{
       user:{select:{id:true,employeeId:true,name:true}},
@@ -1034,35 +1076,31 @@ app.post("/api/personal-qr/resolve", requireRoles("ADMIN","STAFF"), async (req,r
   res.json({ok:true,user:credential.user,attendance:rows});
 });
 
-app.get("/api/users", personnelDirectoryGuard, async (_req, res) => {
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      employeeId: true,
-      name: true,
-      email: true,
-      positionTitle: true,
-      role: true,
-      status: true,
-      department: { select: { code: true, name: true } },
-      activityPermissions: {
-        select: {
-          id: true,
-          permission: true,
-          grantedAt: true,
-          validFrom: true,
-          validUntil: true,
-          reason: true,
-          revokedAt: true,
-          revokedById: true,
-          revokeReason: true,
+app.get("/api/users", personnelDirectoryGuard, async (req, res) => {
+  // Organizational scheduling uses basic identity fields. Sensitive contact details
+  // and historical permission grants are restricted to authenticated ADMIN only.
+  const admin=req.activaUser.role==="ADMIN";
+  const baseSelect={
+    id:true,employeeId:true,name:true,role:true,status:true,
+    department:{select:{code:true,name:true}},
+  };
+  const users=await prisma.user.findMany({
+    select: admin ? {
+      ...baseSelect,
+      email:true,
+      positionTitle:true,
+      activityPermissions:{
+        select:{
+          id:true,permission:true,grantedAt:true,validFrom:true,
+          validUntil:true,reason:true,revokedAt:true,
+          revokedById:true,revokeReason:true,
         },
-        orderBy: { permission: "asc" },
+        orderBy:{permission:"asc"},
       },
-    },
-    orderBy: { employeeId: "asc" },
+    } : baseSelect,
+    orderBy:{employeeId:"asc"},
   });
-  res.json({ ok: true, users });
+  res.json({ok:true,users});
 });
 
 function normalizeRole(value, allowAdmin = true) {
@@ -1346,8 +1384,14 @@ app.get("/api/attendance", async (req, res) => {
     ["ADMIN", "STAFF"].includes(req.activaUser.role);
   if (!includeVoided) filters.push({ isVoided: false });
   if (req.query.activityId) filters.push({ activityId: String(req.query.activityId) });
-  if (req.activaUser.role === "PARTICIPANT") {
-    filters.push({ userId: req.activaUser.id });
+  const accessibleActivityIds = await accessibleActivityIdsForUser(req.activaUser);
+  if (accessibleActivityIds !== null) {
+    filters.push({
+      OR: [
+        {userId:req.activaUser.id},
+        {activityId:{in:accessibleActivityIds}},
+      ],
+    });
   }
   const where = filters.length === 0 ? {} : { AND: filters };
 
@@ -2501,6 +2545,11 @@ app.post("/api/evidence/:attendanceId/evaluate", requireRoles("ADMIN", "ORGANIZE
     },
   });
   if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+  // Role alone is insufficient: require management or verifier assignment to this activity.
+  if (!(await canManageActivity(req, attendance.activity)) &&
+      !(await canReviewActivity(req, attendance.activityId))) {
+    return res.status(403).json({ok:false,error:"EVIDENCE_ACTIVITY_SCOPE_FORBIDDEN"});
+  }
   if (!(await ensureActivityOperationallyMutable(res, attendance.activityId))) return;
   if (attendance.isVoided) return res.status(409).json({ ok: false, error: "ATTENDANCE_VOIDED" });
   const checkoutState = checkoutWindowState(attendance.activity);
