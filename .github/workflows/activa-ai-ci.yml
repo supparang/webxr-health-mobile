@@ -112,6 +112,7 @@ jobs:
           node --check tests/frontend-xss-dependencies.mjs
           node --check tests/discover-cdn-integrity.mjs
           node --check tests/browser-sri.mjs
+          node --check tests/browser-security-ci.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -257,6 +258,26 @@ jobs:
 
       - name: Demo release guard regression test
         run: node tests/demo-release-guard.mjs
+
+      - name: S2.9 install pinned browser test driver (CI only)
+        run: |
+          command -v google-chrome
+          google-chrome --version
+          npm install --no-save --package-lock=false --ignore-scripts playwright-core@1.56.1
+
+      - name: S2.9 actual headless Chromium browser security verification
+        env:
+          ACTIVA_CHROME_BIN: /usr/bin/google-chrome
+        run: node tests/browser-security-ci.mjs
+
+      - name: S2.9 archive synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: activa-s2-9-browser-security-evidence
+          path: ACTIVA-AI/test-results/s2-9-browser-security.json
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Setup Python for ML pipeline
         uses: actions/setup-python@v5
