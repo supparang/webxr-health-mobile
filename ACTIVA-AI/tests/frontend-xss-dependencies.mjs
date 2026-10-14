@@ -73,8 +73,8 @@ for(const [name,source] of [["app",app],["guest",guest],["blind",blind]]) {
   assert(!/\b(?:eval|Function)\s*\(/.test(source),name+" dynamic code execution");
   assert(!/\bsetInterval\s*\(\s*["']/.test(source),name+" string timer execution");
 }
-assert(/function\s+esc\s*\(/.test(guest),"Guest page must use HTML encoder");
-assert(/function\s+esc\s*\(/.test(blind),"Blind Review must use HTML encoder");
+assert(/\b(?:const\s+esc\s*=|function\s+esc\s*\()/.test(guest),"Guest page must use HTML encoder");
+assert(/\b(?:const\s+esc\s*=|function\s+esc\s*\()/.test(blind),"Blind Review must use HTML encoder");
 assert(guest.includes("esc(c.text)")&&guest.includes("esc(a.title)"),
   "Guest consent text/activity title must be encoded");
 assert(blind.includes("esc(data.caseRef")&&blind.includes("esc(a.title"),
