@@ -39,6 +39,18 @@ assert.equal(emitted.filter(x=>x.type==="security_alert"&&x.category==="AUTH_DEN
 assert.equal(emitted.filter(x=>x.type==="security_event"&&x.category==="AUTH_DENIED").length,8,
   "Per-window event sampling must bound provider log volume");
 
+// Simulate /api-mounted auth middleware: Express req.path becomes "/me"
+// during short-circuit, while originalUrl remains the complete original path.
+// Query/path values MUST NOT enter logs even though classification sees them.
+monitor.recordHttp({
+  path:"/me",
+  originalUrl:"/api/me?token=SECRET-raw-token",
+  method:"GET",
+  activaRequestId:"safe-request-mounted",
+},401);
+assert.equal(monitor.snapshot().categories.AUTH_DENIED,26,
+  "API authentication denial inside mounted middleware must be counted");
+
 for(let i=0;i<21;i++) monitor.recordHttp({...req,path:"/api/activities/hidden",route:{path:"/api/activities/:activityId"}},403);
 for(let i=0;i<20;i++) monitor.recordHttp({...req,path:"/api/public/guest/checkin",route:{path:"/api/public/guest/checkin"}},429);
 for(let i=0;i<10;i++) monitor.recordHttp(req,500);
