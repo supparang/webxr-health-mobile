@@ -9,6 +9,8 @@ if (
 ) throw new Error("S2_1_TEST_REQUIRES_DISPOSABLE_LOCAL_CI_POSTGRES");
 
 const base = process.env.ACTIVA_BASE_URL || "http://127.0.0.1:3000";
+if (!/^http:\/\/(?:127\.0\.0\.1|localhost):\d+$/.test(base))
+  throw new Error("S2_1_TEST_REQUIRES_LOCALHOST_API");
 const assert = (value, message) => { if (!value) throw new Error(message); };
 async function request(route, actor, method="GET", body) {
   const headers = { Accept:"application/json", "x-activa-user-id":actor };
