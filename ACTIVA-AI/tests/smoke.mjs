@@ -61,6 +61,21 @@ for (const path of ["/server/auth.js", "/prisma/schema.prisma", "/package.json",
   assert(response.status === 404, "Backend file must not be public: " + path);
 }
 assert((await fetch(base + "/runtime-config.js")).status === 200, "Public runtime config must be available");
+for (const htmlPath of ["/","/index.html","/Login.html","/guest.html","/blind-review.html","/guest","/blind-review"]) {
+  const response=await fetch(base+htmlPath);
+  assert(response.status===200,"Frontend route unavailable: "+htmlPath);
+  const csp=response.headers.get("content-security-policy")||"";
+  assert(csp.includes("object-src 'none'"),"HTML CSP missing object-src: "+htmlPath);
+  assert(csp.includes("script-src-attr 'none'"),"HTML CSP permits inline handlers: "+htmlPath);
+  assert(csp.includes("frame-ancestors 'none'"),"HTML response missing anti-framing: "+htmlPath);
+  assert(csp.includes("https://accounts.google.com/gsi/client"),"Google login CSP allowance missing: "+htmlPath);
+  assert(!csp.includes("script-src 'unsafe-inline'"),"unsafe-inline script CSP: "+htmlPath);
+  assert(response.headers.get("cache-control")==="no-store","HTML response cache not disabled: "+htmlPath);
+}
+const redirectAsset=await fetch(base+"/login-redirect.js");
+assert(redirectAsset.status===200,"Login redirect script absent from server asset allowlist");
+assert((await redirectAsset.text()).includes("window.location.replace"),"Login redirect script unexpectedly missing code");
+
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
   headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
