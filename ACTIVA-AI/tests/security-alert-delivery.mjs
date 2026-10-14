@@ -22,6 +22,8 @@ assert.ok(securityAlertDeliveryErrors({...config,ACTIVA_SECURITY_ALERT_MODE:"UNS
   .includes("ACTIVA_SECURITY_ALERT_MODE_INVALID"));
 assert.ok(securityAlertDeliveryErrors({...config,ACTIVA_SECURITY_ALERT_GITHUB_REPO:"localhost/../../x"})
   .includes("ACTIVA_SECURITY_ALERT_GITHUB_REPO_INVALID"));
+assert.ok(securityAlertDeliveryErrors({...config,ACTIVA_SECURITY_ALERT_GITHUB_REPO:"owner/.."})
+  .includes("ACTIVA_SECURITY_ALERT_GITHUB_REPO_INVALID"));
 assert.ok(securityAlertDeliveryErrors({...config,ACTIVA_SECURITY_ALERT_GITHUB_TOKEN:"not-private"})
   .includes("ACTIVA_SECURITY_ALERT_GITHUB_TOKEN_REQUIRED"));
 assert.ok(securityAlertDeliveryErrors({...config,ACTIVA_SECURITY_ALERT_GITHUB_ASSIGNEE:"a@example.test"})
