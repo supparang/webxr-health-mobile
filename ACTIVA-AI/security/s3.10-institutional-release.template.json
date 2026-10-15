@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "purpose": "ACTIVA_AI_S310_INSTITUTIONAL_RELEASE_GOVERNANCE",
+  "sourceCommit": null,
+  "repository": {
+    "name": "supparang/webxr-health-mobile",
+    "defaultBranch": "main",
+    "codeownersPath": null,
+    "codeownersEvidenceRef": null,
+    "rulesetExportSha256": null,
+    "rulesetEvidenceRef": null,
+    "mainProtected": false,
+    "releaseBranchesProtected": false,
+    "protectCodeownersChanges": false,
+    "minRequiredApprovals": 0,
+    "requireCodeOwnerReviews": false,
+    "dismissStaleReviews": false,
+    "blockForcePush": false,
+    "blockDirectPush": false,
+    "noAdminBypass": false,
+    "requiredStatusChecks": false,
+    "reviewerIndependenceEvidenceRef": null
+  },
+  "artifact": {
+    "sourceCommit": null,
+    "imageDigest": null,
+    "buildAttestationEvidenceRef": null,
+    "builderIdentityEvidenceRef": null,
+    "immutableRegistryEvidenceRef": null
+  },
+  "staging": {
+    "deployedSourceCommit": null,
+    "deployedImageDigest": null,
+    "deploymentEvidenceRef": null,
+    "isolationEvidenceRef": null,
+    "s36EvidenceInventorySha256": null,
+    "s36IndependentReviewEvidenceRef": null,
+    "all25ManualCasesVerified": false,
+    "externalSiemHumanAckEvidenceRef": null
+  },
+  "approvals": {
+    "securityReviewerEvidenceRef": null,
+    "operationsReviewerEvidenceRef": null,
+    "privacyReviewerEvidenceRef": null,
+    "independentFindingsClosureEvidenceRef": null,
+    "signerCustodyEvidenceRef": null,
+    "allCriticalHighFindingsClosed": false
+  },
+  "productionGoApproved": false,
+  "researchEthicsApproved": false,
+  "note": "TEMPLATE ONLY: no institutional GitHub rulesets, approved signers, independent artifact provenance, Staging, external SIEM, 25 manual cases or research ethics approval verified."
+}
