@@ -997,7 +997,7 @@ app.get("/api/operations/security-summary", requireRoles("ADMIN"), async (_req, 
     };
     res.json({ok:true,monitor:securityMonitor.snapshot(),
       delivery:securityAlertDispatcher.snapshot(),persistentIncidents});
-  }catch(next){}
+  }catch(error){next(error);}
 });
 // Incident details are sanitized, admin-only; no raw evidence, tokens or IP.
 app.get("/api/operations/security-incidents", requireRoles("ADMIN"), async (_req,res,next)=>{
@@ -1006,7 +1006,7 @@ app.get("/api/operations/security-incidents", requireRoles("ADMIN"), async (_req
     ok:false,error:"DURABLE_SECURITY_INCIDENTS_NOT_CONFIGURED",
   });
   try {res.json({ok:true,incidents:await durableSecurityStore.recent(20)});}
-  catch(next){}
+  catch(error){next(error);}
 });
 // Human acknowledgment is deliberately distinct from GitHub API delivery.
 // The action is atomically paired with a permanent AuditLog record.
@@ -1022,7 +1022,7 @@ app.post("/api/operations/security-incidents/:id/ack",
         ok:false,error:"INCIDENT_NOT_DELIVERED_OR_ALREADY_ACKNOWLEDGED",
       });
       res.json({ok:true,acknowledged:true,deliveryIsHumanAcknowledgment:false});
-    }catch(next){}
+    }catch(error){next(error);}
   });
 
 registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
