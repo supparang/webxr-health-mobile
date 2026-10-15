@@ -532,3 +532,43 @@ model SecurityRateLimitBucket {
 
   @@index([expiresAt])
 }
+
+// S3.3: no raw client IP, bearer credentials, personal identity or request
+// body is stored here. All replicas share the same 15-minute categories.
+model SecurityIncidentWindow {
+  id                  String    @id @db.VarChar(72)
+  category            String    @db.VarChar(32)
+  count               Int       @default(0)
+  threshold           Int
+  status              String    @default("COUNTING") @db.VarChar(20)
+  firstSeenAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+  nextAttemptAt       DateTime  @default(now()) @db.Timestamptz(3)
+  leaseId             String?   @db.VarChar(64)
+  leaseUntil          DateTime? @db.Timestamptz(3)
+  attempts            Int       @default(0)
+  deliveredAt         DateTime? @db.Timestamptz(3)
+  deliveryAction      String?   @db.VarChar(16)
+  acknowledgedAt      DateTime? @db.Timestamptz(3)
+  acknowledgedBy      String?   @db.VarChar(80)
+
+  @@index([status, nextAttemptAt])
+  @@index([firstSeenAt])
+}
+
+// Bounded, de-identified *sampled* events; authoritative audit for
+// privileged changes remains in AuditLog.
+model SecurityEventSample {
+  id          String   @id @default(cuid())
+  category    String   @db.VarChar(32)
+  kind        String   @db.VarChar(24)
+  method      String?  @db.VarChar(8)
+  route       String?  @db.VarChar(160)
+  scope       String?  @db.VarChar(32)
+  statusCode  Int?
+  action      String?  @db.VarChar(80)
+  occurredAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([occurredAt])
+  @@index([category, occurredAt])
+}

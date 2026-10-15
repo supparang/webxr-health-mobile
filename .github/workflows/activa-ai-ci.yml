@@ -124,6 +124,8 @@ jobs:
           node --check tests/production-security-architecture.mjs
           node --check server/distributed-rate-limit.js
           node --check tests/distributed-rate-limit.mjs
+          node --check server/security-incident-store.js
+          node --check tests/security-incident-persistence.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -152,6 +154,9 @@ jobs:
           node --check server/source-revision.js
           node --check tests/source-revision.mjs
           node --check blind-review.js
+
+      - name: S3.3 durable security outbox, PostgreSQL lease and human acknowledgment
+        run: node tests/security-incident-persistence.mjs
 
       - name: S2.3 security logging and monitoring regression
         run: node tests/security-monitor.mjs
