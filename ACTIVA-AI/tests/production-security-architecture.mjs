@@ -96,7 +96,8 @@ for(const sslmode of ["require","verify-ca","verify-full"]){
 // ADMIN release decision must use identical external dual-signoff evaluation.
 const index=await readFile(new URL("../server/index.js",import.meta.url),"utf8");
 assert.equal(index.split("const signedSecurityApproval = productionReleaseApproval();").length-1,2);
-assert.equal(index.split('blockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED")').length-1,2);
+assert.equal(index.split('blockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED")').length-1,1);
+assert.equal(index.split('hardBlockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED")').length-1,1);
 assert(index.includes('signedSecurityApprovalVerified: signedSecurityApproval.approved'));
 assert(index.includes('status: signedSecurityApproval.approved ? "PASS" : "HOLD"'));
 console.log("ACTIVA-AI S3.1 Production TLS and two-authority cryptographic release signoff: PASS");
