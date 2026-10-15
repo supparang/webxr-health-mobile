@@ -130,6 +130,8 @@ jobs:
           node --check tests/security-siem-export.mjs
           node --check server/siem-receipt-security.js
           node --check tests/siem-receipt-security.mjs
+          node --check scripts/assess-staging-readiness.mjs
+          node --check tests/staging-readiness-inventory.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -158,6 +160,13 @@ jobs:
           node --check server/source-revision.js
           node --check tests/source-revision.mjs
           node --check blind-review.js
+
+      - name: S3.6 offline full Staging/SIEM infrastructure and 25-manual-evidence inventory
+        run: |
+          node tests/staging-readiness-inventory.mjs
+          mkdir -p test-results
+          node scripts/assess-staging-readiness.mjs --input security/s3.6-staging-readiness.template.json > test-results/s3-6-staging-readiness.json
+          node --input-type=module -e 'import fs from "node:fs"; const report=JSON.parse(fs.readFileSync("test-results/s3-6-staging-readiness.json","utf8")); if(report.decision!=="HOLD" || report.productionGoApproved!==false || report.manualAcceptanceVerified!==false || report.evidenceInventoryComplete!==false) process.exit(1); console.log("S3.6 baseline: HOLD — real Staging acceptance NOT VERIFIED");'
 
       - name: S3.5 independently signed SIEM receiver ACK and bounded streaming checks
         run: node tests/siem-receipt-security.mjs

@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "purpose": "ACTIVA_AI_OPERATOR_STAGING_SECURITY_READINESS",
+  "sourceCommit": null,
+  "staging": {
+    "apiOrigin": null,
+    "approvedApiOrigin": null,
+    "frontendOrigin": null,
+    "deployedCommit": null,
+    "operatorDeploymentEvidenceRef": null,
+    "isolationEvidenceRef": null,
+    "testDatabaseFingerprintSha256": null,
+    "productionDatabaseFingerprintSha256": null,
+    "testSecretManagerEvidenceRef": null,
+    "syntheticDataOnly": false,
+    "productionGoDisabled": null
+  },
+  "siem": {
+    "origin": null,
+    "approvedOrigin": null,
+    "independentReceiverEvidenceRef": null,
+    "dnsTlsEgressEvidenceRef": null,
+    "signingKeyCustodyEvidenceRef": null,
+    "durableIngestionEvidenceRef": null,
+    "idempotencyAndReceiptEvidenceRef": null,
+    "immutableRetentionEvidenceRef": null,
+    "primaryResponderEvidenceRef": null,
+    "backupResponderEvidenceRef": null
+  },
+  "network": {
+    "proxyIdentityEvidenceRef": null,
+    "edgeWafEvidenceRef": null,
+    "twoReplicaEvidenceRef": null,
+    "sharedCampusLoadEvidenceRef": null,
+    "recoveryDrillEvidenceRef": null
+  },
+  "governance": {
+    "reviewedDraftIntegrationEvidenceRef": null,
+    "securityOwnerReviewEvidenceRef": null,
+    "operationsOwnerReviewEvidenceRef": null,
+    "privacyReviewEvidenceRef": null,
+    "findingsClosureEvidenceRef": null
+  },
+  "manualChecks": {
+    "M01": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M02": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M03": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M04": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M05": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M06": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M07": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M08": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M09": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M10": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M11": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M12": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M13": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M01": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M02": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M03": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M04": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M05": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M06": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M07": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M08": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M09": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M10": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M11": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "S35-M12": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    }
+  },
+  "productionGoApproved": false,
+  "researchEthicsApproved": false,
+  "note": "OFFLINE TEMPLATE ONLY. No deployment, approved Staging, independent SIEM, personnel, participant data, credentials or test acceptance has been verified."
+}
