@@ -128,9 +128,8 @@ try{
   assert.equal((await invoke(failure,request("S32_FAIL_CLOSED"))).status,503);
   const badReceipt=make({consume:async()=>({allowed:true,wrong:true})},
     "actor_write",5,idKey);
-  // Allowed:true is the only accepted success receipt from the store;
-  // raw backend errors are trapped separately.
-  assert.equal((await invoke(badReceipt,request("S32_BAD_RECEIPT"))).status,200);
+  assert.equal((await invoke(badReceipt,request("S32_BAD_RECEIPT"))).status,503,
+    "Malformed allowed response without window must not bypass limiter");
   console.log("ACTIVA-AI S3.2 shared PostgreSQL atomic quotas, 2 replicas, 210 shared-NAT guests and fail-closed backend: PASS");
 } finally {
   await prisma.securityRateLimitBucket.deleteMany({});
