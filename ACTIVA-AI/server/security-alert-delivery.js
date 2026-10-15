@@ -64,6 +64,10 @@ export function createSecurityAlertDispatcher({
   const token = enabled ? env.ACTIVA_SECURITY_ALERT_GITHUB_TOKEN : "";
   const base = enabled ? "https://api.github.com/repos/" + repo : "";
   const inFlight = new Set();
+  // Serialize incidents of the same category in this process, even when
+  // separate windows overlap. This reduces duplicate issue creation races.
+  // It does not replace cross-instance locking on scaled deployments.
+  const categoryTail = new Map();
   let delivered = 0;
   let failed = 0;
   let rejected = 0;
@@ -93,7 +97,16 @@ export function createSecurityAlertDispatcher({
       error.status = Number.isInteger(status) ? status : null;
       throw error;
     }
-    return response.json();
+    // GitHub HTTP 2xx alone is not reliable evidence of an Issue/comment.
+    // Only a structurally valid API result may increment "delivered".
+    const payload = await response.json();
+    if (method === "POST") {
+      const field = route.endsWith("/comments") ? "id" : "number";
+      if (!payload || !Number.isSafeInteger(payload[field]) || payload[field] <= 0) {
+        throw new Error("GITHUB_DELIVERY_RECEIPT_INVALID");
+      }
+    }
+    return payload;
   }
 
   async function deliver(alert) {
@@ -144,7 +157,10 @@ export function createSecurityAlertDispatcher({
       write({type:"security_alert_delivery",category:alert.category,status:"OVER_CAPACITY"});
       return Promise.resolve({status:"OVER_CAPACITY"});
     }
-    const task = Promise.resolve().then(()=>deliver(alert)).then((action)=>{
+    const previous = categoryTail.get(alert.category);
+    // Await previous job for the *same* category, not other categories.
+    // This preserves separate updates rather than dropping a new window's alert.
+    const task = Promise.resolve(previous).then(()=>deliver(alert)).then((action)=>{
       delivered++;
       write({type:"security_alert_delivery",category:alert.category,status:"ACKNOWLEDGED_BY_GITHUB",action});
       return {status:"ACKNOWLEDGED_BY_GITHUB",action};
@@ -155,7 +171,11 @@ export function createSecurityAlertDispatcher({
       return {status:"FAILED"};
     });
     inFlight.add(task);
-    void task.finally(()=>inFlight.delete(task));
+    categoryTail.set(alert.category, task);
+    void task.finally(()=>{
+      inFlight.delete(task);
+      if (categoryTail.get(alert.category) === task) categoryTail.delete(alert.category);
+    });
     return task;
   }
 
