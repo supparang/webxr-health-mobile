@@ -50,6 +50,7 @@ const store=createDurableSecurityIncidentStore({
   prisma,dispatcher:alerts,siemEnabled:true,log:()=>{},
 });
 let fetches=[];
+let signedBytes=[];
 function acceptReceiver({failure=false,invalid=false}={}){
   return async(url,options)=>{
     assert.equal(url,"https://siem.chandra.ac.th/v1/activa-security-events");
@@ -67,6 +68,7 @@ function acceptReceiver({failure=false,invalid=false}={}){
     assert(!JSON.stringify(event).includes("198.51.100"));
     assert(!("userId" in event) && !("requestId" in event));
     fetches.push(event);
+    signedBytes.push(options.body);
     if(failure)return {ok:false,status:503,text:async()=>"hidden-secret"};
     return {ok:true,status:202,text:async()=>JSON.stringify({
       accepted:true,
@@ -105,6 +107,9 @@ try{
   });
   assert.equal(pending.siemStatus,"PENDING");
   assert.equal(pending.siemDeliveredAt,null);
+  // More requests arrive after the first failed export. Retry still signs
+  // exactly the same deterministic event body for receiver deduplication.
+  await Promise.all(Array.from({length:5},()=>store.recordCategory("ACCESS_DENIED")));
   await prisma.securityIncidentWindow.update({
     where:{id:pending.id},data:{siemNextAttemptAt:new Date(Date.now()-2000)},
   });
@@ -116,6 +121,9 @@ try{
   assert.equal(fetches.filter(x=>x.category==="ACCESS_DENIED").length,2);
   assert.equal(fetches.at(-1).eventId,fetches.at(-2).eventId,
     "Retry must reuse stable eventId for receiver-side deduplication");
+  assert.equal(signedBytes.at(-1),signedBytes.at(-2),
+    "Retry must sign identical JSON even after the live counter increases");
+  assert.equal(fetches.at(-1).minimumCountAtDetection,20);
 
   await Promise.all(Array.from({length:10},()=>store.recordCategory("SERVER_ERROR")));
   const stale=await prisma.securityIncidentWindow.findFirst({
