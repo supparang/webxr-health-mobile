@@ -8,11 +8,12 @@ import crypto from "node:crypto";
 import {deployedSourceCommit} from "./source-revision.js";
 
 const SHA40=/^[a-f0-9]{40}$/;
+const SHA256=/^[a-f0-9]{64}$/;
 const UTC=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/;
 const BASE64=/^[A-Za-z0-9+/]+={0,2}$/;
 const NONCE=/^[a-f0-9]{32,128}$/;
 const MAX_APPROVAL_WINDOW_MS=24*60*60*1000;
-const PREFIX="ACTIVA-AI-PRODUCTION-SECURITY-GO-V1";
+const PREFIX="ACTIVA-AI-PRODUCTION-SECURITY-GO-V2";
 
 function decodeBase64(value,maxBytes) {
   if(typeof value!=="string" || value.length<40 ||
@@ -30,8 +31,17 @@ function publicKey(value) {
     return key.asymmetricKeyType==="ed25519"?key:null;
   }catch{return null;}
 }
-export function signedProductionApprovalMessage(sha,until,nonce) {
-  return PREFIX+"\n"+sha+"\n"+until+"\n"+nonce+"\n";
+export function signedProductionApprovalMessage(sha,stagingCommit,evidenceDigest,until,nonce) {
+  if(!SHA40.test(sha||"")||!SHA40.test(stagingCommit||"")||
+     !SHA256.test(evidenceDigest||"")||
+     typeof until!=="string"||typeof nonce!=="string") {
+    throw Error("S37_SIGNED_ACCEPTANCE_MESSAGE_INVALID");
+  }
+  // Both signers must approve exactly the same deployed SHA, verified
+  // Staging revision and *independently reviewed* evidence-dossier digest.
+  // The application cannot determine whether the dossier itself is genuine.
+  return PREFIX+"\n"+sha+"\n"+stagingCommit+"\n"+
+    evidenceDigest+"\n"+until+"\n"+nonce+"\n";
 }
 export function productionReleaseApproval(env=process.env,now=new Date()) {
   const failed=(reason)=>({approved:false,reason});
@@ -45,6 +55,14 @@ export function productionReleaseApproval(env=process.env,now=new Date()) {
   const expected=String(env.ACTIVA_RELEASE_APPROVED_COMMIT||"").toLowerCase();
   if(!SHA40.test(expected)||expected!==source) {
     return failed("S31_SIGNED_COMMIT_NOT_CURRENT_DEPLOYMENT");
+  }
+  const stagingCommit=String(env.ACTIVA_RELEASE_STAGING_COMMIT||"").toLowerCase();
+  if(!SHA40.test(stagingCommit)||stagingCommit!==source){
+    return failed("S37_SIGNED_STAGING_COMMIT_NOT_CURRENT_DEPLOYMENT");
+  }
+  const evidenceDigest=String(env.ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256||"");
+  if(!SHA256.test(evidenceDigest)){
+    return failed("S37_VERIFIED_STAGING_EVIDENCE_DIGEST_REQUIRED");
   }
   const until=String(env.ACTIVA_RELEASE_APPROVED_UNTIL_UTC||"");
   const nonce=String(env.ACTIVA_RELEASE_APPROVAL_NONCE||"");
@@ -70,7 +88,8 @@ export function productionReleaseApproval(env=process.env,now=new Date()) {
   if(signatureSecurity?.length!==64||signatureOperations?.length!==64){
     return failed("S31_SIGNED_APPROVAL_SIGNATURES_REQUIRED");
   }
-  const message=Buffer.from(signedProductionApprovalMessage(expected,until,nonce),"utf8");
+  const message=Buffer.from(signedProductionApprovalMessage(
+    expected,stagingCommit,evidenceDigest,until,nonce),"utf8");
   try{
     if(!crypto.verify(null,message,security,signatureSecurity) ||
        !crypto.verify(null,message,operations,signatureOperations)) {
@@ -82,6 +101,7 @@ export function productionReleaseApproval(env=process.env,now=new Date()) {
     reason:null,
     // Never return signature, keys, personal identities or other private data.
     releaseCommit:source,
+    evidenceBound:true,
     expiresAtUtc:until,
     dualAuthorityRequired:true,
   };

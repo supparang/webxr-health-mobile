@@ -9,17 +9,21 @@ import {
 import {deploymentConfigurationErrors} from "../server/deployment-config.js";
 
 const SHA="a".repeat(40), ALT="b".repeat(40);
+const EVIDENCE_DIGEST="c".repeat(64);
+const OTHER_EVIDENCE_DIGEST="d".repeat(64);
 const future=new Date(Date.now()+60*60*1000);
 const expiry=future.toISOString().replace(".000Z","Z");
 const nonce="c".repeat(48);
 const security=crypto.generateKeyPairSync("ed25519");
 const operations=crypto.generateKeyPairSync("ed25519");
 function b64pub(key){return key.export({format:"der",type:"spki"}).toString("base64");}
-const message=Buffer.from(signedProductionApprovalMessage(SHA,expiry,nonce),"utf8");
+const message=Buffer.from(signedProductionApprovalMessage(SHA,SHA,EVIDENCE_DIGEST,expiry,nonce),"utf8");
 const template={
   NODE_ENV:"production",ACTIVA_DEPLOYMENT_TIER:"PRODUCTION",
   ACTIVA_PRODUCTION_GO_ENABLED:"true",
   RENDER_GIT_COMMIT:SHA,ACTIVA_RELEASE_APPROVED_COMMIT:SHA,
+  ACTIVA_RELEASE_STAGING_COMMIT:SHA,
+  ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:EVIDENCE_DIGEST,
   ACTIVA_RELEASE_APPROVED_UNTIL_UTC:expiry,
   ACTIVA_RELEASE_APPROVAL_NONCE:nonce,
   ACTIVA_RELEASE_SECURITY_PUBLIC_KEY_B64:b64pub(security.publicKey),
@@ -47,6 +51,9 @@ const ok=productionReleaseApproval(template);
 assert.equal(ok.approved,true);
 assert.equal(ok.releaseCommit,SHA);
 assert.equal(ok.dualAuthorityRequired,true);
+assert.equal(ok.evidenceBound,true);
+assert(!JSON.stringify(ok).includes(EVIDENCE_DIGEST),
+  "Do not expose internal security evidence references in release API");
 assert.equal(ok.expiresAtUtc,expiry);
 assert.equal(deploymentConfigurationErrors(template).length,0,
   "Signed/strict-TLS Release config should be syntactically acceptable");
@@ -70,6 +77,27 @@ rejected({...template,ACTIVA_RELEASE_OPERATIONS_PUBLIC_KEY_B64:template.ACTIVA_R
 rejected({...template,RENDER_GIT_COMMIT:ALT},"S31_SIGNED_COMMIT_NOT_CURRENT_DEPLOYMENT");
 rejected({...template,RENDER_GIT_COMMIT:"unverified"},"S31_DEPLOYED_SOURCE_COMMIT_UNVERIFIED");
 rejected({...template,ACTIVA_RELEASE_APPROVED_COMMIT:ALT});
+rejected({...template,ACTIVA_RELEASE_STAGING_COMMIT:ALT},
+  "S37_SIGNED_STAGING_COMMIT_NOT_CURRENT_DEPLOYMENT");
+rejected({...template,ACTIVA_RELEASE_STAGING_COMMIT:undefined},
+  "S37_SIGNED_STAGING_COMMIT_NOT_CURRENT_DEPLOYMENT");
+rejected({...template,ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:undefined},
+  "S37_VERIFIED_STAGING_EVIDENCE_DIGEST_REQUIRED");
+rejected({...template,ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:"not-a-digest"},
+  "S37_VERIFIED_STAGING_EVIDENCE_DIGEST_REQUIRED");
+rejected({...template,ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:OTHER_EVIDENCE_DIGEST},
+  "S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
+rejected({...template,ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:EVIDENCE_DIGEST.toUpperCase()},
+  "S37_VERIFIED_STAGING_EVIDENCE_DIGEST_REQUIRED");
+assert.throws(()=>signedProductionApprovalMessage(SHA,SHA,"not-a-digest",expiry,nonce),
+  /S37_SIGNED_ACCEPTANCE_MESSAGE_INVALID/);
+const legacyV1=Buffer.from(["ACTIVA-AI-PRODUCTION-SECURITY-GO-V1",SHA,expiry,nonce,""].join(String.fromCharCode(10)),"utf8");
+rejected({...template,
+  ACTIVA_RELEASE_SECURITY_SIGNATURE_B64:
+    crypto.sign(null,legacyV1,security.privateKey).toString("base64"),
+  ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64:
+    crypto.sign(null,legacyV1,operations.privateKey).toString("base64"),
+},"S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
 rejected({...template,ACTIVA_RELEASE_APPROVAL_NONCE:"d".repeat(48)},
   "S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
 rejected({...template,ACTIVA_RELEASE_APPROVED_UNTIL_UTC:new Date(Date.now()-60*1000).toISOString()},
