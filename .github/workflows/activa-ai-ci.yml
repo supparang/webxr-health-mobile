@@ -5,10 +5,11 @@ on:
     paths:
       - "ACTIVA-AI/**"
       - ".github/workflows/activa-ai-ci.yml"
+  # S3.13: Required checks must be present on every PR to branches
+  # covered by main/release rulesets. Path-filtered workflows can leave
+  # required checks pending on unrelated changes and deadlock safe merges.
+  # Pushes remain path-filtered; pull requests always run this job.
   pull_request:
-    paths:
-      - "ACTIVA-AI/**"
-      - ".github/workflows/activa-ai-ci.yml"
   workflow_dispatch:
 
 jobs:
