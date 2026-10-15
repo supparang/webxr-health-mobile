@@ -139,6 +139,7 @@ jobs:
           node --check scripts/github-effective-ruleset.mjs
           node --check scripts/probe-github-governance.mjs
           node --check tests/github-governance-observation.mjs
+          node --check tests/main-ruleset-candidate.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -196,6 +197,9 @@ jobs:
 
       # S3.12: this suite now inspects explicit main ruleset targeting,
       # required human review/CI and reports main protected=false as HOLD.
+      - name: S3.13 non-operative main/release ruleset and required PR CI contract
+        run: node tests/main-ruleset-candidate.mjs
+
       - name: S3.11 mock-only authenticated GitHub read-only governance observation (HOLD)
         run: node tests/github-governance-observation.mjs
 
