@@ -116,6 +116,8 @@ jobs:
           node --check scripts/verify-staging-security.mjs
           node --check tests/staging-security-preflight.mjs
           node --check tests/staging-dispatch-contract.mjs
+          node --check scripts/assess-production-security.mjs
+          node --check tests/security-release-decision.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -173,6 +175,25 @@ jobs:
 
       - name: S2.11 manual-only approved Staging workflow contract
         run: node tests/staging-dispatch-contract.mjs
+
+      - name: S2.12 evidence-only security decision regression
+        run: node tests/security-release-decision.mjs
+
+      - name: S2.12 publish truthful HOLD from current evidence template
+        run: |
+          mkdir -p test-results
+          node scripts/assess-production-security.mjs --input security/s2.12-review-input.template.json > test-results/s2.12-software-security-decision.json
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import {readFileSync} from "node:fs";
+            const r=JSON.parse(readFileSync("test-results/s2.12-software-security-decision.json","utf8"));
+            assert.equal(r.decision,"HOLD");
+            assert.equal(r.productionGoApproved,false);
+            assert.equal(r.mergeApproved,false);
+            assert.equal(r.researchEthicsApproved,false);
+            assert(r.blockers.length>=13);
+            console.log("S2.12 verified evidence result: HOLD / Production GO false");
+          '
 
       - name: Authentication readiness guard
         run: |
