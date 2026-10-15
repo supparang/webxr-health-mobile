@@ -4,6 +4,7 @@
 // The receiver MUST independently verify signature, persist durably and
 // idempotently acknowledge the exact eventId before returning 200/202.
 import crypto from "node:crypto";
+import {verifySiemReceipt} from "./siem-receipt-security.js";
 
 const CATEGORIES=new Set(["AUTH_DENIED","ACCESS_DENIED","RATE_LIMITED","SERVER_ERROR"]);
 const MODES=new Set(["DISABLED","HTTPS_WEBHOOK"]);
@@ -134,17 +135,9 @@ export function createSiemIncidentExporter({
     if(!response||!response.ok||![200,202].includes(response.status)){
       throw Error("S34_SIEM_DELIVERY_FAILED");
     }
-    // Strict size and structured receipt: HTTP 2xx alone is NOT proof
-    // of durable SIEM ingestion. Even a receipt is NOT a human ACK.
-    const bodyText=await response.text();
-    if(bodyText.length>4096)throw Error("S34_SIEM_RECEIPT_TOO_LARGE");
-    let ack;
-    try{ack=JSON.parse(bodyText);}catch{throw Error("S34_SIEM_RECEIPT_INVALID");}
-    if(!ack||ack.accepted!==true||ack.eventId!==event.eventId||
-      !ENVELOPE_ID.test(ack.eventId)||!RECEIPT.test(ack.receiptId)){
-      throw Error("S34_SIEM_RECEIPT_INVALID");
-    }
-    return ack.receiptId;
+    // S3.5 authenticated ACK: no unbounded text() buffering, no unsigned
+    // receipt or attacker-controlled JSON can mark a record DELIVERED.
+    return verifySiemReceipt(response,{eventId:event.eventId,secret});
   }
   async function processOne(){
     const item=await claim();
