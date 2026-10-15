@@ -2,6 +2,7 @@
 import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
 import { securityAlertDeliveryErrors } from "./security-alert-delivery.js";
 import { productionReleaseApproval } from "./production-release-approval.js";
+import {distributedRateLimitConfigErrors} from "./distributed-rate-limit.js";
 export function productionGoEnabled(env = process.env) {
   return env.ACTIVA_PRODUCTION_GO_ENABLED === "true";
 }
@@ -83,6 +84,7 @@ export function deploymentConfigurationErrors(env = process.env) {
     const key = "ACTIVA_RATE_LIMIT_" + name;
     if (!validIntegerRange(env[key], 1, 100000)) errors.push(key + "_INVALID");
   }
+  errors.push(...distributedRateLimitConfigErrors(env));
   errors.push(...securityAlertDeliveryErrors(env));
   // A GO switch alone is not authority. If anyone toggles it on a
   // Production deployment without distinct independently held signing keys,
