@@ -35,7 +35,7 @@ const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
 const allowedOrigins = configuredOrigins();
-const rateLimiters = createActivaRateLimiters();
+const rateLimiters = createActivaRateLimiters(process.env,Date.now,{prisma});
 const securityAlertDispatcher = createSecurityAlertDispatcher();
 const securityMonitor = createSecurityMonitor({
   write:(event)=>{
@@ -49,6 +49,9 @@ const securityMonitor = createSecurityMonitor({
 });
 
 app.disable("x-powered-by");
+// Never trust user-provided X-Forwarded-* headers by default.
+// A documented, audited edge topology must be established separately.
+app.set("trust proxy",false);
 app.use((req, res, next) => {
   const incoming = String(req.get("x-request-id") || "").trim();
   const requestId = /^[A-Za-z0-9._:-]{8,128}$/.test(incoming) ? incoming : crypto.randomUUID();
