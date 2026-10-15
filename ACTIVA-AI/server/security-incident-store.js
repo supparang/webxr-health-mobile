@@ -209,11 +209,21 @@ export function createDurableSecurityIncidentStore({
       !/^(AUTH_DENIED|ACCESS_DENIED|RATE_LIMITED|SERVER_ERROR):\d{1,16}$/.test(id) ||
       typeof actorId!=="string" || !/^[A-Za-z0-9_-]{4,80}$/.test(actorId))
       return false;
-    const result=await prisma.securityIncidentWindow.updateMany({
-      where:{id,status:"DELIVERED",acknowledgedAt:null},
-      data:{acknowledgedAt:new Date(),acknowledgedBy:actorId},
+    // Acknowledgment and the actor's permanent AuditLog commit atomically.
+    // No acknowledgment is recorded if the audit insert fails.
+    return prisma.$transaction(async(tx)=>{
+      const result=await tx.securityIncidentWindow.updateMany({
+        where:{id,status:"DELIVERED",acknowledgedAt:null},
+        data:{acknowledgedAt:new Date(),acknowledgedBy:actorId},
+      });
+      if(result.count!==1)return false;
+      await tx.auditLog.create({data:{
+        actorId,action:"SECURITY_INCIDENT_ACKNOWLEDGED",
+        entityType:"SecurityIncidentWindow",entityId:id,
+        metadata:{method:"MANUAL_ADMIN_ACKNOWLEDGMENT"},
+      }});
+      return true;
     });
-    return result.count===1;
   }
   async function cleanup(){
     // Never silently delete PENDING/LEASED incidents, including failed alerts.
