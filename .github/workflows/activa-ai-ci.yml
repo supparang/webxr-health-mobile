@@ -135,6 +135,7 @@ jobs:
           node --check tests/staging-readiness-inventory.mjs
           node --check scripts/assess-release-governance.mjs
           node --check tests/release-governance-inventory.mjs
+          node --check scripts/github-effective-ruleset.mjs
           node --check scripts/probe-github-governance.mjs
           node --check tests/github-governance-observation.mjs
           node --check server/rate-limit.js
@@ -192,6 +193,8 @@ jobs:
             console.log("S3.10 institution-owned GitHub rulesets / attestation / Staging verification NOT ESTABLISHED: HOLD");
           '
 
+      # S3.12: this suite now inspects explicit main ruleset targeting,
+      # required human review/CI and reports main protected=false as HOLD.
       - name: S3.11 mock-only authenticated GitHub read-only governance observation (HOLD)
         run: node tests/github-governance-observation.mjs
 
