@@ -72,7 +72,11 @@ export function createPostgresWindowStore({
         ON CONFLICT ("id") DO UPDATE SET
           "count" = CASE
             WHEN "SecurityRateLimitBucket"."windowId" = EXCLUDED."windowId"
-            THEN LEAST("SecurityRateLimitBucket"."count" + 1, 2147483647)
+            THEN CASE
+              WHEN "SecurityRateLimitBucket"."count" >= 2147483646
+              THEN 2147483647
+              ELSE "SecurityRateLimitBucket"."count" + 1
+            END
             ELSE 1
           END,
           "windowId" = EXCLUDED."windowId",
