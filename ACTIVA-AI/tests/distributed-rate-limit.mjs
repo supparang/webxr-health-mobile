@@ -8,6 +8,7 @@ import {
 } from "../server/distributed-rate-limit.js";
 import {createActivaRateLimiters} from "../server/rate-limit.js";
 import {deploymentConfigurationErrors} from "../server/deployment-config.js";
+import {readFile} from "node:fs/promises";
 const env=process.env;
 if(env.CI!=="true" || env.ALLOW_SYNTHETIC_CI!=="true" ||
    env.ACTIVA_TEST_DATABASE_ONLY!=="true" ||
@@ -16,6 +17,11 @@ if(env.CI!=="true" || env.ALLOW_SYNTHETIC_CI!=="true" ||
   throw Error("S32_DISPOSABLE_LOCAL_POSTGRES_REQUIRED");
 }
 const hmac="LOCAL_CI_ONLY_SHARED_RATE_LIMIT_HMAC_"+ "A".repeat(40);
+const sqlSource=await readFile(new URL("../server/distributed-rate-limit.js",import.meta.url),"utf8");
+assert(sqlSource.includes('GREATEST("SecurityRateLimitBucket"."windowId", EXCLUDED."windowId")'));
+assert(sqlSource.includes('GREATEST("SecurityRateLimitBucket"."expiresAt", EXCLUDED."expiresAt")'));
+assert(sqlSource.includes('WHEN "SecurityRateLimitBucket"."windowId" < EXCLUDED."windowId"'),
+  "Older requests must not rewind the newest persisted quota window");
 const options={
   NODE_ENV:"test",ACTIVA_RATE_LIMIT_ENABLED:"true",
   ACTIVA_RATE_LIMIT_STORE:"POSTGRES",
