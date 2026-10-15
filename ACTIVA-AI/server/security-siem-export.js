@@ -66,7 +66,9 @@ function safeEnvelope(item){
   return {
     schema:"ACTIVA_AI_SIEM_INCIDENT_V1",eventId,
     type:"security_incident",severity:"HIGH",
-    category:item.category,count:item.count,threshold:item.threshold,
+    category:item.category,threshold:item.threshold,
+    // Always stable across retries: live aggregated count may increase.
+    minimumCountAtDetection:item.threshold,
     firstSeenUtc:item.firstSeenAt.toISOString(),
     source:"ACTIVA_AI_APPLICATION",
   };
