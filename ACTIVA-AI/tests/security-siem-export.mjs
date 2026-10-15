@@ -7,6 +7,8 @@ import {createDurableSecurityIncidentStore} from "../server/security-incident-st
 import {createSiemIncidentExporter,siemExportConfigErrors}
   from "../server/security-siem-export.js";
 import {deploymentConfigurationErrors} from "../server/deployment-config.js";
+import {computeSiemAckSignature,SIEM_ACK_MAC_HEADER}
+  from "../server/siem-receipt-security.js";
 
 const env=process.env;
 if(env.CI!=="true"||env.ALLOW_SYNTHETIC_CI!=="true"||
@@ -70,11 +72,14 @@ function acceptReceiver({failure=false,invalid=false}={}){
     fetches.push(event);
     signedBytes.push(options.body);
     if(failure)return {ok:false,status:503,text:async()=>"hidden-secret"};
-    return {ok:true,status:202,text:async()=>JSON.stringify({
+    const ackBytes=Buffer.from(JSON.stringify({
       accepted:true,
       eventId:invalid?"ACTIVA-S34-"+"f".repeat(32):event.eventId,
       receiptId:"S34RECEIPT_000001",
-    })};
+    }),"utf8");
+    return new Response(ackBytes,{status:202,headers:{
+      [SIEM_ACK_MAC_HEADER]:computeSiemAckSignature(ackBytes,secret),
+    }});
   };
 }
 try{
