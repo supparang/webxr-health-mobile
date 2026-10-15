@@ -1,4 +1,5 @@
 import { prisma } from "../server/db.js";
+import { readFile } from "node:fs/promises";
 // CI-only simulated research-class fixture; never publication evidence.
 // This test MUTATES database fixtures and must never target Neon Production.
 if(process.env.CI!=="true" || process.env.ACTIVA_TEST_DATABASE_ONLY!=="true" ||
@@ -61,6 +62,34 @@ for (const path of ["/server/auth.js", "/prisma/schema.prisma", "/package.json",
   assert(response.status === 404, "Backend file must not be public: " + path);
 }
 assert((await fetch(base + "/runtime-config.js")).status === 200, "Public runtime config must be available");
+for (const htmlPath of ["/","/index.html","/Login.html","/guest.html","/blind-review.html","/guest","/blind-review"]) {
+  const response=await fetch(base+htmlPath);
+  assert(response.status===200,"Frontend route unavailable: "+htmlPath);
+  const csp=response.headers.get("content-security-policy")||"";
+  assert(csp.includes("object-src 'none'"),"HTML CSP missing object-src: "+htmlPath);
+  assert(csp.includes("script-src-attr 'none'"),"HTML CSP permits inline handlers: "+htmlPath);
+  assert(csp.includes("frame-ancestors 'none'"),"HTML response missing anti-framing: "+htmlPath);
+  assert(csp.includes("https://accounts.google.com/gsi/client"),"Google login CSP allowance missing: "+htmlPath);
+  assert(!csp.includes("script-src 'unsafe-inline'"),"unsafe-inline script CSP: "+htmlPath);
+  assert(response.headers.get("cache-control")==="no-store","HTML response cache not disabled: "+htmlPath);
+}
+const redirectAsset=await fetch(base+"/login-redirect.js");
+assert(redirectAsset.status===200,"Login redirect script absent from server asset allowlist");
+assert((await redirectAsset.text()).includes("window.location.replace"),"Login redirect script unexpectedly missing code");
+
+// S2.8: ensure the ACTUAL served HTML (including runtime Docker image) retains
+// reviewed QR script URLs, pinned SHA-384 and anonymous cross-origin attributes.
+const manifest = JSON.parse(await readFile(
+  new URL("./browser-asset-integrity.json",import.meta.url),"utf8"
+));
+const servedHtml = await (await fetch(base+"/index.html")).text();
+for (const asset of manifest.assets) {
+  const required = '<script src="'+asset.url+'" integrity="'+asset.sha384+
+    '" crossorigin="anonymous" defer></script>';
+  assert(servedHtml.includes(required),"Served frontend missing verified QR SRI: "+asset.id);
+}
+
+
 
 const allowedOriginHealth = await fetch(base + "/api/health", {
   headers: { Origin: "https://pilot.example.test", Accept: "application/json" },
@@ -80,6 +109,24 @@ assert(blockedOriginBody.error === "CORS_ORIGIN_NOT_ALLOWED", "blocked origin er
 
 const me = await req("/api/me", { actor: "ADM001" });
 assert(me.user?.employeeId === "ADM001", "admin identity check failed");
+
+// S2.3: process-local security summary must be accessible only by ADMIN;
+// rejected calls are counted, but no account/IP/guest token is exposed.
+const securitySummary = await req("/api/operations/security-summary", {actor:"ADM001"});
+assert(securitySummary.monitor?.source==="PROCESS_MEMORY", "security summary missing");
+assert(securitySummary.monitor?.persistent===false, "summary must be described as volatile");
+assert(securitySummary.delivery?.mode==="DISABLED", "CI alert delivery must default OFF");
+assert(securitySummary.delivery?.configured===false, "No outbound alert delivery is configured in CI");
+assert(!JSON.stringify(securitySummary.delivery).includes("token"), "Do not expose GitHub token in response");
+assert(typeof securitySummary.monitor?.categories?.AUTH_DENIED==="number", "auth denial metric missing");
+assert(!JSON.stringify(securitySummary).includes("actorId"), "summary must contain no actor IDs");
+const summaryDenied = await reqError("/api/operations/security-summary", {actor:"P001"});
+assert(summaryDenied.status===403, "non-admin must be denied security summary");
+const missingAuth = await reqError("/api/me");
+assert(missingAuth.status===401, "unauthenticated request must be rejected");
+const securitySummaryAfter = await req("/api/operations/security-summary", {actor:"ADM001"});
+assert(securitySummaryAfter.monitor.categories.AUTH_DENIED>=1, "denied authentication was not counted");
+assert(securitySummaryAfter.monitor.categories.ACCESS_DENIED>=1, "role-based denial was not counted");
 
 const users = await req("/api/users", { actor: "ADM001" });
 const p1 = users.users.find((u) => u.employeeId === "P001");
@@ -557,7 +604,7 @@ const assistCheckin=await req("/api/attendance/checkin",{
   actor:"P002",method:"POST",body:{userId:"P002",token:assistCheckinQr.token}
 });
 await req("/api/activities/"+encodeURIComponent(assistActivity.activity.id)+"/assignments",{
-  actor:"ORG001",method:"PUT",body:{coOrganizerIds:["P002"],changeReason:"CI assign operational co-organizer"}
+  actor:"ORG001",method:"PUT",body:{coOrganizerIds:["P002"],verifierIds:["STF001"],changeReason:"CI assign co-organizer and authorized verifier"}
 });
 const assisted=await req("/api/attendance/"+encodeURIComponent(assistCheckin.attendance.id)+"/checkout-assist",{
   actor:"P002",method:"POST",body:{reason:"CI official duty early checkout exception"}

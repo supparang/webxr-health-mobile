@@ -1,0 +1,117 @@
+name: ACTIVA-AI S2.11 Approved Staging Read-Only Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: "40-character commit SHA confirmed deployed on an approved, separate Staging service"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: activa-s211-staging-acceptance
+  cancel-in-progress: false
+
+jobs:
+  read-only-staging-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    # Configure required reviewers and deployment restrictions on this
+    # Environment BEFORE permitting any real Staging dispatch.
+    environment: ACTIVA-Staging-ReadOnly
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+        shell: bash
+    env:
+      # Repository/environment variables are maintained by an authorized
+      # operator, never supplied as arbitrary URL workflow inputs.
+      ACTIVA_S211_APPROVAL_ENABLED: ${{ vars.ACTIVA_S211_APPROVAL_ENABLED }}
+      ACTIVA_S210_STAGING_URL: ${{ vars.ACTIVA_S211_APPROVED_STAGING_ORIGIN }}
+      ACTIVA_S210_APPROVED_ORIGIN: ${{ vars.ACTIVA_S211_APPROVED_STAGING_ORIGIN }}
+      ACTIVA_S210_FRONTEND_ORIGIN: ${{ vars.ACTIVA_S211_APPROVED_FRONTEND_ORIGIN }}
+      ACTIVA_S210_EXPECTED_COMMIT: ${{ inputs.expected_source_commit }}
+      ACTIVA_S210_READ_ONLY_CONFIRM: "true"
+
+    steps:
+      - name: Read-only Staging activation gate (no network)
+        run: |
+          set -euo pipefail
+          if [[ "${ACTIVA_S211_APPROVAL_ENABLED}" != "true" ]]; then
+            echo "S211_HOLD: authorized operator has not enabled Staging read-only checks"
+            exit 1
+          fi
+          if [[ -z "${ACTIVA_S210_STAGING_URL}" || -z "${ACTIVA_S210_FRONTEND_ORIGIN}" ]]; then
+            echo "S211_HOLD: approved Staging/frontend origin variables not configured"
+            exit 1
+          fi
+          if [[ ! "${ACTIVA_S210_EXPECTED_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "S211_HOLD: deployed source commit must be a full 40-character SHA"
+            exit 1
+          fi
+          # This job deliberately does not infer a URL from Production.
+          echo "S211_GATE_PASS: approved Staging variable presence and SHA format"
+
+      - name: Checkout audited default-branch verifier
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Staging checker installed (no network)
+        run: |
+          set -euo pipefail
+          test -f scripts/verify-staging-security.mjs
+          test -f scripts/verify-staging.mjs
+          test -f tests/browser-asset-integrity.json
+          node --check scripts/verify-staging-security.mjs
+
+      - name: Run S2.10 approved Staging security preflight (GET/OPTIONS only)
+        id: preflight
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          # The checker returns safe check IDs and PASS/FAIL, not remote body,
+          # authenticated token, response URL, user ID or personnel data.
+          node scripts/verify-staging-security.mjs > test-results/s2-11-staging-acceptance.json
+
+      - name: Summarize non-sensitive result metadata
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "## ACTIVA-AI S2.11 Read-Only Staging Acceptance" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ -s test-results/s2-11-staging-acceptance.json ]]; then
+            node --input-type=module <<'NODE' >> "${GITHUB_STEP_SUMMARY}"
+          import {readFileSync} from "node:fs";
+          let report;
+          try { report=JSON.parse(readFileSync("test-results/s2-11-staging-acceptance.json","utf8")); }
+          catch { report=null; }
+          const checks=Array.isArray(report?.checks)?report.checks:[];
+          const passed=checks.filter(c=>c.passed===true).length;
+          console.log("- Automated checks PASS: "+passed+"/"+checks.length);
+          console.log("- Automated security acceptance: "+(report?.automatedChecksPassed===true?"PASS":"HOLD"));
+          console.log("- Manual Google OAuth/physical camera: NOT TESTED");
+          console.log("- Production security GO: HOLD");
+          console.log("- Research ethics Phase 4: HOLD");
+          NODE
+          else
+            echo "- Staging check not completed; Production GO: HOLD" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Archive sanitized Staging checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: activa-s2-11-staging-acceptance
+          path: ACTIVA-AI/test-results/s2-11-staging-acceptance.json
+          if-no-files-found: warn
+          retention-days: 14

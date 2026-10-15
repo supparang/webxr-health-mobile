@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "reviewType": "ACTIVA_AI_CONSOLIDATED_SOFTWARE_SECURITY_REVIEW",
+  "sourceBranch": "codex/activa-s2-12-security-go-no-go-20261015",
+  "baseline": {
+    "branch": "main",
+    "baseSha": "c89adc1712dd02650b2ad41dc4bbdd7f3b6c0100",
+    "snapshotDateUtc": "2026-10-15",
+    "aheadBy": 79,
+    "behindBy": 0,
+    "changedFiles": 44
+  },
+  "prerequisiteDraftPRs": [
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147
+  ],
+  "stages": [
+    {
+      "name": "S2.1",
+      "prs": [
+        136,
+        140
+      ],
+      "areas": [
+        "attendance object scope",
+        "personal QR and evidence role access",
+        "personnel minimal directory"
+      ]
+    },
+    {
+      "name": "S2.2",
+      "prs": [
+        137,
+        140
+      ],
+      "areas": [
+        "API IP/account rate limiting and Production validation"
+      ]
+    },
+    {
+      "name": "S2.3",
+      "prs": [
+        138
+      ],
+      "areas": [
+        "redacted provider security events",
+        "ADMIN-only summary"
+      ]
+    },
+    {
+      "name": "S2.4",
+      "prs": [
+        139
+      ],
+      "areas": [
+        "opt-in GitHub alert issues",
+        "nonblocking bounded notification"
+      ]
+    },
+    {
+      "name": "S2.5",
+      "prs": [
+        140
+      ],
+      "areas": [
+        "combined authorization/throttle/alert regression"
+      ]
+    },
+    {
+      "name": "S2.6",
+      "prs": [
+        141
+      ],
+      "areas": [
+        "frontend CSP and CSP headers",
+        "non-inline Login redirect"
+      ]
+    },
+    {
+      "name": "S2.7",
+      "prs": [
+        142
+      ],
+      "areas": [
+        "HTML text/attribute XSS escaping",
+        "dependency lock integrity"
+      ]
+    },
+    {
+      "name": "S2.8",
+      "prs": [
+        143
+      ],
+      "areas": [
+        "verified SHA-384 third-party QR script SRI"
+      ]
+    },
+    {
+      "name": "S2.9",
+      "prs": [
+        144
+      ],
+      "areas": [
+        "headless Chrome CSP/SRI/tamper/Guest/Reviewer browser smoke"
+      ]
+    },
+    {
+      "name": "S2.10",
+      "prs": [
+        145
+      ],
+      "areas": [
+        "read-only Staging preflight with origin/deployed SHA gates"
+      ]
+    },
+    {
+      "name": "S2.11",
+      "prs": [
+        146
+      ],
+      "areas": [
+        "manual GitHub Environment-gated Staging acceptance"
+      ]
+    },
+    {
+      "name": "S2.12",
+      "prs": [
+        147
+      ],
+      "areas": [
+        "offline fail-closed Go/No-Go evidence gate"
+      ]
+    }
+  ],
+  "automatedEvidence": {
+    "source": "GitHub Actions",
+    "lastPredecessorRunId": "38677335519",
+    "lastPredecessorSha": "35fd629bdb2c6a97bd767b965810f1dbaa320554",
+    "tests": "SYNTHETIC_AND_LOCAL_CHROMIUM"
+  },
+  "manualAcceptance": {
+    "approvedIsolatedStaging": "NOT_VERIFIED",
+    "realGoogleOidc": "NOT_TESTED",
+    "physicalCamera": "NOT_TESTED",
+    "realAlertDelivery": "NOT_TESTED",
+    "independentPenTest": "NOT_TESTED",
+    "securityOwnerApproval": "NOT_APPROVED",
+    "operationsOwnerApproval": "NOT_APPROVED"
+  },
+  "releaseDecision": "HOLD",
+  "productionGoApproved": false,
+  "mergeApproved": false,
+  "deploymentApproved": false,
+  "researchEthicsApproved": false,
+  "note": "Diff/sha snapshot is historical metadata, not CI proof that main remains unchanged. Re-compare at review and merge time."
+}
