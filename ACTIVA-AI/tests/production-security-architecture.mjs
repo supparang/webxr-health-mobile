@@ -16,6 +16,10 @@ const expiry=future.toISOString().replace(".000Z","Z");
 const nonce="c".repeat(48);
 const security=crypto.generateKeyPairSync("ed25519");
 const operations=crypto.generateKeyPairSync("ed25519");
+const digest=key=>crypto.createHash("sha256").update(key.export({format:"der",type:"spki"})).digest("hex");
+// Synthetic signers are trusted ONLY by the explicit test function argument.
+// Production stays fail-closed until institutionally enrolled source pins exist.
+const TEST_TRUSTED_PINS={security:digest(security.publicKey),operations:digest(operations.publicKey)};
 function b64pub(key){return key.export({format:"der",type:"spki"}).toString("base64");}
 const message=Buffer.from(signedProductionApprovalMessage(SHA,SHA,EVIDENCE_DIGEST,expiry,nonce),"utf8");
 const template={
@@ -47,7 +51,7 @@ const template={
   ACTIVA_RATE_LIMIT_STORE:"POSTGRES",
   ACTIVA_RATE_LIMIT_HMAC_SECRET:"S3_1_SYNTHETIC_NON_PRODUCTION_ONLY_abcdef0123456789",
 };
-const ok=productionReleaseApproval(template);
+const ok=productionReleaseApproval(template,new Date(),TEST_TRUSTED_PINS);
 assert.equal(ok.approved,true);
 assert.equal(ok.releaseCommit,SHA);
 assert.equal(ok.dualAuthorityRequired,true);
@@ -55,14 +59,21 @@ assert.equal(ok.evidenceBound,true);
 assert(!JSON.stringify(ok).includes(EVIDENCE_DIGEST),
   "Do not expose internal security evidence references in release API");
 assert.equal(ok.expiresAtUtc,expiry);
-assert.equal(deploymentConfigurationErrors(template).length,0,
-  "Signed/strict-TLS Release config should be syntactically acceptable");
+assert(deploymentConfigurationErrors(template).includes("PRODUCTION_INDEPENDENT_SECURITY_SIGNOFF_REQUIRED"),
+  "Valid signatures with no institutionally source-pinned signers MUST block real Production GO");
+assert.equal(productionReleaseApproval(template).reason,"S38_TRUSTED_SIGNING_IDENTITIES_NOT_ENROLLED");
+assert.equal(productionReleaseApproval(template,new Date(),{
+  security:TEST_TRUSTED_PINS.security,operations:TEST_TRUSTED_PINS.security,
+}).reason,"S38_TRUSTED_SIGNING_IDENTITIES_NOT_ENROLLED");
+assert.equal(productionReleaseApproval(template,new Date(),{
+  security:"not-a-pin",operations:TEST_TRUSTED_PINS.operations,
+}).reason,"S38_TRUSTED_SIGNING_IDENTITIES_NOT_ENROLLED");
 assert(!JSON.stringify(ok).includes(template.ACTIVA_RELEASE_SECURITY_SIGNATURE_B64));
 assert(!JSON.stringify(ok).includes(template.ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64));
 assert(!JSON.stringify(ok).includes(template.ACTIVA_RELEASE_SECURITY_PUBLIC_KEY_B64));
 
 function rejected(input,expected){
-  const actual=productionReleaseApproval(input);
+  const actual=productionReleaseApproval(input,new Date(),TEST_TRUSTED_PINS);
   assert.equal(actual.approved,false,"Unsafe release environment accepted");
   if(expected)assert.equal(actual.reason,expected);
   assert.equal(JSON.stringify(actual).includes(template.ACTIVA_RELEASE_SECURITY_SIGNATURE_B64),false);
@@ -98,6 +109,22 @@ rejected({...template,
   ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64:
     crypto.sign(null,legacyV1,operations.privateKey).toString("base64"),
 },"S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
+// The deployment administrator can forge TWO valid signatures with replacement
+// public keys in environment variables. They must not become trusted signers.
+const impostorSecurity=crypto.generateKeyPairSync("ed25519");
+const impostorOperations=crypto.generateKeyPairSync("ed25519");
+rejected({...template,
+  ACTIVA_RELEASE_SECURITY_PUBLIC_KEY_B64:b64pub(impostorSecurity.publicKey),
+  ACTIVA_RELEASE_OPERATIONS_PUBLIC_KEY_B64:b64pub(impostorOperations.publicKey),
+  ACTIVA_RELEASE_SECURITY_SIGNATURE_B64:crypto.sign(null,message,impostorSecurity.privateKey).toString("base64"),
+  ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64:crypto.sign(null,message,impostorOperations.privateKey).toString("base64"),
+},"S38_SIGNING_IDENTITY_NOT_TRUSTED");
+rejected({...template,
+  ACTIVA_RELEASE_SECURITY_PUBLIC_KEY_B64:template.ACTIVA_RELEASE_OPERATIONS_PUBLIC_KEY_B64,
+  ACTIVA_RELEASE_OPERATIONS_PUBLIC_KEY_B64:template.ACTIVA_RELEASE_SECURITY_PUBLIC_KEY_B64,
+  ACTIVA_RELEASE_SECURITY_SIGNATURE_B64:template.ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64,
+  ACTIVA_RELEASE_OPERATIONS_SIGNATURE_B64:template.ACTIVA_RELEASE_SECURITY_SIGNATURE_B64,
+},"S38_SIGNING_IDENTITY_NOT_TRUSTED");
 rejected({...template,ACTIVA_RELEASE_APPROVAL_NONCE:"d".repeat(48)},
   "S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
 rejected({...template,ACTIVA_RELEASE_APPROVED_UNTIL_UTC:new Date(Date.now()-60*1000).toISOString()},
