@@ -91,10 +91,7 @@ rejected({...template,ACTIVA_RELEASE_STAGING_EVIDENCE_SHA256:EVIDENCE_DIGEST.toU
   "S37_VERIFIED_STAGING_EVIDENCE_DIGEST_REQUIRED");
 assert.throws(()=>signedProductionApprovalMessage(SHA,SHA,"not-a-digest",expiry,nonce),
   /S37_SIGNED_ACCEPTANCE_MESSAGE_INVALID/);
-const legacyV1=Buffer.from(
-  "ACTIVA-AI-PRODUCTION-SECURITY-GO-V1\\n"+SHA+"\\n"+expiry+"\\n"+nonce+"\\n",
-  "utf8"
-);
+const legacyV1=Buffer.from(["ACTIVA-AI-PRODUCTION-SECURITY-GO-V1",SHA,expiry,nonce,""].join(String.fromCharCode(10)),"utf8");
 rejected({...template,
   ACTIVA_RELEASE_SECURITY_SIGNATURE_B64:
     crypto.sign(null,legacyV1,security.privateKey).toString("base64"),
