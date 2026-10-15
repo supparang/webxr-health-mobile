@@ -107,6 +107,29 @@ lacks(x=>x.repository.value.full_name="attacker/fake",
 lacks(x=>x.protection={status:403,value:null},
   "S311_LEGACY_BRANCH_PROTECTION_READABLE");
 
+// Regression for a currently observed unsafe policy SHAPE (no live API in CI):
+// main reports unprotected, branch-protection API is access-denied,
+// visible active ruleset has no included branches/review/CI rules.
+const weakObserved=structuredClone(response);
+weakObserved.branch.value.protected=false;
+weakObserved.protection={status:403,value:null};
+weakObserved.rulesetDetails[0].value.conditions.ref_name.include=[];
+weakObserved.rulesetDetails[0].value.rules=[
+  {type:"deletion"},{type:"non_fast_forward"},
+  {type:"copilot_code_review",parameters:{review_on_push:true}},
+];
+weakObserved.codeowners={status:404};
+const realShape=evaluateObservedGitHubGovernance(weakObserved);
+assert.equal(realShape.decision,"HOLD");
+assert.equal(realShape.productionGoApproved,false);
+assert.equal(realShape.collectionState,"GITHUB_GOVERNANCE_UNVERIFIED_OR_INCOMPLETE");
+for(const reason of ["S312_MAIN_REPORTED_PROTECTED",
+  "S312_RULESET_EXPLICIT_MAIN_TARGET","S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS",
+  "S311_CODEOWNERS_PRESENT"]){
+  assert(realShape.observedChecks.some(x=>x.code===reason&&x.observed===false),
+    "Observed weak GitHub policy shape must not be accepted: "+reason);
+}
+
 const token="S311-TEST-DUMMY-NEVER-USE-LIVE-TOKEN";
 const disabled=await probeGitHubGovernance({confirmed:false,token,
   fetchImpl:()=>{throw Error("Should never fetch without confirmation");}});
