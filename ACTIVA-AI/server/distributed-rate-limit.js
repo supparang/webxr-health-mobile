@@ -72,16 +72,16 @@ export function createPostgresWindowStore({
         WHERE true
         ON CONFLICT ("id") DO UPDATE SET
           "count" = CASE
-            WHEN "SecurityRateLimitBucket"."windowId" = EXCLUDED."windowId"
-            THEN CASE
-              WHEN "SecurityRateLimitBucket"."count" >= 2147483646
+            WHEN "SecurityRateLimitBucket"."windowId" < EXCLUDED."windowId"
+              THEN 1
+            WHEN "SecurityRateLimitBucket"."count" >= 2147483646
               THEN 2147483647
-              ELSE "SecurityRateLimitBucket"."count" + 1
-            END
-            ELSE 1
+            ELSE "SecurityRateLimitBucket"."count" + 1
           END,
-          "windowId" = EXCLUDED."windowId",
-          "expiresAt" = EXCLUDED."expiresAt"
+          -- A delayed request from the previous minute must never rewind a
+          -- newly opened window and accidentally reset a global quota.
+          "windowId" = GREATEST("SecurityRateLimitBucket"."windowId", EXCLUDED."windowId"),
+          "expiresAt" = GREATEST("SecurityRateLimitBucket"."expiresAt", EXCLUDED."expiresAt")
         RETURNING "count","expiresAt"
       `;
       if(!Array.isArray(rows)||rows.length!==1 ||
