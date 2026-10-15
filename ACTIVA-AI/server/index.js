@@ -8,6 +8,7 @@ import { setFrontendHtmlSecurityHeaders } from "./frontend-security.js";
 import { createActivaRateLimiters } from "./rate-limit.js";
 import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
 import { createSecurityAlertDispatcher } from "./security-alert-delivery.js";
+import { createDurableSecurityIncidentStore,incidentPersistenceEnabled } from "./security-incident-store.js";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
@@ -37,12 +38,31 @@ const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 const allowedOrigins = configuredOrigins();
 const rateLimiters = createActivaRateLimiters(process.env,Date.now,{prisma});
 const securityAlertDispatcher = createSecurityAlertDispatcher();
+const durableSecurityStore=incidentPersistenceEnabled() ?
+  createDurableSecurityIncidentStore({
+    prisma,dispatcher:securityAlertDispatcher,
+    log:event=>console.error(JSON.stringify(event)),
+  }) : null;
+let lastDurableError=0;
+function incidentStorageError(){
+  const now=Date.now();
+  if(now-lastDurableError>=60000||lastDurableError===0){
+    lastDurableError=now;
+    console.error(JSON.stringify({type:"security_incident_store_warning",
+      code:"S33_PERSISTENCE_FAILED"}));
+  }
+}
 const securityMonitor = createSecurityMonitor({
+  onCategory:durableSecurityStore ? category=>
+    durableSecurityStore.recordCategory(category).catch(incidentStorageError) : null,
   write:(event)=>{
     console.warn(JSON.stringify(event));
-    if (event.type==="security_alert") {
-      // Async delivery must never hold the request response, and any failure
-      // is safely reported by dispatcher without exposing credentials.
+    if(durableSecurityStore && event.type==="security_event") {
+      void durableSecurityStore.recordSample(event).catch(incidentStorageError);
+    }
+    if (!durableSecurityStore && event.type==="security_alert") {
+      // Legacy local-only optional delivery stays available for isolated tests.
+      // The durable mode sends from a database-leased worker instead.
       void securityAlertDispatcher.enqueue(event);
     }
   },
@@ -969,10 +989,42 @@ app.use("/api", attachActor);
 app.use("/api", rateLimiters.authenticated, rateLimiters.authenticatedWrite);
 // Process-local aggregate only: counts and thresholds, no user/IP/token IDs.
 // The permanent operational record remains in the existing database AuditLog.
-app.get("/api/operations/security-summary", requireRoles("ADMIN"), (_req, res) => {
+app.get("/api/operations/security-summary", requireRoles("ADMIN"), async (_req, res, next) => {
   res.set("Cache-Control", "no-store");
-  res.json({ok:true,monitor:securityMonitor.snapshot(),delivery:securityAlertDispatcher.snapshot()});
+  try {
+    const persistentIncidents=durableSecurityStore ? await durableSecurityStore.summary() : {
+      persistent:false,backend:"DISABLED",deliveryIsHumanAcknowledgment:false,
+    };
+    res.json({ok:true,monitor:securityMonitor.snapshot(),
+      delivery:securityAlertDispatcher.snapshot(),persistentIncidents});
+  }catch(next){}
 });
+// Incident details are sanitized, admin-only; no raw evidence, tokens or IP.
+app.get("/api/operations/security-incidents", requireRoles("ADMIN"), async (_req,res,next)=>{
+  res.set("Cache-Control","no-store");
+  if(!durableSecurityStore)return res.status(503).json({
+    ok:false,error:"DURABLE_SECURITY_INCIDENTS_NOT_CONFIGURED",
+  });
+  try {res.json({ok:true,incidents:await durableSecurityStore.recent(20)});}
+  catch(next){}
+});
+// Human acknowledgment is deliberately distinct from GitHub API delivery.
+// The action is atomically paired with a permanent AuditLog record.
+app.post("/api/operations/security-incidents/:id/ack",
+  requireRoles("ADMIN"),async(req,res,next)=>{
+    res.set("Cache-Control","no-store");
+    if(!durableSecurityStore)return res.status(503).json({
+      ok:false,error:"DURABLE_SECURITY_INCIDENTS_NOT_CONFIGURED",
+    });
+    try{
+      const ok=await durableSecurityStore.acknowledge(req.params.id,req.activaUser.id);
+      if(!ok)return res.status(409).json({
+        ok:false,error:"INCIDENT_NOT_DELIVERED_OR_ALREADY_ACKNOWLEDGED",
+      });
+      res.json({ok:true,acknowledged:true,deliveryIsHumanAcknowledgment:false});
+    }catch(next){}
+  });
+
 registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
 
 app.get("/api/me", async (req, res) => {
@@ -4927,6 +4979,7 @@ app.use((error, _req, res, _next) => {
 
 const server = app.listen(port, () => {
   console.log("ACTIVA-AI V1.0.15 server running on http://localhost:" + port);
+  durableSecurityStore?.start();
 });
 
 // Bound idle/header/request lifetimes so a production instance does not keep
@@ -4939,6 +4992,7 @@ let shutdownStarted = false;
 async function gracefulShutdown(signal) {
   if (shutdownStarted) return;
   shutdownStarted = true;
+  durableSecurityStore?.stop();
   console.log("ACTIVA-AI graceful shutdown:", signal);
   const forceTimer = setTimeout(() => {
     console.error("ACTIVA-AI forced shutdown after timeout");
