@@ -123,7 +123,7 @@ export function createDistributedWindowLimiter({
     Promise.resolve().then(()=>store.consume({
       category,key,limit,windowMs,
     })).then(result=>{
-      if(result?.allowed===true)return next();
+      if(result?.allowed===true && Number.isInteger(result.retryAfterSeconds) && result.retryAfterSeconds>=1)return next();
       if(result?.allowed===false &&
          Number.isInteger(result.retryAfterSeconds) &&
          result.retryAfterSeconds>=1){
