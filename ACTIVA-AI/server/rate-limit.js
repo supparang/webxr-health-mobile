@@ -2,6 +2,7 @@
 // NOTE: This is defense in depth for a *single Node.js process*. Multi-instance
 // deployments must add an edge/distributed limiter before Production acceptance.
 import crypto from "node:crypto";
+import {createDistributedWindowLimiter,createPostgresWindowStore,distributedRateLimitEnabled,distributedRateLimitConfigErrors} from "./distributed-rate-limit.js";
 
 const WINDOW_MS = 60_000;
 const MAX_BUCKETS = 25_000;
@@ -104,8 +105,14 @@ export function createFixedWindowLimiter({
   };
 }
 
-export function createActivaRateLimiters(env = process.env, now = Date.now) {
+export function createActivaRateLimiters(env = process.env, now = Date.now, {prisma} = {}) {
   const enabled = rateLimitingEnabled(env);
+  const modeErrors = distributedRateLimitConfigErrors(env);
+  if(modeErrors.length)throw Error("UNSAFE_RATE_LIMIT_CONFIGURATION: "+modeErrors.join(","));
+  const distributed = distributedRateLimitEnabled(env);
+  const store = enabled && distributed
+    ? createPostgresWindowStore({prisma,secret:env.ACTIVA_RATE_LIMIT_HMAC_SECRET,clock:now})
+    : null;
   const passthrough = (_req, _res, next) => next();
   if (!enabled) {
     return {
@@ -120,14 +127,16 @@ export function createActivaRateLimiters(env = process.env, now = Date.now) {
     };
   }
 
-  const create = (category, defaultLimit, keyFor, skip) =>
-    createFixedWindowLimiter({
+  const create = (category,defaultLimit,keyFor,skip) => {
+    const params={
       category,
-      limit: intWithin(env["ACTIVA_RATE_LIMIT_" + category.toUpperCase()], defaultLimit, 1, 100_000),
-      keyFor,
-      skip,
-      now,
-    });
+      limit:intWithin(env["ACTIVA_RATE_LIMIT_"+category.toUpperCase()],defaultLimit,1,100_000),
+      keyFor,skip,now,
+    };
+    return distributed
+      ? createDistributedWindowLimiter({...params,store})
+      : createFixedWindowLimiter(params);
+  };
 
   return {
     enabled: true,

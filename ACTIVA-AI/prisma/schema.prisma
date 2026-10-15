@@ -520,3 +520,15 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
 }
+
+// S3.2 — short-lived shared rate-limit state. Keys are HMAC-SHA256 digests
+// of category + request key, never raw IP, bearer token or person IDs.
+// All replicas share atomic counters through PostgreSQL row locking.
+model SecurityRateLimitBucket {
+  id         String   @id @db.VarChar(64)
+  windowId   BigInt
+  count      Int
+  expiresAt  DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
