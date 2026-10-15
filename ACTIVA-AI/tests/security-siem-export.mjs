@@ -17,6 +17,7 @@ if(env.CI!=="true"||env.ALLOW_SYNTHETIC_CI!=="true"||
 }
 const secret="S34_ONLY_DISPOSABLE_CI_EXTERNAL_SIEM_KEY_"+ "P".repeat(40);
 const config={
+  ACTIVA_SECURITY_INCIDENT_STORE:"POSTGRES",
   ACTIVA_SIEM_EXPORT_MODE:"HTTPS_WEBHOOK",
   ACTIVA_SIEM_EXPORT_ORIGIN:"https://siem.chandra.ac.th",
   ACTIVA_SIEM_EXPORT_HMAC_SECRET:secret,
