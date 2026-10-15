@@ -34,6 +34,8 @@ const template={
   QR_SIGNING_SECRET:"abcdef1234567890".repeat(5),
   RESEARCH_HASH_SALT:"fedcba0987654321".repeat(5),
   ACTIVA_SECURITY_ALERT_MODE:"DISABLED",
+  ACTIVA_RATE_LIMIT_STORE:"POSTGRES",
+  ACTIVA_RATE_LIMIT_HMAC_SECRET:"S3_1_SYNTHETIC_NON_PRODUCTION_ONLY_abcdef0123456789",
 };
 const ok=productionReleaseApproval(template);
 assert.equal(ok.approved,true);
