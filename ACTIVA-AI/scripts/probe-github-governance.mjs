@@ -4,6 +4,7 @@
 // CI exercises this with a fully mocked fetch, NEVER a live token or network.
 import {resolve} from "node:path";
 import {pathToFileURL} from "node:url";
+import {auditEffectiveMainRulesets} from "./github-effective-ruleset.mjs";
 const REPO="supparang/webxr-health-mobile";
 const BASE="https://api.github.com/repos/"+REPO;
 const SHA=/^[a-f0-9]{40}$/;
@@ -54,7 +55,7 @@ function present(x){return x!==null&&typeof x==="object"&&!Array.isArray(x);}
 function on(x){return x===true;}
 function safeCheck(name,observed){return {code:name,observed:observed===true};}
 export function evaluateObservedGitHubGovernance({
-  repository,branch,protection,rulesets,codeowners
+  repository,branch,protection,rulesets,codeowners,rulesetDetails=[]
 }={}){
   const repoOK=repository?.status===200 &&
     repository.value?.full_name===REPO &&
@@ -73,9 +74,11 @@ export function evaluateObservedGitHubGovernance({
     rulesets.value:null;
   const enforcedRules=(ruleArray||[]).filter(x=>x?.enforcement==="active"&&
     x?.target==="branch");
+  const effective=auditEffectiveMainRulesets(ruleArray||[],rulesetDetails);
   const conditions=[
     safeCheck("S311_REPOSITORY_IDENTITY",repoOK),
     safeCheck("S311_MAIN_BRANCH_HEAD",branchOK),
+    safeCheck("S312_MAIN_REPORTED_PROTECTED",branchOK&&branch.value?.protected===true),
     safeCheck("S311_LEGACY_BRANCH_PROTECTION_READABLE",Boolean(p)),
     safeCheck("S311_TWO_REVIEWS_REQUIRED",Number.isInteger(reviews?.required_approving_review_count)&&
       reviews.required_approving_review_count>=2),
@@ -89,6 +92,10 @@ export function evaluateObservedGitHubGovernance({
       /(?:^|\/)smoke$/i.test(c))),
     safeCheck("S311_RULESETS_API_READABLE",Array.isArray(ruleArray)),
     safeCheck("S311_ACTIVE_BRANCH_RULESET_VISIBLE",enforcedRules.length>0),
+    safeCheck("S312_RULESET_DETAILS_COMPLETE",effective.ruleDetailsComplete),
+    safeCheck("S312_RULESET_EXPLICIT_MAIN_TARGET",effective.mainExplicitlyTargeted),
+    safeCheck("S312_RULESET_NO_LISTED_BYPASS",effective.noListedBypassObserved),
+    safeCheck("S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS",effective.policyBundleObserved),
     safeCheck("S311_CODEOWNERS_PRESENT",codeowners?.status===200&&
       PATH_LABELS.includes(codeowners.path)&&
       codeowners.value?.type==="file"),
@@ -141,6 +148,18 @@ export async function probeGitHubGovernance({
     const branch=await getJSON(fetchImpl,token,"/branches/main");
     const protection=await getJSON(fetchImpl,token,"/branches/main/protection");
     const rulesets=await getJSON(fetchImpl,token,"/rulesets?includes_parents=true&per_page=100");
+    // Follow listed active branch rulesets by safe numeric IDs only; DO NOT
+    // infer effective protection from an unrelated, unscoped active rule.
+    const active=rulesets.status===200&&Array.isArray(rulesets.value)?
+      rulesets.value.filter(x=>x?.target==="branch"&&x?.enforcement==="active"):[];
+    const rulesetDetails=[];
+    if(active.length>20)throw Error("S312_RULESET_LIST_TOO_LARGE");
+    for(const item of active){
+      if(!Number.isSafeInteger(item.id)||item.id<=0){
+        rulesetDetails.push({status:0});continue;
+      }
+      rulesetDetails.push(await getJSON(fetchImpl,token,"/rulesets/"+item.id));
+    }
     let codeowners={status:404};
     for(let i=0;i<PATHS.length;i++){
       const result=await getJSON(fetchImpl,token,PATHS[i]);
@@ -150,7 +169,7 @@ export async function probeGitHubGovernance({
       if(result.status!==404){codeowners={status:result.status};break;}
     }
     return evaluateObservedGitHubGovernance({
-      repository,branch,protection,rulesets,codeowners
+      repository,branch,protection,rulesets,codeowners,rulesetDetails
     });
   }catch(error){
     return {
