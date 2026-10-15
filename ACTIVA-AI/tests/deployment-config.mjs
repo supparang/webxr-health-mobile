@@ -17,7 +17,17 @@ assert.equal(deploymentTier({}), "STAGING");
 assert.equal(deploymentTier({ ACTIVA_DEPLOYMENT_TIER: "production" }), "PRODUCTION");
 assert.ok(deploymentConfigurationErrors({ ...valid, ACTIVA_DEPLOYMENT_TIER: "LIVE" }).includes("ACTIVA_DEPLOYMENT_TIER_INVALID"));
 assert.ok(deploymentConfigurationErrors({ ...valid, ACTIVA_PRODUCTION_GO_ENABLED: "true" }).includes("STAGING_REQUIRES_PRODUCTION_GO_DISABLED"));
-assert.deepEqual(deploymentConfigurationErrors({ ...valid, ACTIVA_DEPLOYMENT_TIER: "PRODUCTION", ACTIVA_PRODUCTION_GO_ENABLED: "true" }), []);
+// Production readiness must not accept self-attested GO by configuration.
+const prematureGo=deploymentConfigurationErrors({
+  ...valid,ACTIVA_DEPLOYMENT_TIER:"PRODUCTION",ACTIVA_PRODUCTION_GO_ENABLED:"true"
+});
+assert(prematureGo.includes("PRODUCTION_INDEPENDENT_SECURITY_SIGNOFF_REQUIRED"),
+  "Unsigned Production GO must fail before the server starts");
+assert(!prematureGo.includes("PRODUCTION_DATABASE_TLS_REQUIRED"),
+  "Synthetic valid CI database URL explicitly requests TLS");
+assert.deepEqual(deploymentConfigurationErrors({
+  ...valid,ACTIVA_DEPLOYMENT_TIER:"PRODUCTION",ACTIVA_PRODUCTION_GO_ENABLED:"false"
+}),[]);
 assert.ok(deploymentConfigurationErrors({ ...valid, PORT: "0" }).includes("PORT_INVALID"));
 assert.ok(deploymentConfigurationErrors({ ...valid, PORT: "70000" }).includes("PORT_INVALID"));
 assert.ok(deploymentConfigurationErrors({ ...valid, QR_TOKEN_TTL_SECONDS: "5" }).includes("QR_TOKEN_TTL_SECONDS_INVALID"));

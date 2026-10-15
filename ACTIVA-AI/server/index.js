@@ -13,14 +13,20 @@ import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js"
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
 import { empiricalCollectionGate } from "./empirical-gate.js";
 import { deployedSourceCommit } from "./source-revision.js";
+import { productionReleaseApproval } from "./production-release-approval.js";
 import { createEventToken, verifyEventToken, createPersonalToken, verifyPersonalToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
 import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled, deploymentTier } from "./deployment-config.js";
 
-if (process.env.NODE_ENV === "production") {
-  const errors = deploymentConfigurationErrors();
-  if (errors.length) throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + errors.join(", "));
+// Validate static environment and release-signature authorization ONCE at
+// bootstrap. Re-evaluating a short-lived signing approval on every /api/ready
+// request would make a healthy running instance go unavailable on expiry.
+// Expired approvals still block NEW GO decisions at their own API gates.
+const startupDeploymentErrors = process.env.NODE_ENV === "production"
+  ? deploymentConfigurationErrors() : [];
+if (startupDeploymentErrors.length) {
+  throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + startupDeploymentErrors.join(", "));
 }
 
 const app = express();
@@ -627,7 +633,7 @@ app.get("/api/live", (_req, res) => {
 
 app.get("/api/ready", async (_req, res) => {
   try {
-    const configErrors = process.env.NODE_ENV === "production" ? deploymentConfigurationErrors() : [];
+    const configErrors = startupDeploymentErrors;
     if (configErrors.length) {
       return res.status(503).json({
         ok: false,
@@ -4101,7 +4107,9 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     ? (now.getTime() - new Date(recoveryPass.createdAt).getTime()) <= 24 * 3600000
     : false;
 
+  const signedSecurityApproval = productionReleaseApproval();
   const blockers = [];
+  if (!signedSecurityApproval.approved) blockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED");
   if (deploymentTier() !== "PRODUCTION") blockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) blockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) blockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");
@@ -4131,9 +4139,14 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     },
     {
       id: "HUMAN_FINAL_DECISION",
-      title: "Human decision remains final authority",
-      status: "PASS",
-      evidence: { aiAutonomousDecision: false, humanFinalDecisionRequired: true },
+      title: "Independent security and operations reviewers have signed this exact release",
+      status: signedSecurityApproval.approved ? "PASS" : "HOLD",
+      evidence: {
+        aiAutonomousDecision: false,
+        humanFinalDecisionRequired: true,
+        signedAcceptanceVerified: signedSecurityApproval.approved,
+        validationReason: signedSecurityApproval.reason || null,
+      },
     },
     {
       id: "ACTIVITY_IMMUTABILITY",
@@ -4174,6 +4187,7 @@ app.get("/api/operations/release-gate", requireRoles("ADMIN", "STAFF"), async (_
     generatedAt: now.toISOString(),
     containsPII: false,
     security,
+    signedSecurityApprovalVerified: signedSecurityApproval.approved,
     reviewMonitoring: {
       targetHours: reviewTargetHours,
       backlogCount: backlog.length,
@@ -4387,7 +4401,9 @@ app.post("/api/operations/release-decision", requireRoles("ADMIN"), async (req, 
   }).filter((ageHours) => ageHours !== null);
   const overTargetCount = backlog.filter((ageHours) => ageHours >= reviewTargetHours).length;
 
+  const signedSecurityApproval = productionReleaseApproval();
   const hardBlockers = [];
+  if (!signedSecurityApproval.approved) hardBlockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED");
   if (deploymentTier() !== "PRODUCTION") hardBlockers.push("PRODUCTION_TIER_REQUIRED");
   if (!productionGoEnabled()) hardBlockers.push("PRODUCTION_GO_DISABLED");
   if (!security.ready) hardBlockers.push("SECURITY_CONFIGURATION_NOT_PRODUCTION_READY");

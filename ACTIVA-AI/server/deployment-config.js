@@ -1,6 +1,7 @@
 // Configuration checks expose key names only, never environment values.
 import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
 import { securityAlertDeliveryErrors } from "./security-alert-delivery.js";
+import { productionReleaseApproval } from "./production-release-approval.js";
 export function productionGoEnabled(env = process.env) {
   return env.ACTIVA_PRODUCTION_GO_ENABLED === "true";
 }
@@ -54,6 +55,18 @@ export function deploymentConfigurationErrors(env = process.env) {
   try {
     const url = new URL(env.DATABASE_URL || "");
     if (!["postgresql:", "postgres:"].includes(url.protocol) || !url.username || !url.password || url.pathname.length < 2 || /change[-_]?me|replace|activa_password|<|>/i.test(url.password)) errors.push("DATABASE_URL_INVALID_OR_PLACEHOLDER");
+    // Production DB traffic must not silently downgrade to cleartext.
+    // sslmode=require establishes TLS transport; verify-full is preferred
+    // when supported by the managed database/certificate configuration.
+    if (tier === "PRODUCTION") {
+      const modes=url.searchParams.getAll("sslmode");
+      const sslAccept=url.searchParams.getAll("sslaccept");
+      if (modes.length !== 1 ||
+          !["require","verify-ca","verify-full"].includes(modes[0].toLowerCase()) ||
+          sslAccept.some(v=>v.toLowerCase()==="accept_invalid_certs")) {
+        errors.push("PRODUCTION_DATABASE_TLS_REQUIRED");
+      }
+    }
   } catch { errors.push("DATABASE_URL_INVALID_OR_PLACEHOLDER"); }
   for (const key of ["QR_SIGNING_SECRET", "RESEARCH_HASH_SALT"]) {
     const value = String(env[key] || "");
@@ -71,5 +84,12 @@ export function deploymentConfigurationErrors(env = process.env) {
     if (!validIntegerRange(env[key], 1, 100000)) errors.push(key + "_INVALID");
   }
   errors.push(...securityAlertDeliveryErrors(env));
+  // A GO switch alone is not authority. If anyone toggles it on a
+  // Production deployment without distinct independently held signing keys,
+  // the process fails before opening any listening port.
+  if (tier === "PRODUCTION" && env.ACTIVA_PRODUCTION_GO_ENABLED === "true" &&
+      !productionReleaseApproval(env).approved) {
+    errors.push("PRODUCTION_INDEPENDENT_SECURITY_SIGNOFF_REQUIRED");
+  }
   return errors;
 }
