@@ -44,9 +44,10 @@ export function signedProductionApprovalMessage(sha,stagingCommit,evidenceDigest
   return PREFIX+"\n"+sha+"\n"+stagingCommit+"\n"+
     evidenceDigest+"\n"+until+"\n"+nonce+"\n";
 }
-// The optional third argument is for local-only synthetic security unit tests.
-// Application and deployment callers always use source-pinned trust anchors.
-export function productionReleaseApproval(env=process.env,now=new Date(),pins=trustedReleaseSignerPins) {
+// Internal verifier: only the Production-facing wrapper selects actual trusted
+// identities. A separate synthetic test entrypoint is unavailable at runtime
+// when NODE_ENV=production and is never imported by the HTTP service.
+function verifyApprovalWithPins(env,now,pins) {
   const failed=(reason)=>({approved:false,reason});
   // Explicit production tier + operator switch are separate prerequisites.
   if (env.ACTIVA_DEPLOYMENT_TIER!=="PRODUCTION" ||
@@ -124,4 +125,20 @@ export function productionReleaseApproval(env=process.env,now=new Date(),pins=tr
     expiresAtUtc:until,
     dualAuthorityRequired:true,
   };
+}
+
+// Production release decisions have NO caller-supplied trust-anchor argument.
+// Even if a caller passes an unexpected third argument, it is ignored.
+export function productionReleaseApproval(env=process.env,now=new Date()) {
+  return verifyApprovalWithPins(env,now,trustedReleaseSignerPins);
+}
+
+// Synthetic unit tests only. Never import this into the web server, CLI release
+// utility, or deploy pipeline. Runtime production disables this entrypoint.
+// Institutional release approval must use productionReleaseApproval() above.
+export function testOnlyVerifyProductionApproval(env,now,pins) {
+  if(process.env.NODE_ENV==="production") {
+    return {approved:false,reason:"S39_SYNTHETIC_TRUST_DISABLED_IN_PRODUCTION"};
+  }
+  return verifyApprovalWithPins(env,now,pins);
 }
