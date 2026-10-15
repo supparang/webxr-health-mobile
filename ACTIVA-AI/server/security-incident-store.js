@@ -69,6 +69,7 @@ export function sanitizeSecuritySample(event){
 }
 export function createDurableSecurityIncidentStore({
   prisma, dispatcher, log=()=>{}, now=Date.now,
+  siemEnabled=false,
 }={}){
   if(!prisma || typeof prisma.$queryRaw!=="function" ||
     typeof prisma.$executeRaw!=="function" ||
@@ -101,10 +102,12 @@ export function createDurableSecurityIncidentStore({
       )
       INSERT INTO "SecurityIncidentWindow"
         ("id","category","count","threshold","status","firstSeenAt",
-         "updatedAt","nextAttemptAt")
+         "updatedAt","nextAttemptAt","siemStatus")
       SELECT ${category} || ':' || win::text,${category},1,${threshold},
         CASE WHEN ${threshold}<=1 THEN 'PENDING' ELSE 'COUNTING' END,
-        clock_timestamp(),clock_timestamp(),clock_timestamp()
+        clock_timestamp(),clock_timestamp(),clock_timestamp(),
+        CASE WHEN ${siemEnabled} AND ${threshold}<=1
+          THEN 'PENDING' ELSE 'COUNTING' END
       FROM db_clock
       WHERE true
       ON CONFLICT ("id") DO UPDATE SET
@@ -116,6 +119,12 @@ export function createDurableSecurityIncidentStore({
            AND "SecurityIncidentWindow"."count"+1>=EXCLUDED."threshold"
           THEN 'PENDING'
           ELSE "SecurityIncidentWindow"."status" END,
+        "siemStatus"=CASE
+          WHEN ${siemEnabled}
+            AND "SecurityIncidentWindow"."siemStatus"='COUNTING'
+            AND "SecurityIncidentWindow"."count"+1>=EXCLUDED."threshold"
+          THEN 'PENDING'
+          ELSE "SecurityIncidentWindow"."siemStatus" END,
         "updatedAt"=clock_timestamp()
       RETURNING "id","count","status"
     `;
@@ -248,8 +257,11 @@ export function createDurableSecurityIncidentStore({
         where:{occurredAt:{lt:new Date(now()-30*86400000)}},
       }),
       prisma.securityIncidentWindow.deleteMany({
-        where:{status:{in:["DELIVERED","COUNTING"]},
-          firstSeenAt:{lt:new Date(now()-30*86400000)}},
+        where:{
+          status:{in:["DELIVERED","COUNTING"]},
+          siemStatus:{in:["DELIVERED","COUNTING"]},
+          firstSeenAt:{lt:new Date(now()-30*86400000)},
+        },
       }),
     ]);
     return removed.map(x=>x.count);
