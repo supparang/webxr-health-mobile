@@ -2,6 +2,8 @@
 // NEVER grants Production release or institutional reviewer approval.
 // Real network requests require operator confirmation + read-only GitHub token.
 // CI exercises this with a fully mocked fetch, NEVER a live token or network.
+import {resolve} from "node:path";
+import {pathToFileURL} from "node:url";
 const REPO="supparang/webxr-health-mobile";
 const BASE="https://api.github.com/repos/"+REPO;
 const SHA=/^[a-f0-9]{40}$/;
@@ -169,6 +171,6 @@ async function main(){
   process.exitCode=result.reason||result.collectionState!==
     "TECHNICAL_SETTINGS_OBSERVED_REQUIRES_INDEPENDENT_REVIEW"?1:0;
 }
-if(process.argv[1]&&new URL("file://"+process.argv[1]).href===import.meta.url){
+if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url){
   await main();
 }
