@@ -4,7 +4,7 @@
 // It can return READY_FOR_HUMAN_DECISION but NEVER "GO" or Production approved.
 import {readFile} from "node:fs/promises";
 import {resolve} from "node:path";
-import {fileURLToPath} from "node:url";
+import {fileURLToPath,pathToFileURL} from "node:url";
 
 const requiredManual=Object.freeze(
   Array.from({length:13},(_,i)=>"M"+String(i+1).padStart(2,"0"))
@@ -174,7 +174,6 @@ async function main() {
     process.exitCode=2;
   }
 }
-if(process.argv[1] && import.meta.url===fileURLToPath(import.meta.url) &&
-   process.argv[1]===fileURLToPath(import.meta.url)){
+if(process.argv[1] && pathToFileURL(resolve(process.argv[1])).href===import.meta.url){
   await main();
 }
