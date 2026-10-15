@@ -100,4 +100,11 @@ assert.equal(index.split('blockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATI
 assert.equal(index.split('hardBlockers.push("INDEPENDENT_SIGNED_SECURITY_AND_OPERATIONS_ACCEPTANCE_REQUIRED")').length-1,1);
 assert(index.includes('signedSecurityApprovalVerified: signedSecurityApproval.approved'));
 assert(index.includes('status: signedSecurityApproval.approved ? "PASS" : "HOLD"'));
+assert(index.includes("const startupDeploymentErrors ="),
+  "Production config and signoffs must be checked at startup");
+assert(index.includes("const configErrors = startupDeploymentErrors;"),
+  "Short-lived release signature expiry must not disable live readiness");
+assert(index.includes('if (!signedSecurityApproval.approved) hardBlockers.push('),
+  "New Production GO decisions must still reject expired signatures");
+
 console.log("ACTIVA-AI S3.1 Production TLS and two-authority cryptographic release signoff: PASS");
