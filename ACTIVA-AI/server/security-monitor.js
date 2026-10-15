@@ -56,6 +56,7 @@ export function createSecurityMonitor({
   now = Date.now,
   write = (event) => console.warn(JSON.stringify(event)),
   thresholds = ALERT_THRESHOLDS,
+  onCategory = null,
 } = {}) {
   if (typeof now !== "function" || typeof write !== "function") {
     throw new TypeError("SECURITY_MONITOR_INVALID_CONFIG");
@@ -85,6 +86,12 @@ export function createSecurityMonitor({
     resetIfNeeded(timestamp);
     counts[category] += 1;
     const count = counts[category];
+    // Emit each category to the shared store, not only process-local
+    // threshold alerts. The callback receives no user/IP/token metadata.
+    if (onCategory) {
+      try { void Promise.resolve(onCategory(category)).catch(()=>{}); }
+      catch { /* Store callback handles private error reporting. */ }
+    }
     const base = {
       timestampUtc: new Date(timestamp).toISOString(),
       category,
