@@ -54,7 +54,7 @@ assert(server.includes("routeTemplateForLog(req)"));
 assert(server.includes("securityMonitor.recordAudit(action, req)"));
 assert(server.includes("accessibleActivityIdsForUser"));
 assert(server.includes("EVIDENCE_ACTIVITY_SCOPE_FORBIDDEN"));
-assert(server.includes("PERSONAL_QR_VERIFIER_ASSIGNMENT_REQUIRED"));
+assert(server.includes("PERSONAL_QR_ACTIVITY_SCOPE_FORBIDDEN"));
 assert(config.includes("PRODUCTION_RATE_LIMIT_MUST_BE_ENABLED"));
 assert(limiter.includes("RATE_LIMITED"));
 assert(secMonitor.includes('type: "security_alert"'));
