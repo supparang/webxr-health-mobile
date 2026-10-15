@@ -118,6 +118,7 @@ jobs:
           node --check tests/staging-dispatch-contract.mjs
           node --check scripts/assess-production-security.mjs
           node --check tests/security-release-decision.mjs
+          node --check tests/security-consolidation-gate.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -194,6 +195,9 @@ jobs:
             assert(r.blockers.length>=13);
             console.log("S2.12 verified evidence result: HOLD / Production GO false");
           '
+
+      - name: S2.13 consolidated main-branch security integration invariant
+        run: node tests/security-consolidation-gate.mjs
 
       - name: Authentication readiness guard
         run: |
