@@ -133,6 +133,8 @@ jobs:
           node --check tests/siem-receipt-security.mjs
           node --check scripts/assess-staging-readiness.mjs
           node --check tests/staging-readiness-inventory.mjs
+          node --check scripts/assess-release-governance.mjs
+          node --check tests/release-governance-inventory.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -168,6 +170,25 @@ jobs:
           mkdir -p test-results
           node scripts/assess-staging-readiness.mjs --input security/s3.6-staging-readiness.template.json > test-results/s3-6-staging-readiness.json
           node --input-type=module -e 'import fs from "node:fs"; const report=JSON.parse(fs.readFileSync("test-results/s3-6-staging-readiness.json","utf8")); if(report.decision!=="HOLD" || report.productionGoApproved!==false || report.manualAcceptanceVerified!==false || report.evidenceInventoryComplete!==false) process.exit(1); console.log("S3.6 baseline: HOLD — real Staging acceptance NOT VERIFIED");'
+
+      - name: S3.10 offline institution-governance inventory (must remain HOLD)
+        run: |
+          node tests/release-governance-inventory.mjs
+          mkdir -p test-results
+          node scripts/assess-release-governance.mjs --input security/s3.10-institutional-release.template.json > test-results/s3-10-release-governance-decision.json
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import {readFileSync} from "node:fs";
+            const r=JSON.parse(readFileSync("test-results/s3-10-release-governance-decision.json","utf8"));
+            assert.equal(r.decision,"HOLD");
+            assert.equal(r.evidenceInventoryComplete,false);
+            assert.equal(r.independentlyVerified,false);
+            assert.equal(r.productionGoApproved,false);
+            assert.equal(r.mergeApproved,false);
+            assert.equal(r.deploymentApproved,false);
+            assert.equal(r.researchEthicsApproved,false);
+            console.log("S3.10 institution-owned GitHub rulesets / attestation / Staging verification NOT ESTABLISHED: HOLD");
+          '
 
       - name: S3.5 independently signed SIEM receiver ACK and bounded streaming checks
         run: node tests/siem-receipt-security.mjs
