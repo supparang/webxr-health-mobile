@@ -6,6 +6,7 @@
 // This cryptographic check does not independently verify assessment contents.
 import crypto from "node:crypto";
 import {deployedSourceCommit} from "./source-revision.js";
+import {trustedReleaseSignerPins} from "./release-authority-trust.js";
 
 const SHA40=/^[a-f0-9]{40}$/;
 const SHA256=/^[a-f0-9]{64}$/;
@@ -43,7 +44,9 @@ export function signedProductionApprovalMessage(sha,stagingCommit,evidenceDigest
   return PREFIX+"\n"+sha+"\n"+stagingCommit+"\n"+
     evidenceDigest+"\n"+until+"\n"+nonce+"\n";
 }
-export function productionReleaseApproval(env=process.env,now=new Date()) {
+// The optional third argument is for local-only synthetic security unit tests.
+// Application and deployment callers always use source-pinned trust anchors.
+export function productionReleaseApproval(env=process.env,now=new Date(),pins=trustedReleaseSignerPins) {
   const failed=(reason)=>({approved:false,reason});
   // Explicit production tier + operator switch are separate prerequisites.
   if (env.ACTIVA_DEPLOYMENT_TIER!=="PRODUCTION" ||
@@ -96,6 +99,22 @@ export function productionReleaseApproval(env=process.env,now=new Date()) {
       return failed("S31_SIGNED_APPROVAL_VERIFICATION_FAILED");
     }
   } catch {return failed("S31_SIGNED_APPROVAL_VERIFICATION_FAILED");}
+  // S3.8: signature validity is not signer AUTHORITY. A deployment operator
+  // can replace all env public keys and signatures together. Trust anchors
+  // must therefore be pinned in separately reviewed source code, not env.
+  // A missing/not-yet-enrolled pin means HOLD, even with two valid signatures.
+  const securityPin=pins?.security, operationsPin=pins?.operations;
+  if(typeof securityPin!=="string"||!SHA256.test(securityPin)||
+     typeof operationsPin!=="string"||!SHA256.test(operationsPin)||
+     securityPin===operationsPin){
+    return failed("S38_TRUSTED_SIGNING_IDENTITIES_NOT_ENROLLED");
+  }
+  const hashKey=key=>crypto.createHash("sha256").update(
+    key.export({type:"spki",format:"der"})).digest();
+  if(!crypto.timingSafeEqual(hashKey(security),Buffer.from(securityPin,"hex"))||
+     !crypto.timingSafeEqual(hashKey(operations),Buffer.from(operationsPin,"hex"))){
+    return failed("S38_SIGNING_IDENTITY_NOT_TRUSTED");
+  }
   return {
     approved:true,
     reason:null,
