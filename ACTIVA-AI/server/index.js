@@ -9,6 +9,7 @@ import { createActivaRateLimiters } from "./rate-limit.js";
 import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
 import { createSecurityAlertDispatcher } from "./security-alert-delivery.js";
 import { createDurableSecurityIncidentStore,incidentPersistenceEnabled } from "./security-incident-store.js";
+import {createSiemIncidentExporter,siemExportEnabled} from "./security-siem-export.js";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
@@ -38,9 +39,13 @@ const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 const allowedOrigins = configuredOrigins();
 const rateLimiters = createActivaRateLimiters(process.env,Date.now,{prisma});
 const securityAlertDispatcher = createSecurityAlertDispatcher();
+const siemExporter=siemExportEnabled() ? createSiemIncidentExporter({
+  prisma,log:event=>console.error(JSON.stringify(event)),
+}) : null;
 const durableSecurityStore=incidentPersistenceEnabled() ?
   createDurableSecurityIncidentStore({
     prisma,dispatcher:securityAlertDispatcher,
+    siemEnabled:Boolean(siemExporter),
     log:event=>console.error(JSON.stringify(event)),
   }) : null;
 let lastDurableError=0;
@@ -996,7 +1001,10 @@ app.get("/api/operations/security-summary", requireRoles("ADMIN"), async (_req, 
       persistent:false,backend:"DISABLED",deliveryIsHumanAcknowledgment:false,
     };
     res.json({ok:true,monitor:securityMonitor.snapshot(),
-      delivery:securityAlertDispatcher.snapshot(),persistentIncidents});
+      delivery:securityAlertDispatcher.snapshot(),persistentIncidents,
+      siemExport:siemExporter ? await siemExporter.summary() : {
+        mode:"DISABLED",persistent:false,deliveredToReceiverIsHumanAcknowledgment:false,
+      }});
   }catch(error){next(error);}
 });
 // Incident details are sanitized, admin-only; no raw evidence, tokens or IP.
@@ -4980,6 +4988,7 @@ app.use((error, _req, res, _next) => {
 const server = app.listen(port, () => {
   console.log("ACTIVA-AI V1.0.15 server running on http://localhost:" + port);
   durableSecurityStore?.start();
+  siemExporter?.start();
 });
 
 // Bound idle/header/request lifetimes so a production instance does not keep
@@ -4993,6 +5002,7 @@ async function gracefulShutdown(signal) {
   if (shutdownStarted) return;
   shutdownStarted = true;
   durableSecurityStore?.stop();
+  siemExporter?.stop();
   console.log("ACTIVA-AI graceful shutdown:", signal);
   const forceTimer = setTimeout(() => {
     console.error("ACTIVA-AI forced shutdown after timeout");
