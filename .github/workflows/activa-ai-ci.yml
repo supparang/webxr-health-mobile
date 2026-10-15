@@ -120,6 +120,7 @@ jobs:
           node --check tests/security-release-decision.mjs
           node --check tests/security-consolidation-gate.mjs
           node --check tests/security-alert-concurrency.mjs
+          node --check server/release-authority-trust.js
           node --check server/production-release-approval.js
           node --check tests/production-security-architecture.mjs
           node --check server/distributed-rate-limit.js
@@ -186,6 +187,9 @@ jobs:
       - name: S2.14 reviewer-found GitHub alert concurrency and malformed receipts
         run: node tests/security-alert-concurrency.mjs
 
+      # S3.9's trust-boundary regressions are executed by the existing
+      # production-security-architecture suite below. Source and signature
+      # CI success does not establish institutional reviewer independence.
       - name: S3.1 production DB TLS and signed independent release control
         run: node tests/production-security-architecture.mjs
 
