@@ -34,6 +34,8 @@ export function siemExportConfigErrors(env=process.env) {
   const result=[];
   if(!MODES.has(mode))result.push("ACTIVA_SIEM_EXPORT_MODE_INVALID");
   if(mode==="HTTPS_WEBHOOK"){
+    if(env.ACTIVA_SECURITY_INCIDENT_STORE!=="POSTGRES")
+      result.push("ACTIVA_SIEM_REQUIRES_DURABLE_INCIDENT_STORE");
     if(!safeOrigin(env.ACTIVA_SIEM_EXPORT_ORIGIN))result.push("ACTIVA_SIEM_EXPORT_ORIGIN_INVALID");
     const secret=String(env.ACTIVA_SIEM_EXPORT_HMAC_SECRET||"");
     if(secret.length<32||secret.length>4096||
