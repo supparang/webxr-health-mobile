@@ -19,9 +19,14 @@ import { evaluateEvidence } from "./evidence.js";
 import { attachActor, requireRoles, resolveUserRef, authenticationMode, productionAuthenticationReady, googleClientId, googlePilotClientId, googlePilotEmailReady, googleAllowedDomains, googleAllowedEmails } from "./auth.js";
 import { configuredOrigins, deploymentConfigurationErrors, productionGoEnabled, deploymentTier } from "./deployment-config.js";
 
-if (process.env.NODE_ENV === "production") {
-  const errors = deploymentConfigurationErrors();
-  if (errors.length) throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + errors.join(", "));
+// Validate static environment and release-signature authorization ONCE at
+// bootstrap. Re-evaluating a short-lived signing approval on every /api/ready
+// request would make a healthy running instance go unavailable on expiry.
+// Expired approvals still block NEW GO decisions at their own API gates.
+const startupDeploymentErrors = process.env.NODE_ENV === "production"
+  ? deploymentConfigurationErrors() : [];
+if (startupDeploymentErrors.length) {
+  throw new Error("UNSAFE_DEPLOYMENT_CONFIGURATION: " + startupDeploymentErrors.join(", "));
 }
 
 const app = express();
@@ -628,7 +633,7 @@ app.get("/api/live", (_req, res) => {
 
 app.get("/api/ready", async (_req, res) => {
   try {
-    const configErrors = process.env.NODE_ENV === "production" ? deploymentConfigurationErrors() : [];
+    const configErrors = startupDeploymentErrors;
     if (configErrors.length) {
       return res.status(503).json({
         ok: false,
