@@ -551,7 +551,16 @@ model SecurityIncidentWindow {
   deliveryAction      String?   @db.VarChar(16)
   acknowledgedAt      DateTime? @db.Timestamptz(3)
   acknowledgedBy      String?   @db.VarChar(80)
+  // S3.4: independent SIEM delivery state, not a GitHub or human ACK.
+  siemStatus          String    @default("COUNTING") @db.VarChar(20)
+  siemNextAttemptAt   DateTime  @default(now()) @db.Timestamptz(3)
+  siemLeaseId         String?   @db.VarChar(64)
+  siemLeaseUntil      DateTime? @db.Timestamptz(3)
+  siemAttempts        Int       @default(0)
+  siemDeliveredAt     DateTime? @db.Timestamptz(3)
+  siemReceiptId       String?   @db.VarChar(100)
 
+  @@index([siemStatus, siemNextAttemptAt])
   @@index([status, nextAttemptAt])
   @@index([firstSeenAt])
 }

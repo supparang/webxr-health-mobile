@@ -126,6 +126,8 @@ jobs:
           node --check tests/distributed-rate-limit.mjs
           node --check server/security-incident-store.js
           node --check tests/security-incident-persistence.mjs
+          node --check server/security-siem-export.js
+          node --check tests/security-siem-export.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -154,6 +156,9 @@ jobs:
           node --check server/source-revision.js
           node --check tests/source-revision.mjs
           node --check blind-review.js
+
+      - name: S3.4 independent HTTPS SIEM incident export, replay and privacy guard
+        run: node tests/security-siem-export.mjs
 
       - name: S3.3 durable security outbox, PostgreSQL lease and human acknowledgment
         run: node tests/security-incident-persistence.mjs
