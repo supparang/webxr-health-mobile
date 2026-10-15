@@ -120,6 +120,8 @@ jobs:
           node --check tests/security-release-decision.mjs
           node --check tests/security-consolidation-gate.mjs
           node --check tests/security-alert-concurrency.mjs
+          node --check server/production-release-approval.js
+          node --check tests/production-security-architecture.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -157,6 +159,9 @@ jobs:
 
       - name: S2.14 reviewer-found GitHub alert concurrency and malformed receipts
         run: node tests/security-alert-concurrency.mjs
+
+      - name: S3.1 production DB TLS and signed independent release control
+        run: node tests/production-security-architecture.mjs
 
       - name: S2.2 API rate limiting and S2.5 combined security tests
         run: |
