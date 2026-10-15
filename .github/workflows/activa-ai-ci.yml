@@ -115,6 +115,7 @@ jobs:
           node --check tests/browser-security-ci.mjs
           node --check scripts/verify-staging-security.mjs
           node --check tests/staging-security-preflight.mjs
+          node --check tests/staging-dispatch-contract.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -169,6 +170,9 @@ jobs:
 
       - name: S2.10 exact-approved Staging read-only security preflight (mock only)
         run: node tests/staging-security-preflight.mjs
+
+      - name: S2.11 manual-only approved Staging workflow contract
+        run: node tests/staging-dispatch-contract.mjs
 
       - name: Authentication readiness guard
         run: |
