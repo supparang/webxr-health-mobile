@@ -135,6 +135,8 @@ jobs:
           node --check tests/staging-readiness-inventory.mjs
           node --check scripts/assess-release-governance.mjs
           node --check tests/release-governance-inventory.mjs
+          node --check scripts/probe-github-governance.mjs
+          node --check tests/github-governance-observation.mjs
           node --check server/rate-limit.js
           node --check tests/rate-limit.mjs
           node --check tests/security-object-scope.mjs
@@ -189,6 +191,9 @@ jobs:
             assert.equal(r.researchEthicsApproved,false);
             console.log("S3.10 institution-owned GitHub rulesets / attestation / Staging verification NOT ESTABLISHED: HOLD");
           '
+
+      - name: S3.11 mock-only authenticated GitHub read-only governance observation (HOLD)
+        run: node tests/github-governance-observation.mjs
 
       - name: S3.5 independently signed SIEM receiver ACK and bounded streaming checks
         run: node tests/siem-receipt-security.mjs
