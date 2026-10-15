@@ -28,10 +28,26 @@ export function incidentPersistenceConfigErrors(env=process.env) {
   }
   return errors;
 }
+// Untrusted dynamic route strings must NEVER be persisted verbatim.
+// Exact known static paths are safe; all parameterized routes collapse
+// to a generic label, even if an attacker slips text between segments.
+const PUBLIC_ROUTE_NAMES=new Set([
+  "/api/me","/api/live","/api/ready","/api/health",
+  "/api/public/guest/session","/api/public/guest/checkin",
+  "/api/public/guest/checkout","/api/public/blind-review/submit",
+  "/api/operations/security-summary",
+]);
 const sanitizers={
   method:x=>["GET","POST","PUT","PATCH","DELETE","OTHER"].includes(x)?x:null,
-  route:x=>typeof x==="string" && x.length<=160 &&
-    (/^\/[A-Za-z0-9_:/.-]+$/.test(x) || x==="UNMATCHED_API")?x:null,
+  route:x=>{
+    if(x==="UNMATCHED_API")return x;
+    if(PUBLIC_ROUTE_NAMES.has(x))return x;
+    if(typeof x==="string"&&x.length<=160&&x.startsWith("/api/") &&
+      x.includes("/:")&&/^\/[A-Za-z0-9_:/.-]+$/.test(x)){
+      return "API_PARAMETERIZED_ROUTE";
+    }
+    return null;
+  },
   scope:x=>["GUEST","BLIND_REVIEW","ORGANIZATION"].includes(x)?x:null,
   action:x=>typeof x==="string" && /^[A-Z][A-Z0-9_]{2,79}$/.test(x)?x:null,
 };
