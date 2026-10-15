@@ -69,6 +69,7 @@ export function createPostgresWindowStore({
         SELECT ${id},window_id,1,
           to_timestamp((window_id + 1) * ${windowMs}::numeric / 1000)
         FROM bucket_clock
+        WHERE true
         ON CONFLICT ("id") DO UPDATE SET
           "count" = CASE
             WHEN "SecurityRateLimitBucket"."windowId" = EXCLUDED."windowId"
