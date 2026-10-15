@@ -19,9 +19,23 @@ const protectedMain={
 };
 const response={
   repository:{status:200,value:{full_name:REPO,default_branch:"main"}},
-  branch:{status:200,value:{name:"main",commit:{sha:SHA}}},
+  branch:{status:200,value:{name:"main",protected:true,commit:{sha:SHA}}},
   protection:{status:200,value:protectedMain},
-  rulesets:{status:200,value:[{target:"branch",enforcement:"active"}]},
+  rulesets:{status:200,value:[{id:1,target:"branch",enforcement:"active"}]},
+  rulesetDetails:[{status:200,value:{
+    id:1,target:"branch",enforcement:"active",
+    conditions:{ref_name:{include:["~DEFAULT_BRANCH"],exclude:[]}},
+    bypass_actors:[],
+    rules:[
+      {type:"pull_request",parameters:{required_approving_review_count:2,
+        require_code_owner_review:true,dismiss_stale_reviews_on_push:true,
+        require_last_push_approval:true,required_review_thread_resolution:true}},
+      {type:"required_status_checks",parameters:{
+        required_status_checks:[{context:"smoke"}],
+        strict_required_status_checks_policy:true}},
+      {type:"deletion"},{type:"non_fast_forward"},
+    ],
+  }}],
   codeowners:{status:200,path:".github/CODEOWNERS",
     value:{type:"file",content:"RkFLRSBPUEFRVUUgRklYVFVSRQ=="}},
 };
@@ -64,6 +78,26 @@ lacks(x=>x.protection.value.required_status_checks.contexts=[],
   "S311_REQUIRED_ACTIVA_CI");
 lacks(x=>x.rulesets.value=[],
   "S311_ACTIVE_BRANCH_RULESET_VISIBLE");
+lacks(x=>x.branch.value.protected=false,
+  "S312_MAIN_REPORTED_PROTECTED");
+lacks(x=>x.rulesetDetails[0].value.conditions.ref_name.include=[],
+  "S312_RULESET_EXPLICIT_MAIN_TARGET");
+lacks(x=>x.rulesetDetails[0].value.conditions.ref_name.exclude=["main"],
+  "S312_RULESET_EXPLICIT_MAIN_TARGET");
+lacks(x=>x.rulesetDetails[0].value.bypass_actors=[{actor_id:42}],
+  "S312_RULESET_NO_LISTED_BYPASS");
+lacks(x=>x.rulesetDetails[0].value.rules[0].parameters.required_approving_review_count=1,
+  "S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS");
+lacks(x=>x.rulesetDetails[0].value.rules[0].parameters.require_code_owner_review=false,
+  "S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS");
+lacks(x=>x.rulesetDetails[0].value.rules[1].parameters.required_status_checks=[],
+  "S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS");
+lacks(x=>x.rulesetDetails[0].value.rules[1].parameters.strict_required_status_checks_policy=false,
+  "S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS");
+lacks(x=>x.rulesetDetails[0].value.rules=x.rulesetDetails[0].value.rules.filter(r=>r.type!=="non_fast_forward"),
+  "S312_MAIN_REVIEW_CI_FORCE_DELETE_CONTROLS");
+lacks(x=>x.rulesetDetails[0].status=403,
+  "S312_RULESET_DETAILS_COMPLETE");
 lacks(x=>x.codeowners={status:404},
   "S311_CODEOWNERS_PRESENT");
 lacks(x=>x.branch.value.commit.sha="not-a-commit",
@@ -90,6 +124,7 @@ function mockFetch(url,opts){
   else if(path.endsWith("/branches/main/protection"))data=response.protection.value;
   else if(path.endsWith("/branches/main"))data=response.branch.value;
   else if(path.endsWith("/rulesets"))data=response.rulesets.value;
+  else if(path.endsWith("/rulesets/1"))data=response.rulesetDetails[0].value;
   else if(path.endsWith("/contents/.github/CODEOWNERS"))data=response.codeowners.value;
   else throw Error("Unexpected mock URL");
   return Promise.resolve({
@@ -100,7 +135,7 @@ const observed=await probeGitHubGovernance({confirmed:true,token,fetchImpl:mockF
 assert.equal(observed.collectionState,
   "TECHNICAL_SETTINGS_OBSERVED_REQUIRES_INDEPENDENT_REVIEW");
 assert.equal(observed.decision,"HOLD");
-assert.equal(calls.length,5);
+assert.equal(calls.length,6);
 for(const c of calls){
   assert.equal(new URL(c.url).origin,"https://api.github.com");
   assert.equal(c.opts.method,"GET");
