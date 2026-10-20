@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CSAI2601 • ตรวจความก้าวหน้ารายบุคคล</title>
+  <style>
+    :root{color-scheme:dark;--bg:#071425;--card:#11223c;--line:#30496e;--text:#f1f6ff;--sub:#c0d0e9;--mint:#8fe5b5;--amber:#ffd482;--aqua:#7bd9ed}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,"Segoe UI",sans-serif}
+    .wrap{max-width:1500px;margin:auto;padding:24px 18px 52px}h1{font-size:clamp(1.45rem,3vw,2.1rem);margin:0 0 4px}
+    h2{font-size:1.12rem;margin:0 0 12px}p{margin:5px 0 12px}.muted,.help{color:var(--sub)}
+    .head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:17px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:17px;margin-bottom:16px}
+    .toolbar{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.toolbar label{display:grid;gap:5px;min-width:150px;flex:1}
+    label span{font-size:.87rem;color:var(--sub)}input,select,button{font:inherit;border-radius:9px;padding:9px 11px}
+    input,select{color:var(--text);background:#0b1b30;border:1px solid #61749b}button{background:#7bd9ed;color:#062035;border:0;font-weight:750;cursor:pointer}
+    button:disabled{opacity:.5;cursor:wait}.neutral{background:#27476d;color:var(--text);border:1px solid #6484a9}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+    .stat{padding:13px;border:1px solid var(--line);border-radius:11px;background:#0d1e35}
+    .stat span{color:var(--sub);font-size:.85rem}.stat strong{display:block;font-size:1.45rem}
+    .scroll{overflow:auto;max-width:100%}table{border-collapse:separate;border-spacing:0;width:100%;font-size:.88rem}
+    th,td{border-bottom:1px solid #31496b;padding:9px;white-space:nowrap;text-align:left}
+    th{position:sticky;top:0;background:#17304f;z-index:1;color:#e8f2ff}th:first-child,td:first-child{position:sticky;left:0;z-index:2;background:#10243e}
+    .matrix th:not(:first-child),.matrix td:not(:first-child){text-align:center;padding:7px 5px;min-width:43px}
+    .matrix button{padding:5px 8px;width:36px;background:#233c5d;color:#eff7ff}
+    .matrix button.passed{background:#1c563f;color:#b5ffda}.matrix button.retry{background:#6e522b;color:#fff0ce}
+    .matrix button.out_of_sequence{background:#602e43;color:#ffe2e9}.matrix button.ready{background:#1a476b;color:#b8e9ff}
+    .matrix button.selected{outline:2px solid #fff;outline-offset:2px}.person{background:transparent;color:var(--text);padding:3px;text-align:left}
+    .legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 0;color:var(--sub);font-size:.83rem}
+    .pill{padding:3px 8px;border-radius:99px;border:1px solid var(--line);font-size:.79rem}
+    .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
+    .pill.locked{color:var(--sub)}.pill.out_of_sequence{color:#ffb2c9}.pill.ready,.pill.reviewing{color:var(--aqua)}
+    .detail td{white-space:normal}.detail th:first-child,.detail td:first-child{min-width:220px}
+    a{color:#9eeeff}.error{color:#ffc2cc}.notice{padding:12px;border-radius:9px;background:#2b3447;border:1px solid #667187}
+    .empty{padding:24px;color:var(--sub);text-align:center}@media(max-width:750px){.wrap{padding:14px 9px 34px}.card{padding:12px}.matrix th:first-child,.matrix td:first-child{min-width:130px}.toolbar label{min-width:100%}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <div><h1>CSAI2601 • ความก้าวหน้ารายบุคคล</h1><p class="muted">UX Quest • W1–W15 และ B1–B4 รวม 19 ด่าน • เฉพาะอาจารย์ผู้สอน</p></div>
+    <button id="reload" type="button">รีเฟรชข้อมูล</button>
+  </header>
+  <section class="card">
+    <div class="toolbar">
+      <label><span>Section</span><input id="section" value="101" maxlength="12" autocomplete="off"></label>
+      <label><span>ค้นหาชื่อหรือรหัสนักศึกษา</span><input id="search" placeholder="พิมพ์ชื่อ / รหัส" autocomplete="off"></label>
+      <label><span>ดูรายบุคคล</span><select id="student"><option value="">เลือกนักศึกษา</option></select></label>
+    </div>
+    <p id="status" class="help" role="status">กำลังโหลดข้อมูลที่ยืนยันจาก Google Sheets…</p>
+    <div id="notices" aria-live="polite"></div>
+  </section>
+  <section class="card">
+    <h2>ภาพรวมชั้นเรียน</h2>
+    <div class="stats" id="stats"></div>
+  </section>
+  <section class="card">
+    <h2>ตารางรายบุคคล × 19 ด่าน</h2>
+    <p class="muted">กดสัญลักษณ์ด่านเพื่อดูผลของนักศึกษาคนนั้น รายการนี้แสดงเฉพาะสถานะผ่านเกม ไม่ใช่คะแนนงาน Studio</p>
+    <div class="scroll"><table class="matrix" id="matrix"><tbody><tr><td class="empty">กำลังโหลด…</td></tr></tbody></table></div>
+    <div class="legend"><span>✓ ผ่านตามลำดับ</span><span>↻ เล่นแล้ว ยังไม่ผ่าน</span><span>○ ด่านถัดไป</span><span>🔒 ยังล็อก</span><span>! มีผลผ่านแต่ลำดับก่อนหน้าไม่ครบ</span></div>
+  </section>
+  <section class="card" id="detail" hidden>
+    <h2 id="detailTitle">ผลรายบุคคล</h2>
+    <div id="detailStats" class="stats"></div>
+    <p class="muted">สถานะผ่านเกมใช้ผล mission_completed ที่ยืนยันจากชีตตามลำดับต่อเนื่อง ส่วนชิ้นงาน Studio และผลตรวจแสดงแยกต่างหาก</p>
+    <div class="scroll">
+      <table class="detail"><thead><tr><th>ด่าน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>ส่งล่าสุด</th><th>หลักฐาน</th></tr></thead><tbody id="detailRows"></tbody></table>
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var DATA=null, selected='', selectedNode='';
+var LABELS={passed:'ผ่าน',retry:'ทบทวน',ready:'พร้อมเริ่ม',locked:'ยังล็อก',out_of_sequence:'ตรวจลำดับ'};
+var SYMBOLS={passed:'✓',retry:'↻',ready:'○',locked:'🔒',out_of_sequence:'!'};
+var REVIEWS={not_submitted:'ยังไม่ส่ง',submitted:'ส่งแล้ว รอตรวจ',reviewing:'กำลังตรวจ',need_revision:'ส่งกลับแก้ไข',approved:'อนุมัติแล้ว'};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function status(t,error){$('status').className=error?'error':'help';$('status').textContent=t}
+function key(s){return s.section+'|'+s.studentId}
+function localStudents(){
+  if(!DATA) return [];
+  var q=$('search').value.trim().toLowerCase();
+  return DATA.students.filter(function(s){
+    return !q || (s.studentName+' '+s.studentId).toLowerCase().indexOf(q)>=0
+  })
+}
+function load(){
+  $('reload').disabled=true;status('กำลังอ่านผลยืนยันจาก Google Sheets…');
+  if(!window.google || !google.script || !google.script.run){
+    $('reload').disabled=false;status('หน้านี้ต้องเปิดจาก Teacher Web App ของ Google Apps Script ที่เป็นส่วนตัว',true);return;
+  }
+  google.script.run.withSuccessHandler(function(res){
+    $('reload').disabled=false;
+    if(!res || !res.ok){status('ไม่สามารถอ่านข้อมูลได้',true);return}
+    DATA=res; selected='';selectedNode='';
+    status('อัปเดต '+res.generatedAt+' • Section '+res.section+' • นักศึกษา '+res.studentCount+' คน');
+    $('student').innerHTML='<option value="">เลือกนักศึกษา</option>'+
+      DATA.students.map(function(s){return '<option value="'+esc(key(s))+'">'+esc(s.studentName+' • '+s.studentId)+'</option>'}).join('');
+    $('notices').innerHTML=(res.notices||[]).map(function(x){return '<p class="notice">'+esc(x)+'</p>'}).join('');
+    render();
+  }).withFailureHandler(function(err){
+    $('reload').disabled=false;status('เปิดข้อมูลไม่ได้: '+String(err&&err.message||err),true);
+  }).UXQ_ipGetDashboard({section:$('section').value.trim()});
+}
+function render(){
+  if(!DATA)return;
+  var list=localStudents();
+  var full=DATA.students;
+  var allDone=full.filter(function(s){return s.completedCount===19}).length;
+  var missing=full.filter(function(s){return s.completedCount===0}).length;
+  var studio=full.reduce(function(n,s){return n+s.submittedCount},0);
+  var cols=[['นักศึกษา',full.length],['ผ่านครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['ชิ้นงาน Studio ที่ส่ง',studio]];
+  $('stats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+x[1]+'</strong></div>'}).join('');
+  var head='<thead><tr><th>นักศึกษา</th><th>ผ่าน</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
+  var body=list.map(function(s){
+    return '<tr><td><button class="person" data-person="'+esc(key(s))+'">'+esc(s.studentName)+'<br><small>'+esc(s.studentId)+'</small></button></td>'+
+    '<td>'+s.completedCount+'/19</td>'+DATA.nodes.map(function(n){
+      var m=s.nodes[n.id],cls=m.status;
+      return '<td><button data-person="'+esc(key(s))+'" data-node="'+esc(n.id)+'" title="'+esc(n.label+' • '+(LABELS[cls]||cls))+'" aria-label="'+esc(s.studentName+' '+n.label+' '+(LABELS[cls]||cls))+'" class="'+esc(cls+(selected===key(s)&&selectedNode===n.id?' selected':''))+'">'+esc(SYMBOLS[cls]||'?')+'</button></td>'
+    }).join('')+'</tr>'
+  }).join('');
+  $('matrix').innerHTML=head+'<tbody>'+(body||'<tr><td class="empty">ไม่พบรายการ</td></tr>')+'</tbody>';
+  var target=full.filter(function(s){return key(s)===selected})[0];
+  $('detail').hidden=!target;
+  if(target)renderDetail(target);
+}
+function renderDetail(s){
+  $('detailTitle').textContent='สรุป 19 ด่าน • '+s.studentName+' ('+s.studentId+')';
+  var cols=[['ผ่านเกม',s.completedCount+'/19'],['งาน Studio ส่งแล้ว',s.submittedCount+'/19'],['Studio อนุมัติแล้ว',s.approvedCount+'/19']];
+  $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
+  $('detailRows').innerHTML=DATA.nodes.map(function(n){
+    var m=s.nodes[n.id],cls=m.status;
+    var studio=m.artifactSubmitted?(REVIEWS[m.reviewStatus]||m.reviewStatus):'ยังไม่ส่ง';
+    var link=m.artifactUrl?'<a href="'+esc(m.artifactUrl)+'" target="_blank" rel="noopener noreferrer">เปิดหลักฐาน</a>':'—';
+    return '<tr'+(selectedNode===n.id?' style="background:#1c3956"':'')+'><td>'+esc(n.label)+'</td>'+
+      '<td><span class="pill '+esc(cls)+'">'+esc(LABELS[cls]||cls)+'</span></td>'+
+      '<td>'+m.attempts+'</td><td>'+(m.bestScore===null?'—':esc(m.bestScore))+'</td>'+
+      '<td>'+m.bestStars+'</td><td><span class="pill '+esc(m.reviewStatus)+'">'+esc(studio)+'</span>'+
+      (m.reviewScore===null?'':' • '+esc(m.reviewScore)+'/100')+'</td>'+
+      '<td>'+esc(m.artifactAt||m.lastAt||'—')+'</td><td>'+link+'</td></tr>';
+  }).join('')
+}
+$('matrix').addEventListener('click',function(e){
+  var target=e.target.closest('button[data-person]');if(!target)return;
+  selected=target.getAttribute('data-person')||'';
+  selectedNode=target.getAttribute('data-node')||'';
+  $('student').value=selected;render();
+  if(!$('detail').hidden)$('detail').scrollIntoView({block:'start',behavior:'smooth'})
+});
+$('student').addEventListener('change',function(){selected=this.value;selectedNode='';render()});
+$('search').addEventListener('input',render);
+$('reload').addEventListener('click',load);
+$('section').addEventListener('change',load);
+load();
+})();
+</script>
+</body></html>
