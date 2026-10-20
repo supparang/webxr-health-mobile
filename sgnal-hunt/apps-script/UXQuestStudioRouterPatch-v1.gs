@@ -27,8 +27,15 @@ function UXQ_showPortfolioBuilder_() {
 function UXQ_routeStudioTeacherGet_(e) {
   const p = (e && e.parameter) || {};
   const view = String(p.view || '').trim().toLowerCase();
-  if (view === 'studio') return UXQ_showStudioDashboard_();
-  if (view === 'portfolio') return UXQ_showPortfolioBuilder_();
+  if (view === 'studio' || view === 'portfolio' || view === 'progress') {
+    // Fail closed even if an old deployment was accidentally made public.
+    UXQ_ipAuthorize_();
+    if (view === 'progress') return HtmlService
+      .createHtmlOutputFromFile('UXQuestIndividualProgressDashboard-v1')
+      .setTitle('CSAI2601 Individual Progress');
+    if (view === 'studio') return UXQ_showStudioDashboard_();
+    return UXQ_showPortfolioBuilder_();
+  }
   return null;
 }
 
