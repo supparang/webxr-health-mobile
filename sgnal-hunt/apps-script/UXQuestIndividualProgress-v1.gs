@@ -78,12 +78,66 @@ function UXQ_ipArtifactUrl_(row) {
   if (!/^https:\/\/[^\s<>"]+$/i.test(url)) return '';
   return url.slice(0,1000);
 }
+
+/* Stage answers are normally saved only with mission_completed events.
+ * This view does not infer unfinished in-game clicks that were never sent.
+ */
+function UXQ_ipJson_(value) {
+  try {
+    const data = JSON.parse(String(value || '{}'));
+    return data && typeof data === 'object' ? data : {};
+  } catch (_) { return {}; }
+}
+function UXQ_ipStageSummary_(row) {
+  const raw = UXQ_ipJson_(row.rawjson);
+  const answers = Array.isArray(raw.answers) ? raw.answers.slice(0,32) : [];
+  const groups = {};
+  answers.forEach(function(answer) {
+    if (!answer || typeof answer !== 'object') return;
+    const id = String(answer.stageKey || 'reasoning').trim().slice(0,80);
+    if (!groups[id]) groups[id] = {key:id, answered:0, correct:0, verified:0};
+    groups[id].answered += 1;
+    if (UXQ_ipBool_(answer.correct)) groups[id].correct += 1;
+    if (UXQ_ipBool_(answer.verified)) groups[id].verified += 1;
+  });
+  return Object.keys(groups).slice(0,16).map(function(key){return groups[key];});
+}
+function UXQ_ipFields_(row) {
+  const raw = UXQ_ipJson_(row.rawjson);
+  let fields = Array.isArray(raw.artifactFields) ? raw.artifactFields : [];
+  if (!fields.length) {
+    try { const a = JSON.parse(row.artifactfields || '[]'); if (Array.isArray(a)) fields = a; }
+    catch (_) {}
+  }
+  return fields.slice(0,8).filter(function(f){return f && typeof f === 'object';})
+    .map(function(f) {
+      return {
+        key:String(f.key || '').slice(0,100),
+        label:String(f.label || f.key || 'หลักฐาน').slice(0,180),
+        filled:Boolean(String(f.value == null ? '' : f.value).trim()),
+        required:UXQ_ipBool_(f.required)
+      };
+    });
+}
+function UXQ_ipReflectionState_(row, fields) {
+  const field = fields.filter(function(f){return f.key.toLowerCase() === 'reflection';})[0];
+  if (field) return field.filled ? 'submitted' : 'missing';
+  // Earlier receiver may construct reflection from problemSeen/uxReason/fixAndTest.
+  // Do not falsely mark synthesized values as a student's reflection.
+  const raw = UXQ_ipJson_(row.rawjson);
+  return String(row.reflection || raw.reflection || '').trim() ? 'unverified' : 'missing';
+}
+
 function UXQ_ipFreshNode_(id) {
   return {
     id:id, attempts:0, passedEvidence:false, bestScore:null, bestStars:0,
     latestScore:null, accuracy:null, reason:null, lastAt:'',
     status:'locked', artifactSubmitted:false, artifactEventId:'',
-    artifactAt:'', artifactUrl:'', reviewStatus:'not_submitted', reviewScore:null
+    artifactAt:'', artifactUrl:'', reviewStatus:'not_submitted', reviewScore:null,
+    missionStages:[], missionQuestions:0, missionVerified:0, missionCorrect:0,
+    reasonRetryCount:0, reasonRetryAt:'', studioFields:[], requiredMissing:[],
+    reflectionStatus:'not_submitted', reflectionSubmitted:false,
+    partsCompleted:0, fullThreePart:false, nextStep:''
   };
 }
 function UXQ_ipNewStudent_(row) {
@@ -92,7 +146,7 @@ function UXQ_ipNewStudent_(row) {
   return {
     studentId:row.studentid, studentName:row.studentname || row.studentid,
     section:row.section, nodes:nodes, completedCount:0, submittedCount:0,
-    approvedCount:0, latestAt:''
+    approvedCount:0, reflectionCount:0, fullThreePartCount:0, latestAt:''
   };
 }
 /** Pure aggregation: test with fixtures; relies on no Google services. */
@@ -114,7 +168,7 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
     const id = UXQ_ipMission_(row.missionid);
     if (!id) return;
     const type = String(row.eventtype || '').toLowerCase();
-    if (type !== 'mission_completed' && type !== 'artifact_submitted') return;
+    if (['mission_completed','artifact_submitted','reason_retry_submitted'].indexOf(type) < 0) return;
     const student = studentFor(row);
     if (!student) return;
     const node = student.nodes[id];
@@ -129,12 +183,25 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
       node.accuracy = UXQ_ipNumber_(row.accuracy);
       node.reason = UXQ_ipNumber_(row.verifiedaccuracy);
       node.lastAt = row.completedat || row.receivedat || '';
+      node.missionStages = UXQ_ipStageSummary_(row);
+      node.missionQuestions = node.missionStages.reduce(function(n,s){return n+s.answered;},0);
+      node.missionVerified = node.missionStages.reduce(function(n,s){return n+s.verified;},0);
+      node.missionCorrect = node.missionStages.reduce(function(n,s){return n+s.correct;},0);
+    } else if (type === 'reason_retry_submitted') {
+      node.reasonRetryCount += 1;
+      node.reasonRetryAt = row.reasonretrysubmittedat || row.receivedat || '';
     } else {
       // The Sheet is append-only; the last matching submission is authoritative.
       node.artifactSubmitted = true;
       node.artifactEventId = row.eventid || '';
       node.artifactAt = row.artifactsubmittedat || row.receivedat || '';
       node.artifactUrl = UXQ_ipArtifactUrl_(row);
+      node.studioFields = UXQ_ipFields_(row);
+      node.requiredMissing = node.studioFields
+        .filter(function(f){return f.required && !f.filled;})
+        .map(function(f){return f.label;});
+      node.reflectionStatus = UXQ_ipReflectionState_(row,node.studioFields);
+      node.reflectionSubmitted = node.reflectionStatus === 'submitted';
     }
     student.latestAt = row.receivedat || student.latestAt;
   });
@@ -173,6 +240,18 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
         }
         if (node.reviewStatus === 'approved') student.approvedCount += 1;
       }
+      if (node.reflectionSubmitted) student.reflectionCount += 1;
+      // 3/3 course activities do NOT change the official mission unlock policy.
+      node.partsCompleted = Number(node.status === 'passed') +
+        Number(node.artifactSubmitted) + Number(node.reflectionSubmitted);
+      node.fullThreePart = node.partsCompleted === 3;
+      if (node.fullThreePart) student.fullThreePartCount += 1;
+      node.nextStep = node.status !== 'passed' ? 'mission' :
+        !node.artifactSubmitted ? 'studio' :
+        !node.reflectionSubmitted ? 'reflection' :
+        node.reviewStatus === 'need_revision' ? 'revision' :
+        node.reviewStatus === 'submitted' || node.reviewStatus === 'reviewing' ?
+          'teacher_review' : 'complete';
     });
   });
   const result = Object.keys(students).map(function(key){ return students[key]; })

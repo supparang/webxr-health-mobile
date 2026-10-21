@@ -65,3 +65,19 @@ node test_uxq_teacher_individual_progress.js
 ~~~
 
 This tests canonical sequential passes, 2-star evidence, out-of-order W/B completion, Studio and mission separation, review approval tied to the matching artifact, roster-only students, Section/Course isolation, teacher allowlist rejection, and the private deployment manifest. It does not replace a live permission test.
+
+
+## Upgrade: drill down into each W/B (21 October 2026)
+
+The owner has already deployed a **standalone, private** UXQuest-Teacher-Progress Apps Script (not the original shared uxui receiver). Upgrade **that standalone teacher project only**:
+
+1. In the standalone teacher project's Editor, replace **the full content** of the existing individual-progress .gs file with the latest contents of UXQuestIndividualProgress-v1.gs from this repository. Keep its .gs file type.
+2. Replace **the full content** of the existing UXQuestIndividualProgressDashboard-v1 HTML file with the latest contents of UXQuestIndividualProgressDashboard-v1.html. Keep the exact HTML filename that the existing Code.gs calls. Google Apps Script usually displays the .html suffix in the editor, but createHtmlOutputFromFile receives the name without that suffix.
+3. Do **not** replace Code.gs or change the existing doGet(e). Do not change Script properties. Do not edit, redeploy, or alter permissions in the shared uxui project/Student Receiver.
+4. Save, then **Deploy → Manage deployments → select existing standalone teacher Web App → Edit (pencil) → Version: New version → Deploy**. Only changes deployed as a new version will appear on the same /exec URL. Use the existing private link; no ?view parameter is required in the standalone teacher project.
+5. In the teacher Web App choose **Section 201** (or an allowed Section), choose a student, then click a W/B cell. Each cell now shows **x/3** for: official Mission pass + recorded Studio submission + explicitly authored Reflection.
+6. In the individual details, click **รายละเอียด** next to a W/B. The expanded panel displays the 3 activity statuses, grouped Mission question-stage results from the latest saved mission attempt, Studio field completion (without showing response text), and separate Teacher Review/revision state.
+
+**Important accuracy limits:** Question-stage answers are written to the Sheet only when the Mission result is submitted; intermediate unsubmitted game clicks are **not** visible. A legacy receiver may synthesize a reflection from evidence/problem/fix text; such text is shown as **unverified** rather than claiming the student completed Reflection. A 3/3 activity status does **not** mean that the teacher approved the artifact, and it does **not** change the existing mission unlock logic. The optional UXQuest_Roster is still needed for a complete class roster including never-active students; the current 16-vs-17 discrepancy cannot be adjudicated from activity data alone.
+
+For regression tests from repo root: node test_uxq_teacher_substeps.js.
