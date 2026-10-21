@@ -557,7 +557,7 @@ const assistCheckin=await req("/api/attendance/checkin",{
   actor:"P002",method:"POST",body:{userId:"P002",token:assistCheckinQr.token}
 });
 await req("/api/activities/"+encodeURIComponent(assistActivity.activity.id)+"/assignments",{
-  actor:"ORG001",method:"PUT",body:{coOrganizerIds:["P002"],changeReason:"CI assign operational co-organizer"}
+  actor:"ORG001",method:"PUT",body:{coOrganizerIds:["P002"],verifierIds:["STF001"],changeReason:"CI assign co-organizer and authorized verifier"}
 });
 const assisted=await req("/api/attendance/"+encodeURIComponent(assistCheckin.attendance.id)+"/checkout-assist",{
   actor:"P002",method:"POST",body:{reason:"CI official duty early checkout exception"}
