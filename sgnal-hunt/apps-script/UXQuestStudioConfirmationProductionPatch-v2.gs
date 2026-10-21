@@ -50,6 +50,18 @@ function UXQ_getStudentStudioProgressV2_(e) {
   var studentId = UXQ_SC2_text_(p.studentId, 80);
   var section = UXQ_SC2_text_(p.section, 80);
   var courseId = UXQ_SC2_text_(p.courseId || 'UXQ-ACT1-2026', 120);
+  // Preserve narrow legacy Section aliases already defined by the unified
+  // Mission Restore (for specified student IDs only); never generalize.
+  var allowedSections = [section];
+  try {
+    var aliases = typeof UXQ_PROGRESS_SECTION_ALIASES !== 'undefined' ?
+      (UXQ_PROGRESS_SECTION_ALIASES[studentId + '|' + section] || []) : [];
+    (Array.isArray(aliases) ? aliases : []).forEach(function(item) {
+      var allowed = UXQ_SC2_text_(item,80);
+      if (allowed && allowedSections.indexOf(allowed) < 0) allowedSections.push(allowed);
+    });
+  } catch (ignored) {}
+
 
   if (!studentId || !section) {
     return {
@@ -115,7 +127,7 @@ function UXQ_getStudentStudioProgressV2_(e) {
     var eventType = UXQ_SC2_cell_(row, index, 'eventtype').toLowerCase();
 
     if (rowStudentId !== studentId) { identityMismatches.studentId += 1; return; }
-    if (rowSection !== section) { identityMismatches.section += 1; return; }
+    if (allowedSections.indexOf(rowSection) < 0) { identityMismatches.section += 1; return; }
     if (rowCourseId && rowCourseId !== courseId) { identityMismatches.courseId += 1; return; }
     matchedRows += 1;
     if (eventType !== 'artifact_submitted') return;
