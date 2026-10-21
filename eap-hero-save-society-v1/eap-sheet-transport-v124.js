@@ -3,7 +3,7 @@
    Captures ONLY fresh core-game submit_attempt GET calls. Sends their exact
    attempt data as POST to the configured EAP endpoint; retains a durable
    same-identity pending queue until EAP_Progress v150 confirms evidenceId.
-   No scan of local portfolio, no historical backfill, no synthetic HTTP 204.
+   No scan of local portfolio, no historical backfill; no synthetic success for normal-session attempts.
 ========================================================= */
 (function () {
   'use strict';
@@ -61,6 +61,35 @@
       return url.origin === endpoint.origin && url.pathname === endpoint.pathname &&
         text(url.searchParams.get('action')).toLowerCase() === 'submit_attempt';
     } catch (_) { return false; }
+  }
+  // Boss submissions remain on their existing legacy transport. Their
+  // teacher-review gate must not be changed by the normal-session S1 fix.
+  function forwardLegacyBoss(value) {
+    try {
+      var frame = document.getElementById('eap_hero_sheet_receiver_v124');
+      if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'eap_hero_sheet_receiver_v124';
+        frame.name = frame.id;
+        frame.setAttribute('aria-hidden','true');
+        frame.style.cssText='display:none!important;width:1px;height:1px;border:0';
+        document.documentElement.appendChild(frame);
+      }
+      var form = document.createElement('form');
+      form.method='GET';form.action=cfg.webAppUrl;form.target=frame.name;
+      form.style.display='none';
+      new URL(value,location.href).searchParams.forEach(function(v,k) {
+        var field=document.createElement('input');
+        field.type='hidden';field.name=k;field.value=v;form.appendChild(field);
+      });
+      [['submissionKind','fresh_evidence_v118'],['bridgeVersion','v124']].forEach(function(pair) {
+        var field=document.createElement('input');field.type='hidden';
+        field.name=pair[0];field.value=pair[1];form.appendChild(field);
+      });
+      document.body.appendChild(form);form.submit();
+      setTimeout(function(){try{form.remove();}catch(_){}},0);
+      return true;
+    } catch (_) {return false;}
   }
   function payloadFrom(value) {
     var url = new URL(value, location.href);
@@ -172,7 +201,18 @@
   }
   window.fetch = function(input,init) {
     var value = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-    if (isHeroAttempt(value)) return submitFresh(value);
+    if (isHeroAttempt(value)) {
+      var session = route(new URL(value,location.href).searchParams.get('sessionId'));
+      if (/^B[1-5]$/.test(session)) {
+        if (forwardLegacyBoss(value)) {
+          // Compatibility-only: previous Boss callers rely on this legacy
+          // response. It does not constitute a confirmed server receipt.
+          return Promise.resolve(new Response('',{status:204}));
+        }
+        return nativeFetch(input,init);
+      }
+      return submitFresh(value);
+    }
     return nativeFetch(input,init);
   };
   window.addEventListener('eap:resume-synced',function(event) {
