@@ -149,6 +149,48 @@ function UXQ_ipNewStudent_(row) {
     approvedCount:0, reflectionCount:0, fullThreePartCount:0, latestAt:''
   };
 }
+/* Read-only audit: why a student visible in the raw Sheet might be
+ * absent from the 19-node progress matrix. Teacher-authenticated only.
+ */
+function UXQ_ipAuditIdentities_(attemptRows, students, section) {
+  const raw = {};
+  (attemptRows || []).forEach(function(row) {
+    if (row.section !== section || !row.studentid) return;
+    const key = String(row.studentid);
+    if (!raw[key]) raw[key] = {studentId:key,studentName:row.studentname || key,
+      rowCount:0, types:{}, courses:{}, missionIds:{}, accepted:0};
+    const item = raw[key];
+    item.rowCount += 1;
+    const type = String(row.eventtype || '(blank)').toLowerCase();
+    const course = String(row.courseid || '(blank)');
+    const mission = String(row.missionid || '(blank)').toLowerCase();
+    item.types[type] = (item.types[type] || 0) + 1;
+    item.courses[course] = (item.courses[course] || 0) + 1;
+    item.missionIds[mission] = (item.missionIds[mission] || 0) + 1;
+    const allowedCourse = !row.courseid ||
+      row.courseid === 'UXQ-ACT1-2026' || row.courseid === 'CSAI2601';
+    if (allowedCourse && UXQ_ipMission_(mission) &&
+      ['mission_completed','artifact_submitted','reason_retry_submitted'].indexOf(type) >= 0) {
+      item.accepted += 1;
+    }
+  });
+  const rawList = Object.keys(raw).sort(function(a,b){
+    return a.localeCompare(b,'th',{numeric:true});
+  }).map(function(id){return raw[id];});
+  const excluded = rawList.filter(function(item) {
+    return !students[section+'|'+item.studentId];
+  }).map(function(item) {
+    return {studentId:item.studentId, studentName:item.studentName,
+      rows:item.rowCount, eventTypes:Object.keys(item.types),
+      courseIds:Object.keys(item.courses), missionIds:Object.keys(item.missionIds),
+      reason:item.accepted ? 'ตรวจตัวตน/การกรอง' : 'ไม่มีแถวที่ผ่านเงื่อนไขการนับ 19 ด่าน'};
+  });
+  return {rawSheetStudentCount:rawList.length, countedFromEvents:rawList.length-excluded.length,
+    excludedCount:excluded.length, excluded:excluded.slice(0,50),
+    omittedBeyond50:Math.max(0,excluded.length-50),
+    note:'นับเฉพาะ Section ที่เลือกและข้อมูลใน UXQuest_Attempts เท่านั้น; Dashboard v6.2 อาจใช้เกณฑ์หรือแหล่งข้อมูลต่างกัน'};
+}
+
 /** Pure aggregation: test with fixtures; relies on no Google services. */
 function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
   const students = {};
@@ -254,11 +296,12 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
           'teacher_review' : 'complete';
     });
   });
+  const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
   const result = Object.keys(students).map(function(key){ return students[key]; })
     .sort(function(a,b){return a.studentId.localeCompare(b.studentId,'th',{numeric:true});});
   if (!rosterRows || !rosterRows.length) notices.push('ไม่มีชีต UXQuest_Roster: รายชื่อจะแสดงเฉพาะผู้ที่มีการบันทึกกิจกรรมแล้ว นักศึกษาที่ไม่เคยเข้าเล่นจะไม่ปรากฏ');
   return {ok:true,section:section,nodes:UXQ_IP_NODE_ORDER.map(function(id,i){return{id:id,label:UXQ_IP_NODE_LABELS[i]};}),
-    students:result,studentCount:result.length,notices:notices,
+    students:result,studentCount:result.length,notices:notices,identityAudit:identityAudit,
     policy:'sheet_only_mission_completed_contiguous_w1_to_w15',generatedAt:new Date().toISOString()};
 }
 

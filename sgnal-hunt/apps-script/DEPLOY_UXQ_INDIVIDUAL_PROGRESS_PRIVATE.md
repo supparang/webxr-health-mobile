@@ -81,3 +81,22 @@ The owner has already deployed a **standalone, private** UXQuest-Teacher-Progres
 **Important accuracy limits:** Question-stage answers are written to the Sheet only when the Mission result is submitted; intermediate unsubmitted game clicks are **not** visible. A legacy receiver may synthesize a reflection from evidence/problem/fix text; such text is shown as **unverified** rather than claiming the student completed Reflection. A 3/3 activity status does **not** mean that the teacher approved the artifact, and it does **not** change the existing mission unlock logic. The optional UXQuest_Roster is still needed for a complete class roster including never-active students; the current 16-vs-17 discrepancy cannot be adjudicated from activity data alone.
 
 For regression tests from repo root: node test_uxq_teacher_substeps.js.
+
+
+## QA fixes for teacher progress display (21 October 2026)
+
+The existing privately deployed standalone Teacher Progress Web App needs **only two source-file replacements and a new deployment version**:
+
+- Latest UXQuestIndividualProgress-v1.gs (adds **read-only section-scoped identity audit**; never changes student data).
+- Latest UXQuestIndividualProgressDashboard-v1.html (fixes missing review score, Mission vs Studio dates, more explicit retry message).
+
+After copying both files into the **standalone UXQuest-Teacher-Progress** project, Save, then **Deploy → Manage deployments → Edit pencil → New version → Deploy**. The existing private /exec URL stays unchanged. Do **not** update, deploy, or change access rights of the old shared uxui receiver project.
+
+### Fixed cases
+
+- Empty/missing/unset Teacher Review score: hide the score suffix, never display "undefined/100", but preserve valid zero scores.
+- A Mission play does not imply Studio was submitted: display distinct **Mission last played** and **Studio last submitted** columns, using "—" when no Studio submission exists.
+- W1 Mission with 1 attempt / 1 star: show **played 1 time, not yet passed**, and suggest which saved answer stages need additional reasoning. Questions answered != Mission passed.
+- New **ตรวจสอบความต่างของจำนวนนักศึกษาในชีต** disclosure: compares unique student IDs from UXQuest_Attempts in the currently selected Section against IDs eligible for this progress dashboard. Shows excluded identities and event/course/mission metadata for teacher-only troubleshooting. It cannot reconcile a mismatch if Dashboard v6.2 uses a different data source, a different section filter, or a separate roster. Do not assume the 16-vs-17 discrepancy has been resolved before checking real data.
+
+Regression test from repository root: node test_uxq_teacher_progress_display_qa.js.
