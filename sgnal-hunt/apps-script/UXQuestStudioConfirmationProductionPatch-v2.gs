@@ -135,21 +135,32 @@ function UXQ_getStudentStudioProgressV2_(e) {
     var submittedAt = UXQ_SC2_cell_(row, index, 'artifactsubmittedat') ||
       UXQ_SC2_cell_(row, index, 'receivedat') ||
       UXQ_SC2_cell_(row, index, 'completedat');
-    var reflection = UXQ_SC2_cell_(row, index, 'reflection') ||
-      String(raw.reflection || fieldMap.reflection || '');
+    // The old Receiver may auto-fill row.reflection from problem/reason/fix.
+    // Only an explicitly filled reflection artifact field proves the
+    // learner authored Weekly Reflection. Legacy ambiguous rows remain
+    // unverified; we do not rewrite historical evidence.
+    var reflectionFields = fields.length ? fields : UXQ_SC2_parseJson_(UXQ_SC2_cell_(row, index, 'artifactfields'));
+    if (!Array.isArray(reflectionFields)) reflectionFields = [];
+    var reflectionField = reflectionFields.filter(function(field) {
+      return field && String(field.key || '').trim().toLowerCase() === 'reflection';
+    })[0] || null;
+    var reflectionExplicit = Boolean(reflectionField && String(reflectionField.value || '').trim());
+    var reflection = reflectionExplicit ? String(reflectionField.value).trim() : '';
     var node = nodes[missionId];
     node.submitted = true;
     node.artifactSubmitted = true;
     node.studioSubmitted = true;
     node.submissions += 1;
-    node.reflection = reflection;
-    node.reflectionSubmitted = Boolean(String(reflection || '').trim());
-    node.hasReflection = node.reflectionSubmitted;
     node.reviewStatus = 'submitted';
     node.status = 'submitted';
 
     if (!node.latestSubmittedAt || String(submittedAt) >= String(node.latestSubmittedAt)) {
       node.latestSubmittedAt = submittedAt;
+      node.reflection = reflection;
+      node.reflectionSubmitted = reflectionExplicit;
+      node.hasReflection = reflectionExplicit;
+      node.reflectionEvidence = reflectionExplicit ? 'explicit_artifact_field' :
+        (UXQ_SC2_cell_(row, index, 'reflection') || raw.reflection ? 'legacy_unverified' : 'missing');
       node.projectId = String(raw.projectId || fieldMap.projectId || UXQ_SC2_cell_(row, index, 'projectid') || '');
       node.figmaUrl = String(raw.figmaUrl || fieldMap.figmaUrl || UXQ_SC2_cell_(row, index, 'figmaurl') || '');
       node.eventId = UXQ_SC2_cell_(row, index, 'eventid');
