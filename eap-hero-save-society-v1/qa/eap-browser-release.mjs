@@ -1,3 +1,4 @@
+import './eap-reading-receipt-contract.mjs';
 import { chromium } from 'playwright';
 const base = process.env.EAP_LOCAL_URL || 'http://127.0.0.1:4173/eap-hero-save-society-v1/index.html';
 const browser = await chromium.launch({headless:true});
