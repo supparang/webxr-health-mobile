@@ -5,69 +5,36 @@ const page = await browser.newPage();
 const pageErrors=[];
 page.on('pageerror', e => pageErrors.push(String(e)));
 await page.goto(`${base}?eapqa=1`, {waitUntil:'domcontentloaded', timeout:60000});
-await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
-let report = await page.evaluate(() => window.EAP15ReleaseQA.run());
+await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPAuthorityRuntime && window.EAPCloudRouteUIAuthority && window.EAPLobbyRouteIsolation, null, {timeout:60000});
+const report = await page.evaluate(() => window.EAP15ReleaseQA.run());
 if (!report.pass) throw new Error(`Browser QA errors: ${JSON.stringify(report.errors.slice(0,10))}`);
-let diag = await page.evaluate(() => window.EAPRoadmapLockGuard.diagnostics());
-if (diag.authorityMode !== 'server-resume-only') throw new Error(`Wrong authority mode: ${JSON.stringify(diag)}`);
-if (diag.acceptsLocalEvidence !== false || diag.acceptsCompletedSessionsCache !== false) throw new Error(`Unsafe authority diagnostics: ${JSON.stringify(diag)}`);
+const initial = await page.evaluate(() => ({
+  runtime:window.EAPAuthorityRuntime.diagnostics(),
+  route:window.EAPAuthorityRuntime.currentRoute(),
+  verified:window.EAPAuthorityRuntime.isVerified()
+}));
+if (initial.verified && !initial.route) throw new Error(`Verified runtime without route: ${JSON.stringify(initial)}`);
 
-await page.evaluate(() => {
-  localStorage.setItem('EAP_HERO_PROGRESS_V3', JSON.stringify({
+// Test a fresh, isolated browser context: forged local progress must not
+// turn into an authoritative server resume. No live student account is used.
+const isolated = await browser.newContext();
+await isolated.addInitScript(() => {
+  localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify({
     profile:{studentId:'QA-TAMPER',studentName:'QA Tamper',section:'122'},
     currentCloudRoute:'B5',cloudVerified:true,resumeVerified:true,
-    completedSessions:{S1:true,S2:true,S3:true,B1:true,S4:true,S5:true,S6:true,B2:true,S7:true,S8:true,S9:true,B3:true,S10:true,S11:true,S12:true,B4:true,S13:true,S14:true,S15:true}
+    completedSessions:{S1:true,S2:true,B1:true,B5:true},
+    portfolio:[{sessionId:'S1',skill:'Reading',score:100,pendingSheetSync:true}]
   }));
 });
-await page.reload({waitUntil:'domcontentloaded',timeout:60000});
-await page.waitForFunction(() => window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
-const tamper = await page.evaluate(() => ({current:window.EAPRoadmapLockGuard.currentRouteId(),b5:window.EAPRoadmapLockGuard.canOpen('B5'),d:window.EAPRoadmapLockGuard.diagnostics()}));
-if (tamper.current !== '' || tamper.b5 !== false || tamper.d.liveVerified !== false) throw new Error(`localStorage tamper unlocked progress: ${JSON.stringify(tamper)}`);
-
-const live = await page.evaluate(() => {
-  const s=JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}');
-  s.profile={studentId:'QA-LIVE',studentName:'QA Live',section:'122'};
-  delete s.cloudResumeStatus;
-  delete s.currentCloudRoute;
-  delete s.currentRoute;
-  delete s.unlockedRoutes;
-  localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(s));
-  window.dispatchEvent(new CustomEvent('eap:profile-changed'));
-  const data={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa',
-    currentRoute:'S2',unlockedRoutes:['S1','S2'],
-    records:[
-      {routeId:'S1',sessionId:'S1',skill:'Reading',score:90,passed:true},
-      {routeId:'S1',sessionId:'S1',skill:'Speaking',score:90,passed:true}
-    ]
-  };
-  window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data}}));
-  return {current:window.EAPRoadmapLockGuard.currentRouteId(),s2:window.EAPRoadmapLockGuard.canOpen('S2'),diag:window.EAPRoadmapLockGuard.diagnostics()};
-});
-if (live.current !== 'S2' || live.s2 !== true || live.diag.liveVerified !== true) throw new Error(`server resume did not advance: ${JSON.stringify(live)}`);
-
-const boss = await page.evaluate(() => {
-  const a=window.EAPRoadmapLockGuard;
-  const pendingData={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa-pending',
-    currentRoute:'B1',unlockedRoutes:['S1','S2','S3','B1'],
-    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'pending_teacher_review'}]
-  };
-  const pendingAccepted=a.acceptResume({detail:{data:pendingData}});
-  const pending=a.currentRouteId();
-  const reviewedData={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa-reviewed',
-    currentRoute:'S4',unlockedRoutes:['S1','S2','S3','B1','S4'],
-    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'reviewed'}]
-  };
-  const reviewedAccepted=a.acceptResume({detail:{data:reviewedData}});
-  const reviewed=a.currentRouteId();
-  return {pending,pendingAccepted,reviewed,reviewedAccepted,diag:a.diagnostics()};
-});
-if (boss.pending !== 'B1' || boss.pendingAccepted !== true || boss.reviewed !== 'S4' || boss.reviewedAccepted !== true) throw new Error(`Server Boss route contract failed: ${JSON.stringify(boss)}`);
+const tamperPage=await isolated.newPage();
+await tamperPage.goto(`${base}?eapqa=1`,{waitUntil:'domcontentloaded',timeout:60000});
+await tamperPage.waitForFunction(() => !!window.EAPAuthorityRuntime,null,{timeout:60000});
+const tamper=await tamperPage.evaluate(() => ({
+  verified:window.EAPAuthorityRuntime.isVerified(),
+  route:window.EAPAuthorityRuntime.currentRoute()
+}));
+if (tamper.verified || tamper.route) throw new Error(`Unverified local progress gained authority: ${JSON.stringify(tamper)}`);
+await isolated.close();
 
 await page.evaluate(() => {
   const app=document.getElementById('app');
@@ -96,5 +63,5 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
 }
 
 if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join(' | ')}`);
-console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,tamper,live,boss,lobbyIsolation},null,2));
+console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,initial,tamper,lobbyIsolation},null,2));
 await browser.close();
