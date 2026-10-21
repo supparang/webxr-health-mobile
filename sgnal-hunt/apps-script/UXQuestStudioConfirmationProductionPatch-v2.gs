@@ -154,18 +154,19 @@ function UXQ_getStudentStudioProgressV2_(e) {
     node.reviewStatus = 'submitted';
     node.status = 'submitted';
 
-    if (!node.latestSubmittedAt || String(submittedAt) >= String(node.latestSubmittedAt)) {
-      node.latestSubmittedAt = submittedAt;
-      node.reflection = reflection;
-      node.reflectionSubmitted = reflectionExplicit;
-      node.hasReflection = reflectionExplicit;
-      node.reflectionEvidence = reflectionExplicit ? 'explicit_artifact_field' :
-        (UXQ_SC2_cell_(row, index, 'reflection') || raw.reflection ? 'legacy_unverified' : 'missing');
-      node.projectId = String(raw.projectId || fieldMap.projectId || UXQ_SC2_cell_(row, index, 'projectid') || '');
-      node.figmaUrl = String(raw.figmaUrl || fieldMap.figmaUrl || UXQ_SC2_cell_(row, index, 'figmaurl') || '');
-      node.eventId = UXQ_SC2_cell_(row, index, 'eventid');
-      node.linkedAttemptId = UXQ_SC2_cell_(row, index, 'linkedattemptid');
-    }
+    // The last APPENDED submission is authoritative (receipt order).
+    // Client event timestamps may be stale or use different offsets.
+    // This matches the write gate and private teacher dashboard.
+    node.latestSubmittedAt = submittedAt;
+    node.reflection = reflection;
+    node.reflectionSubmitted = reflectionExplicit;
+    node.hasReflection = reflectionExplicit;
+    node.reflectionEvidence = reflectionExplicit ? 'explicit_artifact_field' :
+      (UXQ_SC2_cell_(row, index, 'reflection') || raw.reflection ? 'legacy_unverified' : 'missing');
+    node.projectId = String(raw.projectId || fieldMap.projectId || UXQ_SC2_cell_(row, index, 'projectid') || '');
+    node.figmaUrl = String(raw.figmaUrl || fieldMap.figmaUrl || UXQ_SC2_cell_(row, index, 'figmaurl') || '');
+    node.eventId = UXQ_SC2_cell_(row, index, 'eventid');
+    node.linkedAttemptId = UXQ_SC2_cell_(row, index, 'linkedattemptid');
   });
 
   var submittedCount = UXQ_STUDIO_CONFIRM_V2.NODES.filter(function(id) { return nodes[id].submitted; }).length;
