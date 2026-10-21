@@ -63,6 +63,12 @@
   <section class="card">
     <h2>ภาพรวมชั้นเรียน</h2>
     <div class="stats" id="stats"></div>
+    <details id="auditPanel" style="margin-top:15px">
+      <summary style="cursor:pointer;color:var(--aqua);font-weight:700">ตรวจสอบความต่างของจำนวนนักศึกษาในชีต</summary>
+      <p id="auditText" class="help"></p>
+      <div class="scroll"><table id="auditRows"></table></div>
+      <p class="help">รายงานนี้อ่านข้อมูลใน UXQuest_Attempts เท่านั้น ไม่มีการแก้ไขหรือลบผลนักศึกษา และยังไม่ใช้เป็นเกณฑ์ตัดสินคะแนน</p>
+    </details>
   </section>
   <section class="card">
     <h2>ตารางรายบุคคล × 19 ด่าน</h2>
@@ -75,7 +81,7 @@
     <div id="detailStats" class="stats"></div>
     <p class="muted">สถานะ Mission ใช้ผลจาก mission_completed ตามลำดับต่อเนื่อง ส่วน Studio และ Reflection ต้องมีหลักฐานที่บันทึกจริง (ผล Teacher Review ไม่ใช้ปลดล็อกเกม)</p>
     <div class="scroll">
-      <table class="detail"><thead><tr><th>ด่าน</th><th>ครบ 3 ส่วน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>ส่งล่าสุด</th><th>หลักฐาน</th><th>ตรวจส่วนย่อย</th></tr></thead><tbody id="detailRows"></tbody></table>
+      <table class="detail"><thead><tr><th>ด่าน</th><th>ครบ 3 ส่วน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>เล่น Mission ล่าสุด</th><th>ส่ง Studio ล่าสุด</th><th>หลักฐาน</th><th>ตรวจส่วนย่อย</th></tr></thead><tbody id="detailRows"></tbody></table>
     </div>
     <article class="subdetail" id="subDetail" aria-live="polite">
       <h3 id="subTitle">รายละเอียดส่วนย่อย</h3>
@@ -106,6 +112,26 @@ var NEXT={mission:'ทำ Mission ให้ผ่าน',studio:'ส่งหล
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function status(t,error){$('status').className=error?'error':'help';$('status').textContent=t}
 function key(s){return s.section+'|'+s.studentId}
+function hasReviewScore(value){
+  return value !== null && value !== undefined &&
+    value !== '' && Number.isFinite(Number(value));
+}
+function reviewScoreSuffix(node){
+  return hasReviewScore(node.reviewScore) ? ' • คะแนน '+esc(node.reviewScore)+'/100' : '';
+}
+function missionActivity(node){
+  if(node.status==='passed') return 'ผ่าน Mission แล้ว'+(node.attempts?' • เล่น '+node.attempts+' ครั้ง':'');
+  if(node.status==='out_of_sequence') return 'มีผลผ่านนอกลำดับ ต้องตรวจด่านก่อนหน้า';
+  if(node.attempts) return 'เล่นแล้ว '+node.attempts+' ครั้ง ยังไม่ผ่าน'+
+    (Number(node.bestStars)>0?' • สูงสุด '+node.bestStars+' ดาว':'');
+  return node.status==='locked'?'ยังล็อก':'ยังไม่เริ่ม Mission';
+}
+function missionAdvice(node){
+  var weak=(node.missionStages||[]).filter(function(x){return Number(x.verified)<Number(x.answered)});
+  return weak.length ? 'ทบทวนเหตุผลในขั้น '+
+    weak.map(function(x){return STAGE_LABELS[x.key.toLowerCase()]||x.key}).join(', ') :
+    'ตรวจข้อกำหนดการผ่าน Mission และลองทำใหม่';
+}
 function localStudents(){
   if(!DATA) return [];
   var q=$('search').value.trim().toLowerCase();
@@ -127,9 +153,27 @@ function load(){
       DATA.students.map(function(s){return '<option value="'+esc(key(s))+'">'+esc(s.studentName+' • '+s.studentId)+'</option>'}).join('');
     $('notices').innerHTML=(res.notices||[]).map(function(x){return '<p class="notice">'+esc(x)+'</p>'}).join('');
     render();
+    renderAudit(res.identityAudit);
   }).withFailureHandler(function(err){
     $('reload').disabled=false;status('เปิดข้อมูลไม่ได้: '+String(err&&err.message||err),true);
   }).UXQ_ipGetDashboard({section:$('section').value.trim()});
+}
+function renderAudit(audit){
+  var panel=$('auditPanel'),text=$('auditText'),table=$('auditRows');
+  if(!audit){panel.hidden=true;return}
+  panel.hidden=false;
+  text.textContent='พบรหัสนักศึกษาใน UXQuest_Attempts (Section '+DATA.section+') '+
+    audit.rawSheetStudentCount+' คน • เข้าตารางความก้าวหน้าจากกิจกรรม '+audit.countedFromEvents+
+    ' คน • มีรหัสที่ถูกตัดออกจากเงื่อนไข '+audit.excludedCount+
+    ' คน'+(audit.omittedBeyond50?' (แสดงเฉพาะ 50 คนแรก)':'')+
+    ' — ตัวเลขนี้ยังไม่จำเป็นต้องตรงกับ Dashboard v6.2';
+  var head='<thead><tr><th>รหัส</th><th>ชื่อ</th><th>จำนวนแถว</th><th>เหตุการณ์</th><th>Course IDs</th><th>Mission IDs</th><th>ข้อสังเกต</th></tr></thead>';
+  var rows=(audit.excluded||[]).map(function(item){
+    return '<tr><td>'+esc(item.studentId)+'</td><td>'+esc(item.studentName)+'</td><td>'+item.rows+'</td>'+
+    '<td>'+esc((item.eventTypes||[]).join(', '))+'</td><td>'+esc((item.courseIds||[]).join(', '))+'</td>'+
+    '<td>'+esc((item.missionIds||[]).join(', '))+'</td><td>'+esc(item.reason)+'</td></tr>'
+  }).join('');
+  table.innerHTML=head+'<tbody>'+(rows||'<tr><td colspan="7">ไม่พบรหัสที่ถูกตัดออกตามเงื่อนไขของหน้าใหม่นี้ หากจำนวนยังต่าง ให้ตรวจวิธีนับใน v6.2</td></tr>')+'</tbody>';
 }
 function render(){
   if(!DATA)return;
@@ -139,7 +183,7 @@ function render(){
   var missing=full.filter(function(s){return s.completedCount===0}).length;
   var studio=full.reduce(function(n,s){return n+s.submittedCount},0);
   var threePart=full.reduce(function(n,s){return n+(s.fullThreePartCount||0)},0);
-  var cols=[['นักศึกษา',full.length],['ผ่านเกมครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['Studio ที่ส่ง',studio],['กิจกรรมครบ 3/3',threePart]];
+  var cols=[['นักศึกษาในตาราง',full.length],['ผ่านเกมครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['Studio ที่ส่ง',studio],['กิจกรรมครบ 3/3',threePart]];
   $('stats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+x[1]+'</strong></div>'}).join('');
   var head='<thead><tr><th>นักศึกษา</th><th>ผ่านเกม</th><th>ครบ 3/3</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
   var body=list.map(function(s){
@@ -168,8 +212,9 @@ function renderDetail(s){
       '<td><span class="pill '+esc(cls)+'">'+esc(LABELS[cls]||cls)+'</span></td>'+
       '<td>'+m.attempts+'</td><td>'+(m.bestScore===null?'—':esc(m.bestScore))+'</td>'+
       '<td>'+m.bestStars+'</td><td><span class="pill '+esc(m.reviewStatus)+'">'+esc(studio)+'</span>'+
-      (m.reviewScore===null?'':' • '+esc(m.reviewScore)+'/100')+'</td>'+
-      '<td>'+esc(m.artifactAt||m.lastAt||'—')+'</td><td>'+link+'</td>'+ 
+      reviewScoreSuffix(m)+'</td>'+
+      '<td>'+esc(m.lastAt||'—')+'</td>'+ 
+      '<td>'+(m.artifactSubmitted?esc(m.artifactAt||'ไม่ระบุเวลา'):'—')+'</td><td>'+link+'</td>'+ 
       '<td><button class="view-node'+(selectedNode===n.id?' selected':'')+'" type="button" data-view-node="'+esc(n.id)+'">รายละเอียด</button></td></tr>';
   }).join('');
   renderSubDetail(s, selectedNode);
@@ -179,7 +224,7 @@ function renderSubDetail(s,id) {
   if(!node || !info)return;
   $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3';
   var parts=[
-    ['1. Mission',node.status==='passed',LABELS[node.status]||node.status],
+    ['1. Mission',node.status==='passed',missionActivity(node)],
     ['2. Studio Practice',node.artifactSubmitted,node.artifactSubmitted?'ส่งงานแล้ว':'ยังไม่มีการส่งงาน'],
     ['3. Weekly Reflection',node.reflectionSubmitted,REFL[node.reflectionStatus]||node.reflectionStatus]
   ];
@@ -188,7 +233,9 @@ function renderSubDetail(s,id) {
     return '<div class="part '+(p[1]?'done':unknown?'unknown':'')+'"><strong>'+
       (p[1]?'✓ ':'○ ')+esc(p[0])+'</strong><small>'+esc(p[2])+'</small></div>';
   }).join('');
-  $('nextAdvice').textContent='ขั้นที่ควรทำต่อ: '+(NEXT[node.nextStep]||'ตรวจผลในชีต');
+  $('nextAdvice').textContent='ขั้นที่ควรทำต่อ: '+
+    (node.nextStep==='mission'&&node.attempts ? missionAdvice(node):
+      (NEXT[node.nextStep]||'ตรวจผลในชีต'));
   $('subStages').innerHTML=(node.missionStages||[]).length
     ?node.missionStages.map(function(st){
       return '<div class="stage-item"><strong>'+esc(STAGE_LABELS[st.key.toLowerCase()]||st.key)+'</strong>'+
@@ -204,7 +251,7 @@ function renderSubDetail(s,id) {
     :'<p class="help">'+(node.artifactSubmitted?'มีงานส่งแล้ว แต่รายการช่องย่อยไม่ได้ถูกบันทึกมา':'ยังไม่พบหลักฐาน Studio')+'</p>';
   var review=REVIEWS[node.reviewStatus]||node.reviewStatus;
   $('subReview').textContent='Teacher Review: '+review+
-    (node.reviewScore===null?'':' • คะแนน '+node.reviewScore+'/100')+
+    (hasReviewScore(node.reviewScore)?' • คะแนน '+node.reviewScore+'/100':'')+
     (node.reasonRetryCount?' • ส่ง Reason Retry '+node.reasonRetryCount+' ครั้ง':'');
 }
 $('detailRows').addEventListener('click',function(e){
