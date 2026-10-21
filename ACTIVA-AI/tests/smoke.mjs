@@ -81,6 +81,21 @@ assert(blockedOriginBody.error === "CORS_ORIGIN_NOT_ALLOWED", "blocked origin er
 const me = await req("/api/me", { actor: "ADM001" });
 assert(me.user?.employeeId === "ADM001", "admin identity check failed");
 
+// S2.3: process-local security summary must be accessible only by ADMIN;
+// rejected calls are counted, but no account/IP/guest token is exposed.
+const securitySummary = await req("/api/operations/security-summary", {actor:"ADM001"});
+assert(securitySummary.monitor?.source==="PROCESS_MEMORY", "security summary missing");
+assert(securitySummary.monitor?.persistent===false, "summary must be described as volatile");
+assert(typeof securitySummary.monitor?.categories?.AUTH_DENIED==="number", "auth denial metric missing");
+assert(!JSON.stringify(securitySummary).includes("actorId"), "summary must contain no actor IDs");
+const summaryDenied = await reqError("/api/operations/security-summary", {actor:"P001"});
+assert(summaryDenied.status===403, "non-admin must be denied security summary");
+const missingAuth = await reqError("/api/me");
+assert(missingAuth.status===401, "unauthenticated request must be rejected");
+const securitySummaryAfter = await req("/api/operations/security-summary", {actor:"ADM001"});
+assert(securitySummaryAfter.monitor.categories.AUTH_DENIED>=1, "denied authentication was not counted");
+assert(securitySummaryAfter.monitor.categories.ACCESS_DENIED>=1, "role-based denial was not counted");
+
 const users = await req("/api/users", { actor: "ADM001" });
 const p1 = users.users.find((u) => u.employeeId === "P001");
 assert(p1, "P001 seed user missing");
