@@ -25,6 +25,8 @@ function doGet(e) {
         service: 'shared-router-v153',
         progressAuthorityInstalled: typeof eapPlayerResumeV150_ === 'function' && typeof eapProgressUpsertV150_ === 'function',
         progressMirrorRequired: true,
+        attemptReceiverInstalled: typeof submitAttempt_ === 'function',
+        guardedAttemptReceiverInstalled: typeof eapHeroSubmitAttemptGuarded_ === 'function',
         progressSeedV152Installed: typeof eapProgressSeedTest50V152_ === 'function',
         progressSeedV151Installed: typeof eapProgressSeedTest50V151_ === 'function',
         playerResumeV146Installed: typeof eapPlayerResumeV146_ === 'function',
