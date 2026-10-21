@@ -41,6 +41,22 @@ function UXQ_WG_sheetRows_(sheet){
     return obj;
   });
 }
+/* Reuse only per-student/section aliases explicitly approved in existing
+ * unified Receiver. Never merge Sections for the whole class.
+ */
+function UXQ_WG_allowedSections_(studentId,section){
+  const sections=[section];
+  let aliases=[];
+  try{
+    if(typeof UXQ_PROGRESS_SECTION_ALIASES !== 'undefined')
+      aliases=UXQ_PROGRESS_SECTION_ALIASES[studentId+'|'+section]||[];
+  }catch(_){}
+  (Array.isArray(aliases)?aliases:[]).forEach(function(value){
+    const s=String(value||'').trim();
+    if(s&&sections.indexOf(s)<0)sections.push(s);
+  });
+  return sections;
+}
 function UXQ_WG_assess_(history,incoming){
   const target=String(incoming.missionId||incoming.missionid||'').trim().toLowerCase();
   const targetIndex=UXQ_WG_ORDER.indexOf(target);
@@ -50,14 +66,15 @@ function UXQ_WG_assess_(history,incoming){
   const course=String(incoming.courseId||incoming.courseid||'').trim();
   if(!sid||!section||!course)return {ok:false,error:'missing_identity'};
   if(targetIndex===0)return {ok:true};
+  const allowedSections=UXQ_WG_allowedSections_(sid,section);
   const status={};
   UXQ_WG_ORDER.slice(0,targetIndex).forEach(function(id){
     status[id]={mission:false,studio:false,reflection:false};
   });
   (history||[]).forEach(function(row){
     if(String(row.studentid||'').trim()!==sid ||
-       String(row.section||'').trim()!==section ||
-       String(row.courseid||'').trim()!==course)return;
+       allowedSections.indexOf(String(row.section||'').trim())<0 ||
+       (String(row.courseid||'').trim()&&String(row.courseid||'').trim()!==course))return;
     const id=String(row.missionid||'').trim().toLowerCase(),state=status[id];
     if(!state)return;
     const type=String(row.eventtype||'').trim().toLowerCase();
