@@ -22,7 +22,7 @@
     th,td{border-bottom:1px solid #31496b;padding:9px;white-space:nowrap;text-align:left}
     th{position:sticky;top:0;background:#17304f;z-index:1;color:#e8f2ff}th:first-child,td:first-child{position:sticky;left:0;z-index:2;background:#10243e}
     .matrix th:not(:first-child),.matrix td:not(:first-child){text-align:center;padding:7px 5px;min-width:43px}
-    .matrix button{padding:5px 8px;width:36px;background:#233c5d;color:#eff7ff}
+    .matrix button{padding:5px 4px;min-width:44px;background:#233c5d;color:#eff7ff}.matrix button .part-count{display:block;font-size:10px;line-height:1.1;margin-top:2px;color:#ecf4ff}
     .matrix button.passed{background:#1c563f;color:#b5ffda}.matrix button.retry{background:#6e522b;color:#fff0ce}
     .matrix button.out_of_sequence{background:#602e43;color:#ffe2e9}.matrix button.ready{background:#1a476b;color:#b8e9ff}
     .matrix button.selected{outline:2px solid #fff;outline-offset:2px}.person{background:transparent;color:var(--text);padding:3px;text-align:left}
@@ -31,6 +31,16 @@
     .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
     .pill.locked{color:var(--sub)}.pill.out_of_sequence{color:#ffb2c9}.pill.ready,.pill.reviewing{color:var(--aqua)}
     .detail td{white-space:normal}.detail th:first-child,.detail td:first-child{min-width:220px}
+    .subdetail{margin-top:17px;padding:17px;border-radius:15px;border:1px solid #47698e;background:#081c34}
+    .subdetail h3{font-size:1.05rem;margin:8px 0 10px}.parts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+    .part{padding:12px;border:1px solid var(--line);border-radius:12px;background:#102c47}
+    .part strong{display:block;margin:4px 0}.part small{color:var(--sub)}.part.done{border-color:#267354}.part.unknown{border-color:#ae8652}
+    .stage-grid,.field-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .stage-item,.field{padding:8px 11px;border-radius:11px;border:1px solid var(--line);background:#10223a;color:var(--text)}
+    .stage-item strong,.field strong{display:block;font-size:.88rem}.stage-item small,.field small{color:var(--sub)}
+    .field.done{border-color:#287c64}.field.missing{border-color:#af764a}
+    .view-node{background:#214b71;color:white;padding:6px 11px}.view-node.selected{outline:2px solid #7bd9ed}
+    @media(max-width:650px){.parts{grid-template-columns:1fr}}
     a{color:#9eeeff}.error{color:#ffc2cc}.notice{padding:12px;border-radius:9px;background:#2b3447;border:1px solid #667187}
     .empty{padding:24px;color:var(--sub);text-align:center}@media(max-width:750px){.wrap{padding:14px 9px 34px}.card{padding:12px}.matrix th:first-child,.matrix td:first-child{min-width:130px}.toolbar label{min-width:100%}}
   </style>
@@ -56,17 +66,29 @@
   </section>
   <section class="card">
     <h2>ตารางรายบุคคล × 19 ด่าน</h2>
-    <p class="muted">กดสัญลักษณ์ด่านเพื่อดูผลของนักศึกษาคนนั้น รายการนี้แสดงเฉพาะสถานะผ่านเกม ไม่ใช่คะแนนงาน Studio</p>
+    <p class="muted">กดสัญลักษณ์ด่านเพื่อดูรายละเอียด <strong>Mission + Studio + Reflection (0/3–3/3)</strong> ตัวเลข 0/3–3/3 เป็นกิจกรรมครบ ไม่ใช่คะแนนหรือผลอนุมัติของอาจารย์</p>
     <div class="scroll"><table class="matrix" id="matrix"><tbody><tr><td class="empty">กำลังโหลด…</td></tr></tbody></table></div>
-    <div class="legend"><span>✓ ผ่านตามลำดับ</span><span>↻ เล่นแล้ว ยังไม่ผ่าน</span><span>○ ด่านถัดไป</span><span>🔒 ยังล็อก</span><span>! มีผลผ่านแต่ลำดับก่อนหน้าไม่ครบ</span></div>
+    <div class="legend"><span>ตัวเลข x/3 ใต้สัญลักษณ์ = Mission / Studio / Reflection ที่มีหลักฐาน</span><span>✓ ผ่านตามลำดับ</span><span>↻ เล่นแล้ว ยังไม่ผ่าน</span><span>○ ด่านถัดไป</span><span>🔒 ยังล็อก</span><span>! มีผลผ่านแต่ลำดับก่อนหน้าไม่ครบ</span></div>
   </section>
   <section class="card" id="detail" hidden>
     <h2 id="detailTitle">ผลรายบุคคล</h2>
     <div id="detailStats" class="stats"></div>
-    <p class="muted">สถานะผ่านเกมใช้ผล mission_completed ที่ยืนยันจากชีตตามลำดับต่อเนื่อง ส่วนชิ้นงาน Studio และผลตรวจแสดงแยกต่างหาก</p>
+    <p class="muted">สถานะ Mission ใช้ผลจาก mission_completed ตามลำดับต่อเนื่อง ส่วน Studio และ Reflection ต้องมีหลักฐานที่บันทึกจริง (ผล Teacher Review ไม่ใช้ปลดล็อกเกม)</p>
     <div class="scroll">
-      <table class="detail"><thead><tr><th>ด่าน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>ส่งล่าสุด</th><th>หลักฐาน</th></tr></thead><tbody id="detailRows"></tbody></table>
+      <table class="detail"><thead><tr><th>ด่าน</th><th>ครบ 3 ส่วน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>ส่งล่าสุด</th><th>หลักฐาน</th><th>ตรวจส่วนย่อย</th></tr></thead><tbody id="detailRows"></tbody></table>
     </div>
+    <article class="subdetail" id="subDetail" aria-live="polite">
+      <h3 id="subTitle">รายละเอียดส่วนย่อย</h3>
+      <div class="parts" id="subParts"></div>
+      <p id="nextAdvice" class="help"></p>
+      <h3>ขั้นคำถามภายใน Mission</h3>
+      <p class="help">แสดงขั้นที่มีคำตอบในผล Mission ที่ส่งสำเร็จแล้วเท่านั้น ไม่ใช่การติดตามการคลิกระหว่างเล่นแบบสด</p>
+      <div id="subStages" class="stage-grid"></div>
+      <h3>หลักฐานย่อยใน Studio</h3>
+      <p class="help">เครื่องหมายแสดงว่ามีข้อมูลในช่องที่นักศึกษาส่ง ไม่ได้รับรองคุณภาพของผลงาน</p>
+      <div id="subFields" class="field-list"></div>
+      <p id="subReview" class="help"></p>
+    </article>
   </section>
 </main>
 <script>
@@ -77,6 +99,10 @@ var DATA=null, selected='', selectedNode='';
 var LABELS={passed:'ผ่าน',retry:'ทบทวน',ready:'พร้อมเริ่ม',locked:'ยังล็อก',out_of_sequence:'ตรวจลำดับ'};
 var SYMBOLS={passed:'✓',retry:'↻',ready:'○',locked:'🔒',out_of_sequence:'!'};
 var REVIEWS={not_submitted:'ยังไม่ส่ง',submitted:'ส่งแล้ว รอตรวจ',reviewing:'กำลังตรวจ',need_revision:'ส่งกลับแก้ไข',approved:'อนุมัติแล้ว'};
+var REFL={submitted:'มี Reflection ที่กรอกเอง',missing:'ยังไม่มีหลักฐาน Reflection',unverified:'มีข้อความ แต่แยกไม่ออกว่าเขียนเองหรือระบบเติม',not_submitted:'ยังไม่ส่ง Studio'};
+var STAGE_LABELS={evidence:'หลักฐาน',hypothesis:'ตั้งสมมติฐาน',fix:'วิธีแก้ปัญหา',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'นิยามปัญหา',ideate:'คิดทางเลือก',prototype:'ต้นแบบ',diagnose:'วิเคราะห์ปัญหา',prioritize:'จัดลำดับ',reduce:'ลดภาระความคิด',validate:'ตรวจสอบ',reasoning:'ให้เหตุผล'};
+var NEXT={mission:'ทำ Mission ให้ผ่าน',studio:'ส่งหลักฐาน Studio',reflection:'ส่ง Weekly Reflection',revision:'แก้ไขงานตามความเห็นอาจารย์',teacher_review:'รอการตรวจงาน Studio',complete:'ครบ 3 กิจกรรมแล้ว'};
+
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function status(t,error){$('status').className=error?'error':'help';$('status').textContent=t}
 function key(s){return s.section+'|'+s.studentId}
@@ -112,14 +138,15 @@ function render(){
   var allDone=full.filter(function(s){return s.completedCount===19}).length;
   var missing=full.filter(function(s){return s.completedCount===0}).length;
   var studio=full.reduce(function(n,s){return n+s.submittedCount},0);
-  var cols=[['นักศึกษา',full.length],['ผ่านครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['ชิ้นงาน Studio ที่ส่ง',studio]];
+  var threePart=full.reduce(function(n,s){return n+(s.fullThreePartCount||0)},0);
+  var cols=[['นักศึกษา',full.length],['ผ่านเกมครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['Studio ที่ส่ง',studio],['กิจกรรมครบ 3/3',threePart]];
   $('stats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+x[1]+'</strong></div>'}).join('');
-  var head='<thead><tr><th>นักศึกษา</th><th>ผ่าน</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
+  var head='<thead><tr><th>นักศึกษา</th><th>ผ่านเกม</th><th>ครบ 3/3</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
   var body=list.map(function(s){
     return '<tr><td><button class="person" data-person="'+esc(key(s))+'">'+esc(s.studentName)+'<br><small>'+esc(s.studentId)+'</small></button></td>'+
-    '<td>'+s.completedCount+'/19</td>'+DATA.nodes.map(function(n){
+    '<td>'+s.completedCount+'/19</td><td>'+s.fullThreePartCount+'/19</td>'+DATA.nodes.map(function(n){
       var m=s.nodes[n.id],cls=m.status;
-      return '<td><button data-person="'+esc(key(s))+'" data-node="'+esc(n.id)+'" title="'+esc(n.label+' • '+(LABELS[cls]||cls))+'" aria-label="'+esc(s.studentName+' '+n.label+' '+(LABELS[cls]||cls))+'" class="'+esc(cls+(selected===key(s)&&selectedNode===n.id?' selected':''))+'">'+esc(SYMBOLS[cls]||'?')+'</button></td>'
+      return '<td><button data-person="'+esc(key(s))+'" data-node="'+esc(n.id)+'" title="'+esc(n.label+' • '+(LABELS[cls]||cls)+' • '+m.partsCompleted+'/3')+'" aria-label="'+esc(s.studentName+' '+n.label+' '+(LABELS[cls]||cls))+'" class="'+esc(cls+(selected===key(s)&&selectedNode===n.id?' selected':''))+'">'+esc(SYMBOLS[cls]||'?')+'<span class="part-count">'+m.partsCompleted+'/3</span></button></td>'
     }).join('')+'</tr>'
   }).join('');
   $('matrix').innerHTML=head+'<tbody>'+(body||'<tr><td class="empty">ไม่พบรายการ</td></tr>')+'</tbody>';
@@ -129,20 +156,62 @@ function render(){
 }
 function renderDetail(s){
   $('detailTitle').textContent='สรุป 19 ด่าน • '+s.studentName+' ('+s.studentId+')';
-  var cols=[['ผ่านเกม',s.completedCount+'/19'],['งาน Studio ส่งแล้ว',s.submittedCount+'/19'],['Studio อนุมัติแล้ว',s.approvedCount+'/19']];
+  var cols=[['ผ่านเกม',s.completedCount+'/19'],['ครบ 3 ส่วน',s.fullThreePartCount+'/19'],['Studio ส่งแล้ว',s.submittedCount+'/19'],['Reflection ยืนยันได้',s.reflectionCount+'/19'],['Studio อนุมัติ',s.approvedCount+'/19']];
   $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
+  if(!selectedNode){var todo=DATA.nodes.filter(function(n){return !s.nodes[n.id].fullThreePart})[0]; selectedNode=(todo||DATA.nodes[18]).id;}
   $('detailRows').innerHTML=DATA.nodes.map(function(n){
     var m=s.nodes[n.id],cls=m.status;
     var studio=m.artifactSubmitted?(REVIEWS[m.reviewStatus]||m.reviewStatus):'ยังไม่ส่ง';
     var link=m.artifactUrl?'<a href="'+esc(m.artifactUrl)+'" target="_blank" rel="noopener noreferrer">เปิดหลักฐาน</a>':'—';
     return '<tr'+(selectedNode===n.id?' style="background:#1c3956"':'')+'><td>'+esc(n.label)+'</td>'+
+      '<td><span class="pill '+esc(m.fullThreePart?'approved':(m.partsCompleted?'submitted':'locked'))+'">'+m.partsCompleted+'/3</span></td>'+ 
       '<td><span class="pill '+esc(cls)+'">'+esc(LABELS[cls]||cls)+'</span></td>'+
       '<td>'+m.attempts+'</td><td>'+(m.bestScore===null?'—':esc(m.bestScore))+'</td>'+
       '<td>'+m.bestStars+'</td><td><span class="pill '+esc(m.reviewStatus)+'">'+esc(studio)+'</span>'+
       (m.reviewScore===null?'':' • '+esc(m.reviewScore)+'/100')+'</td>'+
-      '<td>'+esc(m.artifactAt||m.lastAt||'—')+'</td><td>'+link+'</td></tr>';
-  }).join('')
+      '<td>'+esc(m.artifactAt||m.lastAt||'—')+'</td><td>'+link+'</td>'+ 
+      '<td><button class="view-node'+(selectedNode===n.id?' selected':'')+'" type="button" data-view-node="'+esc(n.id)+'">รายละเอียด</button></td></tr>';
+  }).join('');
+  renderSubDetail(s, selectedNode);
 }
+function renderSubDetail(s,id) {
+  var node=s.nodes[id], info=DATA.nodes.filter(function(n){return n.id===id})[0];
+  if(!node || !info)return;
+  $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3';
+  var parts=[
+    ['1. Mission',node.status==='passed',LABELS[node.status]||node.status],
+    ['2. Studio Practice',node.artifactSubmitted,node.artifactSubmitted?'ส่งงานแล้ว':'ยังไม่มีการส่งงาน'],
+    ['3. Weekly Reflection',node.reflectionSubmitted,REFL[node.reflectionStatus]||node.reflectionStatus]
+  ];
+  $('subParts').innerHTML=parts.map(function(p){
+    var unknown=p[2].indexOf('แยกไม่ออก')>=0;
+    return '<div class="part '+(p[1]?'done':unknown?'unknown':'')+'"><strong>'+
+      (p[1]?'✓ ':'○ ')+esc(p[0])+'</strong><small>'+esc(p[2])+'</small></div>';
+  }).join('');
+  $('nextAdvice').textContent='ขั้นที่ควรทำต่อ: '+(NEXT[node.nextStep]||'ตรวจผลในชีต');
+  $('subStages').innerHTML=(node.missionStages||[]).length
+    ?node.missionStages.map(function(st){
+      return '<div class="stage-item"><strong>'+esc(STAGE_LABELS[st.key.toLowerCase()]||st.key)+'</strong>'+
+        '<small>มีคำตอบ '+st.answered+' • ถูก '+st.correct+' • เหตุผลผ่าน '+st.verified+'/'+st.answered+'</small></div>';
+    }).join('')
+    :'<p class="help">ไม่มีคำตอบรายขั้นในผลที่ซิงก์มา จึงยังระบุว่าทำถึงคำถามย่อยใดไม่ได้</p>';
+  $('subFields').innerHTML=(node.studioFields||[]).length
+    ?node.studioFields.map(function(field){
+      return '<span class="field '+(field.filled?'done':'missing')+'"><strong>'+
+        (field.filled?'✓ ':'○ ')+esc(field.label)+'</strong><small>'+
+        (field.filled?'กรอกแล้ว':'ยังไม่มีข้อมูล')+(field.required?' • บังคับ':'')+'</small></span>'
+    }).join('')
+    :'<p class="help">'+(node.artifactSubmitted?'มีงานส่งแล้ว แต่รายการช่องย่อยไม่ได้ถูกบันทึกมา':'ยังไม่พบหลักฐาน Studio')+'</p>';
+  var review=REVIEWS[node.reviewStatus]||node.reviewStatus;
+  $('subReview').textContent='Teacher Review: '+review+
+    (node.reviewScore===null?'':' • คะแนน '+node.reviewScore+'/100')+
+    (node.reasonRetryCount?' • ส่ง Reason Retry '+node.reasonRetryCount+' ครั้ง':'');
+}
+$('detailRows').addEventListener('click',function(e){
+  var target=e.target.closest('button[data-view-node]');if(!target)return;
+  selectedNode=target.getAttribute('data-view-node')||'';render();
+  $('subDetail').scrollIntoView({block:'nearest',behavior:'smooth'});
+});
 $('matrix').addEventListener('click',function(e){
   var target=e.target.closest('button[data-person]');if(!target)return;
   selected=target.getAttribute('data-person')||'';
