@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "purpose": "ACTIVA_AI_SOFTWARE_PRODUCTION_SECURITY_REVIEW",
+  "releaseCandidateCommit": null,
+  "ci": {
+    "status": "PASS_PRIOR_CANDIDATE_ONLY",
+    "testedCommit": "69eb50801cc306946edcdb8045687f77b3b8b3b3",
+    "runId": "38673779206",
+    "verifiedGitHubUrl": "https://github.com/supparang/webxr-health-mobile/actions/runs/38673779206",
+    "scope": "SYNTHETIC_CI_ONLY"
+  },
+  "staging": {
+    "deploymentStatus": "NOT_VERIFIED",
+    "approvedIsolatedInfrastructure": false,
+    "deployedCommit": null,
+    "readOnlyPreflight": null,
+    "independentIsolationEvidenceRef": null
+  },
+  "pullRequests": {
+    "required": [
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146
+    ],
+    "integrationReviewedAndMerged": false,
+    "mergeEvidenceRef": null
+  },
+  "manualChecks": {
+    "M01": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M02": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M03": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M04": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M05": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M06": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M07": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M08": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M09": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M10": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M11": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M12": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "M13": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    }
+  },
+  "review": {
+    "independentSecurityAssessment": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "privacyAndPersonnelDirectory": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "providerProxyAndLoad": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "incidentAlertDeliveryAndAck": {
+      "status": "NOT_TESTED",
+      "evidenceRef": null
+    },
+    "criticalHighFindings": "UNKNOWN",
+    "securityOwnerSignoff": {
+      "status": "NOT_APPROVED",
+      "evidenceRef": null
+    },
+    "operationsOwnerSignoff": {
+      "status": "NOT_APPROVED",
+      "evidenceRef": null
+    }
+  },
+  "researchEthics": {
+    "status": "NOT_SUBMITTED",
+    "governanceTrack": "INDEPENDENT_OF_SOFTWARE_SECURITY"
+  },
+  "notes": "This evidence template must not contain names, email addresses, user IDs, tokens, IPs, production URLs, QR secrets or participant data."
+}
