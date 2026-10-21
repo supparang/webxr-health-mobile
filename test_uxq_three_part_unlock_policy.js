@@ -31,6 +31,24 @@ assert.equal(verify([mission('S1','w1',2),{...artifact('S1','w1','Yes'),studenti
 assert.equal(verify([mission('S1','w1',2),{...artifact('S1','w1','Yes'),courseid:'other'}],'w2').missing,'studio');
 assert.equal(verify([mission('S1','w1',2),artifact('S1','w1','Yes')],'w3').blockedBy,'w2');
 assert.equal(verify([], 'w1').ok,true);
+
+// Preserve ONLY explicitly mapped historic sections already recognized by
+// the existing unified receiver; never merge sections for the whole class.
+context.UXQ_PROGRESS_SECTION_ALIASES={'3|201':['101']};
+const aliasRows=[
+  {...mission('3','w1',2),section:'101'},
+  {...artifact('3','w1','Student-authored reflection'),section:'101'}
+];
+assert.equal(context.UXQ_WG_assess_(aliasRows,{
+  studentId:'3',section:'201',courseId:'UXQ-ACT1-2026',missionId:'w2'
+}).ok,true,'whitelisted legacy section migration remains valid');
+assert.equal(context.UXQ_WG_assess_(aliasRows.map(r=>({...r,studentid:'4'})),{
+  studentId:'4',section:'201',courseId:'UXQ-ACT1-2026',missionId:'w2'
+}).ok,false,'another student must NOT inherit the legacy section alias');
+assert.equal(context.UXQ_WG_assess_(aliasRows,{
+  studentId:'3',section:'102',courseId:'UXQ-ACT1-2026',missionId:'w2'
+}).ok,false,'unlisted sections must remain isolated');
+
 assert.equal(verify([], 'w99').ok,false);
 // A synthesized reflection column without an authored artifact field must not pass.
 assert.equal(verify([mission('S1','w1',2),row('S1','w1','artifact_submitted',{reflection:'system autofill'})],'w2').missing,'reflection');
