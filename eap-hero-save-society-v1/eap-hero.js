@@ -39850,7 +39850,8 @@
         {mode:'no-cors', cache:'no-store'}
       ).catch(function(){});
 
-      state.sheetSync.sent[attemptId] = new Date().toISOString();
+      // The transport persists and retries this attempt until the official
+      // EAP_Progress receipt matches its evidenceId. No unverified 'sent' flag.
       return true;
     }catch(err){
       console.warn('[EAP sheet sync]', err);
