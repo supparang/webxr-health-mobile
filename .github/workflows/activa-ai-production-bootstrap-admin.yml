@@ -41,7 +41,7 @@ jobs:
           }
 
       - name: Checkout reviewed ACTIVA-AI release commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.ACTIVA_RELEASE_REF }}
 

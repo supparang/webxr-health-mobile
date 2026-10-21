@@ -35,7 +35,7 @@ jobs:
           }
 
       - name: Checkout reviewed migration commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ env.ACTIVA_MIGRATION_REF }}
 
