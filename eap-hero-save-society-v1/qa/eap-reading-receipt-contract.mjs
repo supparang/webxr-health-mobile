@@ -145,7 +145,7 @@ function scriptHarness(){
   assert.equal(incoming[0].routeId,'S1');
   assert.equal(incoming[0].skill,'Reading');
   assert.equal(incoming[0].score,100);
-  assert.match(incoming[0].evidenceId,/^EV-S1-\\d+-[a-z0-9]+$/);
+  assert.match(incoming[0].evidenceId,/^EV-S1-\d+-[a-z0-9]+$/);
   assert.equal(incoming[0].id,incoming[0].evidenceId);
   assert.equal(incoming[0].taskId,'S1_GOAL_BUILDER');
   assert.equal(records.length,1,'existing browser-only evidence must not be erased or replayed');
