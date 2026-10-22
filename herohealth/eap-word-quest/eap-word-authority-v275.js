@@ -410,7 +410,44 @@
     showWorking('กำลังค้นหารหัส ' + id + ' ในรายชื่อทางการ Section 122');
 
     try {
-      lookup = await jsonp('eap_word_profile_lookup',{studentId:id});
+      lookup = await jsonp('eap_word_profile_lookup', {studentId:id});
+
+var verifiedProfile = null;
+
+if (lookup && lookup.ok === true) {
+  if (lookup.official === true && lookup.profile) {
+    verifiedProfile = lookup.profile;
+  } else if (
+    lookup.found === true &&
+    lookup.identityFound === true &&
+    lookup.identitySource === 'eap_word_roster' &&
+    text(lookup.canonicalStudentId || lookup.studentId) === id &&
+    text(lookup.section) === GROUP &&
+    text(lookup.studentName)
+  ) {
+    verifiedProfile = {
+      studentId: id,
+      studentName: text(lookup.studentName),
+      section: GROUP
+    };
+  }
+}
+
+if (
+  !verifiedProfile ||
+  text(verifiedProfile.studentId) !== id ||
+  text(verifiedProfile.section || GROUP) !== GROUP ||
+  !text(verifiedProfile.studentName)
+) {
+  throw new Error((lookup && lookup.error) || 'student_not_found');
+}
+
+writeOfficialProfile(verifiedProfile);
+
+showWorking(
+  'พบชื่อ ' + verifiedProfile.studentName +
+  ' แล้ว กำลังโหลดความก้าวหน้าจาก Sheet'
+);
       if (!lookup.ok || !lookup.official || !lookup.profile) throw new Error(lookup.error || 'student_not_found');
       writeOfficialProfile(lookup.profile);
       showWorking('พบชื่อ ' + lookup.profile.studentName + ' แล้ว กำลังโหลดความก้าวหน้าจาก Sheet');
