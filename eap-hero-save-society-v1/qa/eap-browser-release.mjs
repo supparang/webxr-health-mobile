@@ -98,6 +98,7 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
     const before=window.EAPHeroTrustedTransportV124.diagnostics();
     const seen=[];
     const rejections=[];
+    const fetchStackSource=window.fetch.toString().slice(0,1800);
     const fetchOriginal=window.fetch.bind(window);
     window.fetch=function(input,init) {
       const url=typeof input==='string'?input:(input&&input.url)||'';
@@ -116,7 +117,7 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
       after:window.EAPHeroTrustedTransportV124.diagnostics().pending,
       seenSubmitAttempt:seen,
       submitErrors:rejections,
-      fetchChain:fetchOriginal.toString().slice(0,1000),
+      fetchChain:fetchStackSource,
       resumeNetworkGate:window.__EAP_RESUME_NETWORK_GATE_V177__||false,
       transportVersion:window.EAPHeroTrustedTransportV124?.version,
       identity: {
