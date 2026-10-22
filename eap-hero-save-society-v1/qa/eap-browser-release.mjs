@@ -116,6 +116,9 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
       after:window.EAPHeroTrustedTransportV124.diagnostics().pending,
       seenSubmitAttempt:seen,
       submitErrors:rejections,
+      fetchChain:fetchOriginal.toString().slice(0,1000),
+      resumeNetworkGate:window.__EAP_RESUME_NETWORK_GATE_V177__||false,
+      transportVersion:window.EAPHeroTrustedTransportV124?.version,
       identity: {
         active:JSON.parse(localStorage.getItem('EAP_HERO_ACTIVE_PLAYER_V1')||'{}'),
         profile:JSON.parse(localStorage.getItem('EAP_HERO_PLAYER_PROFILE_V1')||'{}'),
