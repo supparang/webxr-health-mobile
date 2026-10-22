@@ -96,6 +96,17 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
     null,{timeout:60000});
   const readingSmoke=await readingPage.evaluate(async () => {
     const before=window.EAPHeroTrustedTransportV124.diagnostics();
+    const seen=[];
+    const rejections=[];
+    const fetchOriginal=window.fetch.bind(window);
+    window.fetch=function(input,init) {
+      const url=typeof input==='string'?input:(input&&input.url)||'';
+      if(String(url).includes('submit_attempt'))seen.push(String(url).slice(0,300));
+      return fetchOriginal(input,init).catch(err=>{
+        if(String(url).includes('submit_attempt'))rejections.push(String(err));
+        throw err;
+      });
+    };
     window.EAPHero.submitReading(1);
     await new Promise(resolve=>setTimeout(resolve,100));
     const pending=JSON.parse(localStorage.getItem('EAP_HERO_VERIFIED_ATTEMPT_PENDING_V124')||'{}');
@@ -103,6 +114,16 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
     return {
       before:before.pending,
       after:window.EAPHeroTrustedTransportV124.diagnostics().pending,
+      seenSubmitAttempt:seen,
+      submitErrors:rejections,
+      identity: {
+        active:JSON.parse(localStorage.getItem('EAP_HERO_ACTIVE_PLAYER_V1')||'{}'),
+        profile:JSON.parse(localStorage.getItem('EAP_HERO_PLAYER_PROFILE_V1')||'{}'),
+        gameState:JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}').profile
+      },
+      config:window.EAP_SHEET_CONFIG,
+      storedReading:(JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}').portfolio||[])
+        .filter(r=>r.skill==='Reading').map(r=>({id:r.id,evidenceId:r.evidenceId,score:r.score})),
       attempts:rows.map(row=>({studentId:row.payload?.studentId,
         section:row.payload?.section,skill:row.payload?.skill,
         score:row.payload?.score,evidenceId:row.payload?.evidenceId,
