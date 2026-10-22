@@ -146,6 +146,11 @@
     }).finally(function() { delete flight[key]; });
   }
   function submitFresh(value) {
+    // Allow the core game to call this trusted transport directly rather
+    // than relying on global fetch monkey-patch ordering.
+    if (!isHeroAttempt(value)) {
+      return Promise.reject(new Error('Invalid EAP attempt endpoint'));
+    }
     var payload = payloadFrom(value);
     if (!valid(payload) || !sameIdentity(payload)) {
       return Promise.reject(new Error('EAP attempt identity or evidence is invalid; submission not recorded'));
@@ -230,6 +235,8 @@
         return sameIdentity(read(QUEUE_KEY)[k].payload);
       }).length,confirmed:Object.keys(read(DONE_KEY)).length};
     },
-    reconcile:reconcile,retryPending:retryPending
+    reconcile:reconcile,retryPending:retryPending,
+    // Fresh core-game attempts only. No portfolio scan or historical replay.
+    submitFreshAttempt:submitFresh
   };
 })();
