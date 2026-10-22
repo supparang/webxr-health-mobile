@@ -38445,10 +38445,34 @@
 
 
   function submitReadingGoalBuilderV84(id, answers){
-    const sid=Number(id||1), skill='Reading', score=100; state.profile=state.profile||{}; state.profile.goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
-    state.sessions=state.sessions||{}; state.sessions[sid]=Object.assign({},state.sessions[sid]||{}, {unlocked:true,cleared:true,bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),bestAccuracy:100,bestStars:3,attempts:Number(state.sessions[sid]?.attempts||0)+1});
-    state.portfolio=Array.isArray(state.portfolio)?state.portfolio:[]; state.portfolio.push({id:'EV-S1-'+Date.now(),sessionId:sid,session:sid,skill,score,submittedAt:new Date().toISOString(),output:state.profile.goal,evidenceText:state.profile.goal,prompt:'S1 Goal Builder'}); state.portfolio=state.portfolio.slice(-24);
-    state.mastery=state.mastery||{}; state.mastery.Reading=Math.max(Number(state.mastery.Reading||0),score); addXP(20); saveState(); safeToast('Academic Goal saved. Great start!'); showSkillResult(skill,score,sid); return false;
+    const sid=Number(id||1), skill='Reading', score=100;
+    state.profile=state.profile||{};
+    const goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
+    state.profile.goal=goal;
+    state.sessions=state.sessions||{};
+    state.sessions[sid]=Object.assign({},state.sessions[sid]||{},{
+      unlocked:true,cleared:true,
+      bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),
+      bestAccuracy:100,bestStars:3,
+      attempts:Number(state.sessions[sid]?.attempts||0)+1
+    });
+    // S1 previously pushed directly to state.portfolio, bypassing the ONLY
+    // submit_attempt call in addPortfolio(). Use the same fresh-evidence
+    // path as S2-S15. Do not replay old browser-only results on load.
+    const evidenceId='EV-S1-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
+    addPortfolio({
+      id:evidenceId,evidenceId:evidenceId,
+      routeId:'S1',sessionId:sid,session:sid,
+      skill:skill,score:score,passed:true,
+      taskId:'S1_GOAL_BUILDER',
+      evidenceType:'s1_reading_goal_builder',
+      submittedAt:new Date().toISOString(),
+      output:goal,evidenceText:goal,prompt:'S1 Goal Builder'
+    });
+    // addPortfolio handles the standard XP, local persistence and attempt sync.
+    safeToast('Academic Goal saved. Google Sheet confirmation pending.');
+    showSkillResult(skill,score,sid);
+    return false;
   }
 
   function submitReading(id){
