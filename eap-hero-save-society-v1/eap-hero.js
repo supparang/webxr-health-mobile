@@ -32025,11 +32025,15 @@
   function v84Snapshot(){
     const p=state.profile||{}, f=state.fun||{}, m=state.mastery||{};
     const portfolio=(Array.isArray(state.portfolio)?state.portfolio:[]).slice(-12).map(x=>({
-      id:String(x?.id||x?.evidenceId||''),sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
+      // Keep both IDs. The Storage Safety Guard later compacts portfolio
+      // records; dropping evidenceId here made a valid S1 attempt unverifiable
+      // after browser reload even when a fresh submission had been attempted.
+      id:String(x?.id||x?.evidenceId||''),evidenceId:String(x?.evidenceId||x?.id||''),
+      sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
       submittedAt:String(x?.submittedAt||x?.at||''),preview:String(x?.output||x?.evidenceText||'').slice(0,96)
     }));
     return {schema:'eap-v84',version:APP_VERSION,savedAt:new Date().toISOString(),view:String(state.view||'home').slice(0,24),currentSession:Number(state.currentSession||1)||1,
-      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),goal:String(p.goal||'').slice(0,120)},
+      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),section:String(p.section||'').slice(0,32),goal:String(p.goal||'').slice(0,120)},
       xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),sessionScores:compactSessionEvidence(state.sessionScores || {}),
       mastery:{Reading:Number(m.Reading||0)||0,Writing:Number(m.Writing||0)||0,Listening:Number(m.Listening||0)||0,Speaking:Number(m.Speaking||0)||0},
       fun:{coins:Number(f.coins||0)||0,daily:{lastDate:String(f.daily?.lastDate||'').slice(0,12),streak:Number(f.daily?.streak||0)||0}},
