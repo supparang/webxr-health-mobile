@@ -1,6 +1,6 @@
 /* =========================================================
    EAP Word Quest • Google Sheet Authority Client
-   Version: 20260728-EAPWQ-AUTHORITY-V275-VERIFICATION-PROOF
+   Version: 20261022-EAPWQ-V275-60S-TIMEOUT-DIAGNOSTIC
 
    Design rules
    - Google Sheet is the official authority.
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260728-EAPWQ-AUTHORITY-V275-VERIFICATION-PROOF';
+  var VERSION = '20261022-EAPWQ-V275-60S-TIMEOUT-DIAGNOSTIC';
   var ENDPOINT = 'https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
   var GROUP = '122';
   var PROFILE_KEY = 'EAP_WORD_QUEST_PROFILE_V01';
@@ -29,6 +29,7 @@
     profile:null,
     resume:null,
     lastError:'',
+    lastAction:'idle',
     verifiedAt:''
   };
 
@@ -102,7 +103,7 @@
       window[callback] = function (payload) { finish(null,payload); };
       script.onerror = function () { finish(new Error('authority_network_error')); };
       script.src = ENDPOINT + '?' + query.toString();
-      timer = setTimeout(function () { finish(new Error('authority_timeout')); },timeoutMs || 15000);
+      timer = setTimeout(function () { finish(new Error('authority_timeout')); },timeoutMs || 60000);
       document.head.appendChild(script);
     });
   }
@@ -411,6 +412,7 @@
     showWorking('กำลังค้นหารหัส ' + id + ' ในรายชื่อทางการ Section 122');
 
     try {
+      state.lastAction = 'profile_lookup';
       lookup = await jsonp('eap_word_profile_lookup', {studentId:id});
       var verifiedProfile = null;
 
@@ -447,12 +449,14 @@
         'พบชื่อ ' + verifiedProfile.studentName +
         ' แล้ว กำลังโหลดความก้าวหน้าจาก Sheet'
       );
+      state.lastAction = 'player_resume';
       resume = await jsonp('eap_word_player_resume',{studentId:id});
       if (!resume.ok || !resume.official) throw new Error(resume.error || 'resume_failed');
 
       state.resume = resume;
       state.ready = true;
       state.phase = 'verified';
+      state.lastAction = 'verified';
       state.verifiedAt = nowLabel();
       writeResumeCache(resume);
       setBlocked(false);
@@ -495,6 +499,7 @@
     state.profile = null;
     state.resume = null;
     state.lastError = '';
+    state.lastAction = 'idle';
     state.verifiedAt = '';
     if (byId('studentIdInput')) byId('studentIdInput').value = '';
     if (byId('studentNameInput')) byId('studentNameInput').value = '';
