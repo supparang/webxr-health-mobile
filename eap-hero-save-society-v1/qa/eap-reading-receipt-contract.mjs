@@ -152,4 +152,51 @@ function scriptHarness(){
   assert.equal(records[0],oldRecord,'prior student evidence is preserved');
   assert.equal(displayed.score,100);
 }
+// The v84 snapshot and Storage Safety Guard must not erase the receipt key.
+// This is a separate persistence requirement from merely sending POST.
+{
+  const coreSource=readFileSync(new URL('../eap-hero.js',import.meta.url),'utf8');
+  const from=coreSource.indexOf('  function v84Snapshot(){');
+  const until=coreSource.indexOf('\n  function cleanupV84Storage()',from);
+  assert.ok(from>=0&&until>from,'v84 snapshot source present');
+  const state={
+    profile:{name:'QA',studentId:'QA-READING-USER',section:'122-QA'},
+    fun:{},mastery:{},sessions:{},skillPath:{},bossGates:{},portfolio:[{
+      id:'EV-S1-QA-PRESERVE',evidenceId:'EV-S1-QA-PRESERVE',
+      sessionId:1,skill:'Reading',score:100,submittedAt:'2026-10-22T07:00:00.000Z'
+    }]
+  };
+  const snapshot=JSON.parse(vm.runInNewContext(
+    coreSource.slice(from,until)+'\nJSON.stringify(v84Snapshot());',
+    {state,APP_VERSION:'QA',v84MiniSessions:()=>({}),compactSessionEvidence:()=>({}),
+      JSON,String,Number,Date,Math,Object,Array},
+    {filename:'eap-hero.js::v84Snapshot'}
+  ));
+  assert.equal(snapshot.profile.section,'122-QA');
+  assert.equal(snapshot.portfolio[0].evidenceId,'EV-S1-QA-PRESERVE');
+  class StorageMock {
+    constructor(){this.entries=new Map();}
+    getItem(k){return this.entries.get(String(k))??null;}
+    setItem(k,v){this.entries.set(String(k),String(v));}
+    key(index){return [...this.entries.keys()][index]??null;}
+    get length(){return this.entries.size;}
+  }
+  const local=new StorageMock();
+  local.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(snapshot));
+  const untouchedQueue='{"122-QA|QA-READING-USER|EV-S1-QA-PRESERVE":{"attempts":1}}';
+  local.setItem('EAP_HERO_VERIFIED_ATTEMPT_PENDING_V124',untouchedQueue);
+  const guardSource=readFileSync(new URL('../eap-storage-safety-guard-v144.js',import.meta.url),'utf8');
+  vm.runInNewContext(guardSource,{
+    Storage:StorageMock,localStorage:local,
+    window:{addEventListener:()=>{}},
+    document:{documentElement:{dataset:{}}},
+    Date,Math,String,JSON,Number,RegExp,Object,Array,Set,
+    console
+  },{filename:'eap-storage-safety-guard-v144.js'});
+  const after=JSON.parse(local.getItem('EAP_HERO_PROGRESS_V3'));
+  assert.equal(after.portfolio[0].id,'EV-S1-QA-PRESERVE');
+  assert.equal(after.portfolio[0].evidenceId,'EV-S1-QA-PRESERVE');
+  assert.equal(after.portfolio[0].score,100);
+  assert.equal(local.getItem('EAP_HERO_VERIFIED_ATTEMPT_PENDING_V124'),untouchedQueue);
+}
 console.log('EAP S1 Reading receipt contract: PASS (no real students or network)');
