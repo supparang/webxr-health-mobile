@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import './eap-reading-receipt-contract.mjs';
 import { chromium } from 'playwright';
 const base = process.env.EAP_LOCAL_URL || 'http://127.0.0.1:4173/eap-hero-save-society-v1/index.html';
@@ -61,6 +62,64 @@ const lobbyIsolation = await page.evaluate(() => {
 });
 if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobbyVisible !== 1 || lobbyIsolation.missionVisible || lobbyIsolation.roadmapVisible || lobbyIsolation.sheetStatusVisible || lobbyIsolation.sheetButtonVisible || lobbyIsolation.activeTask !== null) {
   throw new Error(`B1 lobby isolation failed: ${JSON.stringify(lobbyIsolation)}`);
+}
+
+// Browser-level S1 Reading smoke test: run only with a synthetic QA identity,
+// fake Apps Script endpoint and intercepted network. Never touches production.
+{
+  const isolatedReading = await browser.newContext();
+  const qaEndpoint='https://script.google.com/macros/s/QA-BROWSER-READING-SMOKE/exec';
+  const cfgSource=readFileSync(new URL('../eap-sheet-config.js',import.meta.url),'utf8');
+  const prodEndpoint='https://script.google.com/macros/s/AKfycbzkU4qUEhfHmwZCSifwBY1nX21sktS1hA6KMFC1i3ZG2YZZlbij0JC47ODGxcjkhXYsxA/exec';
+  if (!cfgSource.includes(prodEndpoint)) throw new Error('QA fixture could not override the production endpoint');
+  const qaConfigSource=cfgSource.replace(prodEndpoint,qaEndpoint).replace("section:'122'", "section:'122-QA'");
+  await isolatedReading.route('**/eap-sheet-config.js*',r=>r.fulfill({
+    status:200,contentType:'text/javascript',body:qaConfigSource
+  }));
+  await isolatedReading.route(/^https:\/\/(?:script\.google\.com|script\.googleusercontent\.com)\//,r=>r.fulfill({
+    status:200,contentType:'text/plain',body:''
+  }));
+  await isolatedReading.addInitScript(() => {
+    try {
+      const id={studentId:'QA-OFFLINE-READING',id:'QA-OFFLINE-READING',
+        studentName:'Offline QA',name:'Offline QA',section:'122-QA'};
+      localStorage.setItem('EAP_HERO_ACTIVE_PLAYER_V1',JSON.stringify(id));
+      localStorage.setItem('EAP_HERO_PLAYER_PROFILE_V1',JSON.stringify(id));
+      localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify({profile:id,
+        currentSession:1,portfolio:[],sessions:{},sessionScores:{}}));
+    } catch (_) {}
+  });
+  const readingPage=await isolatedReading.newPage();
+  await readingPage.goto(base+'?eapqa=1',{waitUntil:'domcontentloaded',timeout:60000});
+  await readingPage.waitForFunction(() =>
+    !!(window.EAPHero?.submitReading && window.EAPHeroTrustedTransportV124?.diagnostics),
+    null,{timeout:60000});
+  const readingSmoke=await readingPage.evaluate(async () => {
+    const before=window.EAPHeroTrustedTransportV124.diagnostics();
+    window.EAPHero.submitReading(1);
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const pending=JSON.parse(localStorage.getItem('EAP_HERO_VERIFIED_ATTEMPT_PENDING_V124')||'{}');
+    const rows=Object.values(pending);
+    return {
+      before:before.pending,
+      after:window.EAPHeroTrustedTransportV124.diagnostics().pending,
+      attempts:rows.map(row=>({studentId:row.payload?.studentId,
+        section:row.payload?.section,skill:row.payload?.skill,
+        score:row.payload?.score,evidenceId:row.payload?.evidenceId,
+        attemptId:row.payload?.attemptId}))
+    };
+  });
+  if (readingSmoke.before!==0 || readingSmoke.after!==1 ||
+      readingSmoke.attempts.length!==1 ||
+      readingSmoke.attempts[0].studentId!=='QA-OFFLINE-READING' ||
+      readingSmoke.attempts[0].section!=='122-QA' ||
+      readingSmoke.attempts[0].skill!=='Reading' ||
+      Number(readingSmoke.attempts[0].score)!==100 ||
+      readingSmoke.attempts[0].evidenceId!==readingSmoke.attempts[0].attemptId) {
+    throw new Error('S1 Reading did not enter offline transport: '+JSON.stringify(readingSmoke));
+  }
+  console.log('Offline browser S1 Reading -> pending receipt-safe transport: PASS');
+  await isolatedReading.close();
 }
 
 if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join(' | ')}`);
