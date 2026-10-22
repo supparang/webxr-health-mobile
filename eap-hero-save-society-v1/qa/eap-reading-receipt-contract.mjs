@@ -119,4 +119,37 @@ function scriptHarness(){
   assert.equal(low.ok,true);
   assert.equal(h2.mirrored.passed,false,'low score must not become an official pass');
 }
+// Regression: S1 Goal Builder must route fresh Reading evidence through
+// addPortfolio, not push a browser-only EV-S1 row and skip transport.
+{
+  const coreSource=readFileSync(new URL('../eap-hero.js',import.meta.url),'utf8');
+  const start=coreSource.indexOf('  function submitReadingGoalBuilderV84(');
+  const end=coreSource.indexOf('\n  function submitReading(',start);
+  assert.ok(start>=0&&end>start,'S1 Reading submission source is available');
+  const oldRecord={id:'PRESERVED-LOCAL-EVIDENCE',sessionId:1,skill:'Reading',score:100};
+  const records=[oldRecord];
+  const incoming=[];
+  let displayed=null;
+  const game={
+    state:{profile:{studentId:'QA-READING-USER',name:'QA Test'},sessions:{},portfolio:records},
+    addPortfolio:e=>{incoming.push(e);return {entry:e};},
+    safeToast:()=>{},
+    showSkillResult:(skill,score,sid)=>{displayed={skill,score,sid};},
+    Date,Math,Number,String,Object
+  };
+  vm.runInNewContext(
+    coreSource.slice(start,end)+'\nsubmitReadingGoalBuilderV84(1,["Goal","Academic reading","Read a text each week"]);',
+    game,{filename:'eap-hero.js::S1-goal-builder'}
+  );
+  assert.equal(incoming.length,1,'one fresh S1 attempt must pass through addPortfolio');
+  assert.equal(incoming[0].routeId,'S1');
+  assert.equal(incoming[0].skill,'Reading');
+  assert.equal(incoming[0].score,100);
+  assert.match(incoming[0].evidenceId,/^EV-S1-\\d+-[a-z0-9]+$/);
+  assert.equal(incoming[0].id,incoming[0].evidenceId);
+  assert.equal(incoming[0].taskId,'S1_GOAL_BUILDER');
+  assert.equal(records.length,1,'existing browser-only evidence must not be erased or replayed');
+  assert.equal(records[0],oldRecord,'prior student evidence is preserved');
+  assert.equal(displayed.score,100);
+}
 console.log('EAP S1 Reading receipt contract: PASS (no real students or network)');
