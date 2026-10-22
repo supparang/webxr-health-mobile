@@ -39873,10 +39873,21 @@
         url.searchParams.set(key, payload[key]);
       });
 
-      fetch(
-        url.toString(),
-        {mode:'no-cors', cache:'no-store'}
-      ).catch(function(){});
+      // Dispatch fresh normal-session attempts through the trusted queue
+      // directly. Other modules may wrap window.fetch after v124; those
+      // wrappers must not silently bypass or defer a graded attempt.
+      const transport = window.EAPHeroTrustedTransportV124;
+      if(!isBoss && transport && transport.active &&
+        typeof transport.submitFreshAttempt === 'function'){
+        transport.submitFreshAttempt(url.toString()).catch(function(error){
+          console.warn('[EAP sheet sync] attempt remains unconfirmed', error);
+        });
+      }else{
+        // Compatibility fallback for legacy transports and Boss routes.
+        fetch(url.toString(),{mode:'no-cors',cache:'no-store'}).catch(function(error){
+          console.warn('[EAP sheet sync] compatibility transport error', error);
+        });
+      }
 
       // The transport persists and retries this attempt until the official
       // EAP_Progress receipt matches its evidenceId. No unverified 'sent' flag.
