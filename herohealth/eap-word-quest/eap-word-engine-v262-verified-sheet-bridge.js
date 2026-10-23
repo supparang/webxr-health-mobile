@@ -38,7 +38,7 @@
   loadScript('./eap-word-summary-authority-v303.js?v=20260801-v303-review-summary-1', 'eap-v303', '__EAP_WORD_V303_REVIEW_SUMMARY__');
   loadScript('./eap-word-review-pending-nav-guard-v305.js?v=20260801-v305-review-pending-1', 'eap-v305', '__EAP_WORD_V305_REVIEW_PENDING_NAV__');
 
-  loadScript('./eap-word-final-completion-authority-v295.js?v=20260731-v295-final-completion-1', 'eap-v295', '__EAP_WORD_FINAL_COMPLETION_V295__');
+  loadScript('./eap-word-final-completion-authority-v295.js?v=20261023-v295-bg5-stable-1', 'eap-v295', '__EAP_WORD_FINAL_COMPLETION_V295__');
   loadScript('./eap-word-home-completion-report-v296.js?v=20260731-v296-home-report-polish-1', 'eap-v296', '__EAP_WORD_HOME_REPORT_V296__');
 
   setTimeout(function () {
