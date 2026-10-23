@@ -228,11 +228,14 @@
       const actions = root.querySelector(".summary-actions");
       if (actions) actions.insertAdjacentElement("beforebegin",card); else root.appendChild(card);
     }
-    card.innerHTML = `
+    if (card.dataset.eapV238Rendered !== VERSION) {
+      card.innerHTML = `
       <b>🏆 EAP Word Quest สำเร็จครบแล้ว!</b>
       คุณผ่านครบ 20/20 ภารกิจ รวม BG5 · Human Override Summit แล้ว<br>
       ความก้าวหน้าถูกบันทึกเรียบร้อย สามารถกลับหน้าแรกเพื่อดูเส้นทางทั้งหมด หรือเปิด Word Deck เพื่อทบทวน Weak Words ได้
       <div class="eap238-chips"><span class="eap238-chip">20/20 Missions</span><span class="eap238-chip">Boss Gates 5/5</span><span class="eap238-chip">Group 122</span></div>`;
+      card.dataset.eapV238Rendered = VERSION;
+    }
 
     const label = "กลับหน้าหลัก";
     button.dataset.eapV238Label = label;

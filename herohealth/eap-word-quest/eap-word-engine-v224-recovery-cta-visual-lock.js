@@ -399,7 +399,10 @@
     const load = (file, marker, tag) => {
       if (window[marker] || document.querySelector(`script[data-eap-runtime="${tag}"]`)) return;
       const script = document.createElement("script");
-      script.src = `./${file}?v=20260701-${tag}`;
+      const assetVersion = tag === "final-summit" || tag === "final-pass-commit"
+        ? "20261023-bg5-stable-1"
+        : `20260701-${tag}`;
+      script.src = `./${file}?v=${assetVersion}`;
       script.async = false;
       script.dataset.eapRuntime = tag;
       document.head.appendChild(script);

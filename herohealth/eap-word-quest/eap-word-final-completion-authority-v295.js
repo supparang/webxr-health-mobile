@@ -1,6 +1,6 @@
 /* =========================================================
    EAP Word Quest • Final Completion Authority
-   Version: 20260731-EAPWQ-V295-FINAL-COMPLETION-AUTHORITY
+   Version: 20261023-EAPWQ-V295-BG5-STABLE-CTA
 
    Production close-out rules:
    - BG5 completion appears only after Google Sheet confirms 100%.
@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260731-EAPWQ-V295-FINAL-COMPLETION-AUTHORITY';
+  var VERSION = '20261023-EAPWQ-V295-BG5-STABLE-CTA';
   var observer = null;
   var scheduled = false;
   var applying = false;
@@ -39,10 +39,10 @@
       '#eapV295CompletionCard p{margin:0;color:#166534}',
       '#eapV295CompletionCard .eap-v295-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}',
       '#eapV295CompletionCard .eap-v295-chip{display:inline-flex;align-items:center;border:1px solid #86efac;border-radius:999px;padding:6px 10px;background:#fff;color:#166534;font-size:13px;font-weight:950}',
-      '#nextMissionBtn[data-eap-v295-label]{position:relative!important;color:transparent!important;font-size:0!important;line-height:0!important;text-shadow:none!important;overflow:hidden!important}',
-      '#nextMissionBtn[data-eap-v295-label]::after{content:attr(data-eap-v295-label)!important;position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:18px!important;font-weight:950!important;line-height:1.15!important;white-space:nowrap!important;pointer-events:none!important}',
+      '#summaryScreen[data-eap-v295-complete="true"] #nextMissionBtn{position:relative!important;box-sizing:border-box!important;min-width:200px!important;width:auto!important;max-width:none!important;min-height:54px!important;overflow:visible!important;color:#fff!important;font-size:17px!important;line-height:1.4!important;white-space:nowrap!important;opacity:1!important}',
+      '#summaryScreen[data-eap-v295-complete="true"] #nextMissionBtn::before,#summaryScreen[data-eap-v295-complete="true"] #nextMissionBtn::after{content:none!important;display:none!important}',
       '#summaryScreen[data-eap-v295-complete="true"] #homeBtn{display:none!important}',
-      '@media(max-width:680px){#eapV295CompletionCard{padding:16px}#eapV295CompletionCard h3{font-size:20px}#nextMissionBtn[data-eap-v295-label]::after{font-size:17px!important}}'
+      '@media(max-width:680px){#eapV295CompletionCard{padding:16px}#eapV295CompletionCard h3{font-size:20px}#summaryScreen[data-eap-v295-complete="true"] #nextMissionBtn{width:100%!important;min-width:0!important}}'
     ].join('\n');
     document.head.appendChild(style);
   }
