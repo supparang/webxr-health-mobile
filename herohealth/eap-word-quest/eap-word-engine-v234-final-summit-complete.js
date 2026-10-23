@@ -75,11 +75,14 @@
       const actions = root.querySelector(".summary-actions");
       if (actions) actions.insertAdjacentElement("beforebegin",card); else root.appendChild(card);
     }
-    card.innerHTML = `
+    if (card.dataset.eapV234Rendered !== VERSION) {
+      card.innerHTML = `
       <b>🏆 EAP Word Quest Complete!</b>
       คุณผ่านครบทั้ง 20 ภารกิจของ Vocabulary Arc แล้ว รวมถึง BG5 · Human Override Summit<br>
       ตอนนี้สามารถกลับหน้าแรกเพื่อดูเส้นทางที่สำเร็จแล้ว หรือทบทวน Weak Words ใน Word Deck ได้ตามต้องการ
       <div class="eap234-chips"><span class="eap234-chip">20/20 Missions</span><span class="eap234-chip">All 5 Boss Gates</span><span class="eap234-chip">Group 122</span></div>`;
+      card.dataset.eapV234Rendered = VERSION;
+    }
 
     clearOldButtonLabels(button);
     const label = "กลับหน้าหลัก";
