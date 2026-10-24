@@ -42,7 +42,7 @@
   }
   function compactRecord(r){
     var out={};
-    ['sessionId','routeId','session','skill','score','bestScore','latestScore','passed','updatedAt','latestAt','studentId','studentName','section','pendingSheetSync','cloudVerified','serverVerified','teacherReviewRequired','teacherReviewStatus','evidenceId','attemptId'].forEach(function(k){if(r&&r[k]!==undefined&&r[k]!==null&&r[k]!=='')out[k]=r[k];});
+    ['id','evidenceId','sessionId','routeId','session','skill','score','bestScore','latestScore','passed','updatedAt','latestAt','studentId','studentName','section','pendingSheetSync','cloudVerified','serverVerified','teacherReviewRequired','teacherReviewStatus','evidenceId','attemptId'].forEach(function(k){if(r&&r[k]!==undefined&&r[k]!==null&&r[k]!=='')out[k]=r[k];});
     var session=sid(out.sessionId||out.routeId||out.session||r&&r.taskId);var sk=skill(out.skill||r&&r.skillName||r&&r.evidenceType||r&&r.taskId||r&&r.type);var sc=score(r||{}),ts=stamp(r||{});
     if(session){out.sessionId=session;out.routeId=session;out.session=Number(session.slice(1));}
     if(sk)out.skill=sk;

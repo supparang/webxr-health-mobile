@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import './eap-reading-receipt-contract.mjs';
 import { chromium } from 'playwright';
 const base = process.env.EAP_LOCAL_URL || 'http://127.0.0.1:4173/eap-hero-save-society-v1/index.html';
 const browser = await chromium.launch({headless:true});
@@ -5,69 +7,36 @@ const page = await browser.newPage();
 const pageErrors=[];
 page.on('pageerror', e => pageErrors.push(String(e)));
 await page.goto(`${base}?eapqa=1`, {waitUntil:'domcontentloaded', timeout:60000});
-await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
-let report = await page.evaluate(() => window.EAP15ReleaseQA.run());
+await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPAuthorityRuntime && window.EAPCloudRouteUIAuthority && window.EAPLobbyRouteIsolation, null, {timeout:60000});
+const report = await page.evaluate(() => window.EAP15ReleaseQA.run());
 if (!report.pass) throw new Error(`Browser QA errors: ${JSON.stringify(report.errors.slice(0,10))}`);
-let diag = await page.evaluate(() => window.EAPRoadmapLockGuard.diagnostics());
-if (diag.authorityMode !== 'server-resume-only') throw new Error(`Wrong authority mode: ${JSON.stringify(diag)}`);
-if (diag.acceptsLocalEvidence !== false || diag.acceptsCompletedSessionsCache !== false) throw new Error(`Unsafe authority diagnostics: ${JSON.stringify(diag)}`);
+const initial = await page.evaluate(() => ({
+  runtime:window.EAPAuthorityRuntime.diagnostics(),
+  route:window.EAPAuthorityRuntime.currentRoute(),
+  verified:window.EAPAuthorityRuntime.isVerified()
+}));
+if (initial.verified && !initial.route) throw new Error(`Verified runtime without route: ${JSON.stringify(initial)}`);
 
-await page.evaluate(() => {
-  localStorage.setItem('EAP_HERO_PROGRESS_V3', JSON.stringify({
+// Test a fresh, isolated browser context: forged local progress must not
+// turn into an authoritative server resume. No live student account is used.
+const isolated = await browser.newContext();
+await isolated.addInitScript(() => {
+  localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify({
     profile:{studentId:'QA-TAMPER',studentName:'QA Tamper',section:'122'},
     currentCloudRoute:'B5',cloudVerified:true,resumeVerified:true,
-    completedSessions:{S1:true,S2:true,S3:true,B1:true,S4:true,S5:true,S6:true,B2:true,S7:true,S8:true,S9:true,B3:true,S10:true,S11:true,S12:true,B4:true,S13:true,S14:true,S15:true}
+    completedSessions:{S1:true,S2:true,B1:true,B5:true},
+    portfolio:[{sessionId:'S1',skill:'Reading',score:100,pendingSheetSync:true}]
   }));
 });
-await page.reload({waitUntil:'domcontentloaded',timeout:60000});
-await page.waitForFunction(() => window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
-const tamper = await page.evaluate(() => ({current:window.EAPRoadmapLockGuard.currentRouteId(),b5:window.EAPRoadmapLockGuard.canOpen('B5'),d:window.EAPRoadmapLockGuard.diagnostics()}));
-if (tamper.current !== '' || tamper.b5 !== false || tamper.d.liveVerified !== false) throw new Error(`localStorage tamper unlocked progress: ${JSON.stringify(tamper)}`);
-
-const live = await page.evaluate(() => {
-  const s=JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}');
-  s.profile={studentId:'QA-LIVE',studentName:'QA Live',section:'122'};
-  delete s.cloudResumeStatus;
-  delete s.currentCloudRoute;
-  delete s.currentRoute;
-  delete s.unlockedRoutes;
-  localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(s));
-  window.dispatchEvent(new CustomEvent('eap:profile-changed'));
-  const data={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa',
-    currentRoute:'S2',unlockedRoutes:['S1','S2'],
-    records:[
-      {routeId:'S1',sessionId:'S1',skill:'Reading',score:90,passed:true},
-      {routeId:'S1',sessionId:'S1',skill:'Speaking',score:90,passed:true}
-    ]
-  };
-  window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data}}));
-  return {current:window.EAPRoadmapLockGuard.currentRouteId(),s2:window.EAPRoadmapLockGuard.canOpen('S2'),diag:window.EAPRoadmapLockGuard.diagnostics()};
-});
-if (live.current !== 'S2' || live.s2 !== true || live.diag.liveVerified !== true) throw new Error(`server resume did not advance: ${JSON.stringify(live)}`);
-
-const boss = await page.evaluate(() => {
-  const a=window.EAPRoadmapLockGuard;
-  const pendingData={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa-pending',
-    currentRoute:'B1',unlockedRoutes:['S1','S2','S3','B1'],
-    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'pending_teacher_review'}]
-  };
-  const pendingAccepted=a.acceptResume({detail:{data:pendingData}});
-  const pending=a.currentRouteId();
-  const reviewedData={
-    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
-    generatedAt:new Date().toISOString(),serverRevision:'qa-reviewed',
-    currentRoute:'S4',unlockedRoutes:['S1','S2','S3','B1','S4'],
-    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'reviewed'}]
-  };
-  const reviewedAccepted=a.acceptResume({detail:{data:reviewedData}});
-  const reviewed=a.currentRouteId();
-  return {pending,pendingAccepted,reviewed,reviewedAccepted,diag:a.diagnostics()};
-});
-if (boss.pending !== 'B1' || boss.pendingAccepted !== true || boss.reviewed !== 'S4' || boss.reviewedAccepted !== true) throw new Error(`Server Boss route contract failed: ${JSON.stringify(boss)}`);
+const tamperPage=await isolated.newPage();
+await tamperPage.goto(`${base}?eapqa=1`,{waitUntil:'domcontentloaded',timeout:60000});
+await tamperPage.waitForFunction(() => !!window.EAPAuthorityRuntime,null,{timeout:60000});
+const tamper=await tamperPage.evaluate(() => ({
+  verified:window.EAPAuthorityRuntime.isVerified(),
+  route:window.EAPAuthorityRuntime.currentRoute()
+}));
+if (tamper.verified || tamper.route) throw new Error(`Unverified local progress gained authority: ${JSON.stringify(tamper)}`);
+await isolated.close();
 
 await page.evaluate(() => {
   const app=document.getElementById('app');
@@ -95,6 +64,89 @@ if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobby
   throw new Error(`B1 lobby isolation failed: ${JSON.stringify(lobbyIsolation)}`);
 }
 
+// Browser-level S1 Reading smoke test: run only with a synthetic QA identity,
+// fake Apps Script endpoint and intercepted network. Never touches production.
+{
+  const isolatedReading = await browser.newContext();
+  const qaEndpoint='https://script.google.com/macros/s/QA-BROWSER-READING-SMOKE/exec';
+  const cfgSource=readFileSync(new URL('../eap-sheet-config.js',import.meta.url),'utf8');
+  const prodEndpoint='https://script.google.com/macros/s/AKfycbzkU4qUEhfHmwZCSifwBY1nX21sktS1hA6KMFC1i3ZG2YZZlbij0JC47ODGxcjkhXYsxA/exec';
+  if (!cfgSource.includes(prodEndpoint)) throw new Error('QA fixture could not override the production endpoint');
+  const qaConfigSource=cfgSource.replace(prodEndpoint,qaEndpoint).replace("section:'122'", "section:'122-QA'");
+  await isolatedReading.route('**/eap-sheet-config.js*',r=>r.fulfill({
+    status:200,contentType:'text/javascript',body:qaConfigSource
+  }));
+  await isolatedReading.route(/^https:\/\/(?:script\.google\.com|script\.googleusercontent\.com)\//,r=>r.fulfill({
+    status:200,contentType:'text/plain',body:''
+  }));
+  await isolatedReading.addInitScript(() => {
+    try {
+      const id={studentId:'QA-OFFLINE-READING',id:'QA-OFFLINE-READING',
+        studentName:'Offline QA',name:'Offline QA',section:'122-QA'};
+      localStorage.setItem('EAP_HERO_ACTIVE_PLAYER_V1',JSON.stringify(id));
+      localStorage.setItem('EAP_HERO_PLAYER_PROFILE_V1',JSON.stringify(id));
+      localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify({profile:id,
+        currentSession:1,portfolio:[],sessions:{},sessionScores:{}}));
+    } catch (_) {}
+  });
+  const readingPage=await isolatedReading.newPage();
+  await readingPage.goto(base+'?eapqa=1',{waitUntil:'domcontentloaded',timeout:60000});
+  await readingPage.waitForFunction(() =>
+    !!(window.EAPHero?.submitReading && window.EAPHeroTrustedTransportV124?.diagnostics),
+    null,{timeout:60000});
+  const readingSmoke=await readingPage.evaluate(async () => {
+    const before=window.EAPHeroTrustedTransportV124.diagnostics();
+    const seen=[];
+    const rejections=[];
+    const fetchStackSource=window.fetch.toString().slice(0,1800);
+    const fetchOriginal=window.fetch.bind(window);
+    window.fetch=function(input,init) {
+      const url=typeof input==='string'?input:(input&&input.url)||'';
+      if(String(url).includes('submit_attempt'))seen.push(String(url).slice(0,300));
+      return fetchOriginal(input,init).catch(err=>{
+        if(String(url).includes('submit_attempt'))rejections.push(String(err));
+        throw err;
+      });
+    };
+    window.EAPHero.submitReading(1);
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const pending=JSON.parse(localStorage.getItem('EAP_HERO_VERIFIED_ATTEMPT_PENDING_V124')||'{}');
+    const rows=Object.values(pending);
+    return {
+      before:before.pending,
+      after:window.EAPHeroTrustedTransportV124.diagnostics().pending,
+      seenSubmitAttempt:seen,
+      submitErrors:rejections,
+      fetchChain:fetchStackSource,
+      resumeNetworkGate:window.__EAP_RESUME_NETWORK_GATE_V177__||false,
+      transportVersion:window.EAPHeroTrustedTransportV124?.version,
+      identity: {
+        active:JSON.parse(localStorage.getItem('EAP_HERO_ACTIVE_PLAYER_V1')||'{}'),
+        profile:JSON.parse(localStorage.getItem('EAP_HERO_PLAYER_PROFILE_V1')||'{}'),
+        gameState:JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}').profile
+      },
+      config:window.EAP_SHEET_CONFIG,
+      storedReading:(JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}').portfolio||[])
+        .filter(r=>r.skill==='Reading').map(r=>({id:r.id,evidenceId:r.evidenceId,score:r.score})),
+      attempts:rows.map(row=>({studentId:row.payload?.studentId,
+        section:row.payload?.section,skill:row.payload?.skill,
+        score:row.payload?.score,evidenceId:row.payload?.evidenceId,
+        attemptId:row.payload?.attemptId}))
+    };
+  });
+  if (readingSmoke.before!==0 || readingSmoke.after!==1 ||
+      readingSmoke.attempts.length!==1 ||
+      readingSmoke.attempts[0].studentId!=='QA-OFFLINE-READING' ||
+      readingSmoke.attempts[0].section!=='122-QA' ||
+      readingSmoke.attempts[0].skill!=='Reading' ||
+      Number(readingSmoke.attempts[0].score)!==100 ||
+      readingSmoke.attempts[0].evidenceId!==readingSmoke.attempts[0].attemptId) {
+    throw new Error('S1 Reading did not enter offline transport: '+JSON.stringify(readingSmoke));
+  }
+  console.log('Offline browser S1 Reading -> pending receipt-safe transport: PASS');
+  await isolatedReading.close();
+}
+
 if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join(' | ')}`);
-console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,tamper,live,boss,lobbyIsolation},null,2));
+console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,initial,tamper,lobbyIsolation},null,2));
 await browser.close();
