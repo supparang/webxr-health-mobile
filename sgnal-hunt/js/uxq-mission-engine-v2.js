@@ -306,13 +306,13 @@
       renderResults(result);
     }
     function renderResults(result){
-      const unlock = result.passed ? (config.unlockText || 'ภารกิจถัดไปเปิดแล้วใน Mission Control') : (config.retryText || 'เล่นซ้ำด้วยคดีใหม่เพื่อเก็บหลักฐานให้ครบขึ้น');
+      const unlock = result.passed ? (config.unlockText || 'Mission ผ่านแล้ว • ส่ง Studio Practice และ Reflection ให้ครบก่อนปลดล็อกด่านถัดไป') : (config.retryText || 'เล่นซ้ำด้วยคดีใหม่เพื่อเก็บหลักฐานให้ครบขึ้น');
       root.innerHTML = `
         <div class="uxq-shell"><div class="uxq-top"><a class="uxq-brand" href="${esc(config.hubHref || './index.html')}"><span class="uxq-brand__mark">UX</span><span>UX Quest</span></a><div class="uxq-top__right"><span class="uxq-mission-tag">RESULT SECURED</span></div></div>
         <section class="uxq-panel uxq-results"><p class="uxq-kicker">${result.passed ? 'MISSION CLEARED' : 'CASEFILE REVIEW'}</p><div class="uxq-results__stars">${starsText(result.stars)}</div><h1>${result.passed ? 'เก็บหลักฐานได้ถึงระดับ Readiness แล้ว!' : 'คุณเริ่มเห็น pattern แล้ว — ลองอีกคดีเพื่อยืนยันเหตุผล'}</h1><p>${esc(unlock)}</p>
         <div class="uxq-result-grid"><div><b>${result.score}</b><span>score</span></div><div><b>${result.accuracy}%</b><span>accuracy</span></div><div><b>${result.correct}/${result.total}</b><span>evidence calls</span></div><div><b>×${state.run.maxCombo}</b><span>best combo</span></div></div>
         <div class="uxq-takeaway"><b>Badge unlocked: ${esc(result.badge)}</b><ul>${(config.takeaways || []).map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>
-        <div class="uxq-actions"><button id="uxqReplay" class="uxq-btn" type="button">เล่นอีกครั้งด้วยคดีใหม่</button>${result.passed && config.nextHref ? `<a class="uxq-btn uxq-btn--ghost" href="${esc(config.nextHref)}">${esc(config.nextLabel || 'ไปภารกิจถัดไป')} →</a>` : ''}<a class="uxq-btn uxq-btn--ghost" href="${esc(config.hubHref || './index.html')}">Mission Control</a></div></section></div>`;
+        <div class="uxq-actions"><button id="uxqReplay" class="uxq-btn" type="button">เล่นอีกครั้งด้วยคดีใหม่</button><a class="uxq-btn uxq-btn--ghost" href="${esc(config.hubHref || './index.html')}">Mission Control</a></div></section></div>`;
       document.getElementById('uxqReplay')?.addEventListener('click', startRun);
     }
 

@@ -73,7 +73,7 @@
   }
 
   function reflectionSubmitted(row) {
-    return Boolean(row.reflectionSubmitted || row.hasReflection || clean(row.reflection || '', 5000).length > 0);
+    return Boolean(row.reflectionSubmitted === true && row.reflectionEvidence === 'explicit_artifact_field');
   }
 
   function nodeState(id) {

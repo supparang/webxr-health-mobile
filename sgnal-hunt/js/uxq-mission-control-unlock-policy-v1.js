@@ -22,7 +22,13 @@
     return new Set(Array.isArray(list)?list.map(v=>String(v||'').trim().toLowerCase()).filter(id=>ORDER.includes(id)):[]);
   }
   function reconciledStates(){
-    const base=Array.isArray(window.UXQCombinedCourseProgress?.states)?window.UXQCombinedCourseProgress.states:[];
+    const current=window.UXQCombinedCourseProgress;
+    const profile=window.UXQIdentity?.get?.()||{};
+    const key=String(profile.studentId||'')+'|'+String(profile.section||'');
+    // Mission-only snapshots must NEVER enable a later node.
+    if(!current || !/THREE-PART-RESTORE-AUTHORITY/.test(String(current.version||'')) ||
+       current.identityKey!==key || !Array.isArray(current.states)) return null;
+    const base=current.states;
     const passed=canonicalSet();
     return ORDER.map((id,index)=>{const old=base[index]||{};const mission=passed.has(id);const studio=Boolean(old.studio);const reflection=Boolean(old.reflection);return {...old,id,mission,studio,reflection,complete:Boolean(mission&&studio&&reflection)}});
   }
@@ -34,24 +40,27 @@
   function apply(){
     if(!snapshot?.ok)return;
     const states=reconciledStates(),passed=canonicalSet();
+    if(!states)return;
     setSummaryMissionCount(passed.size);
+    const firstIncomplete=states.findIndex(state=>!state.complete);
+    const unlockedUntil=firstIncomplete<0?ORDER.length:firstIncomplete;
     states.forEach((state,index)=>{
       const previous=index>0?states[index-1]:null;
-      const missionUnlocked=index===0||Boolean(previous?.mission);
+      const missionUnlocked=index<=unlockedUntil;
       const view=targetView(state);
       const href=contextUrl(state.id,view);
       const element=document.querySelector(`[data-node-id="${state.id}"]`)||document.querySelector(`[data-node="${state.id.toUpperCase()}"]`);
       if(element){
-        element.dataset.missionPassed=state.mission?'1':'0';element.dataset.threePartLocked='0';element.dataset.missionLocked=missionUnlocked?'0':'1';element.style.opacity=missionUnlocked?'':'0.5';element.style.filter=missionUnlocked?'':'saturate(.55)';
+        element.dataset.missionPassed=state.mission?'1':'0';element.dataset.threePartLocked=missionUnlocked?'0':'1';element.dataset.missionLocked=missionUnlocked?'0':'1';element.style.opacity=missionUnlocked?'':'0.5';element.style.filter=missionUnlocked?'':'saturate(.55)';
         const missionChip=Array.from(element.querySelectorAll('.studio-node-status span')).find(el=>/^Mission\b/i.test(String(el.textContent||'').trim()));if(missionChip){missionChip.classList.toggle('done',state.mission);missionChip.textContent=`Mission ${state.mission?'✓':'○'}`}
         const launch=element.querySelector('.campaign-launch');
-        if(launch){if(missionUnlocked){launch.href=href;launch.setAttribute('aria-disabled','false');launch.onclick=null;launch.classList.add('uxq-primary-action');launch.textContent=actionLabel(state)}else{launch.href='#';launch.setAttribute('aria-disabled','true');launch.textContent=`รอ ${previous.id.toUpperCase()} ผ่าน Mission`;launch.onclick=e=>e.preventDefault();launch.classList.remove('uxq-primary-action')}}
+        if(launch){if(missionUnlocked){launch.href=href;launch.setAttribute('aria-disabled','false');launch.onclick=null;launch.classList.add('uxq-primary-action');launch.textContent=actionLabel(state)}else{launch.href='#';launch.setAttribute('aria-disabled','true');launch.textContent=`รอ ${previous.id.toUpperCase()} ครบ 3/3`;launch.onclick=e=>e.preventDefault();launch.classList.remove('uxq-primary-action')}}
         const badge=element.querySelector('.stage-state');if(badge){if(!missionUnlocked)badge.textContent=`🔒 รอ ${previous.id.toUpperCase()} ผ่าน Mission`;else if(state.complete)badge.textContent='✅ Complete 3/3';else if(state.mission)badge.textContent=`Mission ผ่านแล้ว • เหลือ ${2-Number(state.studio)-Number(state.reflection)} ส่วน`;else badge.textContent='พร้อมเริ่ม Mission'}
-        let note=element.querySelector('.three-part-lock-note, .node-next-note');if(!note){note=document.createElement('div');element.appendChild(note)}note.className='node-next-note';if(!missionUnlocked)note.textContent=`ต้องให้ Google Sheet ยืนยัน mission_completed ของ ${previous.id.toUpperCase()} ก่อน`;else if(state.complete)note.textContent='ครบ 3/3 แล้ว';else if(state.mission&&!state.studio)note.textContent='กดแล้วเข้าสู่ Studio Practice โดยตรง ไม่ต้องเล่น Mission ซ้ำ';else if(state.mission&&!state.reflection)note.textContent='กดแล้วเข้าสู่ Weekly Reflection โดยตรง';else note.textContent=state.mission?'ดูงานส่วนที่เหลือ':'เริ่ม Mission ของ Node นี้';
+        let note=element.querySelector('.three-part-lock-note, .node-next-note');if(!note){note=document.createElement('div');element.appendChild(note)}note.className='node-next-note';if(!missionUnlocked)note.textContent=`ต้องให้ Google Sheet ยืนยัน Mission + Studio + Reflection ของ ${previous.id.toUpperCase()} ก่อน`;else if(state.complete)note.textContent='ครบ 3/3 แล้ว';else if(state.mission&&!state.studio)note.textContent='กดแล้วเข้าสู่ Studio Practice โดยตรง ไม่ต้องเล่น Mission ซ้ำ';else if(state.mission&&!state.reflection)note.textContent='กดแล้วเข้าสู่ Weekly Reflection โดยตรง';else note.textContent=state.mission?'ดูงานส่วนที่เหลือ':'เริ่ม Mission ของ Node นี้';
       }
       const row=document.querySelectorAll('.timeline-row')[index];if(row){row.classList.toggle('is-locked',!missionUnlocked);fixTimelineMission(row,state);const action=row.querySelector('.timeline-row__action');if(action){action.href=missionUnlocked?href:'#';action.setAttribute('aria-disabled',missionUnlocked?'false':'true');action.textContent=!missionUnlocked?'Locked':actionLabel(state)}}
     });
-    window.UXQMissionControlUnlockPolicy={version:VERSION,policy:'canonicalPassedMissionIds',states,missionCount:passed.size};document.body.dataset.uxqUnlockPolicy='canonical-sheet-mission';
+    window.UXQMissionControlUnlockPolicy={version:VERSION,policy:'contiguous_three_part',states,missionCount:passed.size};document.body.dataset.uxqUnlockPolicy='contiguous-three-part-sheet';
   }
   let timer=0;function schedule(){clearTimeout(timer);timer=setTimeout(apply,60)}
   window.addEventListener('uxq-mission-control-sheet-snapshot',event=>{snapshot=event.detail?.snapshot||null;schedule()});window.addEventListener('uxq-sheet-progress-restored',event=>{snapshot=event.detail||null;schedule()});window.addEventListener('uxq-three-part-course-progress',schedule);

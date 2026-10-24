@@ -57,6 +57,21 @@ function UXQ_receivePost_(e) {
       const sheet = UXQ_getAttemptsSheet_();
       if (UXQ_hasEvent_(sheet, row.eventId)) return UXQ_response_(row, true);
 
+      // Gate *all new* events for later W/B on a contiguous 3-part
+      // Sheet path. Historical rows remain untouched and readable.
+      // Deploy UXQuestThreePartWriteGate-v1.gs in this same project first.
+      if (typeof UXQ_WG_check_ !== 'function') {
+        return UXQ_json_({ok:false,error:'three_part_write_gate_not_installed'});
+      }
+      const gate = UXQ_WG_check_(sheet, row);
+      if (!gate.ok) {
+        return UXQ_json_({
+          ok:false,error:gate.error||'three_part_node_locked',
+          blockedBy:gate.blockedBy||'',missing:gate.missing||'',
+          missionId:row.missionId
+        });
+      }
+
       UXQ_appendRow_(sheet, row);
       cache.put(cacheKey, '1', 21600);
       return UXQ_response_(row, false);
