@@ -81,7 +81,7 @@ assert.match(element('reflectionAuditNodes').innerHTML,/W1/);
 assert.match(element('reflectionAuditSource').textContent,/8 ช่อง/);
 assert.doesNotMatch(element('reflectionAuditSummary').innerHTML,/Ambiguous saved text/);
 element('student').value='201|fallback';
-element('student').callbacks.change();
+element('student').callbacks.change.call(element('student'));
 assert.match(element('subReflectionProvenance').textContent,/Receiver รุ่นเก่า/);
 assert.doesNotMatch(element('subReflectionProvenance').textContent,/Seen \| Reason \| Retested/);
 console.log('PASS: Receiver formula, cap-8 indicator, authored-only Reflection, Section isolation, no student-text leakage, private UI');
