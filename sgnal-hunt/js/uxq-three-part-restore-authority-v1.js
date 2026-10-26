@@ -80,8 +80,8 @@
   function studioRow(snapshot,id){ const nodes=snapshot?.nodes||{}; return nodes[id]||nodes[id.toUpperCase()]||{}; }
   function stateFor(snapshot,id){
     const row=studioRow(snapshot,id); const mission=missionPassed(id);
-    const studio=Boolean(row.submitted||row.artifactSubmitted||row.studioSubmitted||['submitted','approved','need_revision','reviewing'].includes(text(row.reviewStatus||row.status,40).toLowerCase()));
-    const reflection=Boolean(row.reflectionSubmitted||row.hasReflection||text(row.reflection,5000));
+    const studio=Boolean(row.submitted===true && row.artifactSubmitted===true && row.studioSubmitted===true);
+    const reflection=Boolean(row.reflectionSubmitted===true && row.reflectionEvidence==='explicit_artifact_field');
     return {id,mission,studio,reflection,complete:mission&&studio&&reflection};
   }
   function nodeHref(state){

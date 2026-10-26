@@ -82,7 +82,7 @@
       return { done:true, attempted:true, status:'ผ่านแล้ว', source:'Google Sheet ยืนยัน mission_completed', state:'done', stars, score };
     }
     if (localPassed) {
-      return { done:true, attempted:true, status:'ผ่านในเครื่อง • รอ Sheet', source:`ผลดีที่สุด ${stars}/3 ดาว${score ? ` • ${score} คะแนน` : ''} กำลังตรวจการยืนยันจาก Google Sheet`, state:'pending', stars, score };
+      return { done:false, attempted:true, status:'ผ่านในเครื่อง • รอ Sheet', source:`ผลดีที่สุด ${stars}/3 ดาว${score ? ` • ${score} คะแนน` : ''} กำลังตรวจการยืนยันจาก Google Sheet`, state:'pending', stars, score };
     }
     if (attempted) {
       return {
@@ -242,16 +242,11 @@
 
     // STRICT FIX: 'not_submitted' is a non-empty string, but it is NOT evidence.
     server.studio = Boolean(
-      row.submitted === true ||
-      row.artifactSubmitted === true ||
-      row.studioSubmitted === true ||
-      ACCEPTED_STUDIO_STATUSES.has(status)
+      row.submitted === true && row.artifactSubmitted === true && row.studioSubmitted === true
     );
 
     server.reflection = Boolean(
-      row.reflectionSubmitted === true ||
-      row.hasReflection === true ||
-      clean(row.reflection || '', 5000).length > 0
+      row.reflectionSubmitted === true && row.reflectionEvidence === 'explicit_artifact_field'
     );
 
     server.reviewStatus = status;

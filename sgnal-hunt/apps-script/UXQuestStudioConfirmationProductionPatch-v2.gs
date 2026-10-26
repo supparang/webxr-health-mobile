@@ -50,6 +50,18 @@ function UXQ_getStudentStudioProgressV2_(e) {
   var studentId = UXQ_SC2_text_(p.studentId, 80);
   var section = UXQ_SC2_text_(p.section, 80);
   var courseId = UXQ_SC2_text_(p.courseId || 'UXQ-ACT1-2026', 120);
+  // Preserve narrow legacy Section aliases already defined by the unified
+  // Mission Restore (for specified student IDs only); never generalize.
+  var allowedSections = [section];
+  try {
+    var aliases = typeof UXQ_PROGRESS_SECTION_ALIASES !== 'undefined' ?
+      (UXQ_PROGRESS_SECTION_ALIASES[studentId + '|' + section] || []) : [];
+    (Array.isArray(aliases) ? aliases : []).forEach(function(item) {
+      var allowed = UXQ_SC2_text_(item,80);
+      if (allowed && allowedSections.indexOf(allowed) < 0) allowedSections.push(allowed);
+    });
+  } catch (ignored) {}
+
 
   if (!studentId || !section) {
     return {
@@ -115,7 +127,7 @@ function UXQ_getStudentStudioProgressV2_(e) {
     var eventType = UXQ_SC2_cell_(row, index, 'eventtype').toLowerCase();
 
     if (rowStudentId !== studentId) { identityMismatches.studentId += 1; return; }
-    if (rowSection !== section) { identityMismatches.section += 1; return; }
+    if (allowedSections.indexOf(rowSection) < 0) { identityMismatches.section += 1; return; }
     if (rowCourseId && rowCourseId !== courseId) { identityMismatches.courseId += 1; return; }
     matchedRows += 1;
     if (eventType !== 'artifact_submitted') return;
@@ -135,26 +147,42 @@ function UXQ_getStudentStudioProgressV2_(e) {
     var submittedAt = UXQ_SC2_cell_(row, index, 'artifactsubmittedat') ||
       UXQ_SC2_cell_(row, index, 'receivedat') ||
       UXQ_SC2_cell_(row, index, 'completedat');
-    var reflection = UXQ_SC2_cell_(row, index, 'reflection') ||
-      String(raw.reflection || fieldMap.reflection || '');
+    // The old Receiver may auto-fill row.reflection from problem/reason/fix.
+    // Only an explicitly filled reflection artifact field proves the
+    // learner authored Weekly Reflection. Legacy ambiguous rows remain
+    // unverified; we do not rewrite historical evidence.
+    var columnFields = UXQ_SC2_parseJson_(UXQ_SC2_cell_(row, index, 'artifactfields'));
+    if (!Array.isArray(columnFields)) columnFields = [];
+    // The Studio form can have more than 8 fields. Read both complete
+    // sources; rawJson can be truncated while artifactFields is intact,
+    // or vice versa. A top-level Receiver-generated reflection is NOT enough.
+    var reflectionField = fields.concat(columnFields).filter(function(field) {
+      return field && String(field.key || '').trim().toLowerCase() === 'reflection' &&
+        String(field.value == null ? '' : field.value).trim();
+    })[0] || null;
+    var reflectionExplicit = Boolean(reflectionField);
+    var reflection = reflectionExplicit ? String(reflectionField.value).trim() : '';
     var node = nodes[missionId];
     node.submitted = true;
     node.artifactSubmitted = true;
     node.studioSubmitted = true;
     node.submissions += 1;
-    node.reflection = reflection;
-    node.reflectionSubmitted = Boolean(String(reflection || '').trim());
-    node.hasReflection = node.reflectionSubmitted;
     node.reviewStatus = 'submitted';
     node.status = 'submitted';
 
-    if (!node.latestSubmittedAt || String(submittedAt) >= String(node.latestSubmittedAt)) {
-      node.latestSubmittedAt = submittedAt;
-      node.projectId = String(raw.projectId || fieldMap.projectId || UXQ_SC2_cell_(row, index, 'projectid') || '');
-      node.figmaUrl = String(raw.figmaUrl || fieldMap.figmaUrl || UXQ_SC2_cell_(row, index, 'figmaurl') || '');
-      node.eventId = UXQ_SC2_cell_(row, index, 'eventid');
-      node.linkedAttemptId = UXQ_SC2_cell_(row, index, 'linkedattemptid');
-    }
+    // The last APPENDED submission is authoritative (receipt order).
+    // Client event timestamps may be stale or use different offsets.
+    // This matches the write gate and private teacher dashboard.
+    node.latestSubmittedAt = submittedAt;
+    node.reflection = reflection;
+    node.reflectionSubmitted = reflectionExplicit;
+    node.hasReflection = reflectionExplicit;
+    node.reflectionEvidence = reflectionExplicit ? 'explicit_artifact_field' :
+      (UXQ_SC2_cell_(row, index, 'reflection') || raw.reflection ? 'legacy_unverified' : 'missing');
+    node.projectId = String(raw.projectId || fieldMap.projectId || UXQ_SC2_cell_(row, index, 'projectid') || '');
+    node.figmaUrl = String(raw.figmaUrl || fieldMap.figmaUrl || UXQ_SC2_cell_(row, index, 'figmaurl') || '');
+    node.eventId = UXQ_SC2_cell_(row, index, 'eventid');
+    node.linkedAttemptId = UXQ_SC2_cell_(row, index, 'linkedattemptid');
   });
 
   var submittedCount = UXQ_STUDIO_CONFIRM_V2.NODES.filter(function(id) { return nodes[id].submitted; }).length;
