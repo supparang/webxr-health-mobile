@@ -15,7 +15,7 @@
   var nodeId=String(query.get('node')||query.get('id')||'').toUpperCase();
   if(!nodeId||nodeId==='W7')return;
 
-  var VERSION='production-learning-authority-v1-20260714';
+  var VERSION='production-learning-authority-v1-reflection-staging-20261026';
   var QUEUE_KEY='csai2601.uxq.production.pending.v1';
   var stageSeen='';
   var cfg=function(){return window.UXQ_CLASSROOM_CONFIG||{};};
@@ -217,20 +217,51 @@
   }
   function patchArtifact(){
     var art=document.querySelector('.artifact'); if(!art)return;
+    // Current canonical Studio already has an independent Reflection field
+    // and its own submission handler. Do not mutate or hijack that form.
+    if(art.dataset.studioPracticeV1==='1' ||
+       art.querySelector('[data-studio-key="reflection"]'))return;
+    if(!art.querySelector('[data-uxq-weekly-reflection-legacy]')){
+      var wrapper=document.createElement('label');
+      wrapper.setAttribute('data-uxq-weekly-reflection-wrapper','1');
+      wrapper.style.cssText='display:grid;gap:8px;margin:16px 0;padding:12px;border:1px solid rgba(110,231,255,.44);border-radius:12px';
+      var title=document.createElement('strong');
+      title.textContent='3. Weekly Reflection • '+nodeId+' (จำเป็น)';
+      var desc=document.createElement('span');
+      desc.textContent='เขียนสิ่งที่ได้เรียนรู้จากหลักฐาน และการแก้ไข/ทดสอบที่ต้องทำต่อด้วยคำของตนเอง อย่างน้อย 40 ตัวอักษร';
+      var textarea=document.createElement('textarea');
+      textarea.setAttribute('data-uxq-weekly-reflection-legacy','1');
+      textarea.setAttribute('aria-label','Weekly Reflection '+nodeId);
+      textarea.setAttribute('rows','5');
+      textarea.style.cssText='width:100%;box-sizing:border-box;min-height:110px;padding:10px;border-radius:9px;background:#07142e;color:#fff';
+      wrapper.appendChild(title);wrapper.appendChild(desc);wrapper.appendChild(textarea);
+      var actions=art.querySelector('.actions');
+      if(actions)art.insertBefore(wrapper,actions);else art.appendChild(wrapper);
+    }
     var btn=art.querySelector('[data-save-artifact]')||Array.prototype.slice.call(art.querySelectorAll('button')).find(function(b){return /บันทึก note|ส่ง.*Sheet|artifact/i.test(b.textContent);});
     if(btn){btn.textContent='ส่ง Studio Artifact เข้า Google Sheet';btn.setAttribute('data-production-artifact-submit','1');btn.classList.remove('secondary');}
     Array.prototype.slice.call(art.querySelectorAll('p')).forEach(function(p){p.textContent=p.textContent.replace(/บันทึก note ในเครื่อง/g,'ส่งเป็นหลักฐานเข้า Google Sheet').replace(/นำผลการเล่นไปเติมใบงาน\/portfolio ตามหัวข้อต่อไปนี้/g,'สรุป Evidence → Decision → Test → Reflection ให้ครบ');});
   }
   function artifactFields(){
-    var out={}; Array.prototype.slice.call(document.querySelectorAll('.artifact textarea')).forEach(function(a,i){out['field'+(i+1)]=clean(a.value,1800);}); return out;
+    var art=document.querySelector('.artifact:not([data-studio-practice-v1])');
+    var out={};
+    if(!art)return out;
+    Array.prototype.slice.call(art.querySelectorAll('textarea:not([data-uxq-weekly-reflection-legacy])'))
+      .forEach(function(a,i){out['field'+(i+1)]=clean(a.value,1800);});
+    // Never substitute Studio evidence for a learner-authored Reflection.
+    out.reflection=clean(art.querySelector('[data-uxq-weekly-reflection-legacy]')?.value,3000);
+    return out;
   }
   function artifactPayload(data){
     var item=basePayload('artifact_submitted','uxq.artifact.global.v1');
-    var values=Object.keys(data).map(function(k){return data[k];});
+    var keys=Object.keys(data).filter(function(k){return k!=='reflection';});
+    var values=keys.map(function(k){return data[k];});
     item.artifactSubmitted=true; item.artifactType=(nodeId.toLowerCase()+'_studio_artifact');
     item.problemSeen=values[0]||''; item.uxReason=values[1]||''; item.fixAndTest=values.slice(2,4).join(' | ');
-    item.reflection=values.join(' | '); item.learnedPoint=values[values.length-1]||'';
-    item.artifactFields=Object.keys(data).map(function(k){return {key:k,value:data[k]};}); item.artifactSubmittedAt=item.completedAt;
+    item.reflection=clean(data.reflection,3000); item.learnedPoint=item.reflection;
+    item.artifactFields=Object.keys(data).map(function(k){return {
+      key:k,value:data[k],required:true,label:k==='reflection'?'Weekly Reflection '+nodeId:k
+    };}); item.artifactSubmittedAt=item.completedAt;
     return item;
   }
 
@@ -238,11 +269,13 @@
     var hint=e.target.closest&&e.target.closest('[data-hint]');
     if(hint){try{var k='uxq.hint.'+nodeId+'.'+stageIndex();sessionStorage.setItem(k,String(hintLevel()+1));}catch(x){}setTimeout(patchHint,60);}
     var btn=e.target.closest&&e.target.closest('[data-production-artifact-submit]');
-    if(!btn)return;
+    if(!btn || btn.closest('.artifact[data-studio-practice-v1]') ||
+      btn.closest('.artifact')?.querySelector('[data-studio-key="reflection"]'))return;
     e.preventDefault();e.stopImmediatePropagation();
     var p=profile(); if(!complete(p)){artifactStatus('ส่งไม่ได้: โปรไฟล์ผู้เรียนไม่ครบ');return;}
-    var d=artifactFields(),keys=Object.keys(d),bad=keys.filter(function(k){return d[k].length<20;});
-    if(!keys.length||bad.length){artifactStatus('กรอกทุกช่องอย่างน้อย 20 ตัวอักษรก่อนส่ง • ยังไม่ผ่าน '+(bad.length||1)+' ช่อง');return;}
+    var d=artifactFields(),keys=Object.keys(d),
+      bad=keys.filter(function(k){return d[k].length<(k==='reflection'?40:20);});
+    if(keys.length<2||bad.length){artifactStatus('กรอกหลักฐานอย่างน้อย 20 ตัวอักษร/ช่อง และ Weekly Reflection แยกอย่างน้อย 40 ตัวอักษร • ยังขาด '+(bad.join(', ')||'หลักฐาน'));return;}
     btn.disabled=true;artifactStatus('กำลังส่ง Studio Artifact เข้า Google Sheet...');
     send(artifactPayload(d)).then(function(out){btn.disabled=false;artifactStatus(out.ok?'ส่งคำขอเข้า Google Sheet แล้ว • eventType = artifact_submitted':'ส่งไม่สำเร็จ • เก็บคิวชั่วคราว '+(out.count||1)+' รายการ');});
   },true);
