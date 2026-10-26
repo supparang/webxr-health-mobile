@@ -48,14 +48,16 @@ const action=el('actionRows').innerHTML;
 assert.match(el('actionSchemaAlert').textContent,/คนละรุ่น/);
 assert.equal(el('actionSchemaAlert').hidden,false);
 assert.match(action,/Student SEVEN/);
-assert.match(action,/W8/,'7/19 should point at W8, not "complete"');
+assert.match(action,/W7/,'7/19 should point at W7 in the 19-node pathway, not "complete"');
 assert.match(action,/Student EIGHTEEN/);
 assert.match(action,/Student DONE/);
 assert.match(action,/ประเมินสำรองจากข้อมูลรายด่าน/);
 assert.match(action,/Student STUDIO/);
 assert.match(action,/ยังไม่ส่ง Studio/);
 assert.match(el('actionTotals').innerHTML,/รอ Mission/);
-assert.doesNotMatch(action,/Student SEVEN[^]*?ครบทุกด่าน[^]*?Student STUDIO/,
+const sevenRow=(action.match(/<tr><td>Student SEVEN[\s\S]*?<\/tr>/)||[])[0]||'';
+assert.ok(sevenRow,'must render the selected 7/19 learner');
+assert.doesNotMatch(sevenRow,/ครบทุกด่าน/,
  '7/19 must not be displayed as complete');
 el('actionFilter').value='reflection_missing';
 el('actionFilter').listeners.change();
