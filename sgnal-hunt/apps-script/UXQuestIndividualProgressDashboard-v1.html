@@ -43,6 +43,17 @@
     .audit-note{background:#2c2b38;border-left:3px solid #f4c57c;padding:10px 12px;border-radius:5px;color:#ffeaca}
     .audit-source{font-size:.84rem;color:#bfd4ef}
     .subprovenance{padding:11px;background:#243047;border:1px solid #64799e;border-radius:10px}
+    .actions-filter{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:10px 0}
+    .actions-filter label{display:grid;gap:5px;min-width:215px}
+    .action-table td{vertical-align:middle;white-space:normal}
+    .action-table td:first-child{min-width:175px}
+    .action-mini{color:var(--sub);font-size:.82rem}
+    .action-btn{background:#255477;color:#e8f7ff;padding:6px 10px}
+    .action-priority{border-left:3px solid #9cdcf1;padding-left:9px}
+    .action-caution{border-left:3px solid #e7b86e;padding:7px 10px;color:#ffdfa5;background:#302c37;border-radius:5px}
+    .action-kind-mission{color:#ffda9f}.action-kind-studio{color:#a8eaff}
+    .action-kind-reflection-review{color:#ffbdbe}.action-kind-reflection-missing{color:#e1c9ff}
+    .action-kind-complete{color:var(--mint)}
     .legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 0;color:var(--sub);font-size:.83rem}
     .pill{padding:3px 8px;border-radius:99px;border:1px solid var(--line);font-size:.79rem}
     .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
@@ -100,6 +111,31 @@
       <div class="scroll"><table id="reflectionAuditNodes"></table></div>
     </details>
     <p class="audit-source" id="reflectionAuditSource"></p>
+  </section>
+  <section class="card" id="firstActionSection">
+    <h2>งานที่ควรติดตามต่อ • ด่านแรกที่ยังไม่ครบ 3/3</h2>
+    <p class="muted">สรุปสถานะรายบุคคลจากด่านแรกที่ยังไม่ครบตามลำดับ โดยเก็บผลเกมและงานในด่านสูงกว่าที่เคยทำไว้ครบ ไม่ถือว่าเป็นการสั่งให้นักศึกษาทำใหม่อัตโนมัติ</p>
+    <div class="actions-filter">
+      <label><span>กรองตามสิ่งที่ต้องติดตาม</span>
+        <select id="actionFilter">
+          <option value="all">ทุกสถานะ</option>
+          <option value="mission">ยังไม่ผ่าน Mission</option>
+          <option value="studio">ยังไม่ส่ง Studio</option>
+          <option value="reflection_review">ตรวจหลักฐาน Reflection ก่อน</option>
+          <option value="reflection_missing">ยังไม่พบ Reflection ที่ยืนยันได้</option>
+          <option value="complete">ครบ 3/3 ทั้ง 19 ด่าน</option>
+        </select>
+      </label>
+      <p class="help" id="actionFilterSummary" aria-live="polite"></p>
+    </div>
+    <div class="stats" id="actionTotals"></div>
+    <div class="scroll" style="margin-top:12px">
+      <table class="action-table">
+        <thead><tr><th>นักศึกษา</th><th>ครบต่อเนื่อง</th><th>ติดที่ด่าน</th><th>ขาดส่วนใด / ต้องตรวจอะไร</th><th>เคยทำด่านที่ล็อก</th><th>ตรวจรายละเอียด</th></tr></thead>
+        <tbody id="actionRows"></tbody>
+      </table>
+    </div>
+    <p class="action-caution">หมายเหตุ: หาก Reflection มีเพียงข้อความนอกช่องหลักฐานหรือข้อมูลอ่านไม่ครบ ให้ตรวจต้นทางก่อน ไม่ควรสั่งนักศึกษาส่งใหม่หรือหักคะแนนจากรายงานนี้ทันที</p>
   </section>
   <section class="card">
     <h2>ตารางรายบุคคล × 19 ด่าน</h2>
@@ -162,6 +198,23 @@ var AUDIT_LABELS={
 };
 var STAGE_LABELS={evidence:'หลักฐาน',hypothesis:'ตั้งสมมติฐาน',fix:'วิธีแก้ปัญหา',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'นิยามปัญหา',ideate:'คิดทางเลือก',prototype:'ต้นแบบ',diagnose:'วิเคราะห์ปัญหา',prioritize:'จัดลำดับ',reduce:'ลดภาระความคิด',validate:'ตรวจสอบ',reasoning:'ให้เหตุผล'};
 var NEXT={mission:'ทำ Mission ให้ผ่าน',studio:'ส่งหลักฐาน Studio',reflection:'ส่ง Weekly Reflection',revision:'แก้ไขงานตามความเห็นอาจารย์',teacher_review:'รอการตรวจงาน Studio',complete:'ครบ 3 กิจกรรมแล้ว'};
+var ACTION_LABELS={
+  mission:'Mission ยังไม่ผ่าน',
+  studio:'ยังไม่ส่ง Studio',
+  reflection_review:'ต้องตรวจที่มาของ Reflection',
+  reflection_missing:'ยังไม่พบ Reflection ที่ยืนยันได้',
+  complete:'ครบทั้ง 19 ด่าน',
+  check_data:'ตรวจข้อมูลรายด่าน'
+};
+function actionGuidance(action){
+  if(!action)return 'ไม่มีผลประเมิน';
+  if(action.kind==='mission')return 'ตรวจผล Mission และการเล่นซ้ำก่อน';
+  if(action.kind==='studio')return 'ตรวจการส่งงาน Studio ในระบบก่อนติดตามนักศึกษา';
+  if(action.kind==='reflection_review')return 'มีข้อความบางส่วน แต่ยังยืนยันผู้เขียนไม่ได้ ต้องตรวจหลักฐานต้นทาง';
+  if(action.kind==='reflection_missing')return 'ยังไม่พบหลักฐาน Reflection ที่ยืนยันได้ ควรตรวจใบงาน/ช่องบันทึกก่อนแจ้งนักศึกษา';
+  if(action.kind==='complete')return 'ทำครบ 3/3 ทุกด่านแล้ว (Teacher Review แยกต่างหาก)';
+  return 'ตรวจข้อมูลดิบเพิ่มเติม';
+}
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function status(t,error){$('status').className=error?'error':'help';$('status').textContent=t}
@@ -299,15 +352,51 @@ function render(){
     }).join('')+'</tr>'
   }).join('');
   $('matrix').innerHTML=head+'<tbody>'+(body||'<tr><td class="empty">ไม่พบรายการ</td></tr>')+'</tbody>';
+  renderActionQueue(list);
   var target=full.filter(function(s){return key(s)===selected})[0];
   $('detail').hidden=!target;
   if(target)renderDetail(target);
+}
+function renderActionQueue(list){
+  // Respect the current name/student-id search; the category filter applies
+  // only to this action queue, not to historical W/B matrix records.
+  var counts={mission:0,studio:0,reflection_review:0,reflection_missing:0,complete:0,check_data:0};
+  list.forEach(function(s){var a=s.nextAction||{};if(counts[a.kind]!==undefined)counts[a.kind]++});
+  var summary=[
+    ['รอ Mission',counts.mission],
+    ['รอ Studio',counts.studio],
+    ['ตรวจ Reflection',counts.reflection_review],
+    ['ยังไม่พบ Reflection',counts.reflection_missing],
+    ['ครบ 19 ด่าน',counts.complete]
+  ];
+  $('actionTotals').innerHTML=summary.map(function(x){
+    return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>';
+  }).join('');
+  var active=$('actionFilter').value||'all';
+  var filtered=list.filter(function(s){
+    return active==='all'||(s.nextAction && s.nextAction.kind===active);
+  });
+  $('actionFilterSummary').textContent='แสดง '+filtered.length+' จาก '+list.length+' คนที่ตรงเงื่อนไขค้นหา';
+  $('actionRows').innerHTML=filtered.map(function(s){
+    var a=s.nextAction||{};
+    var id=a.nodeId||'',label=a.label||'—';
+    var actionText=ACTION_LABELS[a.kind]||'ตรวจสถานะเพิ่มเติม';
+    var past=Number(a.historicalFutureCount||0);
+    return '<tr><td>'+esc(s.studentName)+'<div class="action-mini">'+esc(s.studentId)+'</div></td>'+
+      '<td>'+esc(s.courseCompletedCount)+'/19</td>'+
+      '<td><strong>'+esc(id.toUpperCase()||'ครบทุกด่าน')+'</strong><div class="action-mini">'+esc(label)+'</div></td>'+
+      '<td><span class="action-kind-'+esc((a.kind||'').replace(/_/g,'-'))+'">'+esc(actionText)+'</span>'+
+      '<div class="action-mini">'+esc(actionGuidance(a))+'</div></td>'+
+      '<td>'+esc(past)+' ด่าน<div class="action-mini">'+(past?'เก็บประวัติเดิมไว้':'—')+'</div></td>'+
+      '<td><button class="action-btn" type="button" data-action-person="'+esc(key(s))+'" data-action-node="'+esc(id)+'">'+
+      'เปิดรายบุคคล</button></td></tr>';
+  }).join('')||'<tr><td colspan="6" class="empty">ไม่พบผู้เรียนที่ตรงตัวกรอง</td></tr>';
 }
 function renderDetail(s){
   $('detailTitle').textContent='สรุป 19 ด่าน • '+s.studentName+' ('+s.studentId+')';
   var cols=[['ผ่าน Mission (ย้อนหลัง)',s.completedCount+'/19'],['ครบ 3/3 (รวม)',s.fullThreePartCount+'/19'],['ครบ 3/3 ต่อเนื่อง',s.courseCompletedCount+'/19'],['Studio ส่งแล้ว',s.submittedCount+'/19'],['Reflection ยืนยันได้',s.reflectionCount+'/19'],['Studio อนุมัติ',s.approvedCount+'/19']];
   $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
-  if(!selectedNode){var todo=DATA.nodes.filter(function(n){return !s.nodes[n.id].fullThreePart})[0]; selectedNode=(todo||DATA.nodes[18]).id;}
+  if(!selectedNode){selectedNode=s.nextCourseNode||DATA.nodes[18].id;}
   $('detailRows').innerHTML=DATA.nodes.map(function(n){
     var m=s.nodes[n.id],cls=m.status;
     var studio=m.artifactSubmitted?(REVIEWS[m.reviewStatus]||m.reviewStatus):'ยังไม่ส่ง';
@@ -380,6 +469,15 @@ $('matrix').addEventListener('click',function(e){
   $('student').value=selected;render();
   if(!$('detail').hidden)$('detail').scrollIntoView({block:'start',behavior:'smooth'})
 });
+$('actionRows').addEventListener('click',function(e){
+  var target=e.target.closest('button[data-action-person]');if(!target)return;
+  selected=target.getAttribute('data-action-person')||'';
+  selectedNode=target.getAttribute('data-action-node')||'';
+  $('student').value=selected;
+  render();
+  if(!$('detail').hidden)$('detail').scrollIntoView({block:'start',behavior:'smooth'});
+});
+$('actionFilter').addEventListener('change',render);
 $('student').addEventListener('change',function(){selected=this.value;selectedNode='';render()});
 $('search').addEventListener('input',render);
 $('reload').addEventListener('click',load);
