@@ -13,8 +13,9 @@ const nodes=order.map(id=>({id,title:'Teaching mission '+id,focus:'Study '+id,
  missionRounds:['1','2','3','4','5']}));
 const canonical={window:{
  CSAI2601_UXQ_CANONICAL_CONTENT_V1:{version:'test',nodes},
- CSAI2601_UXQ_CANONICAL_SNAPSHOT_V1:{version:'test',nodes}
-}};
+ CSAI2601_UXQ_CANONICAL_SNAPSHOT_V1:{version:'test',nodes},
+ dispatchEvent(){}
+},document:{documentElement:{dataset:{}}},CustomEvent:class{constructor(name,props){this.name=name;this.detail=props?.detail;}}};
 vm.runInNewContext(file('sgnal-hunt/js/uxq-course-alignment-bridge-v1.js'),canonical);
 const pack=canonical.window.CSAI2601_UXQ_STUDIO_PRACTICE_V1;
 assert.equal(pack.items.length,19);
