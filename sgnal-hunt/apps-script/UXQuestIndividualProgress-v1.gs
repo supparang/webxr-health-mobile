@@ -119,6 +119,111 @@ function UXQ_ipFields_(row) {
       };
     });
 }
+/* Reflection provenance diagnostic for teacher-only QA.
+ * Classification is READ-ONLY and returns presence/category only, never student responses.
+ * A nonempty top-level reflection is ambiguous: receiver versions can synthesize
+ * that field from problemSeen / uxReason / fixAndTest.
+ */
+function UXQ_ipAuditJson_(value) {
+  const text = String(value || '').trim();
+  if (!text) return {parsed:null,invalid:false};
+  try {
+    const parsed=JSON.parse(text);
+    return {parsed:parsed,invalid:false};
+  } catch (_) {
+    return {parsed:null,invalid:true};
+  }
+}
+function UXQ_ipAuditReflection_(row) {
+  const rawParsed=UXQ_ipAuditJson_(row.rawjson);
+  const sheetParsed=UXQ_ipAuditJson_(row.artifactfields);
+  const raw=rawParsed.parsed && typeof rawParsed.parsed==='object' && !Array.isArray(rawParsed.parsed)
+    ? rawParsed.parsed : {};
+  const rawFields=Array.isArray(raw.artifactFields)?raw.artifactFields:[];
+  const sheetFields=Array.isArray(sheetParsed.parsed)?sheetParsed.parsed:[];
+  function reflectionField(fields) {
+    return fields.filter(function(field){
+      return field && typeof field==='object' &&
+        String(field.key || '').trim().toLowerCase()==='reflection';
+    })[0] || null;
+  }
+  const rawField=reflectionField(rawFields),sheetField=reflectionField(sheetFields);
+  const authored=Boolean(
+    (rawField && String(rawField.value == null?'':rawField.value).trim()) ||
+    (sheetField && String(sheetField.value == null?'':sheetField.value).trim())
+  );
+  const rawText=String(raw.reflection || '').trim();
+  const columnText=String(row.reflection || '').trim();
+  const textPresent=Boolean(rawText || columnText);
+  const hasField=Boolean(rawField || sheetField);
+  let type='missing';
+  if(authored) type='explicit';
+  else if(hasField && textPresent) type='field_empty_but_text';
+  else if(hasField) type='explicit_field_empty';
+  else if(textPresent) type='top_level_only';
+  else if(rawParsed.invalid || sheetParsed.invalid) type='unreadable';
+  const concat=[row.problemseen,row.uxreason,row.fixandtest].map(function(v){
+    return String(v || '').trim();
+  }).filter(Boolean).join(' | ');
+  const normalized=function(x){return String(x || '').replace(/\s+/g,' ').trim();};
+  const matchesReceiverFallback=Boolean(
+    type!=='explicit' && concat && normalized(columnText || rawText)===normalized(concat)
+  );
+  return {
+    type:type,explicit:authored,textPresent:textPresent,
+    source:authored?(rawField && String(rawField.value || '').trim()?'raw_artifactFields':'sheet_artifactFields'):'',
+    hasField:hasField,
+    rawInvalid:rawParsed.invalid,sheetInvalid:sheetParsed.invalid,
+    mayBeSynthesized:matchesReceiverFallback
+  };
+}
+function UXQ_ipReflectionAudit_(attemptRows,section) {
+  // Last append wins, independently for every student W/B. No writing whatsoever.
+  const latest={};
+  let submissionRows=0;
+  (attemptRows || []).forEach(function(row) {
+    if(String(row.section || '')!==section || !String(row.studentid || '').trim())return;
+    if(row.courseid && row.courseid!=='UXQ-ACT1-2026' && row.courseid!=='CSAI2601')return;
+    const id=UXQ_ipMission_(row.missionid);
+    if(!id || String(row.eventtype || '').toLowerCase()!=='artifact_submitted')return;
+    submissionRows+=1;
+    latest[row.studentid+'|'+id]=UXQ_ipAuditReflection_(row);
+  });
+  const categories=['explicit','field_empty_but_text','explicit_field_empty','top_level_only','unreadable','missing'];
+  const counts={};
+  categories.forEach(function(key){counts[key]=0;});
+  const byNode={};
+  UXQ_IP_NODE_ORDER.forEach(function(id){
+    const row={missionId:id,submitted:0};
+    categories.forEach(function(key){row[key]=0;});
+    byNode[id]=row;
+  });
+  const uniqueStudents={};
+  let suspicious=0,rawExplicit=0,sheetExplicit=0,invalid=0;
+  Object.keys(latest).forEach(function(key){
+    const idx=key.lastIndexOf('|'),sid=key.slice(0,idx),id=key.slice(idx+1);
+    const status=latest[key];
+    if(!byNode[id])return;
+    uniqueStudents[sid]=true;
+    counts[status.type]=(counts[status.type]||0)+1;
+    byNode[id].submitted+=1;
+    byNode[id][status.type]=(byNode[id][status.type]||0)+1;
+    if(status.mayBeSynthesized)suspicious+=1;
+    if(status.source==='raw_artifactFields')rawExplicit+=1;
+    if(status.source==='sheet_artifactFields')sheetExplicit+=1;
+    if(status.rawInvalid || status.sheetInvalid)invalid+=1;
+  });
+  return {
+    section:section,studentCount:Object.keys(uniqueStudents).length,
+    latestSubmittedNodeCount:Object.keys(latest).length,submissionRows:submissionRows,
+    counts:counts,explicitSources:{rawFields:rawExplicit,sheetFields:sheetExplicit},
+    possibleReceiverFallbackCount:suspicious,parseIssueCount:invalid,
+    byNode:UXQ_IP_NODE_ORDER.map(function(id){return byNode[id];}),
+    diagnosticOnly:true,source:'UXQuest_Attempts_latest_artifact_submission_per_student_node',
+    note:'Top-level reflection may be receiver-generated. An empty or missing explicit field is not evidence that the student never wrote a reflection. No scores or rows were changed.'
+  };
+}
+
 function UXQ_ipReflectionState_(row, fields) {
   const field = fields.filter(function(f){return f.key.toLowerCase() === 'reflection';})[0];
   if (field) return field.filled ? 'submitted' : 'missing';
@@ -136,7 +241,7 @@ function UXQ_ipFreshNode_(id) {
     artifactAt:'', artifactUrl:'', reviewStatus:'not_submitted', reviewScore:null,
     missionStages:[], missionQuestions:0, missionVerified:0, missionCorrect:0,
     reasonRetryCount:0, reasonRetryAt:'', studioFields:[], requiredMissing:[],
-    reflectionStatus:'not_submitted', reflectionSubmitted:false,
+    reflectionStatus:'not_submitted', reflectionSubmitted:false, reflectionEvidenceAudit:null,
     partsCompleted:0, fullThreePart:false, nextStep:''
   };
 }
@@ -244,6 +349,7 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
         .filter(function(f){return f.required && !f.filled;})
         .map(function(f){return f.label;});
       node.reflectionStatus = UXQ_ipReflectionState_(row,node.studioFields);
+      node.reflectionEvidenceAudit=UXQ_ipAuditReflection_(row);
       node.reflectionSubmitted = node.reflectionStatus === 'submitted';
     }
     student.latestAt = row.receivedat || student.latestAt;
@@ -315,11 +421,29 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
     });
   });
   const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
+  const reflectionAudit = UXQ_ipReflectionAudit_(attemptRows,section);
+  // Find read-side parsing mismatches without modifying grades or statuses.
+  // Example: rawJson has an empty field but artifactFields column has
+  // a filled Reflection; source provenance is explicit, yet prior display
+  // may still say 2/3 because it prefers rawJson unconditionally.
+  reflectionAudit.explicitButNotCounted=0;
+  reflectionAudit.byNode.forEach(function(row){row.explicitButNotCounted=0;});
+  Object.keys(students).forEach(function(key) {
+    UXQ_IP_NODE_ORDER.forEach(function(id,index) {
+      const node=students[key].nodes[id];
+      if(node.artifactSubmitted && node.reflectionEvidenceAudit &&
+         node.reflectionEvidenceAudit.explicit && !node.reflectionSubmitted) {
+        reflectionAudit.explicitButNotCounted+=1;
+        reflectionAudit.byNode[index].explicitButNotCounted+=1;
+      }
+    });
+  });
   const result = Object.keys(students).map(function(key){ return students[key]; })
     .sort(function(a,b){return a.studentId.localeCompare(b.studentId,'th',{numeric:true});});
   if (!rosterRows || !rosterRows.length) notices.push('ไม่มีชีต UXQuest_Roster: รายชื่อจะแสดงเฉพาะผู้ที่มีการบันทึกกิจกรรมแล้ว นักศึกษาที่ไม่เคยเข้าเล่นจะไม่ปรากฏ');
   return {ok:true,section:section,nodes:UXQ_IP_NODE_ORDER.map(function(id,i){return{id:id,label:UXQ_IP_NODE_LABELS[i]};}),
-    students:result,studentCount:result.length,notices:notices,identityAudit:identityAudit,
+    students:result,studentCount:result.length,notices:notices,
+    identityAudit:identityAudit,reflectionAudit:reflectionAudit,
     policy:'teacher_preview_three_part_contiguous_no_live_gate_claim',
     policyActivation:'unverified_pending_receiver_and_student_runtime_deploy',
     generatedAt:new Date().toISOString()};

@@ -127,3 +127,31 @@ This release changes ONLY the standalone private UXQuest-Teacher-Progress read-o
 
 Regression from the repository root:
 node test_uxq_teacher_three_part_matrix.js
+
+
+## 2026-10-26: Read-only Reflection evidence audit (investigate widespread 2/3)
+
+The standalone **UXQuest-Teacher-Progress** private Web App now shows an additional section:
+**ตรวจหลักฐาน Weekly Reflection (อ่านอย่างเดียว)**.
+
+The section aggregates the latest saved artifact_submitted event for each (student ID, W/B node) in the selected Section. It reports:
+- Explicit Reflection field found and nonblank in either rawJson.artifactFields or the separate artifactFields sheet column.
+- Explicit Reflection field exists but is blank.
+- Top-level reflection text exists but no explicit nonblank field exists (ambiguous: an old Receiver may synthesize that text from other responses).
+- No usable evidence or parse problems.
+- **Explicit Reflection is present in a source but the old Teacher Progress calculation did not count it.** This is a diagnostic mismatch, NOT automatic approval or unlock.
+
+The summary includes a 19-node breakdown and source counts; it does **not** display student Reflection response text. The individual W/B detail shows only evidence category/source and a nonconclusive synthesized-text indicator.
+
+**Caution:** A high count of 2/3 can mean missing submissions, missing explicit Reflection fields, old Receiver fallback, truncated rawJson, or inconsistent parsing precedence. None of these possibilities alone proves a student failed to do the work. Do not tell all students to resubmit, adjust scores, approve old text or enforce the 3/3 live student gate until the real production source is reconciled.
+
+Only source files for the private teacher project are updated. No Sheets are written, no roster added/edited, no account permissions changed, no student receiver or public game JS changed. The existing draft student-enforcement PR #170 remains unmerged.
+
+To upgrade the private teacher Apps Script project:
+1. Replace the contents of its UXQuestIndividualProgress-v1.gs and UXQuestIndividualProgressDashboard-v1.html with the current GitHub main branch versions.
+2. Keep รหัส.gs, Script properties and the existing private deployment permissions unchanged.
+3. Save → Deploy → Manage deployments → Edit → New version → Deploy. Reuse the existing /exec URL, select Section 201 and inspect the new Reflection audit panel.
+4. Compare audit evidence counts with the per-person W/B details before any grading/policy decision.
+
+Synthetic regression test (no student data involved):
+node test_uxq_reflection_provenance_audit.js

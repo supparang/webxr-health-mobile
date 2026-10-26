@@ -35,6 +35,14 @@
     .access-note{border-left:3px solid #ffca70;padding:9px 12px;background:#2d2b38;color:#ffeaca;border-radius:4px;margin-top:9px}
     .pill.access-ready{color:#84dcff}.pill.access-complete{color:#a6f3bd}.pill.access-locked{color:#ffd488}
     .legend strong{color:#e1e9ff}
+    .audit-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin:12px 0}
+    .audit-metric{padding:13px;background:#0d2037;border:1px solid var(--line);border-radius:11px}
+    .audit-metric strong{display:block;font-size:1.3rem;margin-top:2px}
+    .audit-metric small{color:var(--sub)}
+    .audit-metric.warn{border-color:#9f7445}
+    .audit-note{background:#2c2b38;border-left:3px solid #f4c57c;padding:10px 12px;border-radius:5px;color:#ffeaca}
+    .audit-source{font-size:.84rem;color:#bfd4ef}
+    .subprovenance{padding:11px;background:#243047;border:1px solid #64799e;border-radius:10px}
     .legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 0;color:var(--sub);font-size:.83rem}
     .pill{padding:3px 8px;border-radius:99px;border:1px solid var(--line);font-size:.79rem}
     .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
@@ -80,6 +88,19 @@
       <p class="help">รายงานนี้อ่านข้อมูลใน UXQuest_Attempts เท่านั้น ไม่มีการแก้ไขหรือลบผลนักศึกษา และยังไม่ใช้เป็นเกณฑ์ตัดสินคะแนน</p>
     </details>
   </section>
+  <section class="card" id="reflectionAuditSection">
+    <h2>ตรวจหลักฐาน Weekly Reflection (อ่านอย่างเดียว)</h2>
+    <p class="muted">ตรวจข้อมูล Studio ที่บันทึกจริงใน Google Sheets เฉพาะ Section ที่เลือก โดยแยกว่าพบหลักฐานที่กรอกในช่อง Reflection หรือพบเพียงข้อความซึ่งอาจถูกเติมจากส่วนอื่นโดยระบบ</p>
+    <div id="reflectionAuditSummary" class="audit-metrics" aria-live="polite">
+      <p class="help">กำลังตรวจประเภทหลักฐาน…</p>
+    </div>
+    <p class="audit-note" id="reflectionAuditAdvice">หากพบ 2/3 เป็นจำนวนมาก อย่าเพิ่งให้ผู้เรียนส่งใหม่ทั้งหมดจนกว่าจะตรวจตำแหน่งที่ระบบเก็บ Reflection</p>
+    <details>
+      <summary style="cursor:pointer;color:var(--aqua);font-weight:700">เปิดตารางสาเหตุแยก W1–W15 / B1–B4</summary>
+      <div class="scroll"><table id="reflectionAuditNodes"></table></div>
+    </details>
+    <p class="audit-source" id="reflectionAuditSource"></p>
+  </section>
   <section class="card">
     <h2>ตารางรายบุคคล × 19 ด่าน</h2>
     <p class="muted">กดช่อง W/B เพื่อดูหลักฐานย้อนหลังและความครบ <strong>Mission + Studio + Reflection</strong> แยกจากสิทธิ์ปลดล็อกตามกฎ 3/3</p>
@@ -104,6 +125,7 @@
       <p class="help">เครื่องหมายแสดงว่ามีข้อมูลในช่องที่นักศึกษาส่ง ไม่ได้รับรองคุณภาพของผลงาน</p>
       <div id="subFields" class="field-list"></div>
       <p id="subReview" class="help"></p>
+      <p id="subReflectionProvenance" class="subprovenance">การตรวจตำแหน่ง Reflection จะปรากฏเมื่อเลือก W/B</p>
     </article>
   </section>
 </main>
@@ -130,6 +152,14 @@ function gateStyle(n){
 var SYMBOLS={passed:'✓',retry:'↻',ready:'○',locked:'🔒',out_of_sequence:'!'};
 var REVIEWS={not_submitted:'ยังไม่ส่ง',submitted:'ส่งแล้ว รอตรวจ',reviewing:'กำลังตรวจ',need_revision:'ส่งกลับแก้ไข',approved:'อนุมัติแล้ว'};
 var REFL={submitted:'มี Reflection ที่กรอกเอง',missing:'ยังไม่มีหลักฐาน Reflection',unverified:'มีข้อความ แต่แยกไม่ออกว่าเขียนเองหรือระบบเติม',not_submitted:'ยังไม่ส่ง Studio'};
+var AUDIT_LABELS={
+  explicit:'พบช่อง Reflection ที่กรอกข้อความ',
+  field_empty_but_text:'ช่อง Reflection ว่าง แต่มีข้อความช่องอื่น',
+  explicit_field_empty:'มีช่อง Reflection แต่ยังว่าง',
+  top_level_only:'พบข้อความ Reflection นอกช่องหลักฐาน (ยืนยันไม่ได้)',
+  unreadable:'อ่านข้อมูลหลักฐานบางส่วนไม่ได้',
+  missing:'ไม่พบหลักฐาน Reflection'
+};
 var STAGE_LABELS={evidence:'หลักฐาน',hypothesis:'ตั้งสมมติฐาน',fix:'วิธีแก้ปัญหา',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'นิยามปัญหา',ideate:'คิดทางเลือก',prototype:'ต้นแบบ',diagnose:'วิเคราะห์ปัญหา',prioritize:'จัดลำดับ',reduce:'ลดภาระความคิด',validate:'ตรวจสอบ',reasoning:'ให้เหตุผล'};
 var NEXT={mission:'ทำ Mission ให้ผ่าน',studio:'ส่งหลักฐาน Studio',reflection:'ส่ง Weekly Reflection',revision:'แก้ไขงานตามความเห็นอาจารย์',teacher_review:'รอการตรวจงาน Studio',complete:'ครบ 3 กิจกรรมแล้ว'};
 
@@ -178,6 +208,7 @@ function load(){
     $('notices').innerHTML=(res.notices||[]).map(function(x){return '<p class="notice">'+esc(x)+'</p>'}).join('');
     render();
     renderAudit(res.identityAudit);
+    renderReflectionAudit(res.reflectionAudit);
   }).withFailureHandler(function(err){
     $('reload').disabled=false;status('เปิดข้อมูลไม่ได้: '+String(err&&err.message||err),true);
   }).UXQ_ipGetDashboard({section:$('section').value.trim()});
@@ -198,6 +229,52 @@ function renderAudit(audit){
     '<td>'+esc((item.missionIds||[]).join(', '))+'</td><td>'+esc(item.reason)+'</td></tr>'
   }).join('');
   table.innerHTML=head+'<tbody>'+(rows||'<tr><td colspan="7">ไม่พบรหัสที่ถูกตัดออกตามเงื่อนไขของหน้าใหม่นี้ หากจำนวนยังต่าง ให้ตรวจวิธีนับใน v6.2</td></tr>')+'</tbody>';
+}
+function renderReflectionAudit(a){
+  var summary=$('reflectionAuditSummary'),nodes=$('reflectionAuditNodes');
+  if(!a){
+    summary.textContent='ยังไม่มีข้อมูลวิเคราะห์ Reflection จากเซิร์ฟเวอร์ โปรดติดตั้งโค้ด GS เวอร์ชันใหม่';
+    nodes.textContent='';return;
+  }
+  var c=a.counts||{};
+  var metrics=[
+    ['คนที่เคยส่ง Studio',a.studentCount],
+    ['จุด W/B ที่มี Studio',a.latestSubmittedNodeCount],
+    ['มีช่อง Reflection ที่กรอก',c.explicit||0],
+    ['พบช่องกรอก แต่ระบบยังนับไม่ครบ',a.explicitButNotCounted||0],
+    ['มีข้อความแต่ยังยืนยันไม่ได้',(c.top_level_only||0)+(c.field_empty_but_text||0)],
+    ['ช่อง Reflection ว่าง',c.explicit_field_empty||0],
+    ['ไม่มีหลักฐาน/อ่านไม่ได้',(c.missing||0)+(c.unreadable||0)]
+  ];
+  summary.innerHTML=metrics.map(function(m,i){
+    return '<div class="audit-metric'+(i===4||i===5?' warn':'')+'"><small>'+
+      esc(m[0])+'</small><strong>'+esc(m[1])+'</strong></div>'
+  }).join('');
+  var rows=(a.byNode||[]).map(function(item){
+    var data=DATA.nodes.filter(function(n){return n.id===item.missionId})[0];
+    return '<tr><td>'+esc(data?data.label:item.missionId)+'</td>'+
+      '<td>'+item.submitted+'</td><td>'+item.explicit+'</td>'+
+      '<td>'+((item.top_level_only||0)+(item.field_empty_but_text||0))+'</td>'+
+      '<td>'+item.explicit_field_empty+'</td>'+
+      '<td>'+((item.missing||0)+(item.unreadable||0))+'</td>'+ 
+      '<td>'+(item.explicitButNotCounted||0)+'</td></tr>'
+  }).join('');
+  nodes.innerHTML='<thead><tr><th>ด่าน</th><th>Studio ล่าสุดที่พบ</th>'+
+    '<th>Reflection ในช่องหลักฐาน</th><th>ข้อความยังไม่ยืนยัน</th>'+
+    '<th>ช่องว่าง</th><th>ไม่พบ/อ่านไม่ได้</th><th>มีหลักฐานแต่ยังนับไม่ครบ</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody>';
+  $('reflectionAuditSource').textContent=
+    'อ่านอย่างเดียว • จำนวนรายการส่ง Studio ในประวัติ '+a.submissionRows+
+    ' • สรุปเฉพาะ Studio ล่าสุดของนักศึกษาแต่ละคนต่อ W/B '+
+    '• หลักฐานที่กรอกใน rawJson '+(a.explicitSources?.rawFields||0)+
+    ' และคอลัมน์ artifactFields '+(a.explicitSources?.sheetFields||0)+
+    ' • พบหลักฐานแต่การนับ 3/3 ยังไม่รับ '+(a.explicitButNotCounted||0)+' จุด'+
+    ' • ข้อความที่ตรงกับรูปแบบระบบเติมอัตโนมัติ '+(a.possibleReceiverFallbackCount||0)+
+    ' จุด (เพียงข้อบ่งชี้ ไม่ใช่ข้อสรุป)';
+  $('reflectionAuditAdvice').textContent=
+    'ยังไม่สรุปว่านักศึกษาไม่ได้ทำ Reflection: '+
+    'ประเภท “ข้อความยังไม่ยืนยัน” ต้องตรวจต้นทางการกรอกงานหรือรูปแบบ Receiver '+
+    'ก่อนสั่งนักศึกษาทำใหม่ ไม่ส่งข้อมูลส่วนตัวหรือข้อความ Reflection มาแสดงในตารางนี้';
 }
 function render(){
   if(!DATA)return;
@@ -279,6 +356,14 @@ function renderSubDetail(s,id) {
     }).join('')
     :'<p class="help">'+(node.artifactSubmitted?'มีงานส่งแล้ว แต่รายการช่องย่อยไม่ได้ถูกบันทึกมา':'ยังไม่พบหลักฐาน Studio')+'</p>';
   var review=REVIEWS[node.reviewStatus]||node.reviewStatus;
+  var evidence=node.reflectionEvidenceAudit;
+  $('subReflectionProvenance').textContent= !node.artifactSubmitted ?
+    'หลักฐาน Reflection: ยังไม่พบการส่ง Studio ของ W/B นี้' :
+    !evidence ? 'หลักฐาน Reflection: ยังไม่ได้ติดตั้งรายงานวิเคราะห์ใน Apps Script' :
+    'ประเภทหลักฐาน Reflection: '+(AUDIT_LABELS[evidence.type]||'ตรวจสอบเพิ่มเติม')+
+    (evidence.source ? ' • ตำแหน่ง: '+evidence.source : '')+
+    (evidence.mayBeSynthesized ? ' • ข้อความตรงกับรูปแบบที่ Receiver อาจสร้างขึ้น' : '')+
+    ' • รายงานนี้ไม่แก้สถานะผ่านหรือคะแนนอัตโนมัติ';
   $('subReview').textContent='Teacher Review: '+review+
     (hasReviewScore(node.reviewScore)?' • คะแนน '+node.reviewScore+'/100':'')+
     (node.reasonRetryCount?' • ส่ง Reason Retry '+node.reasonRetryCount+' ครั้ง':'');
