@@ -182,19 +182,42 @@ function UXQ_ipAuditReflection_(row) {
   else if(hasField) type='explicit_field_empty';
   else if(textPresent) type='top_level_only';
   else if(rawParsed.invalid || sheetParsed.invalid) type='unreadable';
-  const concat=[row.problemseen,row.uxreason,row.fixandtest].map(function(v){
-    return String(v || '').trim();
-  }).filter(Boolean).join(' | ');
-  const normalized=function(x){return String(x || '').replace(/\s+/g,' ').trim();};
+  // Historical StudentReceiver-v4-Artifacts.gs used:
+  // fields = payload.artifactFields.slice(0,8)
+  // reflection = payload.reflection || [problem,reason,fix].join(' | ')
+  // Matching the formula is an indicator, NOT proof of who authored text:
+  // a student could coincidentally type the same words.
+  const cap8Possible=!authored &&
+    (rawFields.length===8 || sheetFields.length===8);
+  function legacyConcat(values) {
+    return values.map(function(v){return String(v||'').trim();})
+      .filter(Boolean).join(' | ');
+  }
+  const formulaCandidates=[
+    legacyConcat([row.problemseen,row.uxreason,row.fixandtest]),
+    legacyConcat([raw.problemSeen,raw.uxReason,raw.fixAndTest])
+  ].filter(Boolean);
+  const normalized=function(x){return String(x||'').replace(/\s+/g,' ').trim();};
   const matchesReceiverFallback=Boolean(
-    type!=='explicit' && concat && normalized(columnText || rawText)===normalized(concat)
+    type!=='explicit' && [columnText,rawText].some(function(value){
+      return value && formulaCandidates.some(function(expected){
+        return normalized(value)===normalized(expected);
+      });
+    })
   );
+  const legacySignal=authored?'explicit_field':
+    matchesReceiverFallback?'matches_legacy_receiver_formula':
+    cap8Possible?'possible_eight_field_truncation':
+    textPresent?'unverified_top_level_text':
+    rawParsed.invalid||sheetParsed.invalid?'unreadable':
+    'no_independent_reflection_field';
   return {
     type:type,explicit:authored,textPresent:textPresent,
     source:authored?(rawField && String(rawField.value || '').trim()?'raw_artifactFields':'sheet_artifactFields'):'',
     hasField:hasField,
     rawInvalid:rawParsed.invalid,sheetInvalid:sheetParsed.invalid,
-    mayBeSynthesized:matchesReceiverFallback
+    mayBeSynthesized:matchesReceiverFallback,
+    legacyEightFieldPossible:cap8Possible,legacySignal:legacySignal
   };
 }
 function UXQ_ipReflectionAudit_(attemptRows,section) {
@@ -220,6 +243,15 @@ function UXQ_ipReflectionAudit_(attemptRows,section) {
   });
   const uniqueStudents={};
   let suspicious=0,rawExplicit=0,sheetExplicit=0,invalid=0;
+  const legacySignals={
+    matchesReceiverFormula:0,possibleEightFieldTruncation:0,
+    topLevelUnverified:0,unreadable:0,
+    noIndependentReflectionField:0,explicitField:0
+  };
+  UXQ_IP_NODE_ORDER.forEach(function(id){
+    byNode[id].matchesReceiverFormula=0;
+    byNode[id].possibleEightFieldTruncation=0;
+  });
   Object.keys(latest).forEach(function(key){
     const idx=key.lastIndexOf('|'),sid=key.slice(0,idx),id=key.slice(idx+1);
     const status=latest[key];
@@ -228,7 +260,19 @@ function UXQ_ipReflectionAudit_(attemptRows,section) {
     counts[status.type]=(counts[status.type]||0)+1;
     byNode[id].submitted+=1;
     byNode[id][status.type]=(byNode[id][status.type]||0)+1;
-    if(status.mayBeSynthesized)suspicious+=1;
+    if(status.mayBeSynthesized){
+      suspicious+=1;
+      legacySignals.matchesReceiverFormula+=1;
+      byNode[id].matchesReceiverFormula+=1;
+    }
+    if(status.legacyEightFieldPossible){
+      legacySignals.possibleEightFieldTruncation+=1;
+      byNode[id].possibleEightFieldTruncation+=1;
+    }
+    if(status.legacySignal==='unverified_top_level_text')legacySignals.topLevelUnverified+=1;
+    if(status.legacySignal==='unreadable')legacySignals.unreadable+=1;
+    if(status.legacySignal==='no_independent_reflection_field')legacySignals.noIndependentReflectionField+=1;
+    if(status.legacySignal==='explicit_field')legacySignals.explicitField+=1;
     if(status.source==='raw_artifactFields')rawExplicit+=1;
     if(status.source==='sheet_artifactFields')sheetExplicit+=1;
     if(status.rawInvalid || status.sheetInvalid)invalid+=1;
@@ -238,9 +282,10 @@ function UXQ_ipReflectionAudit_(attemptRows,section) {
     latestSubmittedNodeCount:Object.keys(latest).length,submissionRows:submissionRows,
     counts:counts,explicitSources:{rawFields:rawExplicit,sheetFields:sheetExplicit},
     possibleReceiverFallbackCount:suspicious,parseIssueCount:invalid,
+    legacySignals:legacySignals,
     byNode:UXQ_IP_NODE_ORDER.map(function(id){return byNode[id];}),
     diagnosticOnly:true,source:'UXQuest_Attempts_latest_artifact_submission_per_student_node',
-    note:'Top-level reflection may be receiver-generated. An empty or missing explicit field is not evidence that the student never wrote a reflection. No scores or rows were changed.'
+    note:'Receiver v4 previously capped artifactFields at eight and could auto-fill reflection from problem/reason/fix. Indicators are NOT proof of authorship or non-submission. No student rows, statuses or scores were written.'
   };
 }
 
