@@ -54,6 +54,9 @@
     .action-kind-mission{color:#ffda9f}.action-kind-studio{color:#a8eaff}
     .action-kind-reflection-review{color:#ffbdbe}.action-kind-reflection-missing{color:#e1c9ff}
     .action-kind-complete{color:var(--mint)}
+    .action-kind-data_unavailable{color:#ffca70}
+    .action-schema-alert{border:1px solid #bd9657;padding:12px;border-radius:9px;background:#302a31;color:#ffe5aa;margin:12px 0}
+    .action-from-details{color:#ffe0a1;font-size:.8rem}
     .legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 0;color:var(--sub);font-size:.83rem}
     .pill{padding:3px 8px;border-radius:99px;border:1px solid var(--line);font-size:.79rem}
     .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
@@ -128,6 +131,7 @@
       </label>
       <p class="help" id="actionFilterSummary" aria-live="polite"></p>
     </div>
+    <p id="actionSchemaAlert" class="action-schema-alert" role="status" hidden></p>
     <div class="stats" id="actionTotals"></div>
     <div class="scroll" style="margin-top:12px">
       <table class="action-table">
@@ -204,6 +208,7 @@ var ACTION_LABELS={
   reflection_review:'ต้องตรวจที่มาของ Reflection',
   reflection_missing:'ยังไม่พบ Reflection ที่ยืนยันได้',
   complete:'ครบทั้ง 19 ด่าน',
+  data_unavailable:'ข้อมูลตรวจงานไม่ครบ',
   check_data:'ตรวจข้อมูลรายด่าน'
 };
 function actionGuidance(action){
@@ -213,6 +218,7 @@ function actionGuidance(action){
   if(action.kind==='reflection_review')return 'มีข้อความบางส่วน แต่ยังยืนยันผู้เขียนไม่ได้ ต้องตรวจหลักฐานต้นทาง';
   if(action.kind==='reflection_missing')return 'ยังไม่พบหลักฐาน Reflection ที่ยืนยันได้ ควรตรวจใบงาน/ช่องบันทึกก่อนแจ้งนักศึกษา';
   if(action.kind==='complete')return 'ทำครบ 3/3 ทุกด่านแล้ว (Teacher Review แยกต่างหาก)';
+  if(action.kind==='data_unavailable')return 'ตรวจการอัปเดต Apps Script .gs และข้อมูลรายด่านก่อน';
   return 'ตรวจข้อมูลดิบเพิ่มเติม';
 }
 
@@ -344,7 +350,9 @@ function render(){
   var body=list.map(function(s){
     return '<tr><td><button class="person" data-person="'+esc(key(s))+'">'+esc(s.studentName)+'<br><small>'+esc(s.studentId)+'</small></button></td>'+
     '<td>'+s.completedCount+'/19</td><td>'+s.fullThreePartCount+'/19</td><td>'+s.courseCompletedCount+'/19</td>'+DATA.nodes.map(function(n){
-      var m=s.nodes[n.id],gate=gateStyle(m),history=gameHistoryLabel(m);
+      var m=s.nodes&&s.nodes[n.id];
+      if(!m)return '<td><span class="pill locked">ข้อมูลไม่ครบ</span></td>';
+      var gate=gateStyle(m),history=gameHistoryLabel(m);
       var title=n.label+' • '+accessLabel(m)+' • '+history+' • '+m.partsCompleted+'/3';
       var mainIcon=m.accessStatus==='locked'?'🔒':m.accessStatus==='completed'?'✓':'○';
       var oldEvidence=m.accessStatus==='locked' && (m.passedEvidence||m.attempts||m.artifactSubmitted);
@@ -357,34 +365,98 @@ function render(){
   $('detail').hidden=!target;
   if(target)renderDetail(target);
 }
+// Backward-compatibility for a teacher HTML deployment paired with an older
+// Apps Script .gs backend. Never interpret a missing nextAction as "complete".
+// All fallback reasoning uses the same read-only 19-node evidence already
+// used for the legacy per-person details and does NOT modify the Sheet.
+function deriveActionFromSavedNodes(student) {
+  var nodes=DATA&&Array.isArray(DATA.nodes)?DATA.nodes:[];
+  if(nodes.length!==19 || !student || !student.nodes)return {
+    kind:'data_unavailable',nodeId:'',label:'—',parts:null,
+    evidence:'missing_node_data',historicalFutureCount:0,derived:true
+  };
+  var blockedIndex=-1;
+  for(var i=0;i<nodes.length;i++){
+    var n=student.nodes[nodes[i].id];
+    if(!n || typeof n.fullThreePart!=='boolean')return {
+      kind:'data_unavailable',nodeId:'',label:'—',parts:null,
+      evidence:'incomplete_backend_schema',historicalFutureCount:0,derived:true
+    };
+    if(!n.fullThreePart){blockedIndex=i;break}
+  }
+  if(blockedIndex<0)return {
+    kind:'complete',nodeId:'',label:'ครบ 19 ด่าน',parts:3,
+    evidence:'confirmed_from_nodes',historicalFutureCount:0,derived:true
+  };
+  var current=nodes[blockedIndex],step=student.nodes[current.id],
+      evidence=step.reflectionEvidenceAudit||{};
+  var missionPassed=step.status==='passed'||step.passedEvidence===true;
+  var kind=!missionPassed?'mission':!step.artifactSubmitted?'studio':
+    !step.reflectionSubmitted?
+      ((evidence.type==='unreadable'||evidence.textPresent||
+        evidence.type==='top_level_only'||evidence.type==='field_empty_but_text'||
+        step.reflectionStatus==='unverified')?'reflection_review':'reflection_missing')
+    :'check_data';
+  var history=0;
+  for(var j=blockedIndex+1;j<nodes.length;j++){
+    var later=student.nodes[nodes[j].id]||{};
+    if(later.passedEvidence||Number(later.attempts)>0||later.artifactSubmitted)history++;
+  }
+  return {kind:kind,nodeId:current.id,label:current.label||current.id,
+    parts:Number(step.partsCompleted)||0,evidence:evidence.type||'',
+    historicalFutureCount:history,derived:true};
+}
+function readNextAction(student){
+  var a=student&&student.nextAction;
+  if(a && typeof a.kind==='string' &&
+    ['mission','studio','reflection_review','reflection_missing','complete','check_data'].indexOf(a.kind)>=0 &&
+    (a.kind!=='complete' || student.courseCompletedCount===19) &&
+    (a.kind==='complete'||(a.nodeId && student.nodes && student.nodes[a.nodeId])))return a;
+  return deriveActionFromSavedNodes(student);
+}
 function renderActionQueue(list){
   // Respect the current name/student-id search; the category filter applies
   // only to this action queue, not to historical W/B matrix records.
-  var counts={mission:0,studio:0,reflection_review:0,reflection_missing:0,complete:0,check_data:0};
-  list.forEach(function(s){var a=s.nextAction||{};if(counts[a.kind]!==undefined)counts[a.kind]++});
+  var counts={mission:0,studio:0,reflection_review:0,reflection_missing:0,complete:0,check_data:0,data_unavailable:0};
+  var stale=0,missing=0;
+  list.forEach(function(s){
+    var a=readNextAction(s);
+    if(a.derived)stale++;
+    if(a.kind==='data_unavailable')missing++;
+    if(counts[a.kind]!==undefined)counts[a.kind]++;
+  });
+  var alert=$('actionSchemaAlert');
+  alert.hidden=stale===0;
+  alert.textContent=stale?
+    'ตรวจพบโค้ดหน้าอาจารย์กับผลลัพธ์ Apps Script คนละรุ่น '+stale+' คน'+
+    (missing?' • ไม่มีข้อมูลเพียงพอสำหรับคำนวณ '+missing+' คน':'')+
+    ' • ตารางนี้คำนวณสำรองจากข้อมูลรายด่านที่โหลดมาแล้ว โปรดอัปเดตไฟล์ UXQuestIndividualProgress-v1.gs และ Deploy เป็น New version ก่อนใช้ผลตรวจอย่างเป็นทางการ'
+    :'';
   var summary=[
     ['รอ Mission',counts.mission],
     ['รอ Studio',counts.studio],
     ['ตรวจ Reflection',counts.reflection_review],
     ['ยังไม่พบ Reflection',counts.reflection_missing],
-    ['ครบ 19 ด่าน',counts.complete]
+    ['ครบ 19 ด่าน',counts.complete],
+    ['ข้อมูลไม่ครบ',counts.data_unavailable]
   ];
   $('actionTotals').innerHTML=summary.map(function(x){
     return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>';
   }).join('');
   var active=$('actionFilter').value||'all';
   var filtered=list.filter(function(s){
-    return active==='all'||(s.nextAction && s.nextAction.kind===active);
+    return active==='all'||readNextAction(s).kind===active;
   });
   $('actionFilterSummary').textContent='แสดง '+filtered.length+' จาก '+list.length+' คนที่ตรงเงื่อนไขค้นหา';
   $('actionRows').innerHTML=filtered.map(function(s){
-    var a=s.nextAction||{};
+    var a=readNextAction(s);
     var id=a.nodeId||'',label=a.label||'—';
     var actionText=ACTION_LABELS[a.kind]||'ตรวจสถานะเพิ่มเติม';
     var past=Number(a.historicalFutureCount||0);
     return '<tr><td>'+esc(s.studentName)+'<div class="action-mini">'+esc(s.studentId)+'</div></td>'+
       '<td>'+esc(s.courseCompletedCount)+'/19</td>'+
-      '<td><strong>'+esc(id.toUpperCase()||'ครบทุกด่าน')+'</strong><div class="action-mini">'+esc(label)+'</div></td>'+
+      '<td><strong>'+esc(id.toUpperCase()||(a.kind==='complete'?'ครบทุกด่าน':'ต้องตรวจข้อมูล'))+'</strong><div class="action-mini">'+esc(label)+'</div>'+
+      (a.derived?'<div class="action-from-details">ประเมินสำรองจากข้อมูลรายด่าน</div>':'')+'</td>'+
       '<td><span class="action-kind-'+esc((a.kind||'').replace(/_/g,'-'))+'">'+esc(actionText)+'</span>'+
       '<div class="action-mini">'+esc(actionGuidance(a))+'</div></td>'+
       '<td>'+esc(past)+' ด่าน<div class="action-mini">'+(past?'เก็บประวัติเดิมไว้':'—')+'</div></td>'+
@@ -398,7 +470,9 @@ function renderDetail(s){
   $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
   if(!selectedNode){selectedNode=s.nextCourseNode||DATA.nodes[18].id;}
   $('detailRows').innerHTML=DATA.nodes.map(function(n){
-    var m=s.nodes[n.id],cls=m.status;
+    var m=s.nodes&&s.nodes[n.id];
+    if(!m)return '<tr><td>'+esc(n.label)+'</td><td colspan="11">ไม่มีข้อมูลของด่านนี้ในผลลัพธ์ Apps Script • ตรวจการติดตั้งไฟล์ .gs</td></tr>';
+    var cls=m.status;
     var studio=m.artifactSubmitted?(REVIEWS[m.reviewStatus]||m.reviewStatus):'ยังไม่ส่ง';
     var link=m.artifactUrl?'<a href="'+esc(m.artifactUrl)+'" target="_blank" rel="noopener noreferrer">เปิดหลักฐาน</a>':'—';
     return '<tr'+(selectedNode===n.id?' style="background:#1c3956"':'')+'><td>'+esc(n.label)+'</td>'+
@@ -416,7 +490,11 @@ function renderDetail(s){
 }
 function renderSubDetail(s,id) {
   var node=s.nodes[id], info=DATA.nodes.filter(function(n){return n.id===id})[0];
-  if(!node || !info)return;
+  if(!node || !info){
+    $('subTitle').textContent='ยังไม่สามารถอ่านรายละเอียดด่านได้';
+    $('subParts').textContent='ข้อมูลรายด่านจาก Apps Script ไม่ครบ โปรดตรวจไฟล์ .gs ที่ Deploy';
+    return;
+  }
   $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3 • '+accessLabel(node);
   var parts=[
     ['1. Mission',node.status==='passed',missionActivity(node)+(node.accessStatus==='locked'?' • ทางเข้าเรียนยังล็อกตามกฎ 3/3':'')],

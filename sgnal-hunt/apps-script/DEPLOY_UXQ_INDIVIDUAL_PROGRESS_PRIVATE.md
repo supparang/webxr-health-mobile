@@ -242,3 +242,45 @@ Install only into the standalone **UXQuest-Teacher-Progress** Apps Script:
    first incomplete W/B. Confirm no history was deleted.
 
 Synthetic regression: node test_uxq_teacher_first_incomplete_action.js.
+
+
+## 2026-10-26: Correct Action Queue showing everyone as "ครบทุกด่าน" / counters zero
+
+Observed in a real screenshot: one student had "ครบต่อเนื่อง 7/19" in
+the action queue but the action column said "ครบทุกด่าน";
+every counter (Mission/Studio/Reflection) was zero. Another student
+had a genuine W1 Mission 0/3 in the per-node detail.
+
+Root cause: the newer HTML action queue assumed every student had a
+nextAction object, which is returned by the newest
+UXQuestIndividualProgress-v1.gs backend. A private deployment using
+older .gs code returned detailed W/B records but no nextAction. HTML
+converted an empty nodeId into the FALSE label "ครบทุกด่าน".
+
+**Teacher-only fix:** if nextAction is missing/invalid, calculate a
+read-only fallback from the 19 W/B nodes already in the response,
+including fullThreePart, Mission, Studio, and explicit Reflection.
+Never infer "course complete" from a missing object.
+A visible warning reports incompatible source versions and asks for
+a new .gs deployment. If node details are incomplete, display
+"ข้อมูลตรวจงานไม่ครบ" instead of inventing completion.
+This fallback is provisional and must not be used for official grading
+until both source files are from the same version.
+
+**Deployment, no student data changes:**
+1. Open existing PRIVATE Apps Script project UXQuest-Teacher-Progress.
+2. Replace BOTH the .gs and .html files with the latest GitHub main
+   versions of UXQuestIndividualProgress-v1.gs and
+   UXQuestIndividualProgressDashboard-v1.html.
+3. Preserve รหัส.gs, private teacher allowlist, Script properties,
+   spreadsheet ID, student Receiver, and all Sheets/rows.
+4. Save. Deploy → Manage deployments → Edit pencil → New version → Deploy.
+5. Reload original /exec URL; select Section 201. A student with
+   7/19 contiguous completed must not say "ครบทุกด่าน". When the
+   version-mismatch warning disappears, the newly deployed backend
+   is supplying nextAction as expected.
+
+Synthetic regression: node test_uxq_teacher_action_schema_mismatch.js.
+
+This is read-only reporting. Do not merge or deploy student runtime
+draft PR #170 as part of this fix.
