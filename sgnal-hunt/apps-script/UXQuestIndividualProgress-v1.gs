@@ -422,6 +422,22 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
   });
   const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
   const reflectionAudit = UXQ_ipReflectionAudit_(attemptRows,section);
+  // Find read-side parsing mismatches without modifying grades or statuses.
+  // Example: rawJson has an empty field but artifactFields column has
+  // a filled Reflection; source provenance is explicit, yet prior display
+  // may still say 2/3 because it prefers rawJson unconditionally.
+  reflectionAudit.explicitButNotCounted=0;
+  reflectionAudit.byNode.forEach(function(row){row.explicitButNotCounted=0;});
+  Object.keys(students).forEach(function(key) {
+    UXQ_IP_NODE_ORDER.forEach(function(id,index) {
+      const node=students[key].nodes[id];
+      if(node.artifactSubmitted && node.reflectionEvidenceAudit &&
+         node.reflectionEvidenceAudit.explicit && !node.reflectionSubmitted) {
+        reflectionAudit.explicitButNotCounted+=1;
+        reflectionAudit.byNode[index].explicitButNotCounted+=1;
+      }
+    });
+  });
   const result = Object.keys(students).map(function(key){ return students[key]; })
     .sort(function(a,b){return a.studentId.localeCompare(b.studentId,'th',{numeric:true});});
   if (!rosterRows || !rosterRows.length) notices.push('ไม่มีชีต UXQuest_Roster: รายชื่อจะแสดงเฉพาะผู้ที่มีการบันทึกกิจกรรมแล้ว นักศึกษาที่ไม่เคยเข้าเล่นจะไม่ปรากฏ');
