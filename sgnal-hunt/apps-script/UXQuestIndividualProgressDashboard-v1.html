@@ -350,7 +350,9 @@ function render(){
   var body=list.map(function(s){
     return '<tr><td><button class="person" data-person="'+esc(key(s))+'">'+esc(s.studentName)+'<br><small>'+esc(s.studentId)+'</small></button></td>'+
     '<td>'+s.completedCount+'/19</td><td>'+s.fullThreePartCount+'/19</td><td>'+s.courseCompletedCount+'/19</td>'+DATA.nodes.map(function(n){
-      var m=s.nodes[n.id],gate=gateStyle(m),history=gameHistoryLabel(m);
+      var m=s.nodes&&s.nodes[n.id];
+      if(!m)return '<td><span class="pill locked">ข้อมูลไม่ครบ</span></td>';
+      var gate=gateStyle(m),history=gameHistoryLabel(m);
       var title=n.label+' • '+accessLabel(m)+' • '+history+' • '+m.partsCompleted+'/3';
       var mainIcon=m.accessStatus==='locked'?'🔒':m.accessStatus==='completed'?'✓':'○';
       var oldEvidence=m.accessStatus==='locked' && (m.passedEvidence||m.attempts||m.artifactSubmitted);
@@ -408,7 +410,8 @@ function readNextAction(student){
   var a=student&&student.nextAction;
   if(a && typeof a.kind==='string' &&
     ['mission','studio','reflection_review','reflection_missing','complete','check_data'].indexOf(a.kind)>=0 &&
-    (a.kind==='complete' || a.nodeId) )return a;
+    (a.kind!=='complete' || student.courseCompletedCount===19) &&
+    (a.kind==='complete'||(a.nodeId && student.nodes && student.nodes[a.nodeId])))return a;
   return deriveActionFromSavedNodes(student);
 }
 function renderActionQueue(list){
@@ -467,7 +470,9 @@ function renderDetail(s){
   $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
   if(!selectedNode){selectedNode=s.nextCourseNode||DATA.nodes[18].id;}
   $('detailRows').innerHTML=DATA.nodes.map(function(n){
-    var m=s.nodes[n.id],cls=m.status;
+    var m=s.nodes&&s.nodes[n.id];
+    if(!m)return '<tr><td>'+esc(n.label)+'</td><td colspan="11">ไม่มีข้อมูลของด่านนี้ในผลลัพธ์ Apps Script • ตรวจการติดตั้งไฟล์ .gs</td></tr>';
+    var cls=m.status;
     var studio=m.artifactSubmitted?(REVIEWS[m.reviewStatus]||m.reviewStatus):'ยังไม่ส่ง';
     var link=m.artifactUrl?'<a href="'+esc(m.artifactUrl)+'" target="_blank" rel="noopener noreferrer">เปิดหลักฐาน</a>':'—';
     return '<tr'+(selectedNode===n.id?' style="background:#1c3956"':'')+'><td>'+esc(n.label)+'</td>'+
@@ -486,6 +491,11 @@ function renderDetail(s){
 function renderSubDetail(s,id) {
   var node=s.nodes[id], info=DATA.nodes.filter(function(n){return n.id===id})[0];
   if(!node || !info)return;
+  if(!node || !info){
+    $('subTitle').textContent='ยังไม่สามารถอ่านรายละเอียดด่านได้';
+    $('subParts').textContent='ข้อมูลรายด่านจาก Apps Script ไม่ครบ โปรดตรวจไฟล์ .gs ที่ Deploy';
+    return;
+  }
   $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3 • '+accessLabel(node);
   var parts=[
     ['1. Mission',node.status==='passed',missionActivity(node)+(node.accessStatus==='locked'?' • ทางเข้าเรียนยังล็อกตามกฎ 3/3':'')],
