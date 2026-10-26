@@ -241,12 +241,13 @@ function renderReflectionAudit(a){
     ['คนที่เคยส่ง Studio',a.studentCount],
     ['จุด W/B ที่มี Studio',a.latestSubmittedNodeCount],
     ['มีช่อง Reflection ที่กรอก',c.explicit||0],
+    ['พบช่องกรอก แต่ระบบยังนับไม่ครบ',a.explicitButNotCounted||0],
     ['มีข้อความแต่ยังยืนยันไม่ได้',(c.top_level_only||0)+(c.field_empty_but_text||0)],
     ['ช่อง Reflection ว่าง',c.explicit_field_empty||0],
     ['ไม่มีหลักฐาน/อ่านไม่ได้',(c.missing||0)+(c.unreadable||0)]
   ];
   summary.innerHTML=metrics.map(function(m,i){
-    return '<div class="audit-metric'+(i===3||i===4?' warn':'')+'"><small>'+
+    return '<div class="audit-metric'+(i===4||i===5?' warn':'')+'"><small>'+
       esc(m[0])+'</small><strong>'+esc(m[1])+'</strong></div>'
   }).join('');
   var rows=(a.byNode||[]).map(function(item){
@@ -255,17 +256,19 @@ function renderReflectionAudit(a){
       '<td>'+item.submitted+'</td><td>'+item.explicit+'</td>'+
       '<td>'+((item.top_level_only||0)+(item.field_empty_but_text||0))+'</td>'+
       '<td>'+item.explicit_field_empty+'</td>'+
-      '<td>'+((item.missing||0)+(item.unreadable||0))+'</td></tr>'
+      '<td>'+((item.missing||0)+(item.unreadable||0))+'</td>'+ 
+      '<td>'+(item.explicitButNotCounted||0)+'</td></tr>'
   }).join('');
   nodes.innerHTML='<thead><tr><th>ด่าน</th><th>Studio ล่าสุดที่พบ</th>'+
     '<th>Reflection ในช่องหลักฐาน</th><th>ข้อความยังไม่ยืนยัน</th>'+
-    '<th>ช่องว่าง</th><th>ไม่พบ/อ่านไม่ได้</th></tr></thead>'+
+    '<th>ช่องว่าง</th><th>ไม่พบ/อ่านไม่ได้</th><th>มีหลักฐานแต่ยังนับไม่ครบ</th></tr></thead>'+
     '<tbody>'+rows+'</tbody>';
   $('reflectionAuditSource').textContent=
     'อ่านอย่างเดียว • จำนวนรายการส่ง Studio ในประวัติ '+a.submissionRows+
     ' • สรุปเฉพาะ Studio ล่าสุดของนักศึกษาแต่ละคนต่อ W/B '+
     '• หลักฐานที่กรอกใน rawJson '+(a.explicitSources?.rawFields||0)+
     ' และคอลัมน์ artifactFields '+(a.explicitSources?.sheetFields||0)+
+    ' • พบหลักฐานแต่การนับ 3/3 ยังไม่รับ '+(a.explicitButNotCounted||0)+' จุด'+
     ' • ข้อความที่ตรงกับรูปแบบระบบเติมอัตโนมัติ '+(a.possibleReceiverFallbackCount||0)+
     ' จุด (เพียงข้อบ่งชี้ ไม่ใช่ข้อสรุป)';
   $('reflectionAuditAdvice').textContent=
