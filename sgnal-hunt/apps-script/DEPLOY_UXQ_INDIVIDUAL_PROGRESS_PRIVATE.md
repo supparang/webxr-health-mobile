@@ -199,3 +199,46 @@ separate in draft PR #170.
 
 No new or edited Google Sheet records are needed. Do NOT tell students to
 resubmit a Reflection that already exists in an explicit saved field.
+
+
+## 2026-10-26: Action queue for the first incomplete W/B
+
+The private Teacher Progress dashboard now includes **งานที่ควรติดตามต่อ • ด่านแรกที่ยังไม่ครบ 3/3** (read-only).
+
+For each student in the selected Section, it identifies the first W/B in
+the full 19-node order which has not satisfied Mission + Studio + explicitly
+authored Reflection. It shows historical completed but now-policy-locked
+future nodes without changing those records. A student with 18/19 historic
+Mission passes and no complete Reflection at W1 appears as **W1: check
+Reflection**; 17 later game results remain preserved as history.
+
+Per-student outcomes:
+- mission: no contiguous Mission pass at the first incomplete node.
+- studio: Mission passed, Studio event not recorded.
+- reflection_review: Studio exists, but top-level text or unreadable
+  source leaves authorship uncertain; manually inspect source before asking
+  the student to resubmit.
+- reflection_missing: latest Studio has no explicit authored Reflection
+  and no ambiguous text (including a blank explicit Reflection field).
+  Inspect existing student work before asking for new submission.
+- complete: all 19 nodes have 3/3 in order.
+
+The teacher can filter the action queue by action type or use the existing
+name/Student ID search; selecting **เปิดรายบุคคล** jumps to the exact
+first-incomplete W/B for detailed evidence. No new data fields or Sheet
+columns are created, and Teacher Review remains separate from unlock logic.
+
+This is a **teacher-side policy assessment**, NOT proof that the live
+student runtime enforces 3/3. The production student release in draft
+PR #170 is still on hold pending backend QA.
+
+Install only into the standalone **UXQuest-Teacher-Progress** Apps Script:
+1. Replace the full source of UXQuestIndividualProgress-v1.gs from GitHub main.
+2. Replace the full HTML of UXQuestIndividualProgressDashboard-v1.html.
+3. Leave Code.gs, Script properties, Sheet ID, original uxui receiver, and
+   all student rows unchanged.
+4. Save → Deploy → Manage deployments → Edit → New version → Deploy.
+5. Test Section 201 action queue and one known student with history past the
+   first incomplete W/B. Confirm no history was deleted.
+
+Synthetic regression: node test_uxq_teacher_first_incomplete_action.js.
