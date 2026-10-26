@@ -284,3 +284,55 @@ Synthetic regression: node test_uxq_teacher_action_schema_mismatch.js.
 
 This is read-only reporting. Do not merge or deploy student runtime
 draft PR #170 as part of this fix.
+
+
+## 26 October 2026 — Legacy Receiver Reflection source diagnostics
+
+A real instructor screenshot showed a learner with 18/19 historical Mission passes,
+19/19 submitted Studio artifacts, but zero independently confirmed Reflection
+fields. The old receiver code has two important documented behaviors:
+
+1. UXQuestStudentReceiver-v4-Artifacts.gs normalizes submissions using
+   payload.artifactFields.slice(0, 8). A ninth authored Reflection inside
+   artifactFields could therefore have been excluded from this historical
+   receiver version's stored rawJson/Sheet artifactFields, **even if the
+   browser originally sent it**. This is a possible data-capture limitation,
+   not proof of nonparticipation.
+2. If payload.reflection is blank, that receiver can set the top-level
+   reflection field to a string joined from problemSeen, uxReason and
+   fixAndTest with " | " delimiters. Merely finding a nonblank
+   top-level reflection cannot establish who authored it.
+
+The private teacher dashboard now reports **READ-ONLY, NON-AUTHORITATIVE**
+diagnostic signals for the latest Studio event for each student and W/B:
+- Reflection field explicitly nonblank (eligible under the teacher
+  3/3 read-only policy assessment).
+- Top-level Reflection text matching the old Receiver's concatenation
+  formula (indicator ONLY, not proof of automatic generation).
+- Exactly eight Studio fields without independently confirmed Reflection
+  (possible old eight-field limit; eight fields can also be legitimate).
+- Other ambiguous top-level text, missing fields, and parse errors.
+
+Counts per class and W/B are allowed to overlap. The server sends
+**category/count only**, not a learner's original Reflection response.
+Instructor detail shows the category but not the response text.
+
+Do not treat a pattern match as conclusive evidence that the system created
+the student's answer: a student may independently enter the same text.
+Conversely, this diagnostic cannot reconstruct a missing ninth field.
+Do not silently award 3/3, automatically penalize students or order an
+entire class to resubmit based on these indicators.
+
+Installation into existing PRIVATE UXQuest-Teacher-Progress:
+1. Update UXQuestIndividualProgress-v1.gs and
+   UXQuestIndividualProgressDashboard-v1.html from GitHub main.
+2. Leave the existing private Code.gs, Sheet ID, Script properties,
+   teacher allowlist, student Receiver, saved attempts and reviews as is.
+3. Save → Deploy → Manage deployments → Edit → New version → Deploy.
+4. Reopen the current /exec URL; choose Section 201; inspect the
+   Reflection audit signal counts and the first stuck W/B per student.
+
+No spreadsheet rows or student scores are edited.
+No new Student Receiver or student web runtime is activated.
+PR #170 remains draft and withheld pending safe backend-first rollout.
+Synthetic test: node test_uxq_teacher_legacy_receiver_signals.js.
