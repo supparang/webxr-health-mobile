@@ -155,3 +155,47 @@ To upgrade the private teacher Apps Script project:
 
 Synthetic regression test (no student data involved):
 node test_uxq_reflection_provenance_audit.js
+
+
+## Fix on 26 Oct 2026: explicit ninth Reflection was incorrectly shown as 2/3
+
+A real Teacher Progress screenshot showed Mission passed, Studio submitted,
+and the read-only provenance panel reporting **raw_artifactFields explicit
+Reflection**, but the activity status remained "2/3 / unverified."
+
+**Root cause:** UXQ_ipFields_(row) displayed and returned only the first
+eight Studio fields. UXQ_ipReflectionState_ incorrectly reused this truncated
+display list to calculate the official Teacher Progress Reflection activity.
+The independent provenance audit correctly scanned the full artifactFields
+array, hence the contradiction.
+
+**Read-only fix in the private Teacher Progress backend:**
+- Reflection status now uses the complete provenance record from both
+  rawJson.artifactFields and the artifactFields spreadsheet column.
+- The eight original Studio chips remain, and an explicit ninth Reflection
+  field is shown as an additional chip when present.
+- A genuine nonblank Reflection field in either source counts toward 3/3.
+- Top-level reflection text without the explicit field stays UNVERIFIED:
+  legacy receiver may have synthesized it from problem/reason/fix answers.
+- A newer submission with an empty Reflection overrides an older submission
+  with a filled Reflection; no historical rows are deleted.
+- Teacher Review approval is NOT required for 3/3 eligibility.
+
+For the screenshot-style case, **W1 Mission + Studio + explicit ninth
+Reflection = 3/3; W2 becomes eligible in this teacher-side read-only
+calculation**. This is not proof that the actual student game has deployed
+the 3/3 enforcement gate; the production Student Receiver rollout remains
+separate in draft PR #170.
+
+**Deploy into the existing private UXQuest-Teacher-Progress** project:
+1. Replace only UXQuestIndividualProgress-v1.gs from the latest main branch.
+2. Keep the existing HTML, Code.gs, Script properties and Google Sheet untouched.
+3. Save → Deploy → Manage deployments → Edit → New version → Deploy.
+4. Reopen the same private /exec link, Refresh data for Section 201 and inspect
+   the original W1. Verify that the ninth Weekly Reflection chip is present,
+   W1 reflects 3/3 and W2 is eligible according to teacher policy.
+5. Run the synthetic regression from repository root:
+   node test_uxq_reflection_field_over_eight.js
+
+No new or edited Google Sheet records are needed. Do NOT tell students to
+resubmit a Reflection that already exists in an explicit saved field.
