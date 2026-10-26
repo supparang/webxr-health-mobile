@@ -490,7 +490,6 @@ function renderDetail(s){
 }
 function renderSubDetail(s,id) {
   var node=s.nodes[id], info=DATA.nodes.filter(function(n){return n.id===id})[0];
-  if(!node || !info)return;
   if(!node || !info){
     $('subTitle').textContent='ยังไม่สามารถอ่านรายละเอียดด่านได้';
     $('subParts').textContent='ข้อมูลรายด่านจาก Apps Script ไม่ครบ โปรดตรวจไฟล์ .gs ที่ Deploy';
