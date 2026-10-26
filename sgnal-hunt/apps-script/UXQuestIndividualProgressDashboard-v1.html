@@ -26,6 +26,15 @@
     .matrix button.passed{background:#1c563f;color:#b5ffda}.matrix button.retry{background:#6e522b;color:#fff0ce}
     .matrix button.out_of_sequence{background:#602e43;color:#ffe2e9}.matrix button.ready{background:#1a476b;color:#b8e9ff}
     .matrix button.selected{outline:2px solid #fff;outline-offset:2px}.person{background:transparent;color:var(--text);padding:3px;text-align:left}
+    .matrix button.gate-locked{background:#253b59;color:#f6d8a0;border:1px solid #5c6271}
+    .matrix button.gate-open{background:#225577;color:#e3f7ff}
+    .matrix button.gate-complete{background:#1b674a;color:#dcffeb}
+    .matrix button .gate-icon{display:block;line-height:1.2;font-size:15px}
+    .matrix button .history-tag{display:block;color:#d2def2;font-size:9px;line-height:1.1;margin-top:2px}
+    .matrix td.history-locked{background:rgba(112,76,28,.13)}
+    .access-note{border-left:3px solid #ffca70;padding:9px 12px;background:#2d2b38;color:#ffeaca;border-radius:4px;margin-top:9px}
+    .pill.access-ready{color:#84dcff}.pill.access-complete{color:#a6f3bd}.pill.access-locked{color:#ffd488}
+    .legend strong{color:#e1e9ff}
     .legend{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 0;color:var(--sub);font-size:.83rem}
     .pill{padding:3px 8px;border-radius:99px;border:1px solid var(--line);font-size:.79rem}
     .pill.passed,.pill.approved{color:var(--mint)}.pill.retry,.pill.submitted,.pill.need_revision{color:var(--amber)}
@@ -58,6 +67,7 @@
       <label><span>ดูรายบุคคล</span><select id="student"><option value="">เลือกนักศึกษา</option></select></label>
     </div>
     <p id="status" class="help" role="status">กำลังโหลดข้อมูลที่ยืนยันจาก Google Sheets…</p>
+    <p class="access-note" id="policyNotice">สถานะสิทธิ์เข้าเรียนในตารางเป็น <strong>ผลประเมินตามกฎ 3/3</strong> สำหรับตรวจของอาจารย์ ไม่ใช่การยืนยันว่า Web App นักศึกษาใช้กฎนี้จริงแล้ว จนกว่าจะทดสอบระบบรับผลและเผยแพร่เกมเวอร์ชันใหม่</p>
     <div id="notices" aria-live="polite"></div>
   </section>
   <section class="card">
@@ -72,16 +82,16 @@
   </section>
   <section class="card">
     <h2>ตารางรายบุคคล × 19 ด่าน</h2>
-    <p class="muted">กดสัญลักษณ์ด่านเพื่อดูรายละเอียด <strong>Mission + Studio + Reflection (0/3–3/3)</strong> ตัวเลข 0/3–3/3 เป็นกิจกรรมครบ ไม่ใช่คะแนนหรือผลอนุมัติของอาจารย์</p>
+    <p class="muted">กดช่อง W/B เพื่อดูหลักฐานย้อนหลังและความครบ <strong>Mission + Studio + Reflection</strong> แยกจากสิทธิ์ปลดล็อกตามกฎ 3/3</p>
     <div class="scroll"><table class="matrix" id="matrix"><tbody><tr><td class="empty">กำลังโหลด…</td></tr></tbody></table></div>
-    <div class="legend"><span>ตัวเลข x/3 ใต้สัญลักษณ์ = Mission / Studio / Reflection ที่มีหลักฐาน</span><span>✓ ผ่านตามลำดับ</span><span>↻ เล่นแล้ว ยังไม่ผ่าน</span><span>○ ด่านถัดไป</span><span>🔒 ยังล็อก</span><span>! มีผลผ่านแต่ลำดับก่อนหน้าไม่ครบ</span></div>
+    <div class="legend"><span><strong>✓ 3/3</strong> ทำครบและอยู่ในเส้นทางที่ผ่านได้</span><span><strong>○</strong> ด่านที่เปิดให้ทำต่อได้ตามกฎใหม่</span><span><strong>🔒</strong> ทางเข้าเรียนล็อกแม้เคยผ่าน Mission</span><span><strong>เกม✓</strong> หลักฐาน Mission เดิมยังคงอยู่</span><span><strong>x/3</strong> จำนวนกิจกรรมที่มีหลักฐาน ไม่ใช่ผลตรวจอาจารย์</span></div>
   </section>
   <section class="card" id="detail" hidden>
     <h2 id="detailTitle">ผลรายบุคคล</h2>
     <div id="detailStats" class="stats"></div>
     <p class="muted">สถานะ Mission ใช้ผลจาก mission_completed ตามลำดับต่อเนื่อง ส่วน Studio และ Reflection ต้องมีหลักฐานที่บันทึกจริง (ผล Teacher Review ไม่ใช้ปลดล็อกเกม)</p>
     <div class="scroll">
-      <table class="detail"><thead><tr><th>ด่าน</th><th>ครบ 3 ส่วน</th><th>สถานะเกม</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>เล่น Mission ล่าสุด</th><th>ส่ง Studio ล่าสุด</th><th>หลักฐาน</th><th>ตรวจส่วนย่อย</th></tr></thead><tbody id="detailRows"></tbody></table>
+      <table class="detail"><thead><tr><th>ด่าน</th><th>ครบ 3 ส่วน</th><th>ผล Mission ย้อนหลัง</th><th>สิทธิ์ตามเกณฑ์ 3/3</th><th>รอบ</th><th>สูงสุด</th><th>ดาว</th><th>ส่ง Studio / ผลตรวจ</th><th>เล่น Mission ล่าสุด</th><th>ส่ง Studio ล่าสุด</th><th>หลักฐาน</th><th>ตรวจส่วนย่อย</th></tr></thead><tbody id="detailRows"></tbody></table>
     </div>
     <article class="subdetail" id="subDetail" aria-live="polite">
       <h3 id="subTitle">รายละเอียดส่วนย่อย</h3>
@@ -103,6 +113,20 @@
 var $=function(id){return document.getElementById(id)};
 var DATA=null, selected='', selectedNode='';
 var LABELS={passed:'ผ่าน',retry:'ทบทวน',ready:'พร้อมเริ่ม',locked:'ยังล็อก',out_of_sequence:'ตรวจลำดับ'};
+function accessLabel(n){
+  if(n.accessStatus==='locked')return '🔒 ยังล็อกตามเกณฑ์ 3/3';
+  if(n.accessStatus==='completed')return '✓ ครบ 3/3 แล้ว';
+  return '○ เปิดให้ทำส่วนที่ยังขาด';
+}
+function gameHistoryLabel(n){
+  if(n.status==='passed')return '✓ ผ่าน Mission';
+  if(n.passedEvidence)return '✓ มีหลักฐานผ่าน (นอกลำดับ)';
+  if(n.attempts)return '↻ เล่นแล้ว ยังไม่ผ่าน';
+  return '— ไม่มีผลผ่าน';
+}
+function gateStyle(n){
+  return n.accessStatus==='locked'?'gate-locked':n.accessStatus==='completed'?'gate-complete':'gate-open';
+}
 var SYMBOLS={passed:'✓',retry:'↻',ready:'○',locked:'🔒',out_of_sequence:'!'};
 var REVIEWS={not_submitted:'ยังไม่ส่ง',submitted:'ส่งแล้ว รอตรวจ',reviewing:'กำลังตรวจ',need_revision:'ส่งกลับแก้ไข',approved:'อนุมัติแล้ว'};
 var REFL={submitted:'มี Reflection ที่กรอกเอง',missing:'ยังไม่มีหลักฐาน Reflection',unverified:'มีข้อความ แต่แยกไม่ออกว่าเขียนเองหรือระบบเติม',not_submitted:'ยังไม่ส่ง Studio'};
@@ -183,14 +207,18 @@ function render(){
   var missing=full.filter(function(s){return s.completedCount===0}).length;
   var studio=full.reduce(function(n,s){return n+s.submittedCount},0);
   var threePart=full.reduce(function(n,s){return n+(s.fullThreePartCount||0)},0);
-  var cols=[['นักศึกษาในตาราง',full.length],['ผ่านเกมครบ 19',allDone],['ยังไม่ผ่าน W1',missing],['Studio ที่ส่ง',studio],['กิจกรรมครบ 3/3',threePart]];
+  var onTrack=full.filter(function(s){return s.courseCompletedCount===19}).length;
+  var cols=[['นักศึกษาในตาราง',full.length],['ผ่าน Mission ครบ 19',allDone],['ครบ 3/3 ต่อเนื่อง 19',onTrack],['ยังไม่ผ่าน W1',missing],['Studio ที่ส่ง',studio],['กิจกรรมครบ 3/3 (รวม)',threePart]];
   $('stats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+x[1]+'</strong></div>'}).join('');
-  var head='<thead><tr><th>นักศึกษา</th><th>ผ่านเกม</th><th>ครบ 3/3</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
+  var head='<thead><tr><th>นักศึกษา</th><th>ผ่าน Mission</th><th>ครบ 3/3 (รวม)</th><th>ครบ 3/3 (ต่อเนื่อง)</th>'+DATA.nodes.map(function(n){return '<th title="'+esc(n.label)+'">'+esc(n.id.toUpperCase())+'</th>'}).join('')+'</tr></thead>';
   var body=list.map(function(s){
     return '<tr><td><button class="person" data-person="'+esc(key(s))+'">'+esc(s.studentName)+'<br><small>'+esc(s.studentId)+'</small></button></td>'+
-    '<td>'+s.completedCount+'/19</td><td>'+s.fullThreePartCount+'/19</td>'+DATA.nodes.map(function(n){
-      var m=s.nodes[n.id],cls=m.status;
-      return '<td><button data-person="'+esc(key(s))+'" data-node="'+esc(n.id)+'" title="'+esc(n.label+' • '+(LABELS[cls]||cls)+' • '+m.partsCompleted+'/3')+'" aria-label="'+esc(s.studentName+' '+n.label+' '+(LABELS[cls]||cls))+'" class="'+esc(cls+(selected===key(s)&&selectedNode===n.id?' selected':''))+'">'+esc(SYMBOLS[cls]||'?')+'<span class="part-count">'+m.partsCompleted+'/3</span></button></td>'
+    '<td>'+s.completedCount+'/19</td><td>'+s.fullThreePartCount+'/19</td><td>'+s.courseCompletedCount+'/19</td>'+DATA.nodes.map(function(n){
+      var m=s.nodes[n.id],gate=gateStyle(m),history=gameHistoryLabel(m);
+      var title=n.label+' • '+accessLabel(m)+' • '+history+' • '+m.partsCompleted+'/3';
+      var mainIcon=m.accessStatus==='locked'?'🔒':m.accessStatus==='completed'?'✓':'○';
+      var oldEvidence=m.accessStatus==='locked' && (m.passedEvidence||m.attempts||m.artifactSubmitted);
+      return '<td'+(oldEvidence?' class="history-locked"':'')+'><button type="button" data-person="'+esc(key(s))+'" data-node="'+esc(n.id)+'" title="'+esc(title)+'" aria-label="'+esc(s.studentName+' '+title)+'" class="'+esc(gate+(selected===key(s)&&selectedNode===n.id?' selected':''))+'"><span class="gate-icon">'+esc(mainIcon)+'</span><span class="part-count">'+m.partsCompleted+'/3</span>'+(oldEvidence?'<span class="history-tag">'+(m.passedEvidence?'เกม✓':'มีประวัติ')+'</span>':'')+'</button></td>'
     }).join('')+'</tr>'
   }).join('');
   $('matrix').innerHTML=head+'<tbody>'+(body||'<tr><td class="empty">ไม่พบรายการ</td></tr>')+'</tbody>';
@@ -200,7 +228,7 @@ function render(){
 }
 function renderDetail(s){
   $('detailTitle').textContent='สรุป 19 ด่าน • '+s.studentName+' ('+s.studentId+')';
-  var cols=[['ผ่านเกม',s.completedCount+'/19'],['ครบ 3 ส่วน',s.fullThreePartCount+'/19'],['Studio ส่งแล้ว',s.submittedCount+'/19'],['Reflection ยืนยันได้',s.reflectionCount+'/19'],['Studio อนุมัติ',s.approvedCount+'/19']];
+  var cols=[['ผ่าน Mission (ย้อนหลัง)',s.completedCount+'/19'],['ครบ 3/3 (รวม)',s.fullThreePartCount+'/19'],['ครบ 3/3 ต่อเนื่อง',s.courseCompletedCount+'/19'],['Studio ส่งแล้ว',s.submittedCount+'/19'],['Reflection ยืนยันได้',s.reflectionCount+'/19'],['Studio อนุมัติ',s.approvedCount+'/19']];
   $('detailStats').innerHTML=cols.map(function(x){return '<div class="stat"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong></div>'}).join('');
   if(!selectedNode){var todo=DATA.nodes.filter(function(n){return !s.nodes[n.id].fullThreePart})[0]; selectedNode=(todo||DATA.nodes[18]).id;}
   $('detailRows').innerHTML=DATA.nodes.map(function(n){
@@ -209,7 +237,8 @@ function renderDetail(s){
     var link=m.artifactUrl?'<a href="'+esc(m.artifactUrl)+'" target="_blank" rel="noopener noreferrer">เปิดหลักฐาน</a>':'—';
     return '<tr'+(selectedNode===n.id?' style="background:#1c3956"':'')+'><td>'+esc(n.label)+'</td>'+
       '<td><span class="pill '+esc(m.fullThreePart?'approved':(m.partsCompleted?'submitted':'locked'))+'">'+m.partsCompleted+'/3</span></td>'+ 
-      '<td><span class="pill '+esc(cls)+'">'+esc(LABELS[cls]||cls)+'</span></td>'+
+      '<td><span class="pill '+esc(cls)+'">'+esc(gameHistoryLabel(m))+'</span></td>'+
+      '<td><span class="pill access-'+esc(m.accessStatus)+'">'+esc(accessLabel(m))+'</span></td>'+
       '<td>'+m.attempts+'</td><td>'+(m.bestScore===null?'—':esc(m.bestScore))+'</td>'+
       '<td>'+m.bestStars+'</td><td><span class="pill '+esc(m.reviewStatus)+'">'+esc(studio)+'</span>'+
       reviewScoreSuffix(m)+'</td>'+
@@ -222,9 +251,9 @@ function renderDetail(s){
 function renderSubDetail(s,id) {
   var node=s.nodes[id], info=DATA.nodes.filter(function(n){return n.id===id})[0];
   if(!node || !info)return;
-  $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3';
+  $('subTitle').textContent='ส่วนย่อยของ '+info.label+' • '+node.partsCompleted+'/3 • '+accessLabel(node);
   var parts=[
-    ['1. Mission',node.status==='passed',missionActivity(node)],
+    ['1. Mission',node.status==='passed',missionActivity(node)+(node.accessStatus==='locked'?' • ทางเข้าเรียนยังล็อกตามกฎ 3/3':'')],
     ['2. Studio Practice',node.artifactSubmitted,node.artifactSubmitted?'ส่งงานแล้ว':'ยังไม่มีการส่งงาน'],
     ['3. Weekly Reflection',node.reflectionSubmitted,REFL[node.reflectionStatus]||node.reflectionStatus]
   ];
@@ -233,7 +262,7 @@ function renderSubDetail(s,id) {
     return '<div class="part '+(p[1]?'done':unknown?'unknown':'')+'"><strong>'+
       (p[1]?'✓ ':'○ ')+esc(p[0])+'</strong><small>'+esc(p[2])+'</small></div>';
   }).join('');
-  $('nextAdvice').textContent='ขั้นที่ควรทำต่อ: '+
+  $('nextAdvice').textContent=(node.accessStatus==='locked'?'🔒 ตามกฎ 3/3 ด่าน '+id.toUpperCase()+' ยังล็อก ต้องทำ '+node.accessLockedBy.toUpperCase()+' ให้ครบ 3/3 (ผล Mission ที่เคยทำยังอยู่) • ':'')+'ขั้นที่ควรทำต่อ: '+
     (node.nextStep==='mission'&&node.attempts ? missionAdvice(node):
       (NEXT[node.nextStep]||'ตรวจผลในชีต'));
   $('subStages').innerHTML=(node.missionStages||[]).length

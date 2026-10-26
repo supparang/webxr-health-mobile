@@ -146,7 +146,8 @@ function UXQ_ipNewStudent_(row) {
   return {
     studentId:row.studentid, studentName:row.studentname || row.studentid,
     section:row.section, nodes:nodes, completedCount:0, submittedCount:0,
-    approvedCount:0, reflectionCount:0, fullThreePartCount:0, latestAt:''
+    approvedCount:0, reflectionCount:0, fullThreePartCount:0,
+    courseCompletedCount:0, nextCourseNode:'w1', historicalLockedCount:0, latestAt:''
   };
 }
 /* Read-only audit: why a student visible in the raw Sheet might be
@@ -295,6 +296,23 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
         node.reviewStatus === 'submitted' || node.reviewStatus === 'reviewing' ?
           'teacher_review' : 'complete';
     });
+    let courseDone=0;
+    while(courseDone<UXQ_IP_NODE_ORDER.length &&
+          student.nodes[UXQ_IP_NODE_ORDER[courseDone]].fullThreePart) courseDone+=1;
+    student.courseCompletedCount=courseDone;
+    student.nextCourseNode=UXQ_IP_NODE_ORDER[courseDone]||'';
+    UXQ_IP_NODE_ORDER.forEach(function(id,index){
+      const node=student.nodes[id];
+      // Preserve historical Mission/Studio evidence. Access is a separate
+      // 3/3 status; attempts made under old unlock rules are never deleted.
+      node.accessStatus=index>courseDone?'locked':index===courseDone?'ready':'completed';
+      node.accessLockedBy=index>courseDone?UXQ_IP_NODE_ORDER[courseDone]:'';
+      node.missionHistoryPassed=Boolean(node.passedEvidence);
+      if(node.accessStatus==='locked' &&
+         (node.attempts>0 || node.artifactSubmitted || node.passedEvidence)) {
+        student.historicalLockedCount+=1;
+      }
+    });
   });
   const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
   const result = Object.keys(students).map(function(key){ return students[key]; })
@@ -302,7 +320,9 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
   if (!rosterRows || !rosterRows.length) notices.push('ไม่มีชีต UXQuest_Roster: รายชื่อจะแสดงเฉพาะผู้ที่มีการบันทึกกิจกรรมแล้ว นักศึกษาที่ไม่เคยเข้าเล่นจะไม่ปรากฏ');
   return {ok:true,section:section,nodes:UXQ_IP_NODE_ORDER.map(function(id,i){return{id:id,label:UXQ_IP_NODE_LABELS[i]};}),
     students:result,studentCount:result.length,notices:notices,identityAudit:identityAudit,
-    policy:'sheet_only_mission_completed_contiguous_w1_to_w15',generatedAt:new Date().toISOString()};
+    policy:'teacher_preview_three_part_contiguous_no_live_gate_claim',
+    policyActivation:'unverified_pending_receiver_and_student_runtime_deploy',
+    generatedAt:new Date().toISOString()};
 }
 
 function UXQ_ipGetDashboard(input) {

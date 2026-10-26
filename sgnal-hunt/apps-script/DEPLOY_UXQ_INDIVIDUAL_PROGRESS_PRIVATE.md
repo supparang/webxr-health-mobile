@@ -100,3 +100,30 @@ After copying both files into the **standalone UXQuest-Teacher-Progress** projec
 - New **ตรวจสอบความต่างของจำนวนนักศึกษาในชีต** disclosure: compares unique student IDs from UXQuest_Attempts in the currently selected Section against IDs eligible for this progress dashboard. Shows excluded identities and event/course/mission metadata for teacher-only troubleshooting. It cannot reconcile a mismatch if Dashboard v6.2 uses a different data source, a different section filter, or a separate roster. Do not assume the 16-vs-17 discrepancy has been resolved before checking real data.
 
 Regression test from repository root: node test_uxq_teacher_progress_display_qa.js.
+
+
+## Teacher-only matrix clarification (26 Oct 2026)
+
+This release changes ONLY the standalone private UXQuest-Teacher-Progress read-only view. It does NOT change the student Receiver or public games, and it does not update/delete Google Sheet rows.
+
+**Crucial distinctions:**
+- **ผ่าน Mission** (historic): student's saved game passes on the 19-node path. Never retract historical results.
+- **ครบ 3/3 (รวม)**: saved Mission + Studio + student-authored Reflection for any node. Teacher Review is NOT required.
+- **ครบ 3/3 (ต่อเนื่อง)**: full 3/3 from W1 in order, used to calculate the next allowable node under the proposed policy.
+- In the W/B matrix **🔒 2/3 เกม✓** means the student previously passed the game and submitted two parts, **but W/B entry would be locked under the 3/3 policy**. Selecting the cell still shows preserved historical evidence.
+- **○ 2/3** on W1 means W1 is accessible to finish missing Studio/Reflection, not that the entire W1 assignment is complete.
+- **✓ 3/3** means all three activities are recorded in sequence.
+
+**This teacher view is a policy simulation on saved Sheet evidence, not proof the production Student Receiver enforces 3/3.** The production receiver and web runtime remain gated by draft PR #170. Do not tell students they are locked until backend-first deployment QA is finished.
+
+### Upgrade the already-deployed private teacher Web App
+
+1. Open the standalone Apps Script project UXQuest-Teacher-Progress, NOT the old shared uxui receiver.
+2. Replace the full source of UXQuestIndividualProgress-v1.gs and UXQuestIndividualProgressDashboard-v1.html with the latest files from the GitHub main branch.
+3. Keep the existing รหัส.gs, Script properties, teacher allowlist and the same Google Sheet ID. Do not create a new Sheet.
+4. Save and select Deploy → Manage deployments → Edit → New version → Deploy. The old private teacher /exec URL stays the same.
+5. Test a student with 18 historic Mission passes but 0 complete 3/3: the teacher view should show 18/19 historic and 0/19 full, W1 accessible to complete, W2–W15/B nodes locked under policy. Prior scores remain viewable.
+6. The Section 201 count discrepancy (16 versus 17 students) still needs roster reconciliation. This patch does not create/edit a roster.
+
+Regression from the repository root:
+node test_uxq_teacher_three_part_matrix.js
