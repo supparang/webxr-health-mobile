@@ -429,6 +429,36 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
           student.nodes[UXQ_IP_NODE_ORDER[courseDone]].fullThreePart) courseDone+=1;
     student.courseCompletedCount=courseDone;
     student.nextCourseNode=UXQ_IP_NODE_ORDER[courseDone]||'';
+
+    // Read-only next-action instruction: the FIRST non-3/3 node wins.
+    // Do not choose historical future nodes, even if those were played.
+    // Do not confuse instructor review status with student activity unlock.
+    const currentId=student.nextCourseNode;
+    if (!currentId) {
+      student.nextAction={
+        kind:'complete',nodeId:'',label:'ครบ 19 ด่าน',parts:3,
+        evidence:'confirmed',historicalFutureCount:0
+      };
+    } else {
+      const step=student.nodes[currentId];
+      const evidence=step.reflectionEvidenceAudit||{};
+      let kind;
+      if(step.status!=='passed')kind='mission';
+      else if(!step.artifactSubmitted)kind='studio';
+      else if(!step.reflectionSubmitted) {
+        // Top-level content and Receiver-synthesized text do not prove
+        // authorship. The teacher checks provenance before reassigning work.
+        kind=evidence.type==='unreadable'||evidence.textPresent||
+          evidence.type==='field_empty_but_text'||evidence.type==='top_level_only' ?
+          'reflection_review' : 'reflection_missing';
+      } else kind='check_data';
+      student.nextAction={
+        kind:kind,nodeId:currentId,label:UXQ_IP_NODE_LABELS[courseDone],
+        parts:step.partsCompleted,evidence:evidence.type||'not_submitted',
+        historicalFutureCount:0
+      };
+    }
+
     UXQ_IP_NODE_ORDER.forEach(function(id,index){
       const node=student.nodes[id];
       // Preserve historical Mission/Studio evidence. Access is a separate
@@ -441,6 +471,7 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
         student.historicalLockedCount+=1;
       }
     });
+    student.nextAction.historicalFutureCount=student.historicalLockedCount;
   });
   const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
   const reflectionAudit = UXQ_ipReflectionAudit_(attemptRows,section);
