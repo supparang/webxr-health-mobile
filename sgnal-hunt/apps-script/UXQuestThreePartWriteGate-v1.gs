@@ -16,14 +16,17 @@ function UXQ_WG_number_(x){
   return Number.isFinite(n)?n:0;
 }
 function UXQ_WG_explicitReflection_(r){
-  let fields=[];
-  try{const a=JSON.parse(String(r.artifactfields||''));if(Array.isArray(a))fields=a;}catch(_){}
-  if(!fields.length){
-    try{
-      const raw=JSON.parse(String(r.rawjson||''));fields=Array.isArray(raw.artifactFields)?raw.artifactFields:[];
-    }catch(_){}
-  }
-  return fields.some(function(field){
+  let sheetFields=[],rawFields=[];
+  try { const a=JSON.parse(String(r.artifactfields||'')); if(Array.isArray(a))sheetFields=a; }
+  catch (_) {}
+  try {
+    const raw=JSON.parse(String(r.rawjson||''));
+    if(raw && Array.isArray(raw.artifactFields))rawFields=raw.artifactFields;
+  } catch (_) {}
+  // Never select just one field source on a nonempty array: one can be
+  // truncated while the other preserves an explicit ninth Reflection.
+  // Both are from this same stored Studio submission (student+node+event).
+  return sheetFields.concat(rawFields).some(function(field){
     return field && String(field.key||'').trim().toLowerCase()==='reflection' &&
       String(field.value==null?'':field.value).trim().length>0;
   });
