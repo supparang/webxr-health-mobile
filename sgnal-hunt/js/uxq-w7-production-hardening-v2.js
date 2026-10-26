@@ -10,7 +10,7 @@
   const query = new URLSearchParams(location.search || '');
   if (String(query.get('node') || '').toUpperCase() !== 'W7') return;
 
-  const VERSION = 'w7-production-v2-20260714';
+  const VERSION = 'w7-production-v2-reflection-staging-20261026';
   const QUEUE_KEY = 'csai2601.uxq.sheet.pending.v3';
   const SENT_KEY = 'csai2601.uxq.sheet.sent.v3';
   const config = () => window.UXQ_CLASSROOM_CONFIG || {};
@@ -220,16 +220,21 @@
   }
 
   function fields() {
-    const areas = Array.from(document.querySelectorAll('.artifact textarea'));
+    const artifact = document.querySelector('.artifact:not([data-studio-practice-v1])');
+    const areas = artifact ? Array.from(artifact.querySelectorAll('textarea:not([data-w7-weekly-reflection])')) : [];
     const names = ['fiveScreens','gridSpacing','visualHierarchy','ctaPlacement','mobileConsideration'];
     const out = {};
     areas.slice(0, 5).forEach((area, i) => { out[names[i]] = clean(area.value, 1800); });
+    // A learner-authored, separate field is mandatory. Never reconstruct
+    // Weekly Reflection from the five Wireframe evidence fields.
+    out.reflection=clean(artifact?.querySelector('[data-w7-weekly-reflection]')?.value,3000);
     return out;
   }
   function validateArtifact(data) {
-    const entries = Object.entries(data);
-    const missing = entries.filter(([, v]) => v.length < 20).map(([k]) => k);
-    return { ok:missing.length === 0, missing };
+    const names=['fiveScreens','gridSpacing','visualHierarchy','ctaPlacement','mobileConsideration'];
+    const missing=names.filter(key=>String(data[key]||'').trim().length<20);
+    if(String(data.reflection||'').trim().length<40)missing.push('reflection');
+    return {ok:missing.length===0,missing};
   }
   function result() {
     try { return window.UXQProgress?.get?.()?.missions?.w7?.lastResult || {}; } catch (_) { return {}; }
@@ -273,9 +278,11 @@
       problemSeen:data.fiveScreens,
       uxReason:data.visualHierarchy,
       fixAndTest:[data.gridSpacing, data.ctaPlacement, data.mobileConsideration].join(' | '),
-      reflection:Object.values(data).join(' | '),
-      learnedPoint:data.visualHierarchy,
-      artifactFields:Object.entries(data).map(([key, value]) => ({ key, value })),
+      reflection:clean(data.reflection,3000),
+      learnedPoint:clean(data.reflection,1500),
+      artifactFields:Object.entries(data).map(([key, value]) => ({
+        key,value,required:true,label:key==='reflection'?'Weekly Reflection W7':key
+      })),
       score:Number(r.score || 0), stars:Number(r.stars || 0), accuracy:Number(r.accuracy || 0),
       correct:Number(r.correct || 0), total:Number(r.total || 0), hints:Number(r.hints || 0),
       durationSec:Number(r.durationSec || 0), passed:Boolean(r.passed)
@@ -297,7 +304,30 @@
   }
   function hardenArtifact() {
     const artifact = document.querySelector('.artifact');
-    if (!artifact) return;
+    // Do not take control of the new canonical 19-node form, which already
+    // has its own explicit Reflection field and structured submit handler.
+    if(!artifact || artifact.dataset.studioPracticeV1==='1' ||
+       artifact.querySelector('[data-studio-key="reflection"]'))return;
+    let reflection=artifact.querySelector('[data-w7-weekly-reflection]');
+    if(!reflection){
+      const wrapper=document.createElement('label');
+      wrapper.setAttribute('data-w7-weekly-reflection-wrapper','1');
+      wrapper.style.cssText='display:grid;gap:7px;margin:16px 0;padding:12px;border:1px solid rgba(110,231,255,.45);border-radius:12px;background:rgba(14,42,72,.38)';
+      const heading=document.createElement('strong');
+      heading.textContent='3. Weekly Reflection • W7 (จำเป็น)';
+      const description=document.createElement('span');
+      description.textContent='อธิบายด้วยคำของตนเองว่า wireframe 5 หน้าจอรองรับเป้าหมายผู้ใช้อย่างไร สิ่งใดที่แก้ไข และจะทดสอบกับผู้ใช้อย่างไร (อย่างน้อย 40 ตัวอักษร)';
+      reflection=document.createElement('textarea');
+      reflection.setAttribute('data-w7-weekly-reflection','1');
+      reflection.setAttribute('aria-label','Weekly Reflection W7');
+      reflection.setAttribute('rows','5');
+      reflection.style.cssText='width:100%;min-height:110px;padding:10px;border-radius:9px;background:#07142e;color:#fff;box-sizing:border-box';
+      wrapper.appendChild(heading);
+      wrapper.appendChild(description);
+      wrapper.appendChild(reflection);
+      const actions=artifact.querySelector('.actions');
+      if(actions)artifact.insertBefore(wrapper,actions);else artifact.appendChild(wrapper);
+    }
     const button = artifact.querySelector('[data-save-artifact]');
     if (button) {
       button.textContent = 'ส่ง Wireframe Priority Sheet เข้า Google Sheet';
@@ -309,14 +339,15 @@
   }
   function interceptArtifact(event) {
     const button = event.target.closest?.('[data-save-artifact]');
-    if (!button) return;
+    if (!button || button.closest('.artifact[data-studio-practice-v1]') ||
+        button.closest('.artifact')?.querySelector('[data-studio-key="reflection"]'))return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const p = profile();
     if (!profileComplete(p)) { status('ส่งไม่ได้: โปรไฟล์ผู้เรียนไม่ครบ กรุณากลับ Mission Control แล้วกรอกข้อมูลก่อน', 'error'); return; }
     const data = fields();
     const check = validateArtifact(data);
-    if (!check.ok) { status(`กรอกแต่ละช่องอย่างน้อย 20 ตัวอักษร • ยังขาด ${check.missing.length} ช่อง`, 'error'); return; }
+    if (!check.ok) { status(`กรอกหลักฐานอย่างน้อย 20 ตัวอักษรต่อช่อง และเขียน Weekly Reflection แยกอย่างน้อย 40 ตัวอักษร • ยังขาด: ${check.missing.join(', ')}`, 'error'); return; }
     button.disabled = true;
     status('กำลังส่ง Wireframe Priority Sheet เข้า Google Sheet...');
     send(artifactPayload(data)).then(out => {
