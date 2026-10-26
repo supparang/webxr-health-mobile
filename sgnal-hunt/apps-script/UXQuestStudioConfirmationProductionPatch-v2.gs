@@ -151,12 +151,16 @@ function UXQ_getStudentStudioProgressV2_(e) {
     // Only an explicitly filled reflection artifact field proves the
     // learner authored Weekly Reflection. Legacy ambiguous rows remain
     // unverified; we do not rewrite historical evidence.
-    var reflectionFields = fields.length ? fields : UXQ_SC2_parseJson_(UXQ_SC2_cell_(row, index, 'artifactfields'));
-    if (!Array.isArray(reflectionFields)) reflectionFields = [];
-    var reflectionField = reflectionFields.filter(function(field) {
-      return field && String(field.key || '').trim().toLowerCase() === 'reflection';
+    var columnFields = UXQ_SC2_parseJson_(UXQ_SC2_cell_(row, index, 'artifactfields'));
+    if (!Array.isArray(columnFields)) columnFields = [];
+    // The Studio form can have more than 8 fields. Read both complete
+    // sources; rawJson can be truncated while artifactFields is intact,
+    // or vice versa. A top-level Receiver-generated reflection is NOT enough.
+    var reflectionField = fields.concat(columnFields).filter(function(field) {
+      return field && String(field.key || '').trim().toLowerCase() === 'reflection' &&
+        String(field.value == null ? '' : field.value).trim();
     })[0] || null;
-    var reflectionExplicit = Boolean(reflectionField && String(reflectionField.value || '').trim());
+    var reflectionExplicit = Boolean(reflectionField);
     var reflection = reflectionExplicit ? String(reflectionField.value).trim() : '';
     var node = nodes[missionId];
     node.submitted = true;
