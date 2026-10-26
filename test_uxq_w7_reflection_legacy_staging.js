@@ -106,4 +106,86 @@ const canonicalButton={closest(selector){
 }};
 callbacks.click({target:canonicalButton,preventDefault(){throw Error('canonical blocked')},
  stopImmediatePropagation(){throw Error('canonical blocked')}});
-console.log('PASS: 19/19 canonical explicit Reflections; old W7 authored field, no auto-reflection, blank blocked, canonical untouched');
+// Other historical W/B legacy authority used the same synthetic Reflection
+// recipe; verify it now requires independently authored Reflection as well.
+const legacyDocHandlers={};
+let legacyReflection='';
+const genericEvidenceFields=Object.values(five).map(value=>({value}));
+const legacyStatus={textContent:''};
+const oldArtifact={
+ dataset:{},
+ querySelector(sel){
+   if(sel==='[data-uxq-weekly-reflection-legacy]')return {value:legacyReflection};
+   if(sel==='[data-production-artifact-status]')return legacyStatus;
+   return null;
+ },
+ querySelectorAll(){return genericEvidenceFields;}
+};
+const legacyDoc={
+ readyState:'loading',
+ addEventListener(type,fn){legacyDocHandlers[type]=fn},
+ querySelector(sel){
+   if(sel==='.artifact'||sel==='.artifact:not([data-studio-practice-v1])')return oldArtifact;
+   return null;
+ }
+};
+const legacyWindow={
+ UXQ_CLASSROOM_CONFIG:{courseId:'UXQ-ACT1-2026',defaultSection:'201',receiverUrl:'https://test.invalid'},
+ UXQIdentity:{get(){return {studentId:'SYNTH',studentName:'QA',section:'201'}}},
+ addEventListener(){}
+};
+const sends=[];
+const fakeFetch=(url,opts)=>{sends.push(JSON.parse(opts.body));return Promise.resolve({})};
+const legacySandbox={
+ window:legacyWindow,document:legacyDoc,
+ location:{search:'?node=W6'},
+ URLSearchParams,MutationObserver:class{observe(){}},
+ localStorage,fetch:fakeFetch,Date,Math,Intl,JSON,Object,Array,Number,String,
+ setTimeout(){},clearTimeout(){}
+};
+vm.runInNewContext(file('sgnal-hunt/js/uxq-production-learning-authority-v1.js'),legacySandbox);
+const legacyButton={
+ disabled:false,
+ closest(selector){
+   if(selector==='[data-production-artifact-submit]')return this;
+   if(selector==='.artifact[data-studio-practice-v1]')return null;
+   if(selector==='.artifact')return oldArtifact;
+   return null;
+ }
+};
+function legacyClick(){
+ legacyDocHandlers.click({
+   target:legacyButton,preventDefault(){},stopImmediatePropagation(){}
+ });
+}
+legacyClick();
+assert.equal(sends.length,0,'unverified legacy W6 Reflection must block submission');
+legacyReflection='I learned to prioritize clear information architecture and plan a measurable usability test.';
+legacyClick();
+assert.equal(sends.length,1);
+assert.equal(sends[0].reflection,legacyReflection);
+assert.equal(sends[0].artifactFields.at(-1).key,'reflection');
+assert.equal(sends[0].artifactFields.at(-1).value,legacyReflection);
+assert.notEqual(sends[0].reflection,Object.values(five).join(' | '));
+// If the canonical Studio uses its own handler, this legacy capture gate
+// must not intercept the teacher/student canonical submit.
+const oldCanonical={
+ dataset:{studioPracticeV1:'1'},
+ querySelector(){return null;}
+};
+const canonicalLegacyButton={
+ closest(selector){
+   if(selector==='[data-production-artifact-submit]')return this;
+   if(selector==='.artifact[data-studio-practice-v1]')return oldCanonical;
+   if(selector==='.artifact')return oldCanonical;
+   return null;
+ }
+};
+legacyDocHandlers.click({
+ target:canonicalLegacyButton,
+ preventDefault(){throw Error('canonical W6 intercepted')},
+ stopImmediatePropagation(){throw Error('canonical W6 intercepted')}
+});
+assert.equal(sends.length,1);
+console.log('PASS: 19/19 canonical explicit Reflections; legacy W7 and other W/B authored fields, empty blocked, canonical untouched');
+
