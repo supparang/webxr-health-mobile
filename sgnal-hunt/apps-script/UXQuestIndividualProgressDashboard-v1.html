@@ -200,6 +200,14 @@ var AUDIT_LABELS={
   unreadable:'อ่านข้อมูลหลักฐานบางส่วนไม่ได้',
   missing:'ไม่พบหลักฐาน Reflection'
 };
+var LEGACY_SIGNAL_LABELS={
+  explicit_field:'พบ Reflection ที่กรอกโดยตรง',
+  matches_legacy_receiver_formula:'ข้อความตรงสูตร Receiver รุ่นเก่า (ยังไม่ยืนยันผู้เขียน)',
+  possible_eight_field_truncation:'Studio มี 8 ช่องพอดี อาจถูกตัดช่อง Reflection ถัดไป',
+  unverified_top_level_text:'มี Reflection นอกฟิลด์ (ที่มายังไม่ยืนยัน)',
+  unreadable:'ข้อมูลหลักฐานอ่านไม่สำเร็จ',
+  no_independent_reflection_field:'ไม่พบช่อง Reflection แยกต่างหาก'
+};
 var STAGE_LABELS={evidence:'หลักฐาน',hypothesis:'ตั้งสมมติฐาน',fix:'วิธีแก้ปัญหา',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'นิยามปัญหา',ideate:'คิดทางเลือก',prototype:'ต้นแบบ',diagnose:'วิเคราะห์ปัญหา',prioritize:'จัดลำดับ',reduce:'ลดภาระความคิด',validate:'ตรวจสอบ',reasoning:'ให้เหตุผล'};
 var NEXT={mission:'ทำ Mission ให้ผ่าน',studio:'ส่งหลักฐาน Studio',reflection:'ส่ง Weekly Reflection',revision:'แก้ไขงานตามความเห็นอาจารย์',teacher_review:'รอการตรวจงาน Studio',complete:'ครบ 3 กิจกรรมแล้ว'};
 var ACTION_LABELS={
@@ -303,7 +311,9 @@ function renderReflectionAudit(a){
     ['พบช่องกรอก แต่ระบบยังนับไม่ครบ',a.explicitButNotCounted||0],
     ['มีข้อความแต่ยังยืนยันไม่ได้',(c.top_level_only||0)+(c.field_empty_but_text||0)],
     ['ช่อง Reflection ว่าง',c.explicit_field_empty||0],
-    ['ไม่มีหลักฐาน/อ่านไม่ได้',(c.missing||0)+(c.unreadable||0)]
+    ['ไม่มีหลักฐาน/อ่านไม่ได้',(c.missing||0)+(c.unreadable||0)],
+    ['ข้อความตรงสูตร Receiver เก่า',(a.legacySignals?.matchesReceiverFormula||0)],
+    ['Studio มี 8 ช่องพอดี',(a.legacySignals?.possibleEightFieldTruncation||0)]
   ];
   summary.innerHTML=metrics.map(function(m,i){
     return '<div class="audit-metric'+(i===4||i===5?' warn':'')+'"><small>'+
@@ -316,11 +326,14 @@ function renderReflectionAudit(a){
       '<td>'+((item.top_level_only||0)+(item.field_empty_but_text||0))+'</td>'+
       '<td>'+item.explicit_field_empty+'</td>'+
       '<td>'+((item.missing||0)+(item.unreadable||0))+'</td>'+ 
-      '<td>'+(item.explicitButNotCounted||0)+'</td></tr>'
+      '<td>'+(item.explicitButNotCounted||0)+'</td>'+
+      '<td>'+(item.matchesReceiverFormula||0)+'</td>'+
+      '<td>'+(item.possibleEightFieldTruncation||0)+'</td></tr>'
   }).join('');
   nodes.innerHTML='<thead><tr><th>ด่าน</th><th>Studio ล่าสุดที่พบ</th>'+
     '<th>Reflection ในช่องหลักฐาน</th><th>ข้อความยังไม่ยืนยัน</th>'+
-    '<th>ช่องว่าง</th><th>ไม่พบ/อ่านไม่ได้</th><th>มีหลักฐานแต่ยังนับไม่ครบ</th></tr></thead>'+
+    '<th>ช่องว่าง</th><th>ไม่พบ/อ่านไม่ได้</th><th>มีหลักฐานแต่ยังนับไม่ครบ</th>'+
+    '<th>ตรงสูตร Receiver รุ่นเก่า</th><th>อาจถูกตัดที่ 8 ช่อง</th></tr></thead>'+
     '<tbody>'+rows+'</tbody>';
   $('reflectionAuditSource').textContent=
     'อ่านอย่างเดียว • จำนวนรายการส่ง Studio ในประวัติ '+a.submissionRows+
@@ -328,11 +341,12 @@ function renderReflectionAudit(a){
     '• หลักฐานที่กรอกใน rawJson '+(a.explicitSources?.rawFields||0)+
     ' และคอลัมน์ artifactFields '+(a.explicitSources?.sheetFields||0)+
     ' • พบหลักฐานแต่การนับ 3/3 ยังไม่รับ '+(a.explicitButNotCounted||0)+' จุด'+
-    ' • ข้อความที่ตรงกับรูปแบบระบบเติมอัตโนมัติ '+(a.possibleReceiverFallbackCount||0)+
-    ' จุด (เพียงข้อบ่งชี้ ไม่ใช่ข้อสรุป)';
+    ' • ข้อความตรงสูตร Receiver รุ่นเก่า '+(a.legacySignals?.matchesReceiverFormula||0)+
+    ' จุด • Studio มี 8 ช่องพอดี '+(a.legacySignals?.possibleEightFieldTruncation||0)+
+    ' จุด (อาจซ้อนกัน ไม่ใช่การพิสูจน์ผู้เขียน)';
   $('reflectionAuditAdvice').textContent=
     'ยังไม่สรุปว่านักศึกษาไม่ได้ทำ Reflection: '+
-    'ประเภท “ข้อความยังไม่ยืนยัน” ต้องตรวจต้นทางการกรอกงานหรือรูปแบบ Receiver '+
+    'Receiver รุ่นเก่าอาจตัด artifactFields เหลือ 8 ช่องและสร้าง Reflection จากคำตอบอื่นได้ '+
     'ก่อนสั่งนักศึกษาทำใหม่ ไม่ส่งข้อมูลส่วนตัวหรือข้อความ Reflection มาแสดงในตารางนี้';
 }
 function render(){
@@ -530,6 +544,8 @@ function renderSubDetail(s,id) {
     'ประเภทหลักฐาน Reflection: '+(AUDIT_LABELS[evidence.type]||'ตรวจสอบเพิ่มเติม')+
     (evidence.source ? ' • ตำแหน่ง: '+evidence.source : '')+
     (evidence.mayBeSynthesized ? ' • ข้อความตรงกับรูปแบบที่ Receiver อาจสร้างขึ้น' : '')+
+    (evidence.legacySignal && evidence.legacySignal!=='explicit_field' ?
+      ' • ข้อบ่งชี้: '+(LEGACY_SIGNAL_LABELS[evidence.legacySignal]||'ตรวจที่มาของหลักฐาน'): '')+
     ' • รายงานนี้ไม่แก้สถานะผ่านหรือคะแนนอัตโนมัติ';
   $('subReview').textContent='Teacher Review: '+review+
     (hasReviewScore(node.reviewScore)?' • คะแนน '+node.reviewScore+'/100':'')+
