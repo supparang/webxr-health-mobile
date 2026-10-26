@@ -109,7 +109,11 @@ function UXQ_ipFields_(row) {
     try { const a = JSON.parse(row.artifactfields || '[]'); if (Array.isArray(a)) fields = a; }
     catch (_) {}
   }
-  return fields.slice(0,8).filter(function(f){return f && typeof f === 'object';})
+  // Keep the eight core Studio evidence chips for readability, but NEVER
+  // truncate a separately authored Reflection at index 8 or beyond.
+  // The Receiver stores the complete rawJson and artifactFields column; the
+  // authoritative read-only provenance classifier checks BOTH sources.
+  const visible = fields.slice(0,8).filter(function(f){return f && typeof f === 'object';})
     .map(function(f) {
       return {
         key:String(f.key || '').slice(0,100),
@@ -118,6 +122,22 @@ function UXQ_ipFields_(row) {
         required:UXQ_ipBool_(f.required)
       };
     });
+  const evidence = UXQ_ipAuditReflection_(row);
+  if (evidence.hasField) {
+    const existing = visible.filter(function(f){
+      return f.key.toLowerCase()==='reflection';
+    })[0];
+    if (existing) {
+      // One source can be truncated or stale while the other retains
+      // explicit Reflection. Never return "empty" when evidence confirms it.
+      existing.filled=evidence.explicit;
+      existing.required=true;
+    } else {
+      visible.push({key:'reflection',label:'Weekly Reflection',
+        filled:evidence.explicit,required:true});
+    }
+  }
+  return visible;
 }
 /* Reflection provenance diagnostic for teacher-only QA.
  * Classification is READ-ONLY and returns presence/category only, never student responses.
@@ -225,12 +245,14 @@ function UXQ_ipReflectionAudit_(attemptRows,section) {
 }
 
 function UXQ_ipReflectionState_(row, fields) {
-  const field = fields.filter(function(f){return f.key.toLowerCase() === 'reflection';})[0];
-  if (field) return field.filled ? 'submitted' : 'missing';
-  // Earlier receiver may construct reflection from problemSeen/uxReason/fixAndTest.
-  // Do not falsely mark synthesized values as a student's reflection.
-  const raw = UXQ_ipJson_(row.rawjson);
-  return String(row.reflection || raw.reflection || '').trim() ? 'unverified' : 'missing';
+  // A previous dashboard derived Reflection from the first 8 DISPLAY chips,
+  // while its audit correctly scanned the full artifactFields array. That
+  // mismatch produced "2/3" despite a saved, authored ninth Reflection.
+  const evidence=UXQ_ipAuditReflection_(row);
+  if (evidence.explicit) return 'submitted';
+  // A top-level text value can be synthesized by older Receiver versions;
+  // without an explicit authored field, it remains unverified.
+  return evidence.textPresent ? 'unverified' : 'missing';
 }
 
 function UXQ_ipFreshNode_(id) {
@@ -422,10 +444,10 @@ function UXQ_ipBuild_(attemptRows, reviewRows, rosterRows, section) {
   });
   const identityAudit = UXQ_ipAuditIdentities_(attemptRows, students, section);
   const reflectionAudit = UXQ_ipReflectionAudit_(attemptRows,section);
-  // Find read-side parsing mismatches without modifying grades or statuses.
-  // Example: rawJson has an empty field but artifactFields column has
-  // a filled Reflection; source provenance is explicit, yet prior display
-  // may still say 2/3 because it prefers rawJson unconditionally.
+  // Defensive read-side audit: identify any remaining case where explicit
+  // Reflection evidence is present but the course progress still says 2/3.
+  // This count should be zero after the provenance-based fix, unless
+  // conflicting or malformed legacy records need additional investigation.
   reflectionAudit.explicitButNotCounted=0;
   reflectionAudit.byNode.forEach(function(row){row.explicitButNotCounted=0;});
   Object.keys(students).forEach(function(key) {
