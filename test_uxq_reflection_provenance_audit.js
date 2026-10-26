@@ -42,6 +42,8 @@ assert.equal(a.counts.top_level_only,2);
 assert.equal(a.counts.unreadable,1);
 assert.equal(a.counts.missing,1);
 assert.equal(a.possibleReceiverFallbackCount,1);
+assert.equal(a.explicitButNotCounted,1,'rawJson blank vs filled Sheet artifactFields must be flagged');
+assert.equal(a.byNode[0].explicitButNotCounted,1);
 assert.equal(a.explicitSources.rawFields,1);
 assert.equal(a.explicitSources.sheetFields,2);
 assert.equal(a.byNode.length,19);
@@ -70,6 +72,7 @@ const google={script:{run:{withSuccessHandler(fn){this.success=fn;return this},
 new vm.Script(script[0][1]).runInNewContext({window:{google},document,google});
 assert.match(el('reflectionAuditSummary').innerHTML,/ช่อง Reflection/);
 assert.match(el('reflectionAuditNodes').innerHTML,/W1/);
+assert.match(el('reflectionAuditSummary').innerHTML,/พบช่องกรอก แต่ระบบยังนับไม่ครบ/);
 assert.match(el('reflectionAuditSource').textContent,/10/);
 assert.doesNotMatch(el('reflectionAuditSummary').innerHTML,/Original reflection by student/,
   'never display student response text in cohort audit');
