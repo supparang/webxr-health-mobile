@@ -18,7 +18,7 @@
 <details class="card"><summary><span class="stepNo">7</span> Key Takeaways</summary><div class="inside"><ul id="takeaways" class="takeaways"></ul></div></details>
 <section class="card"><div class="stepTitle"><span class="stepNo">8</span><h2>ตรวจหลักฐานและส่งผล</h2></div><div class="grid2"><input id="studentId" placeholder="รหัสนักศึกษา"><input id="studentName" placeholder="ชื่อ"><input id="section" value="101"><input id="runCount" type="number" min="1" value="1"></div><div class="actions" style="margin-top:10px"><button id="validate" class="btn blue">ตรวจหลักฐานทั้งหมด</button><button id="submit" class="btn green" disabled>ส่ง Coding Lab</button><button id="verifySaved" class="btn blue" style="display:none">ตรวจผลบันทึกจาก Server</button></div><div id="status" class="notice">ยังไม่ได้ตรวจ</div></section>
 </main><div class="sticky"><button id="goTop" class="btn">↑ ด้านบน</button><button id="returnBtn" class="btn green" style="display:none">กลับ Session</button></div>
-<script src="aiquest-coding-client.js"></script><script src="aiquest-core-client.js"></script>
+<script src="aiquest-coding-client.js?v=20261028-fallback-unverified"></script><script src="aiquest-core-client.js"></script>
 <script>
 (function(){'use strict';
 const VERSION='20261028-CODING-LAB-V3.3.4-SUBMISSION-RECHECK';
@@ -76,20 +76,27 @@ function validate(){
  if(!pass&&failed.length){const target=$(failed[0].target);if(target)setTimeout(()=>{try{target.scrollIntoView({behavior:'smooth',block:'center'});target.focus()}catch(e){}},120)}return pass
 }
 async function submit(){if(submissionBusy||submissionPending||submissionVerified||!validate()||!last)return;submissionBusy=true;try{const client=new AIQCodingClient({endpoint:ENDPOINT});$('submit').disabled=true;$('status').className='notice';$('status').textContent='กำลังส่งและตรวจซ้ำที่ Google Apps Script…';const result=await client.submit({studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim(),sessionId:session,codingAttemptId:(codingAttemptId||(codingAttemptId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())))),predictionAnswer:$('prediction').value.trim()+' | Reason: '+$('predictionReason').value.trim(),completedCode:$('completedCode').value.trim(),output:$('output').value.trim(),modifiedCode:$('completedCode').value+'\n\n# Scenario Modification\n'+$('modifiedCode').value,challengeCode:$('challengeCode').value+'\n# Level '+$('challengeLevel').value+'\n# QuizScore '+quizScore+'/5',quizScore:quizScore,runCount:Number($('runCount').value||1),errorCount:0,errorTypes:[],usedTimeSec:Math.round((Date.now()-startedAt)/1000)});if(result&&result.pendingVerification===true){submissionPending=true;$('verifySaved').style.display='inline-block';$('status').className='notice bad';$('status').textContent='ยังไม่ได้รับคำยืนยันจาก Server ว่าบันทึก Coding Lab สำเร็จ • การส่งผ่านช่องทางสำรองไม่ใช่ผลผ่าน • กรุณากลับ Session แล้วตรวจสถานะอีกครั้งก่อนส่งซ้ำ';$('returnBtn').style.display='none'}else if(result&&result.ok===true&&result.serverValidated===true&&result.completed===true){submissionVerified=true;$('verifySaved').style.display='none';$('status').className='notice ok';$('status').textContent='✓ Server ยืนยันการส่ง Coding Lab สำเร็จ • '+result.codingScore+'/100';if(q.get('returnUrl')){$('returnBtn').style.display='block';$('returnBtn').onclick=()=>location.href=q.get('returnUrl')}}else{$('status').className='notice bad';$('status').textContent='ส่งไม่ผ่าน: '+((result&&result.message)||(result&&result.code)||'ไม่ทราบสาเหตุ')+(result&&result.evidence&&result.evidence.diagnostics?'\n'+JSON.stringify(result.evidence.diagnostics):'')}}catch(e){submissionPending=true;$('verifySaved').style.display='inline-block';$('status').className='notice bad';$('status').textContent='ยังไม่สามารถยืนยันการส่งได้: '+String(e.message||e)+' • โปรดตรวจผลจาก Server ก่อนส่งซ้ำ'}finally{submissionBusy=false;$('submit').disabled=submissionPending||submissionVerified||!last?.predictionCorrect}}
+async function readOfficialStatus(module,action){
+ const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),30000);
+ try{
+  const r=await fetch(ENDPOINT,{method:'POST',cache:'no-store',
+   headers:{'Content-Type':'text/plain;charset=UTF-8'},
+   body:JSON.stringify({module,action,studentId:$('studentId').value.trim(),
+     section:$('section').value.trim(),sessionId:session}),signal:ctl.signal});
+  if(!r.ok)throw Error('HTTP_'+r.status);
+  const data=await r.json();
+  if(data?.ok!==true)throw Error(data?.code||'STATUS_UNAVAILABLE');
+  return data;
+ }finally{clearTimeout(timer)}
+}
 async function verifySaved(){
  const button=$('verifySaved');button.disabled=true;
  $('status').className='notice';$('status').textContent='กำลังตรวจหลักฐาน Coding Lab จาก Server…';
  try{
-  const coding=await api('GET_CODING_STATUS',{studentId:$('studentId').value.trim(),
-   section:$('section').value.trim(),sessionId:session});
+  const coding=await readOfficialStatus('AIQCODING','GET_CODING_STATUS');
   if(coding?.ok!==true)throw Error(coding?.code||'CODING_STATUS_UNAVAILABLE');
   if(coding.found===true&&coding.completed===true){
-   const response=await fetch(ENDPOINT,{method:'POST',cache:'no-store',
-    headers:{'Content-Type':'text/plain;charset=UTF-8'},
-    body:JSON.stringify({module:'AIQFLOW',action:'GET_SESSION_STATUS',
-      studentId:$('studentId').value.trim(),section:$('section').value.trim(),sessionId:session})});
-   if(!response.ok)throw Error('FLOW_HTTP_'+response.status);
-   const flow=await response.json();
+   const flow=await readOfficialStatus('AIQFLOW','GET_SESSION_STATUS');
    if(flow?.ok!==true)throw Error(flow?.code||'FLOW_STATUS_UNAVAILABLE');
    if(flow.mission?.completed===true&&flow.coding?.completed===true){
     submissionPending=false;submissionVerified=true;
