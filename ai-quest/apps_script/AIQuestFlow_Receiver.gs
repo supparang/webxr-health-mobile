@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Integrated Flow Receiver v1.3.4
+ * CSAI2102 AI Quest Integrated Flow Receiver v1.3.5
  * Google Sheet is the sole authority. No doGet(e) / doPost(e).
  *
  * Official progression rules:
@@ -11,7 +11,7 @@
  */
 var AIQFLOW = AIQFLOW || {};
 
-AIQFLOW.VERSION = '20261028-AIQ-FLOW-V1.3.4-PROGRESS-READ-CACHE';
+AIQFLOW.VERSION = '20261028-AIQ-FLOW-V1.3.5-PROGRESS-SHEET-LOOKUP-CACHE';
 AIQFLOW.SECTION = '101';
 AIQFLOW.REFLECTION_SHEET = 'aiquest_reflections';
 AIQFLOW.COMPLETION_SHEET = 'aiquest_session_completion';
@@ -101,12 +101,16 @@ AIQFLOW.headerIndex_ = function(headers,names){
   return -1;
 };
 AIQFLOW.rows_ = function(sh,requestCache){
-  if(!sh||sh.getLastRow()<2||sh.getLastColumn()<1)return {headers:[],rows:[]};
-  // Cache is scoped to a single read-only progress request. No cross-user storage.
-  var key=requestCache?String(sh.getSheetId()):'';
+  if(!sh)return {headers:[],rows:[]};
+  // One-request cache; check it BEFORE calling expensive Sheet metadata APIs.
+  var key=requestCache?'sheet:'+String(sh.getSheetId()):'';
   if(requestCache&&Object.prototype.hasOwnProperty.call(requestCache,key))return requestCache[key];
-  var values=sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getDisplayValues();
-  var result={headers:values[0],rows:values.slice(1)};
+  var lastRow=sh.getLastRow(),lastCol=sh.getLastColumn();
+  var result={headers:[],rows:[]};
+  if(lastRow>=2&&lastCol>=1){
+    var values=sh.getRange(1,1,lastRow,lastCol).getDisplayValues();
+    result={headers:values[0],rows:values.slice(1)};
+  }
   if(requestCache)requestCache[key]=result;
   return result;
 };
@@ -139,9 +143,14 @@ AIQFLOW.appendObject_ = function(name,headers,obj){
   var actual=sh.getRange(1,1,1,Math.max(1,sh.getLastColumn())).getDisplayValues()[0];
   sh.appendRow(AIQFLOW.objectRow_(actual,obj));
 };
-AIQFLOW.sheetCandidates_ = function(names){
+AIQFLOW.sheetCandidates_ = function(names,requestCache){
+  // Avoid repeating getSheetByName for every S/B in GET_FLOW_PROGRESS.
+  // Cache lifetime is the current server request only, never global.
+  var key='candidate:'+((names||[]).join('|'));
+  if(requestCache&&Object.prototype.hasOwnProperty.call(requestCache,key))return requestCache[key];
   var ss=AIQFLOW.ss_(),out=[];
   (names||[]).forEach(function(name){var sh=ss.getSheetByName(name);if(sh)out.push(sh);});
+  if(requestCache)requestCache[key]=out;
   return out;
 };
 AIQFLOW.sameIdentity_ = function(row,h,studentId,section,sessionId){
@@ -256,7 +265,7 @@ AIQFLOW.lookupProfile_ = function(p){
 };
 
 AIQFLOW.codingStatus_ = function(studentId,section,sessionId,requestCache){
-  var sheets=AIQFLOW.sheetCandidates_(['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','coding_attempt','Coding_Attempts']);
+  var sheets=AIQFLOW.sheetCandidates_(['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','coding_attempt','Coding_Attempts'],requestCache);
   var best=0,count=0,completed=false,sources=[],matched=[];
   for(var s=0;s<sheets.length;s++){
     var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
@@ -287,7 +296,7 @@ AIQFLOW.missionPass_ = function(sessionId,score,done,bossWin){
   return bossWin;
 };
 AIQFLOW.missionStatus_ = function(studentId,section,sessionId,requestCache){
-  var sheets=AIQFLOW.sheetCandidates_(['session_attempts','aiquest_session_attempts','mission_attempts','attempts']);
+  var sheets=AIQFLOW.sheetCandidates_(['session_attempts','aiquest_session_attempts','mission_attempts','attempts'],requestCache);
   var best=0,found=false,passed=false,source='',matched=[],ignoredPractice=0,gradedRows=0;
   for(var s=0;s<sheets.length;s++){
     var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
@@ -326,7 +335,7 @@ AIQFLOW.missionStatus_ = function(studentId,section,sessionId,requestCache){
 };
 
 AIQFLOW.reflectionStatus_ = function(studentId,section,sessionId,requestCache){
-  var sheets=AIQFLOW.sheetCandidates_([AIQFLOW.REFLECTION_SHEET,'reflections','aiquest_reflection']);
+  var sheets=AIQFLOW.sheetCandidates_([AIQFLOW.REFLECTION_SHEET,'reflections','aiquest_reflection'],requestCache);
   for(var s=0;s<sheets.length;s++){
     var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
     var iPassed=AIQFLOW.headerIndex_(h,['passed','completed','reflection_completed','reflectionCompleted','status']);
