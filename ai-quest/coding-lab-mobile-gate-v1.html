@@ -10,7 +10,7 @@
 <iframe id="lab" title="CSAI2102 Coding Lab"></iframe><button id="top" class="floatTop" aria-label="กลับด้านบน">↑</button>
 <script>
 (function(){'use strict';
-const VERSION='20260813-CODING-GATE-V3.2.5-FAST-AUTHORITY';
+const VERSION='20261028-CODING-GATE-V3.2.6-NO-PREMATURE-REFLECTION';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);
@@ -24,9 +24,35 @@ async function post(module,action,payload,timeout=30000){const ctl=new AbortCont
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function button(text,href,cls){return '<a class="btn '+(cls||'')+'" href="'+esc(href)+'">'+esc(text)+'</a>'}
 function block(code,message){$('notice').className='notice bad';$('notice').innerHTML='<b>ไม่อนุญาตให้เข้า Coding Lab</b><br>'+esc(message)+'<br><small>'+esc(code)+' • Google Sheet authority</small>';$('actions').innerHTML=button('กลับ Session',sessionUrl,'amber')+button('กลับแผนที่',mapUrl,'blue')}
-function goReflection(){window.top.location.href=reflectionUrl}
-function wireInnerReturn(){try{const d=$('lab').contentDocument;if(!d)return;const rb=d.getElementById('returnBtn');if(rb){rb.style.display='inline-flex';rb.textContent='ไป Reflection';rb.onclick=function(ev){ev.preventDefault();ev.stopPropagation();goReflection();return false}}}catch(e){}}
-function openLab(){try{const u=identityUrl('./web/coding-lab-v3.html');u.searchParams.set('returnUrl',reflectionUrl);u.searchParams.set('authority','sheet-gated');$('gate').style.display='none';$('lab').style.display='block';$('lab').src=u.href;$('top').style.display='flex';$('top').onclick=()=>{try{$('lab').contentWindow.scrollTo({top:0,behavior:'smooth'})}catch(e){}};$('lab').addEventListener('load',()=>{try{const d=$('lab').contentDocument;if(!d)return;const style=d.createElement('style');style.textContent='.sticky{padding:6px 8px!important;justify-content:flex-end!important;background:transparent!important;border-top:0!important;pointer-events:none!important}.sticky .btn{pointer-events:auto!important}.sticky #goTop{display:none!important}.sticky #returnBtn{max-width:260px!important;min-height:46px!important;display:inline-flex!important}main{padding-bottom:80px!important}@media(max-width:720px){.sticky{display:flex!important;grid-template-columns:none!important}}';d.head.appendChild(style);wireInnerReturn();setTimeout(wireInnerReturn,250);setTimeout(wireInnerReturn,900)}catch(e){}})}catch(e){$('gate').style.display='block';$('lab').style.display='none';$('top').style.display='none';$('notice').className='notice bad';$('notice').textContent='เปิด Coding Lab ไม่สำเร็จ: '+String(e.message||e);$('actions').innerHTML=button('ลองใหม่',location.href,'blue')+button('กลับ Session',sessionUrl,'amber')}}
+function mismatch(msg){
+ $('gate').style.display='block';$('lab').style.display='none';$('top').style.display='none';
+ $('notice').className='notice bad';$('notice').textContent=msg;
+ $('actions').innerHTML=button('ตรวจสถานะอีกครั้ง',location.href,'blue')+button('กลับแผนที่',mapUrl,'amber');
+}
+async function goReflection(){
+ try{
+  const flow=await post('AIQFLOW','GET_SESSION_STATUS',{},30000);
+  if(flow?.ok===true&&flow.mission?.completed===true&&
+     (flow.coding?.completed===true||(flow.coding?.found===true&&Number(flow.coding?.bestScore||0)>=60))){
+    window.top.location.href=reflectionUrl;return;
+  }
+  mismatch('Coding Lab มีการส่งหลักฐาน แต่ระบบ Flow ยังไม่ยืนยันว่าผ่าน • โปรดแจ้งผู้สอนพร้อมรหัส S/B ไม่ต้องทำ Mission ซ้ำ');
+ }catch(e){mismatch('ตรวจผล Coding Lab จาก Flow ไม่สำเร็จ: '+String(e.message||e)+' • กรุณาลองใหม่');}
+}
+function wireInnerReturn(){
+ try{
+  const d=$('lab').contentDocument;if(!d)return;
+  const rb=d.getElementById('returnBtn');if(!rb||rb.dataset.flowGateWired==='yes')return;
+  rb.dataset.flowGateWired='yes';
+  // Do not show this button. The Coding Lab itself reveals it only AFTER a valid server submission.
+  rb.textContent='ไป Reflection';
+  rb.addEventListener('click',function(ev){
+    ev.preventDefault();ev.stopImmediatePropagation();
+    goReflection();
+  },true);
+ }catch(e){}
+}
+function openLab(){try{const u=identityUrl('./web/coding-lab-v3.html');u.searchParams.set('returnUrl',reflectionUrl);u.searchParams.set('authority','sheet-gated');$('gate').style.display='none';$('lab').style.display='block';$('lab').src=u.href;$('top').style.display='flex';$('top').onclick=()=>{try{$('lab').contentWindow.scrollTo({top:0,behavior:'smooth'})}catch(e){}};$('lab').addEventListener('load',()=>{try{const d=$('lab').contentDocument;if(!d)return;const style=d.createElement('style');style.textContent='.sticky{padding:6px 8px!important;justify-content:flex-end!important;background:transparent!important;border-top:0!important;pointer-events:none!important}.sticky .btn{pointer-events:auto!important}.sticky #goTop{display:none!important}.sticky #returnBtn{max-width:260px!important;min-height:46px!important}main{padding-bottom:80px!important}@media(max-width:720px){.sticky{display:flex!important;grid-template-columns:none!important}}';d.head.appendChild(style);wireInnerReturn();setTimeout(wireInnerReturn,250);setTimeout(wireInnerReturn,900)}catch(e){}})}catch(e){$('gate').style.display='block';$('lab').style.display='none';$('top').style.display='none';$('notice').className='notice bad';$('notice').textContent='เปิด Coding Lab ไม่สำเร็จ: '+String(e.message||e);$('actions').innerHTML=button('ลองใหม่',location.href,'blue')+button('กลับ Session',sessionUrl,'amber')}}
 function missionPassed(flow){return !!(flow&&flow.mission&&(flow.mission.completed===true||flow.mission.passed===true))}
 async function init(){
  if(!ORDER.includes(session)){block('INVALID_SESSION','ไม่พบด่านนี้ในลำดับรายวิชา');return}
@@ -48,9 +74,13 @@ async function init(){
 
    $('notice').className='notice good';$('notice').innerHTML='✓ Authority ผ่าน: '+session+' ถูกปลดล็อกและ Graded Mission ผ่านแล้ว<br>กำลังตรวจ Coding evidence…';
    const s=await post('AIQCODING','GET_CODING_STATUS',{},30000);
-   if(s&&s.ok&&(s.completed===true||Number(s.bestScore||0)>=60)){
-     $('notice').className='notice good';$('notice').innerHTML='✓ Coding Lab ผ่านแล้ว<br>คะแนนดีที่สุด '+Number(s.bestScore||0)+' • ไม่ต้องทำซ้ำ';
-     $('actions').innerHTML=button('ไป Reflection',reflectionUrl,'green')+button('กลับแผนที่',mapUrl,'blue');return;
+   if(s&&s.ok&&(s.completed===true||(s.found===true&&Number(s.bestScore||0)>=60))){
+     if(current.coding?.completed===true||(current.coding?.found===true&&Number(current.coding?.bestScore||0)>=60)){
+       $('notice').className='notice good';$('notice').innerHTML='✓ Coding Lab ผ่านแล้ว และ Flow ยืนยันตรงกัน<br>คะแนนดีที่สุด '+Number(s.bestScore||0);
+       $('actions').innerHTML=button('ไป Reflection',reflectionUrl,'green')+button('กลับแผนที่',mapUrl,'blue');return;
+     }
+     mismatch('พบ Coding Lab ที่ผ่านในระบบ Coding แต่ Flow ยังไม่ยืนยัน • ข้อมูลสองระบบไม่ตรงกัน กรุณาแจ้งผู้สอน • ไม่ต้องทำ Coding หรือ Mission ซ้ำ');
+     return;
    }
    $('notice').className='notice good';$('notice').textContent='✓ สิทธิ์ครบ กำลังเปิด Coding Lab';setTimeout(openLab,150);
  }catch(e){
