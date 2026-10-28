@@ -1,11 +1,11 @@
-/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.0
+/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.1
    Part 2: heatmap, weak concepts, traps, risk, radar, timeline,
    alerts, class analytics, reflection analytics, evidence summary.
 */
 (()=>{'use strict';
   if(window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__)return;
   window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__=true;
-  const VERSION='v7.2.0';
+  const VERSION='v7.2.1';
   const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
   const TITLES={s1:'S1',s2:'S2',s3:'S3',b1:'B1',s4:'S4',s5:'S5',s6:'S6',b2:'B2',s7:'S7',s8:'S8',s9:'S9',b3:'B3',s10:'S10',s11:'S11',s12:'S12',b4:'B4',s13:'S13',s14:'S14',s15:'S15',b5:'B5'};
   const runtime=()=>window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532||null;
@@ -49,24 +49,36 @@
     return {total:ss.length,verified:ss.filter(s=>partCache.has(partKey(s))).length,errors:ss.filter(s=>partErrors.has(partKey(s))).length};
   }
   function partCell(s,id){
-    const key=partKey(s),p=partCache.get(key);
-    if(!p){
-      const err=partErrors.get(key);
-      return '<td class="aq710-partcell pending"><button type="button" data-aq710-cell="'+esc(s.studentId)+'" data-aq710-stage="'+esc(id)+'" title="'+esc(err?'ยังอ่านจาก Sheet ไม่สำเร็จ: '+err+' • คลิกเพื่อลองใหม่':'ยังไม่ตรวจหลักฐาน 3 ส่วน • คลิกเพื่อโหลดเฉพาะคนนี้')+'">'+(err?'!':'—')+'</button></td>';
-    }
-    const r=p[id];
+    // Keep existing Mission heatmap values visible while official M/C/R status is loading.
+    // Mission scores are not treated as proof of completing all three stages.
+    const missionAttempt=latestBySession(s,id);
+    const hasScore=!!missionAttempt&&Number.isFinite(Number(missionAttempt.score));
+    const displayScore=hasScore?String(num(missionAttempt.score)):'—';
+    const scoreClass=hasScore?colorClass(missionAttempt.score):'none';
+    const key=partKey(s),p=partCache.get(key),r=p&&p[id];
+    const cellData='data-aq710-cell="'+esc(s.studentId)+'" data-aq710-stage="'+esc(id)+'"';
+    const scoreHtml='<strong class="aq710-preserved-score">'+esc(displayScore)+'</strong>';
     if(!r||typeof r!=='object'){
-      return '<td class="aq710-partcell pending">?</td>';
+      const err=partErrors.get(key);
+      const message=err?'ยืนยัน M/C/R ไม่สำเร็จ: '+err:'ยังไม่ตรวจ M/C/R จาก Sheet • คะแนนที่เห็นเป็นคะแนน Mission เดิม';
+      const second='<span class="aq710-unknown-part">'+(err?'M/C/R !':'M/C/R ?')+'</span>';
+      return '<td class="aq710-partcell aq710-overlay-pending aq710-cell '+scoreClass+'"><button type="button" '+cellData+
+        ' title="'+esc(id.toUpperCase()+' • '+s.studentId+' • คะแนน Mission: '+displayScore+' • '+message)+'" aria-label="'+esc(id.toUpperCase()+' • '+s.studentId+' • '+message)+'">'+scoreHtml+second+'</button></td>';
     }
     const m=partBool(r.mission?.completed),code=partBool(r.coding?.completed),ref=partBool(r.reflection?.completed);
     const done=m&&code&&ref,locked=r.unlocked===false&&!done;
-    const title=id.toUpperCase()+' • '+s.studentId+' • Mission: '+partLabel(r.mission?.completed,r.mission?.found)+' / Coding: '+partLabel(r.coding?.completed,r.coding?.found)+' / Reflection: '+partLabel(r.reflection?.completed,r.reflection?.found)+(locked?' • ด่านยังล็อก':'');
-    const content=locked?'<span class="aq710-trilock">🔒</span>':'<span class="aq710-tri" aria-hidden="true">'+
-       '<span class="'+(m?'yes':'no')+'">M'+(m?'✓':'○')+'</span>'+
-       '<span class="'+(code?'yes':'no')+'">C'+(code?'✓':'○')+'</span>'+
-       '<span class="'+(ref?'yes':'no')+'">R'+(ref?'✓':'○')+'</span></span>';
+    const title=id.toUpperCase()+' • '+s.studentId+' • คะแนน Mission เดิม: '+displayScore+
+      ' • Mission: '+partLabel(r.mission?.completed,r.mission?.found)+
+      ' • Coding: '+partLabel(r.coding?.completed,r.coding?.found)+
+      ' • Reflection: '+partLabel(r.reflection?.completed,r.reflection?.found)+(locked?' • ด่านยังล็อก':'');
+    const badges='<span class="aq710-tri" aria-hidden="true">'+
+      '<span class="'+(m?'yes':'no')+'">M'+(m?'✓':'○')+'</span>'+
+      '<span class="'+(code?'yes':'no')+'">C'+(code?'✓':'○')+'</span>'+
+      '<span class="'+(ref?'yes':'no')+'">R'+(ref?'✓':'○')+'</span></span>';
+    const marker=locked?'<span class="aq710-lockhint">🔒 ล็อก</span>':badges;
     const status=done?'complete':locked?'locked':(m||code||ref?'partial':'notstarted');
-    return '<td class="aq710-partcell '+status+'"><button type="button" data-aq710-cell="'+esc(s.studentId)+'" data-aq710-stage="'+esc(id)+'" title="'+esc(title)+'" aria-label="'+esc(title)+'">'+content+'</button></td>';
+    return '<td class="aq710-partcell aq710-cell '+scoreClass+' aq710-overlay-'+status+
+      '"><button type="button" '+cellData+' title="'+esc(title)+'" aria-label="'+esc(title)+'">'+scoreHtml+marker+'</button></td>';
   }
   function partDetailHtml(subject){
     if(!partDetail)return '';
@@ -84,7 +96,7 @@
     const ss=cohort(),rows=subject?[subject]:ss;
     const counts=partCount();
     const intro='<div class="aq710-heattools"><div class="aq710-mode">'+
-      '<button type="button" data-aq710-mode="parts" class="'+(heatMode==='parts'?'active':'')+'">ครบ 3 ส่วน (M/C/R)</button>'+
+      '<button type="button" data-aq710-mode="parts" class="'+(heatMode==='parts'?'active':'')+'">คะแนน + ครบ 3 ส่วน (M/C/R)</button>'+
       '<button type="button" data-aq710-mode="scores" class="'+(heatMode==='scores'?'active':'')+'">คะแนน Mission</button></div>'+
       (heatMode==='parts'?'<div class="aq710-partactions">'+
        '<button type="button" data-aq710-check="batch" '+(partBusy?'disabled':'')+'>ตรวจ 5 คนถัดไป</button>'+
@@ -92,9 +104,9 @@
        (partBusy?'<button type="button" data-aq710-stop="1">หยุดการตรวจ</button>':'')+
        '</div>':'')+'</div>';
     if(!rows.length)return intro+'<div class="aq710-empty">ยังไม่มีรายชื่อนักศึกษาในกลุ่มที่เลือก</div>';
-    const note=heatMode==='parts'?'<p class="aq710-partnote">M = Mission • C = Coding Lab • R = Reflection • ✓ ผ่าน • ○ ยังไม่ผ่าน • 🔒 ล็อก • — ยังไม่ได้ตรวจจาก Sheet • คลิกช่องเพื่อดูรายละเอียด/ตรวจรายคน</p><p class="aq710-partnote">'+
+    const note=heatMode==='parts'?'<p class="aq710-partnote">ตัวเลขใหญ่ = คะแนน Mission เดิม • M = Mission • C = Coding Lab • R = Reflection • ✓ ผ่าน • ○ ยังไม่ผ่าน • 🔒 ล็อก • M/C/R ? = รอตรวจจาก Sheet • กดตรวจข้อมูลหรือคลิกช่องเพื่อยืนยันรายคน</p><p class="aq710-partnote">'+
        'ยืนยันแล้ว '+counts.verified+'/'+counts.total+' คน'+(counts.errors?' • มีข้อผิดพลาด '+counts.errors+' คน':'')+
-       (partStatus?' • '+esc(partStatus):' • กดตรวจ 5 คนถัดไปหรือทั้งห้องเพื่อดึงหลักฐานทางการ')+
+       (partStatus?' • '+esc(partStatus):' • คะแนนยังแสดงตามเดิม กรุณากดตรวจ 5 คนถัดไปหรือทั้งห้องเพื่อแสดงผลครบสามส่วน')+
        '</p>':'<p class="aq710-partnote">มุมมองนี้แสดงเฉพาะคะแนน Mission ไม่ใช่ผลจบครบสามส่วน</p>';
     const table='<div class="aq710-heatwrap"><table><thead><tr><th>Student</th>'+ORDER.map(id=>'<th>'+TITLES[id]+'</th>').join('')+'</tr></thead><tbody>'+
       rows.map(s=>'<tr><td><b>'+esc(s.studentId)+'</b><small>'+esc(s.studentName||'')+'</small></td>'+
@@ -235,6 +247,18 @@
     .aq710-partdetail{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.07);border-radius:12px;padding:11px;margin-top:10px}
     .aq710-partdetail div span{display:block;color:#a9bad3;font-size:12px;margin-top:5px}
     .aq710-partcell button:focus-visible,.aq710-heattools button:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
+    .aq710-partcell button{min-width:75px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+    .aq710-partcell .aq710-preserved-score{font-size:15px;font-weight:900;line-height:1.1;color:#f1f5f9}
+    .aq710-partcell.none .aq710-preserved-score{color:#93a4ba}
+    .aq710-partcell .aq710-tri{gap:4px}
+    .aq710-partcell .aq710-tri span{font-size:10px;font-weight:800}
+    .aq710-partcell .aq710-unknown-part{font-size:10px;font-weight:700;color:#cbd5e1;background:rgba(100,116,139,.32);border-radius:5px;padding:2px 4px;white-space:nowrap}
+    .aq710-partcell .aq710-lockhint{font-size:10px;color:#cbd5e1;white-space:nowrap}
+    .aq710-partcell.aq710-overlay-complete{box-shadow:inset 0 -3px 0 #34d399}
+    .aq710-partcell.aq710-overlay-partial{box-shadow:inset 0 -3px 0 #fbbf24}
+    .aq710-partcell.aq710-overlay-locked{box-shadow:inset 0 -3px 0 #64748b}
+    .aq710-partcell.aq710-overlay-pending{box-shadow:inset 0 -3px 0 rgba(148,163,184,.20)}
+
   `;document.head.appendChild(style);render();}
   function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
