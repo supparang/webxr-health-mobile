@@ -42,7 +42,7 @@ async function goReflection(){
   }
   let coding=null,failed=false;
   try{coding=await post('AIQCODING','GET_CODING_STATUS',{},30000)}catch(_){failed=true}
-  const detail='รหัสตรวจสอบ: S11-CODING-FLOW-MISMATCH'+
+  const detail='รหัสตรวจสอบ: '+session+'-CODING-FLOW-MISMATCH'+
     ' • Flow: '+safeVersion(flow)+
     ' • Coding: '+(failed?'STATUS_UNAVAILABLE':safeVersion(coding))+
     ' • Flow coding: '+(flow?.coding?.completed===true?'PASS':'NOT_CONFIRMED')+
