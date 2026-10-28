@@ -10,7 +10,7 @@
 <iframe id="lab" title="CSAI2102 Coding Lab"></iframe><button id="top" class="floatTop" aria-label="กลับด้านบน">↑</button>
 <script>
 (function(){'use strict';
-const VERSION='20261028-CODING-GATE-V3.2.6-NO-PREMATURE-REFLECTION';
+const VERSION='20261028-CODING-GATE-V3.2.7-VERSION-DIAGNOSTICS';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);
@@ -29,6 +29,10 @@ function mismatch(msg){
  $('notice').className='notice bad';$('notice').textContent=msg;
  $('actions').innerHTML=button('ตรวจสถานะอีกครั้ง',location.href,'blue')+button('กลับแผนที่',mapUrl,'amber');
 }
+function safeVersion(obj){
+ const version=String(obj?.version||'unknown').replace(/[^a-zA-Z0-9._:-]/g,'');
+ return version.slice(0,96)||'unknown';
+}
 async function goReflection(){
  try{
   const flow=await post('AIQFLOW','GET_SESSION_STATUS',{},30000);
@@ -36,7 +40,14 @@ async function goReflection(){
      (flow.coding?.completed===true||(flow.coding?.found===true&&Number(flow.coding?.bestScore||0)>=60))){
     window.top.location.href=reflectionUrl;return;
   }
-  mismatch('Coding Lab มีการส่งหลักฐาน แต่ระบบ Flow ยังไม่ยืนยันว่าผ่าน • โปรดแจ้งผู้สอนพร้อมรหัส S/B ไม่ต้องทำ Mission ซ้ำ');
+  let coding=null,failed=false;
+  try{coding=await post('AIQCODING','GET_CODING_STATUS',{},30000)}catch(_){failed=true}
+  const detail='รหัสตรวจสอบ: S11-CODING-FLOW-MISMATCH'+
+    ' • Flow: '+safeVersion(flow)+
+    ' • Coding: '+(failed?'STATUS_UNAVAILABLE':safeVersion(coding))+
+    ' • Flow coding: '+(flow?.coding?.completed===true?'PASS':'NOT_CONFIRMED')+
+    ' • Coding status: '+(coding?.completed===true?'PASS':'NOT_CONFIRMED');
+  mismatch('Coding Lab มีการส่งหลักฐาน แต่ Flow ยังไม่ยืนยันว่าผ่าน • กรุณาแจ้งผู้สอนพร้อมข้อความวินิจฉัย ไม่ต้องทำ Mission ซ้ำ\n'+detail);
  }catch(e){mismatch('ตรวจผล Coding Lab จาก Flow ไม่สำเร็จ: '+String(e.message||e)+' • กรุณาลองใหม่');}
 }
 function wireInnerReturn(){
@@ -79,7 +90,7 @@ async function init(){
        $('notice').className='notice good';$('notice').innerHTML='✓ Coding Lab ผ่านแล้ว และ Flow ยืนยันตรงกัน<br>คะแนนดีที่สุด '+Number(s.bestScore||0);
        $('actions').innerHTML=button('ไป Reflection',reflectionUrl,'green')+button('กลับแผนที่',mapUrl,'blue');return;
      }
-     mismatch('พบ Coding Lab ที่ผ่านในระบบ Coding แต่ Flow ยังไม่ยืนยัน • ข้อมูลสองระบบไม่ตรงกัน กรุณาแจ้งผู้สอน • ไม่ต้องทำ Coding หรือ Mission ซ้ำ');
+     mismatch('พบ Coding Lab ที่ผ่านในระบบ Coding แต่ Flow ยังไม่ยืนยัน • ข้อมูลสองระบบไม่ตรงกัน กรุณาแจ้งผู้สอน • ไม่ต้องทำ Coding หรือ Mission ซ้ำ\nFlow: '+safeVersion(current)+' • Coding: '+safeVersion(s));
      return;
    }
    $('notice').className='notice good';$('notice').textContent='✓ สิทธิ์ครบ กำลังเปิด Coding Lab';setTimeout(openLab,150);
