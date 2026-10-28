@@ -10,7 +10,7 @@
 <iframe id="lab" title="CSAI2102 Coding Lab"></iframe><button id="top" class="floatTop" aria-label="กลับด้านบน">↑</button>
 <script>
 (function(){'use strict';
-const VERSION='20261028-CODING-GATE-V3.2.7-VERSION-DIAGNOSTICS';
+const VERSION='20261028-CODING-GATE-V3.2.8-EVIDENCE-DIAGNOSTICS';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);
@@ -42,12 +42,20 @@ async function goReflection(){
   }
   let coding=null,failed=false;
   try{coding=await post('AIQCODING','GET_CODING_STATUS',{},30000)}catch(_){failed=true}
-  const detail='รหัสตรวจสอบ: '+session+'-CODING-FLOW-MISMATCH'+
+  const codingPass=!!(coding?.ok===true&&coding.found===true&&
+    (coding.completed===true||Number(coding.bestScore||0)>=60));
+  const detail='รหัสตรวจสอบ: '+session+'-CODING-FLOW-CHECK'+
     ' • Flow: '+safeVersion(flow)+
     ' • Coding: '+(failed?'STATUS_UNAVAILABLE':safeVersion(coding))+
+    ' • Flow found: '+(flow?.coding?.found===true?'YES':'NO')+
+    ' • Coding found: '+(coding?.found===true?'YES':'NO')+
     ' • Flow coding: '+(flow?.coding?.completed===true?'PASS':'NOT_CONFIRMED')+
-    ' • Coding status: '+(coding?.completed===true?'PASS':'NOT_CONFIRMED');
-  mismatch('Coding Lab มีการส่งหลักฐาน แต่ Flow ยังไม่ยืนยันว่าผ่าน • กรุณาแจ้งผู้สอนพร้อมข้อความวินิจฉัย ไม่ต้องทำ Mission ซ้ำ\n'+detail);
+    ' • Coding status: '+(codingPass?'PASS':'NOT_CONFIRMED');
+  const message=codingPass?
+    'Coding Lab ผ่านในระบบ Coding แต่ Flow ยังไม่ยืนยัน • โปรดแจ้งผู้สอน ไม่ต้องทำ Mission หรือ Coding ซ้ำ':
+    (failed?'ยังตรวจระบบ Coding ไม่สำเร็จ ไม่สามารถยืนยันผลผ่าน • โปรดลองตรวจสถานะอีกครั้ง':
+    'ยังไม่พบหลักฐาน Coding Lab '+session+' ที่ผ่านจากทั้งสองระบบ • โปรดตรวจประวัติการกดส่งงานกับผู้สอน ไม่ต้องทำ Mission ซ้ำ');
+  mismatch(message+'\n'+detail);
  }catch(e){mismatch('ตรวจผล Coding Lab จาก Flow ไม่สำเร็จ: '+String(e.message||e)+' • กรุณาลองใหม่');}
 }
 function wireInnerReturn(){
