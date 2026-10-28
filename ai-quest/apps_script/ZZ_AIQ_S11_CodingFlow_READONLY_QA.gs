@@ -95,3 +95,110 @@ function TEST_AIQ_S11_CODING_FLOW_READONLY() {
   Logger.log(JSON.stringify(summary));
   return summary;
 }
+
+
+/**
+ * Second-stage QA: find why BOTH AIQCODING and AIQFLOW returned found=false.
+ * Read-only. No student IDs, names, answers, or grade changes are logged.
+ * Exact match requires studentId + section + sessionId in a Coding-evidence tab.
+ * Examines only the relevant identity columns, not submissions/answers.
+ */
+function TEST_AIQ_S11_CODING_EVIDENCE_LOCATOR_READONLY() {
+  var props = PropertiesService.getScriptProperties();
+  var id = String(props.getProperty('AIQ_QA_STUDENT_ID') || '').trim();
+  var section = String(props.getProperty('AIQ_QA_SECTION') || '101').trim();
+  var session = String(props.getProperty('AIQ_QA_SESSION') || 'S11').trim();
+  var report = {
+    audit:'AIQ_S11_CODING_EVIDENCE_LOCATOR_V2',
+    mode:'READ_ONLY_NO_WRITE',
+    studentConfigured:!!id,
+    section:section,
+    sessionId:session,
+    sheets:[],
+    overall:{codingSheetCount:0,codingRowsScanned:0,
+      idMatches:0,sessionMatches:0,idAndSessionMatches:0,
+      exactIdentityMatches:0,wrongSectionMatches:0},
+    result:'NOT_CHECKED'
+  };
+  if (!id || typeof AIQFLOW==='undefined' || typeof AIQFLOW.findProfile_!=='function') {
+    report.result = 'SET_SCRIPT_PROPERTY_OR_FLOW_MISSING';
+    Logger.log(JSON.stringify(report));
+    return report;
+  }
+  if (!AIQFLOW.findProfile_(id,section)) {
+    report.result='ROSTER_NOT_AUTHORIZED';
+    Logger.log(JSON.stringify(report));
+    return report;
+  }
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    report.result='NO_ACTIVE_SPREADSHEET';
+    Logger.log(JSON.stringify(report));
+    return report;
+  }
+  // Suffix is a non-authoritative hint to recognize an unintended Sheet mount.
+  report.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
+  function headerIndex(headers,aliases) {
+    return AIQFLOW.headerIndex_(headers,aliases);
+  }
+  var idNames=['student_id','studentId','student','student_no','studentNo','id','pid'];
+  var secNames=['section','section_id','sectionId','class_section','classSection'];
+  var stageNames=['session_id','sessionId','mission_id','missionId','session','mission'];
+  var codingNames=['coding_score','codingScore','coding_completed','codingCompleted',
+    'run_score','runScore','modify_score','modifyScore','challenge_score','challengeScore',
+    'quiz_score','quizScore','completed_code','completedCode','modified_code','modifiedCode',
+    'prediction_answer','predictionAnswer','validation_mode','validationMode'];
+  var totalExact=0,totalIdStage=0;
+  ss.getSheets().forEach(function(sh) {
+    var lastRow=sh.getLastRow(),lastColumn=sh.getLastColumn();
+    if (lastColumn<1) return;
+    var headers=sh.getRange(1,1,1,lastColumn).getDisplayValues()[0];
+    var idCol=headerIndex(headers,idNames),sessionCol=headerIndex(headers,stageNames);
+    var secCol=headerIndex(headers,secNames);
+    var codingCol=headerIndex(headers,codingNames);
+    if (!/coding/i.test(sh.getName()) && codingCol<0) return;
+    report.overall.codingSheetCount++;
+    var info={sheet:sh.getName(),rowCount:Math.max(0,lastRow-1),
+      idColumnFound:idCol>=0,sessionColumnFound:sessionCol>=0,
+      sectionColumnFound:secCol>=0,codingEvidenceColumnFound:codingCol>=0,
+      idMatches:0,sessionMatches:0,idAndSessionMatches:0,
+      exactIdentityMatches:0,wrongSectionMatches:0,exactRowNumbers:[]};
+    report.overall.codingRowsScanned+=info.rowCount;
+    if (lastRow>=2 && idCol>=0 && sessionCol>=0) {
+      var n=lastRow-1;
+      var ids=sh.getRange(2,idCol+1,n,1).getDisplayValues();
+      var sessions=sh.getRange(2,sessionCol+1,n,1).getDisplayValues();
+      var sections=secCol>=0?sh.getRange(2,secCol+1,n,1).getDisplayValues():null;
+      for (var r=0;r<n;r++) {
+        var sameId=AIQFLOW.idKey_(ids[r][0])===AIQFLOW.idKey_(id);
+        var sameStage=AIQFLOW.sessionKey_(sessions[r][0])===AIQFLOW.sessionKey_(session);
+        var rowSection=(sections && sections[r][0]) || '101';
+        var sameSection=AIQFLOW.sectionKey_(rowSection)===AIQFLOW.sectionKey_(section);
+        if (sameId) info.idMatches++;
+        if (sameStage) info.sessionMatches++;
+        if (sameId && sameStage) {
+          info.idAndSessionMatches++;
+          if (sameSection) {
+            info.exactIdentityMatches++;
+            if(info.exactRowNumbers.length<10)info.exactRowNumbers.push(r+2);
+          } else info.wrongSectionMatches++;
+        }
+      }
+    }
+    ['idMatches','sessionMatches','idAndSessionMatches',
+     'exactIdentityMatches','wrongSectionMatches'].forEach(function(key){
+       report.overall[key]+=info[key];
+    });
+    totalExact+=info.exactIdentityMatches;
+    totalIdStage+=info.idAndSessionMatches;
+    report.sheets.push(info);
+  });
+  report.result=totalExact>0?'MATCHING_ROW_EXISTS_CHECK_CODING_SCORE_AND_SOURCE':
+    totalIdStage>0?'ID_AND_SESSION_FOUND_BUT_SECTION_MISMATCH':
+    report.overall.idMatches>0?'STUDENT_CODING_ROWS_EXIST_BUT_NOT_S11':
+    report.overall.sessionMatches>0?'S11_ROWS_EXIST_BUT_NO_MATCHING_STUDENT_ID':
+    report.overall.codingSheetCount>0?'NO_MATCHING_CODING_ROWS_FOUND_IN_ACTIVE_SHEET':
+      'NO_CODING_EVIDENCE_TABS_IN_ACTIVE_SHEET';
+  Logger.log(JSON.stringify(report));
+  return report;
+}
