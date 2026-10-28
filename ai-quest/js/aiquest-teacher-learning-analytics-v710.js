@@ -1,11 +1,11 @@
-/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.1
+/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.2
    Part 2: heatmap, weak concepts, traps, risk, radar, timeline,
    alerts, class analytics, reflection analytics, evidence summary.
 */
 (()=>{'use strict';
   if(window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__)return;
   window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__=true;
-  const VERSION='v7.2.1';
+  const VERSION='v7.2.2';
   const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
   const TITLES={s1:'S1',s2:'S2',s3:'S3',b1:'B1',s4:'S4',s5:'S5',s6:'S6',b2:'B2',s7:'S7',s8:'S8',s9:'S9',b3:'B3',s10:'S10',s11:'S11',s12:'S12',b4:'B4',s13:'S13',s14:'S14',s15:'S15',b5:'B5'};
   const runtime=()=>window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532||null;
@@ -37,7 +37,7 @@
    * Only AIQFLOW.GET_FLOW_PROGRESS can certify the three official parts.
    * One bounded, cancellable student request at a time; never auto-fetch class.
    * ========================================================= */
-  let heatMode='parts';
+  let heatMode='parts',auditFilter='all';
   const partCache=new Map();
   const partErrors=new Map();
   let partBusy=false,partSeq=0,partController=null,partStatus='',partDetail=null;
@@ -92,6 +92,51 @@
     const next=done?'ครบทั้ง 3 ส่วน':r.unlocked===false?'ยังไม่ปลดล็อก':!partBool(r.mission?.completed)?'Mission':!partBool(r.coding?.completed)?'Coding Lab':'Reflection';
     return '<div class="aq710-partdetail"><div><b>'+esc(s.studentId+' • '+s.studentName+' • '+stage)+'</b><span>Mission '+esc(partLabel(r.mission?.completed,r.mission?.found))+' ('+esc(missionScore)+') • Coding '+esc(partLabel(r.coding?.completed,r.coding?.found))+' ('+esc(codingScore)+') • Reflection '+esc(partLabel(r.reflection?.completed,r.reflection?.found))+'</span><span>ขั้นที่ต้องทำต่อ: '+esc(next)+'</span></div><button type="button" data-aq710-inspect="'+esc(s.studentId)+'" data-aq710-stage="'+esc(partDetail.stage)+'">ดู Mission Attempts</button></div>';
   }
+  function threePartSummary(){
+    const ss=cohort();
+    const verified=ss.filter(s=>partCache.has(partKey(s)));
+    const unverified=ss.length-verified.length;
+    const records=verified.map(s=>{
+      const progress=partCache.get(partKey(s));
+      const isComplete=id=>progress[id]?.mission?.completed===true&&progress[id]?.coding?.completed===true&&progress[id]?.reflection?.completed===true;
+      const completed=ORDER.filter(isComplete).length;
+      const active=ORDER.find(id=>progress[id]?.unlocked===true&&!isComplete(id));
+      let missing=[],nextText='—',nextStage='—',type='review';
+      if(completed===ORDER.length){nextText='ผ่านครบ 20 ด่าน';type='done';}
+      else if(active){
+        nextStage=active.toUpperCase();
+        const r=progress[active];
+        missing=[['Mission',r.mission?.completed],['Coding Lab',r.coding?.completed],['Reflection',r.reflection?.completed]]
+          .filter(x=>x[1]!==true).map(x=>x[0]);
+        nextText=missing[0]||'ตรวจหลักฐาน';
+        type=nextText==='Mission'?'mission':nextText==='Coding Lab'?'coding':nextText==='Reflection'?'reflection':'review';
+      }else{nextText='ตรวจความสอดคล้องด่าน';}
+      return {s,completed,nextStage,missing,nextText,type};
+    });
+    const counts={done:records.filter(r=>r.type==='done').length,mission:records.filter(r=>r.type==='mission').length,
+      coding:records.filter(r=>r.type==='coding').length,reflection:records.filter(r=>r.type==='reflection').length,
+      review:records.filter(r=>r.type==='review').length};
+    const metric=(title,value)=>'<div class="aq710-auditmetric"><small>'+esc(title)+'</small><b>'+esc(value)+'</b></div>';
+    const stats='<div class="aq710-auditstats">'+
+      metric('ยืนยันจาก Sheet',verified.length+'/'+ss.length)+metric('จบครบ 20 ด่าน',counts.done)+
+      metric('รอ Mission',counts.mission)+metric('รอ Coding',counts.coding)+
+      metric('รอ Reflection',counts.reflection)+metric('ต้องตรวจเพิ่ม',counts.review)+'</div>';
+    const filters=[['all','ทั้งหมดที่ตรวจแล้ว'],['mission','รอ Mission'],['coding','รอ Coding Lab'],
+      ['reflection','รอ Reflection'],['done','ครบ 20 ด่าน'],['review','ข้อมูลไม่สอดคล้อง']];
+    const select='<label class="aq710-auditfilter">แสดง <select id="aq710AuditFilter">'+filters.map(([v,t])=>
+      '<option value="'+esc(v)+'"'+(v===auditFilter?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></label>';
+    const visible=records.filter(r=>auditFilter==='all'||r.type===auditFilter);
+    const table=visible.length?
+      '<div class="aq710-auditscroll"><table><thead><tr><th>นักศึกษา</th><th>ครบ 3 ส่วน</th><th>ด่านปัจจุบัน</th><th>ยังขาดในด่านนี้</th><th>ให้ทำต่อ</th><th></th></tr></thead><tbody>'+
+      visible.map(r=>'<tr><td><b>'+esc(r.s.studentId)+'</b><small>'+esc(r.s.studentName||'')+'</small></td><td>'+
+      r.completed+'/20</td><td>'+esc(r.nextStage)+'</td><td>'+esc(r.missing.join(' + ')||'—')+
+      '</td><td>'+esc(r.nextText)+'</td><td><button type="button" data-aq710-focus="'+esc(r.s.studentId)+'">ดูรายบุคคล</button></td></tr>').join('')+
+      '</tbody></table></div>':'<p class="aq710-partnote">ยังไม่มีนักศึกษาตรงตามตัวกรองที่เลือก</p>';
+    return '<section class="aq710-auditbox"><div class="aq710-audithead"><div><h4>สรุปติดตามรายบุคคล • 20 ด่าน</h4>'+
+      '<p class="aq710-partnote">สรุปเฉพาะ '+verified.length+' คนที่ Backend ยืนยันแล้ว • อีก '+unverified+
+      ' คนยังไม่ตรวจ ไม่ถือว่าไม่ผ่าน • ไม่ใช้คะแนน Mission มาตัดสินว่าจบด่าน</p></div>'+select+'</div>'+
+      stats+table+'</section>';
+  }
   function heatmap(subject){
     const ss=cohort(),rows=subject?[subject]:ss;
     const counts=partCount();
@@ -114,7 +159,7 @@
           const a=latestBySession(s,id);
           return '<td class="aq710-cell '+colorClass(a?.score)+'" title="'+esc(id.toUpperCase()+': '+(a?num(a.score):'ยังไม่มีคะแนน Mission'))+'">'+(a?num(a.score):'—')+'</td>';
         })()).join('')+'</tr>').join('')+'</tbody></table></div>';
-    return intro+note+table+(heatMode==='parts'?partDetailHtml(subject):'');
+    return intro+note+table+(heatMode==='parts'?partDetailHtml(subject)+threePartSummary():'');
   }
   async function fetchOfficialParts(student,seq){
     const ctl=new AbortController();partController=ctl;
@@ -202,6 +247,11 @@
       else render();
       return;
     }
+    if(btn.hasAttribute('data-aq710-focus')){
+      const sel=document.getElementById('aq710Student');
+      if(sel){sel.value=String(btn.dataset.aq710Focus);render();}
+      return;
+    }
     if(btn.hasAttribute('data-aq710-inspect')){
       const s=cohort().find(x=>String(x.studentId)===btn.dataset.aq710Inspect);
       const inspector=window.AIQUEST_TEACHER_INSPECTOR_V704;
@@ -258,9 +308,25 @@
     .aq710-partcell.aq710-overlay-partial{box-shadow:inset 0 -3px 0 #fbbf24}
     .aq710-partcell.aq710-overlay-locked{box-shadow:inset 0 -3px 0 #64748b}
     .aq710-partcell.aq710-overlay-pending{box-shadow:inset 0 -3px 0 rgba(148,163,184,.20)}
+    .aq710-auditbox{margin-top:14px;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.28)}
+    .aq710-audithead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .aq710-audithead h4{margin:0 0 4px;font-size:15px}
+    .aq710-auditfilter{color:#b7c7dc;font-size:12px;display:flex;align-items:center;gap:6px}
+    .aq710-auditfilter select{min-width:150px;max-width:260px;padding:7px;border:1px solid #475569;border-radius:8px}
+    .aq710-auditstats{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+    .aq710-auditmetric{min-width:100px;padding:9px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.22);background:rgba(148,163,184,.06)}
+    .aq710-auditmetric small{font-size:10px;color:#a9bad3;display:block}
+    .aq710-auditmetric b{font-size:17px;display:block;margin-top:4px}
+    .aq710-auditscroll{overflow:auto;max-height:410px;border:1px solid rgba(148,163,184,.2);border-radius:9px}
+    .aq710-auditscroll table{width:100%;border-collapse:collapse;min-width:790px}
+    .aq710-auditscroll th,.aq710-auditscroll td{padding:8px 9px;border-bottom:1px solid rgba(148,163,184,.18);font-size:12px;text-align:left}
+    .aq710-auditscroll td small{display:block;color:#9fb2cc}
+    .aq710-auditscroll button{padding:6px 9px;background:#173555;color:#dff0ff;border:1px solid #40668c;border-radius:7px;cursor:pointer}
+    .aq710-auditscroll button:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
+
 
   `;document.head.appendChild(style);render();}
-  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
+  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.getElementById('aqLearningAnalyticsV710')?.addEventListener('change',e=>{if(e.target?.id==='aq710AuditFilter'){auditFilter=e.target.value;render();}});document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.AIQUEST_TEACHER_LEARNING_ANALYTICS_V710={VERSION,render,mount};
 })();
