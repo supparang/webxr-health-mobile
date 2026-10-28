@@ -1,6 +1,6 @@
 /**
  * =========================================================
- * CSAI2102 AI Quest Integrated Flow Receiver v1.3.6
+ * CSAI2102 AI Quest Integrated Flow Receiver v1.3.7
  * =========================================================
  *
  * Google Sheet is the sole authority.
@@ -30,7 +30,7 @@
 var AIQFLOW = AIQFLOW || {};
 
 AIQFLOW.VERSION =
-  '20261028-AIQ-FLOW-V1.3.6-ROSTER-LOCK-READ-CACHE';
+  '20261028-AIQ-FLOW-V1.3.7-CODING-EVIDENCE-RECONCILE';
 
 AIQFLOW.SECTION = '101';
 
@@ -553,6 +553,35 @@ AIQFLOW.sheetCandidates_ = function(names, requestCache) {
   (names || []).forEach(function(name) {
     var sh = ss.getSheetByName(name);
     if (sh) out.push(sh);
+  });
+  if (requestCache) requestCache[key] = out;
+  return out;
+};
+
+AIQFLOW.extraCodingSheets_ = function(requestCache) {
+  // Read-only discovery for coding evidence stored in historical/renamed tabs.
+  // Only sheets with exact student, session AND coding-specific headers qualify.
+  var key = 'extraCodingSheets';
+  if (requestCache && Object.prototype.hasOwnProperty.call(requestCache, key)) return requestCache[key];
+  var known = {
+    codingattempts: true,
+    aiquestcodingattempts: true,
+    codingattempt: true
+  };
+  var ss = AIQFLOW.ss_(), out = [];
+  ss.getSheets().forEach(function(sh) {
+    if (!sh || known[AIQFLOW.norm_(sh.getName())]) return;
+    if (sh.getLastRow() < 2 || sh.getLastColumn() < 3) return;
+    var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
+    var hasId = AIQFLOW.headerIndex_(headers, ['student_id','studentId','student_no','studentNo','pid']) >= 0;
+    var hasSession = AIQFLOW.headerIndex_(headers, ['session_id','sessionId','mission_id','missionId','session','mission']) >= 0;
+    var hasCodingEvidence = AIQFLOW.headerIndex_(headers, [
+      'coding_score','codingScore','completed_code','completedCode',
+      'modified_code','modifiedCode','prediction_answer','predictionAnswer',
+      'validation_mode','validationMode','quiz_score','quizScore',
+      'run_score','runScore'
+    ]) >= 0;
+    if (hasId && hasSession && hasCodingEvidence) out.push(sh);
   });
   if (requestCache) requestCache[key] = out;
   return out;
@@ -1355,163 +1384,44 @@ AIQFLOW.requestExists_ = function(
  * CODING STATUS
  * ========================================================= */
 
-AIQFLOW.codingStatus_ = function(
-  studentId,
-  section,
-  sessionId,
-  requestCache
-) {
-
-  var sheets =
-    AIQFLOW.sheetCandidates_([
-      'coding_attempts',
-      'aiquest_coding_attempts',
-      'AIQuest_Coding_Attempts',
-      'coding_attempt',
-      'Coding_Attempts'
-    ], requestCache);
-
-  var best = 0;
-  var count = 0;
-  var completed = false;
-  var sources = [];
-  var matched = [];
-
-  for (
-    var s = 0;
-    s < sheets.length;
-    s++
-  ) {
-
-    var sh =
-      sheets[s];
-
-    var data =
-      AIQFLOW.rows_(sh, requestCache);
-
-    var h =
-      data.headers;
-
-    var iScore =
-      AIQFLOW.headerIndex_(
-        h,
-        [
-          'coding_score',
-          'codingScore',
-          'score',
-          'total_score',
-          'totalScore'
-        ]
-      );
-
-    var iDone =
-      AIQFLOW.headerIndex_(
-        h,
-        [
-          'completed',
-          'passed',
-          'coding_completed',
-          'codingCompleted',
-          'status'
-        ]
-      );
-
-    var before =
-      count;
-
-    for (
-      var r = 0;
-      r < data.rows.length;
-      r++
-    ) {
-
-      var row =
-        data.rows[r];
-
-      if (
-        !AIQFLOW.sameIdentity_(
-          row,
-          h,
-          studentId,
-          section,
-          sessionId
-        )
-      ) {
-        continue;
-      }
-
+AIQFLOW.codingStatus_ = function(studentId, section, sessionId, requestCache) {
+  var sheets = AIQFLOW.sheetCandidates_([
+    'coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts',
+    'coding_attempt','Coding_Attempts'
+  ], requestCache);
+  var best = 0, count = 0, completed = false, sources = [], matched = [];
+  function inspect(sh) {
+    var data = AIQFLOW.rows_(sh, requestCache), h = data.headers;
+    var iScore = AIQFLOW.headerIndex_(h, [
+      'coding_score','codingScore','score','total_score','totalScore'
+    ]);
+    var iDone = AIQFLOW.headerIndex_(h, [
+      'completed','passed','coding_completed','codingCompleted','status'
+    ]);
+    var before = count;
+    for (var r = 0; r < data.rows.length; r++) {
+      var row = data.rows[r];
+      if (!AIQFLOW.sameIdentity_(row, h, studentId, section, sessionId)) continue;
       count++;
-
-      var score =
-        iScore >= 0
-          ? AIQFLOW.num_(
-              row[iScore]
-            )
-          : 0;
-
-      var done =
-        iDone >= 0
-          ? AIQFLOW.bool_(
-              row[iDone]
-            )
-          : false;
-
-      best =
-        Math.max(
-          best,
-          score
-        );
-
-      if (
-        score >= 60 ||
-        done
-      ) {
-        completed = true;
-      }
-
-      matched.push({
-        sheet:
-          sh.getName(),
-
-        row:
-          r + 2,
-
-        score:
-          score,
-
-        done:
-          done
-      });
+      var score = iScore >= 0 ? AIQFLOW.num_(row[iScore]) : 0;
+      var done = iDone >= 0 ? AIQFLOW.bool_(row[iDone]) : false;
+      best = Math.max(best, score);
+      if (score >= 60 || done) completed = true;
+      matched.push({sheet:sh.getName(), row:r+2, score:score, done:done});
     }
-
-    if (
-      count > before
-    ) {
-      sources.push(
-        sh.getName()
-      );
-    }
+    if (count > before) sources.push(sh.getName());
   }
-
+  sheets.forEach(inspect);
+  // The Coding Receiver's status repair can find valid attempts in other tab names.
+  // Reconcile only exact-identity, exact-session coding evidence. Never infer from Mission.
+  if (!completed) AIQFLOW.extraCodingSheets_(requestCache).forEach(inspect);
   return {
-    found:
-      count > 0,
-
-    completed:
-      completed ||
-      best >= 60,
-
-    bestScore:
-      best,
-
-    attemptCount:
-      count,
-
-    sourceSheets:
-      sources,
-
-    matched:
-      matched.slice(-5)
+    found: count > 0,
+    completed: completed || best >= 60,
+    bestScore: best,
+    attemptCount: count,
+    sourceSheets: sources,
+    matched: matched.slice(-5)
   };
 };
 
