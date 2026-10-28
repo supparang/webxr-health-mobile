@@ -117,6 +117,17 @@
       const data=await response.json();
       if(seq!==partSeq)return null;
       if(data?.ok!==true||!data.progress||typeof data.progress!=='object')throw Error(data?.code||'PROGRESS_RESPONSE_INVALID');
+      // No progress is a valid zero only if the official roster confirms the student.
+      if(data.found===false){
+        const rosterResponse=await fetch('https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec',{
+          method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+          body:JSON.stringify({module:'AIQFLOW',action:'LOOKUP_PROFILE',studentId:String(student.studentId),section:String(student.section||'101')}),
+          signal:ctl.signal
+        });
+        if(!rosterResponse.ok)throw Error('ROSTER_HTTP_'+rosterResponse.status);
+        const roster=await rosterResponse.json();
+        if(roster?.ok!==true||roster.found!==true)throw Error('ROSTER_NOT_VERIFIED');
+      }
       if(data.studentId&&String(data.studentId).toLowerCase()!==String(student.studentId).toLowerCase())throw Error('STUDENT_ID_MISMATCH');
       if(data.section&&String(data.section)!==String(student.section||'101'))throw Error('SECTION_MISMATCH');
       if(ORDER.some(id=>!Object.prototype.hasOwnProperty.call(data.progress,id)||typeof data.progress[id]!=='object'))throw Error('PROGRESS_INCOMPLETE_20_STAGES');
