@@ -1,11 +1,11 @@
-/* CSAI2102 Teacher Console — Learning Analytics Suite v7.1.0
+/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.0
    Part 2: heatmap, weak concepts, traps, risk, radar, timeline,
    alerts, class analytics, reflection analytics, evidence summary.
 */
 (()=>{'use strict';
   if(window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__)return;
   window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__=true;
-  const VERSION='v7.1.0';
+  const VERSION='v7.2.0';
   const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
   const TITLES={s1:'S1',s2:'S2',s3:'S3',b1:'B1',s4:'S4',s5:'S5',s6:'S6',b2:'B2',s7:'S7',s8:'S8',s9:'S9',b3:'B3',s10:'S10',s11:'S11',s12:'S12',b4:'B4',s13:'S13',s14:'S14',s15:'S15',b5:'B5'};
   const runtime=()=>window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532||null;
@@ -30,7 +30,162 @@
   function studentOptions(){return ['<option value="all">ทั้งห้อง</option>',...cohort().map(s=>`<option value="${esc(s.studentId)}">${esc(s.studentId)} • ${esc(s.studentName||'')}</option>`)].join('');}
   function card(title,body,cls=''){return `<section class="aq710-card ${cls}"><h3>${title}</h3>${body}</section>`;}
   function bar(label,value,sub=''){const p=pct(value);return `<div class="aq710-barrow"><div><b>${esc(label)}</b>${sub?`<small>${esc(sub)}</small>`:''}</div><span>${p}%</span><div class="aq710-bar"><i style="width:${p}%"></i></div></div>`;}
-  function heatmap(subject){const rows=subject?[subject]:cohort().filter(s=>attempts(s).length);if(!rows.length)return '<div class="aq710-empty">ยังไม่มี attempt ใน cohort นี้</div>';return `<div class="aq710-heatwrap"><table><thead><tr><th>Student</th>${ORDER.map(id=>`<th>${TITLES[id]}</th>`).join('')}</tr></thead><tbody>${rows.map(s=>`<tr><td><b>${esc(s.studentId)}</b><small>${esc(s.studentName||'')}</small></td>${ORDER.map(id=>{const a=latestBySession(s,id);return `<td class="aq710-cell ${colorClass(a?.score)}" title="${esc(id.toUpperCase())}: ${a?num(a.score):'ยังไม่มีข้อมูล'}">${a?num(a.score):'—'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;}
+
+  /* =========================================================
+   * Three-part (Mission / Coding Lab / Reflection) heatmap.
+   * Mission score is NOT evidence that the stage is fully complete.
+   * Only AIQFLOW.GET_FLOW_PROGRESS can certify the three official parts.
+   * One bounded, cancellable student request at a time; never auto-fetch class.
+   * ========================================================= */
+  let heatMode='parts';
+  const partCache=new Map();
+  const partErrors=new Map();
+  let partBusy=false,partSeq=0,partController=null,partStatus='',partDetail=null;
+  const partKey=s=>String(s?.studentId||'').trim().toLowerCase()+'|'+String(s?.section||'101').trim();
+  const partBool=x=>x===true;
+  const partLabel=(v,found)=>v===true?'ผ่าน':v===false?(found===false?'ไม่พบหลักฐาน':'ยังไม่ผ่าน'):'ยังไม่ยืนยัน';
+  function partCount(){
+    const ss=cohort();
+    return {total:ss.length,verified:ss.filter(s=>partCache.has(partKey(s))).length,errors:ss.filter(s=>partErrors.has(partKey(s))).length};
+  }
+  function partCell(s,id){
+    const key=partKey(s),p=partCache.get(key);
+    if(!p){
+      const err=partErrors.get(key);
+      return '<td class="aq710-partcell pending"><button type="button" data-aq710-cell="'+esc(s.studentId)+'" data-aq710-stage="'+esc(id)+'" title="'+esc(err?'ยังอ่านจาก Sheet ไม่สำเร็จ: '+err+' • คลิกเพื่อลองใหม่':'ยังไม่ตรวจหลักฐาน 3 ส่วน • คลิกเพื่อโหลดเฉพาะคนนี้')+'">'+(err?'!':'—')+'</button></td>';
+    }
+    const r=p[id];
+    if(!r||typeof r!=='object'){
+      return '<td class="aq710-partcell pending">?</td>';
+    }
+    const m=partBool(r.mission?.completed),code=partBool(r.coding?.completed),ref=partBool(r.reflection?.completed);
+    const done=m&&code&&ref,locked=r.unlocked===false&&!done;
+    const title=id.toUpperCase()+' • '+s.studentId+' • Mission: '+partLabel(r.mission?.completed,r.mission?.found)+' / Coding: '+partLabel(r.coding?.completed,r.coding?.found)+' / Reflection: '+partLabel(r.reflection?.completed,r.reflection?.found)+(locked?' • ด่านยังล็อก':'');
+    const content=locked?'<span class="aq710-trilock">🔒</span>':'<span class="aq710-tri" aria-hidden="true">'+
+       '<span class="'+(m?'yes':'no')+'">M'+(m?'✓':'○')+'</span>'+
+       '<span class="'+(code?'yes':'no')+'">C'+(code?'✓':'○')+'</span>'+
+       '<span class="'+(ref?'yes':'no')+'">R'+(ref?'✓':'○')+'</span></span>';
+    const status=done?'complete':locked?'locked':(m||code||ref?'partial':'notstarted');
+    return '<td class="aq710-partcell '+status+'"><button type="button" data-aq710-cell="'+esc(s.studentId)+'" data-aq710-stage="'+esc(id)+'" title="'+esc(title)+'" aria-label="'+esc(title)+'">'+content+'</button></td>';
+  }
+  function partDetailHtml(subject){
+    if(!partDetail)return '';
+    const s=cohort().find(x=>String(x.studentId)===partDetail.studentId);
+    const r=s&&partCache.get(partKey(s))?.[partDetail.stage];
+    if(!s||!r)return '';
+    const stage=partDetail.stage.toUpperCase();
+    const done=partBool(r.mission?.completed)&&partBool(r.coding?.completed)&&partBool(r.reflection?.completed);
+    const missionScore=r.mission?.gradedRows?num(r.mission.bestScore):'—';
+    const codingScore=r.coding?.found?num(r.coding.bestScore):'—';
+    const next=done?'ครบทั้ง 3 ส่วน':r.unlocked===false?'ยังไม่ปลดล็อก':!partBool(r.mission?.completed)?'Mission':!partBool(r.coding?.completed)?'Coding Lab':'Reflection';
+    return '<div class="aq710-partdetail"><div><b>'+esc(s.studentId+' • '+s.studentName+' • '+stage)+'</b><span>Mission '+esc(partLabel(r.mission?.completed,r.mission?.found))+' ('+esc(missionScore)+') • Coding '+esc(partLabel(r.coding?.completed,r.coding?.found))+' ('+esc(codingScore)+') • Reflection '+esc(partLabel(r.reflection?.completed,r.reflection?.found))+'</span><span>ขั้นที่ต้องทำต่อ: '+esc(next)+'</span></div><button type="button" data-aq710-inspect="'+esc(s.studentId)+'" data-aq710-stage="'+esc(partDetail.stage)+'">ดู Mission Attempts</button></div>';
+  }
+  function heatmap(subject){
+    const ss=cohort(),rows=subject?[subject]:ss;
+    const counts=partCount();
+    const intro='<div class="aq710-heattools"><div class="aq710-mode">'+
+      '<button type="button" data-aq710-mode="parts" class="'+(heatMode==='parts'?'active':'')+'">ครบ 3 ส่วน (M/C/R)</button>'+
+      '<button type="button" data-aq710-mode="scores" class="'+(heatMode==='scores'?'active':'')+'">คะแนน Mission</button></div>'+
+      (heatMode==='parts'?'<div class="aq710-partactions">'+
+       '<button type="button" data-aq710-check="batch" '+(partBusy?'disabled':'')+'>ตรวจ 5 คนถัดไป</button>'+
+       '<button type="button" data-aq710-check="all" '+(partBusy?'disabled':'')+'>ตรวจทั้งห้อง</button>'+
+       (partBusy?'<button type="button" data-aq710-stop="1">หยุดการตรวจ</button>':'')+
+       '</div>':'')+'</div>';
+    if(!rows.length)return intro+'<div class="aq710-empty">ยังไม่มีรายชื่อนักศึกษาในกลุ่มที่เลือก</div>';
+    const note=heatMode==='parts'?'<p class="aq710-partnote">M = Mission • C = Coding Lab • R = Reflection • ✓ ผ่าน • ○ ยังไม่ผ่าน • 🔒 ล็อก • — ยังไม่ได้ตรวจจาก Sheet • คลิกช่องเพื่อดูรายละเอียด/ตรวจรายคน</p><p class="aq710-partnote">'+
+       'ยืนยันแล้ว '+counts.verified+'/'+counts.total+' คน'+(counts.errors?' • มีข้อผิดพลาด '+counts.errors+' คน':'')+
+       (partStatus?' • '+esc(partStatus):' • กดตรวจ 5 คนถัดไปหรือทั้งห้องเพื่อดึงหลักฐานทางการ')+
+       '</p>':'<p class="aq710-partnote">มุมมองนี้แสดงเฉพาะคะแนน Mission ไม่ใช่ผลจบครบสามส่วน</p>';
+    const table='<div class="aq710-heatwrap"><table><thead><tr><th>Student</th>'+ORDER.map(id=>'<th>'+TITLES[id]+'</th>').join('')+'</tr></thead><tbody>'+
+      rows.map(s=>'<tr><td><b>'+esc(s.studentId)+'</b><small>'+esc(s.studentName||'')+'</small></td>'+
+        ORDER.map(id=>heatMode==='parts'?partCell(s,id):(()=>{
+          const a=latestBySession(s,id);
+          return '<td class="aq710-cell '+colorClass(a?.score)+'" title="'+esc(id.toUpperCase()+': '+(a?num(a.score):'ยังไม่มีคะแนน Mission'))+'">'+(a?num(a.score):'—')+'</td>';
+        })()).join('')+'</tr>').join('')+'</tbody></table></div>';
+    return intro+note+table+(heatMode==='parts'?partDetailHtml(subject):'');
+  }
+  async function fetchOfficialParts(student,seq){
+    const ctl=new AbortController();partController=ctl;
+    const timer=setTimeout(()=>ctl.abort(),35000);
+    try{
+      const response=await fetch('https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec',{
+        method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+        body:JSON.stringify({module:'AIQFLOW',action:'GET_FLOW_PROGRESS',studentId:String(student.studentId),section:String(student.section||'101')}),
+        signal:ctl.signal
+      });
+      if(!response.ok)throw Error('HTTP_'+response.status);
+      const data=await response.json();
+      if(seq!==partSeq)return null;
+      if(data?.ok!==true||!data.progress||typeof data.progress!=='object')throw Error(data?.code||'PROGRESS_RESPONSE_INVALID');
+      if(data.studentId&&String(data.studentId).toLowerCase()!==String(student.studentId).toLowerCase())throw Error('STUDENT_ID_MISMATCH');
+      if(data.section&&String(data.section)!==String(student.section||'101'))throw Error('SECTION_MISMATCH');
+      if(ORDER.some(id=>!Object.prototype.hasOwnProperty.call(data.progress,id)||typeof data.progress[id]!=='object'))throw Error('PROGRESS_INCOMPLETE_20_STAGES');
+      if(ORDER.some(id=>!data.progress[id].mission||!data.progress[id].coding||!data.progress[id].reflection||
+         typeof data.progress[id].mission.completed!=='boolean'||typeof data.progress[id].coding.completed!=='boolean'||
+         typeof data.progress[id].reflection.completed!=='boolean'||typeof data.progress[id].unlocked!=='boolean'))throw Error('PROGRESS_INVALID_PART_FLAGS');
+      return data.progress;
+    }finally{clearTimeout(timer);if(partController===ctl)partController=null;}
+  }
+  async function verifyParts(list,limit){
+    if(partBusy)return;
+    const queue=list.filter(s=>s?.studentId).filter(s=>!partCache.has(partKey(s))).slice(0,limit);
+    if(!queue.length){partStatus='ทุกคนในรายการนี้ตรวจแล้ว';render();return;}
+    const seq=++partSeq;partBusy=true;let succeeded=0,failed=0,consecutiveFailures=0;
+    for(let i=0;i<queue.length;i++){
+      if(seq!==partSeq)break;
+      const s=queue[i],key=partKey(s);
+      partStatus='กำลังตรวจ '+(i+1)+'/'+queue.length+' • '+s.studentId;render();
+      try{
+        const progress=await fetchOfficialParts(s,seq);
+        if(seq!==partSeq)break;
+        if(progress){partCache.set(key,progress);partErrors.delete(key);succeeded++;consecutiveFailures=0;}
+      }catch(e){
+        if(seq!==partSeq)break;
+        const reason=e?.name==='AbortError'?'REQUEST_TIMEOUT':String(e?.message||e);
+        partErrors.set(key,reason);failed++;consecutiveFailures++;
+        if(consecutiveFailures>=2){partStatus='Backend ตอบไม่สำเร็จ 2 ครั้งติด จึงหยุดเพื่อไม่ให้ระบบโหลดหนัก';break;}
+      }
+      partStatus='ตรวจแล้ว '+succeeded+'/'+(i+1)+' คน • ข้อผิดพลาด '+failed;
+      render();
+    }
+    if(seq===partSeq){
+      partBusy=false;
+      const halted=consecutiveFailures>=2;
+      if(!halted)partStatus='ตรวจเสร็จ '+succeeded+' คน'+(failed?' • ยืนยันไม่ได้ '+failed+' คน':'');
+      render();
+    }
+  }
+  function stopPartChecks(clear){
+    partSeq++;
+    partController?.abort();
+    partController=null;partBusy=false;
+    if(clear){partCache.clear();partErrors.clear();partDetail=null;partStatus='ข้อมูลที่ตรวจไว้ถูกล้างหลัง Refresh';}
+    else partStatus='หยุดตรวจแล้ว • ผลที่ได้รับก่อนหน้ายังคงแสดงอยู่';
+    render();
+  }
+  function heatClick(e){
+    const btn=e.target.closest?.('button');if(!btn||!e.currentTarget?.contains(btn))return;
+    if(btn.hasAttribute('data-aq710-mode')){heatMode=btn.dataset.aq710Mode;render();return;}
+    if(btn.hasAttribute('data-aq710-stop')){stopPartChecks(false);return;}
+    if(btn.hasAttribute('data-aq710-check')){
+      const selected=selectedStudent(),ss=selected?[selected]:cohort();
+      verifyParts(ss,btn.dataset.aq710Check==='batch'?5:ss.length);return;
+    }
+    if(btn.hasAttribute('data-aq710-cell')){
+      const s=cohort().find(x=>String(x.studentId)===btn.dataset.aq710Cell);
+      if(!s)return;
+      partDetail={studentId:String(s.studentId),stage:String(btn.dataset.aq710Stage)};
+      if(!partCache.has(partKey(s)))verifyParts([s],1);
+      else render();
+      return;
+    }
+    if(btn.hasAttribute('data-aq710-inspect')){
+      const s=cohort().find(x=>String(x.studentId)===btn.dataset.aq710Inspect);
+      const inspector=window.AIQUEST_TEACHER_INSPECTOR_V704;
+      if(s&&inspector?.openSession)inspector.openSession(s,btn.dataset.aq710Stage);
+      else{partStatus='ไม่สามารถเปิด Teacher Inspector ได้';render();}
+    }
+  }
   function conceptStats(subject){const map=new Map();const ss=subject?[subject]:cohort();ss.forEach(s=>attempts(s).forEach(a=>{const x=meta(a),cards=arr(obj(x.replayAudit).cards),base=num(a.accuracy,a.score);cards.forEach(c=>{const k=String(c.concept||'').trim();if(!k)return;const z=map.get(k)||{n:0,sum:0};z.n++;z.sum+=base;map.set(k,z);});}));return [...map.entries()].map(([k,z])=>({k,n:z.n,score:z.sum/z.n})).sort((a,b)=>a.score-b.score||b.n-a.n);}
   function trapStats(subject){const map=new Map();const ss=subject?[subject]:cohort();ss.forEach(s=>attempts(s).forEach(a=>{const x=meta(a),trap=x.selectedCaseTrap;if(trap){const z=map.get(trap)||{n:0,sum:0};z.n++;z.sum+=num(a.score);map.set(trap,z);}arr(obj(x.replayAudit).cards).forEach(c=>{if(!c.trap)return;const z=map.get(c.trap)||{n:0,sum:0};z.n++;z.sum+=num(a.score);map.set(c.trap,z);});}));return [...map.entries()].map(([k,z])=>({k,n:z.n,score:z.sum/z.n})).sort((a,b)=>a.score-b.score||b.n-a.n);}
   function riskStats(subject){const risks={LOW:[],MEDIUM:[],HIGH:[],CRITICAL:[]};const ss=subject?[subject]:cohort();ss.forEach(s=>attempts(s).forEach(a=>{const x=meta(a),cards=arr(obj(x.replayAudit).cards);cards.forEach(c=>{const r=String(c.risk||'').toUpperCase();if(risks[r])risks[r].push(num(a.score));});}));return risks;}
@@ -50,8 +205,27 @@
   }
   function mount(){if(document.getElementById('aqLearningAnalyticsV710'))return;const section=document.createElement('section');section.id='aqLearningAnalyticsV710';section.className='card aq710-root';section.innerHTML='<div class="loading">กำลังสร้าง Learning Analytics 1–10…</div>';const target=document.getElementById('phase2AuditBox');(target?.parentNode||document.querySelector('main'))?.insertBefore(section,target?.nextSibling||null);const style=document.createElement('style');style.textContent=`
     .aq710-root{margin-top:16px}.aq710-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.aq710-head p{color:#9fb2cc;margin:5px 0 0}.aq710-head select{min-width:280px}.aq710-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.aq710-grid.wide{grid-template-columns:2fr 1fr 1fr}.aq710-card{border:1px solid rgba(148,163,184,.2);border-radius:17px;padding:14px;background:rgba(255,255,255,.025);min-width:0}.aq710-card.span2{grid-column:span 2}.aq710-card h3{margin:0 0 12px}.aq710-empty{color:#9fb2cc;padding:18px;text-align:center}.aq710-heatwrap,.aq710-class{overflow:auto}.aq710-heatwrap table,.aq710-class table{min-width:760px;width:100%;border-collapse:collapse}.aq710-heatwrap th,.aq710-heatwrap td,.aq710-class th,.aq710-class td{padding:8px;border-bottom:1px solid rgba(148,163,184,.12);font-size:12px}.aq710-heatwrap td:first-child{position:sticky;left:0;background:#111c31;z-index:1}.aq710-heatwrap td small{display:block;color:#9fb2cc}.aq710-cell{text-align:center;font-weight:900;border-radius:7px}.aq710-cell.good{background:rgba(34,197,94,.22)}.aq710-cell.mid{background:rgba(251,191,36,.20)}.aq710-cell.bad{background:rgba(248,113,113,.22)}.aq710-cell.none{color:#64748b}.aq710-barrow{display:grid;grid-template-columns:1fr auto;gap:5px;margin:10px 0}.aq710-barrow small{display:block;color:#9fb2cc}.aq710-bar{grid-column:1/3;height:8px;background:rgba(148,163,184,.16);border-radius:99px;overflow:hidden}.aq710-bar i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px}.aq710-radar{display:grid;place-items:center}.aq710-radar svg{width:min(100%,340px)}.aq710-radar .grid circle,.aq710-radar .grid line{fill:none;stroke:rgba(148,163,184,.25)}.aq710-radar text{fill:#9fb2cc;font-size:9px}.aq710-radar polygon{fill:rgba(56,189,248,.25);stroke:#38bdf8;stroke-width:2}.aq710-timeline{display:flex;gap:8px;overflow:auto;padding:8px 0}.aq710-node{min-width:78px;padding:10px;border-radius:12px;text-align:center;background:rgba(148,163,184,.12)}.aq710-node b,.aq710-node strong,.aq710-node span{display:block}.aq710-node strong{font-size:23px}.aq710-node.good{border:1px solid rgba(34,197,94,.4)}.aq710-node.mid{border:1px solid rgba(251,191,36,.4)}.aq710-node.bad{border:1px solid rgba(248,113,113,.4)}.aq710-alert{padding:10px;border-radius:12px;margin:8px 0;border:1px solid rgba(148,163,184,.22)}.aq710-alert b,.aq710-alert span{display:block}.aq710-alert span{color:#9fb2cc;margin-top:3px}.aq710-alert.bad{border-color:rgba(248,113,113,.5)}.aq710-alert.warn{border-color:rgba(251,191,36,.5)}.aq710-alert.good{border-color:rgba(34,197,94,.5)}.aq710-quality{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.aq710-quality div{padding:10px;text-align:center;border:1px solid rgba(148,163,184,.2);border-radius:12px}.aq710-quality b,.aq710-quality span{display:block}.aq710-quality b{font-size:22px}.aq710-quality span{color:#9fb2cc;font-size:12px}.aq710-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.aq710-tags span{padding:5px 8px;border-radius:99px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);font-size:12px}.aq710-summary{font-size:16px;line-height:1.7;padding:14px;border-radius:14px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.25)}.aq710-note{color:#9fb2cc;font-size:12px}@media(max-width:980px){.aq710-grid,.aq710-grid.wide{grid-template-columns:1fr 1fr}.aq710-card.span2{grid-column:span 2}}@media(max-width:680px){.aq710-grid,.aq710-grid.wide{grid-template-columns:1fr}.aq710-card.span2{grid-column:span 1}.aq710-quality{grid-template-columns:1fr 1fr}.aq710-head select{min-width:0;width:100%}}
+
+    .aq710-heattools{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin:0 0 9px}
+    .aq710-mode,.aq710-partactions{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+    .aq710-heattools button,.aq710-partdetail button{background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:9px;padding:7px 9px;font-size:12px;cursor:pointer}
+    .aq710-heattools button.active{background:#075985;border-color:#38bdf8;color:white;font-weight:800}
+    .aq710-heattools button:disabled{opacity:.5;cursor:not-allowed}
+    .aq710-partnote{color:#9fb2cc;font-size:12px;line-height:1.5;margin:5px 0 8px}
+    .aq710-partcell{padding:4px!important;text-align:center}
+    .aq710-partcell button{min-width:64px;width:100%;border:0;border-radius:6px;padding:7px 4px;background:transparent;color:inherit;cursor:pointer}
+    .aq710-partcell.complete{background:rgba(34,197,94,.22)}
+    .aq710-partcell.partial{background:rgba(251,191,36,.16)}
+    .aq710-partcell.notstarted{background:rgba(148,163,184,.06)}
+    .aq710-partcell.locked,.aq710-partcell.pending{color:#a1acc0}
+    .aq710-tri{display:flex;align-items:center;justify-content:center;gap:3px}
+    .aq710-tri span{font-size:10px;white-space:nowrap}
+    .aq710-tri .yes{color:#86efac}.aq710-tri .no{color:#fbbf24}
+    .aq710-partdetail{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.07);border-radius:12px;padding:11px;margin-top:10px}
+    .aq710-partdetail div span{display:block;color:#a9bad3;font-size:12px;margin-top:5px}
+    .aq710-partcell button:focus-visible,.aq710-heattools button:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
   `;document.head.appendChild(style);render();}
-  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>setTimeout(render,1200));window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
+  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.AIQUEST_TEACHER_LEARNING_ANALYTICS_V710={VERSION,render,mount};
 })();
