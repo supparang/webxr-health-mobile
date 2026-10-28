@@ -1,6 +1,6 @@
 /**
  * =========================================================
- * CSAI2102 AI Quest Integrated Flow Receiver v1.3.7
+ * CSAI2102 AI Quest Integrated Flow Receiver v1.3.8
  * =========================================================
  *
  * Google Sheet is the sole authority.
@@ -30,7 +30,7 @@
 var AIQFLOW = AIQFLOW || {};
 
 AIQFLOW.VERSION =
-  '20261028-AIQ-FLOW-V1.3.7-CODING-EVIDENCE-RECONCILE';
+  '20261028-AIQ-FLOW-V1.3.8-CODING-SCORE-ALIGN';
 
 AIQFLOW.SECTION = '101';
 
@@ -559,29 +559,36 @@ AIQFLOW.sheetCandidates_ = function(names, requestCache) {
 };
 
 AIQFLOW.extraCodingSheets_ = function(requestCache) {
-  // Read-only discovery for coding evidence stored in historical/renamed tabs.
-  // Only sheets with exact student, session AND coding-specific headers qualify.
+  // Read-only discovery of Coding-specific historical tabs. Only invoked if
+  // the known Coding sheets do not already prove completion.
   var key = 'extraCodingSheets';
   if (requestCache && Object.prototype.hasOwnProperty.call(requestCache, key)) return requestCache[key];
-  var known = {
-    codingattempts: true,
-    aiquestcodingattempts: true,
-    codingattempt: true
-  };
-  var ss = AIQFLOW.ss_(), out = [];
+  var known = { codingattempts: true, aiquestcodingattempts: true, codingattempt: true };
+  var out = [], ss = AIQFLOW.ss_();
   ss.getSheets().forEach(function(sh) {
     if (!sh || known[AIQFLOW.norm_(sh.getName())]) return;
     if (sh.getLastRow() < 2 || sh.getLastColumn() < 3) return;
     var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
-    var hasId = AIQFLOW.headerIndex_(headers, ['student_id','studentId','student_no','studentNo','pid']) >= 0;
-    var hasSession = AIQFLOW.headerIndex_(headers, ['session_id','sessionId','mission_id','missionId','session','mission']) >= 0;
-    var hasCodingEvidence = AIQFLOW.headerIndex_(headers, [
+    var hasId = AIQFLOW.headerIndex_(headers, [
+      'student_id','studentId','student','student_no','studentNo','pid'
+    ]) >= 0;
+    var hasSession = AIQFLOW.headerIndex_(headers, [
+      'session_id','sessionId','mission_id','missionId','session','mission'
+    ]) >= 0;
+    if (!hasId || !hasSession) return;
+    var codingEvidence = AIQFLOW.headerIndex_(headers, [
       'coding_score','codingScore','completed_code','completedCode',
       'modified_code','modifiedCode','prediction_answer','predictionAnswer',
       'validation_mode','validationMode','quiz_score','quizScore',
-      'run_score','runScore'
+      'run_score','runScore','modify_score','modifyScore',
+      'challenge_score','challengeScore','coding_completed','codingCompleted'
     ]) >= 0;
-    if (hasId && hasSession && hasCodingEvidence) out.push(sh);
+    var namedCoding = /coding/i.test(sh.getName()) &&
+      AIQFLOW.headerIndex_(headers, [
+        'score','best_score','bestScore','total_score','totalScore',
+        'completed','passed','status','mastered'
+      ]) >= 0;
+    if (codingEvidence || namedCoding) out.push(sh);
   });
   if (requestCache) requestCache[key] = out;
   return out;
@@ -1384,6 +1391,45 @@ AIQFLOW.requestExists_ = function(
  * CODING STATUS
  * ========================================================= */
 
+AIQFLOW.codingIdentityMatch_ = function(row, headers, studentId, section, sessionId) {
+  // Match the exact student/section/stage used by Coding Status Repair.
+  // A missing section in legacy Coding evidence defaults to 101, as in AIQCODING.
+  var iId = AIQFLOW.headerIndex_(headers, [
+    'student_id','studentId','student','student_no','studentNo','id','pid'
+  ]);
+  var iSec = AIQFLOW.headerIndex_(headers, [
+    'section','section_id','sectionId','class_section','classSection'
+  ]);
+  var iSession = AIQFLOW.headerIndex_(headers, [
+    'session_id','sessionId','session','mission_id','missionId','mission'
+  ]);
+  if (iId < 0 || iSession < 0) return false;
+  var rowSection = iSec < 0 || !AIQFLOW.text_(row[iSec]) ? '101' : row[iSec];
+  return AIQFLOW.idKey_(row[iId]) === AIQFLOW.idKey_(studentId) &&
+    AIQFLOW.sectionKey_(rowSection) === AIQFLOW.sectionKey_(section) &&
+    AIQFLOW.sessionKey_(row[iSession]) === AIQFLOW.sessionKey_(sessionId);
+};
+
+AIQFLOW.codingScore_ = function(row, headers) {
+  // Same score precedence as AIQCODING Status Repair: an explicit saved
+  // Coding score wins; otherwise reconstruct only from Coding component columns.
+  var direct = AIQFLOW.headerIndex_(headers, [
+    'coding_score','codingScore','best_score','bestScore','score',
+    'total_score','totalScore'
+  ]);
+  if (direct >= 0 && AIQFLOW.text_(row[direct]) !== '') {
+    return AIQFLOW.num_(row[direct]);
+  }
+  function part(names) {
+    var i = AIQFLOW.headerIndex_(headers, names);
+    return i < 0 ? 0 : AIQFLOW.num_(row[i]);
+  }
+  return part(['run_score','runScore']) +
+    part(['modify_score','modifyScore']) +
+    part(['challenge_score','challengeScore']) +
+    Math.min(20, part(['quiz_score','quizScore']) * 4);
+};
+
 AIQFLOW.codingStatus_ = function(studentId, section, sessionId, requestCache) {
   var sheets = AIQFLOW.sheetCandidates_([
     'coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts',
@@ -1392,28 +1438,25 @@ AIQFLOW.codingStatus_ = function(studentId, section, sessionId, requestCache) {
   var best = 0, count = 0, completed = false, sources = [], matched = [];
   function inspect(sh) {
     var data = AIQFLOW.rows_(sh, requestCache), h = data.headers;
-    var iScore = AIQFLOW.headerIndex_(h, [
-      'coding_score','codingScore','score','total_score','totalScore'
-    ]);
     var iDone = AIQFLOW.headerIndex_(h, [
-      'completed','passed','coding_completed','codingCompleted','status'
+      'completed','passed','mastered','coding_completed','codingCompleted','status'
     ]);
     var before = count;
     for (var r = 0; r < data.rows.length; r++) {
       var row = data.rows[r];
-      if (!AIQFLOW.sameIdentity_(row, h, studentId, section, sessionId)) continue;
+      if (!AIQFLOW.codingIdentityMatch_(row, h, studentId, section, sessionId)) continue;
       count++;
-      var score = iScore >= 0 ? AIQFLOW.num_(row[iScore]) : 0;
+      var score = AIQFLOW.codingScore_(row, h);
       var done = iDone >= 0 ? AIQFLOW.bool_(row[iDone]) : false;
       best = Math.max(best, score);
       if (score >= 60 || done) completed = true;
-      matched.push({sheet:sh.getName(), row:r+2, score:score, done:done});
+      matched.push({sheet:sh.getName(),row:r+2,score:score,done:done});
     }
     if (count > before) sources.push(sh.getName());
   }
   sheets.forEach(inspect);
-  // The Coding Receiver's status repair can find valid attempts in other tab names.
-  // Reconcile only exact-identity, exact-session coding evidence. Never infer from Mission.
+  // Historical Coding tabs may have generic score/status headers but still
+  // contain exact Coding evidence. Never infer completion from Mission score.
   if (!completed) AIQFLOW.extraCodingSheets_(requestCache).forEach(inspect);
   return {
     found: count > 0,
