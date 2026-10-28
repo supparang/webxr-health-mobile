@@ -226,8 +226,8 @@
         finished = true;
         cleanup();
         resolve({
-          ok: true,
-          accepted: true,
+          ok: false,
+          accepted: false,
           transport: 'form-post-fallback',
           fallbackReason: reason || '',
           pendingVerification: true,
@@ -252,8 +252,8 @@
         finished = true;
         cleanup();
         resolve({
-          ok: true,
-          accepted: true,
+          ok: false,
+          accepted: false,
           transport: 'form-post-fallback',
           fallbackReason: reason || '',
           pendingVerification: true,
