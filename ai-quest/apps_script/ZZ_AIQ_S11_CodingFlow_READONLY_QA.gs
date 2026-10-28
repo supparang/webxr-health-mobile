@@ -202,3 +202,113 @@ function TEST_AIQ_S11_CODING_EVIDENCE_LOCATOR_READONLY() {
   Logger.log(JSON.stringify(report));
   return report;
 }
+
+
+/**
+ * Third-stage diagnostic: the previous locator proved no exact S11 Coding row.
+ * Show WHICH stages this student's existing Coding rows belong to, without
+ * logging names, IDs, answer text, or other students' row contents.
+ * The name check is a diagnostic hint ONLY and never authorizes any unlock.
+ * Safe to run from the Apps Script Editor, no deployment needed.
+ */
+function TEST_AIQ_S11_CODING_STAGE_DISTRIBUTION_READONLY() {
+  var props=PropertiesService.getScriptProperties();
+  var sid=String(props.getProperty('AIQ_QA_STUDENT_ID')||'').trim();
+  var section=String(props.getProperty('AIQ_QA_SECTION')||'101').trim();
+  var stage=String(props.getProperty('AIQ_QA_SESSION')||'S11').trim();
+  var report={audit:'AIQ_S11_CODING_STAGE_DISTRIBUTION_V3',
+    mode:'READ_ONLY_NO_WRITE',studentConfigured:!!sid,section:section,
+    targetSession:stage,source:'ACTIVE_SPREADSHEET_EDITOR',
+    tables:[],exactCodingRows:0,nameOnlyCandidatesAtTarget:0,
+    conclusion:'NOT_RUN'};
+  if(!sid||typeof AIQFLOW==='undefined'||typeof AIQFLOW.findProfile_!=='function') {
+    report.conclusion='IDENTITY_OR_FLOW_MISSING';
+    Logger.log(JSON.stringify(report));return report;
+  }
+  var profile=AIQFLOW.findProfile_(sid,section);
+  if(!profile) {
+    report.conclusion='ROSTER_NOT_AUTHORIZED';
+    Logger.log(JSON.stringify(report));return report;
+  }
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ss) {report.conclusion='SPREADSHEET_MISSING';Logger.log(JSON.stringify(report));return report;}
+  report.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
+  var idCols=['student_id','studentId','student','student_no','studentNo','id','pid'];
+  var secCols=['section','section_id','sectionId','class_section','classSection'];
+  var stageCols=['session_id','sessionId','mission_id','missionId','session','mission'];
+  var nameCols=['student_name','studentName','name','full_name','nickname'];
+  var evidenceCols=['coding_score','codingScore','coding_completed','codingCompleted',
+    'run_score','runScore','quiz_score','quizScore','completed_code','completedCode',
+    'modified_code','modifiedCode','prediction_answer','predictionAnswer',
+    'validation_mode','validationMode','modify_score','modifyScore'];
+  var timestampCols=['submitted_at','submittedAt','serverTs','created_at','createdAt'];
+  function index(h,n){return AIQFLOW.headerIndex_(h,n);}
+  function text(v){return String(v==null?'':v).trim();}
+  function canonicalStage(raw) {
+    return AIQFLOW.sessionKey_(raw)||'UNRECOGNIZED_STAGE';
+  }
+  function nameKey(v){return text(v).toLowerCase().replace(/[\s.\-_,]+/g,'');}
+  var targetName=nameKey(profile.studentName);
+  var targetStage=canonicalStage(stage);
+  var hasExact=false,hasRawUnknown=false,otherNameCandidate=false;
+  ss.getSheets().forEach(function(sh) {
+    if(sh.getLastRow()<2||sh.getLastColumn()<1)return;
+    var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
+    var idCol=index(headers,idCols),stageCol=index(headers,stageCols);
+    var codingCol=index(headers,evidenceCols);
+    var isCoding=/coding/i.test(sh.getName())||codingCol>=0;
+    if(!isCoding||idCol<0||stageCol<0)return;
+    var secCol=index(headers,secCols),nameCol=index(headers,nameCols);
+    var tsCol=index(headers,timestampCols);
+    var n=sh.getLastRow()-1;
+    function column(col){return col>=0?sh.getRange(2,col+1,n,1).getDisplayValues().map(function(x){return x[0];}):null;}
+    var ids=column(idCol),stages=column(stageCol),sections=column(secCol);
+    var names=targetName?column(nameCol):null;
+    var timestamps=column(tsCol);
+    var info={sheet:sh.getName(),sourceType:/coding/i.test(sh.getName())?'CODING_TAB':'SUMMARY_OR_OTHER_TAB',
+      totalRows:n,matchesStudentId:0,exactStudentAndStage:0,
+      studentOtherSection:0,studentStageCounts:{},
+      recentStudentRows:[],sameNameTargetButDifferentId:0,
+      unrecognizedSessionCount:0};
+    for(var i=0;i<n;i++){
+      var isId=AIQFLOW.idKey_(ids[i])===AIQFLOW.idKey_(sid);
+      var isStage=canonicalStage(stages[i])===targetStage;
+      var isSection=AIQFLOW.sectionKey_((sections&&sections[i])||'101')===
+                    AIQFLOW.sectionKey_(section);
+      if(isId){
+        info.matchesStudentId++;
+        var sessionName=canonicalStage(stages[i]);
+        info.studentStageCounts[sessionName]=(info.studentStageCounts[sessionName]||0)+1;
+        if(sessionName==='UNRECOGNIZED_STAGE') {
+          info.unrecognizedSessionCount++;hasRawUnknown=true;
+        }
+        if(!isSection)info.studentOtherSection++;
+        if(isStage&&isSection) {
+          info.exactStudentAndStage++;report.exactCodingRows++;hasExact=true;
+        }
+        // Last 8 rows with stage, sheet row index and optional timestamp only.
+        info.recentStudentRows.push({row:i+2,stage:sessionName,
+          sectionMatches:isSection,submittedAt:timestamps?text(timestamps[i]).slice(0,32):''});
+        if(info.recentStudentRows.length>8)info.recentStudentRows.shift();
+      }
+      if(!isId&&isStage&&isSection&&targetName&&names&&
+         nameKey(names[i])===targetName) {
+        info.sameNameTargetButDifferentId++;
+        report.nameOnlyCandidatesAtTarget++;
+        otherNameCandidate=true;
+      }
+    }
+    // Output sorted by course order, never by private identifiers.
+    var order=['S1','S2','S3','B1','S4','S5','S6','B2',
+      'S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5','UNRECOGNIZED_STAGE'];
+    var sorted={};
+    order.forEach(function(s){if(info.studentStageCounts[s])sorted[s]=info.studentStageCounts[s];});
+    info.studentStageCounts=sorted;
+    report.tables.push(info);
+  });
+  report.conclusion=hasExact?'EXACT_STAGE_ROW_FOUND_CHECK_CODING_SCORE':
+    otherNameCandidate?'S11_SAME_NAME_DIFFERENT_ID_CHECK_SUBMISSION_IDENTITY':
+    hasRawUnknown?'UNRECOGNIZED_SESSION_LABEL_CHECK_STAGE_MAPPING':
+    'NO_S11_ROW_FOR_STUDENT_CHECK_SUBMIT_CONFIRMATION';
+  Logger.log(JSON.stringify(report));return report;
+}
