@@ -25,17 +25,25 @@ function mark(done,locked){
  return '<span class="aqsp-wait">○ ยังไม่ผ่าน</span>';
 }
 function score(v){return Number.isFinite(Number(v))&&v!==null&&v!==''?String(Math.round(Number(v)*10)/10):'—';}
+function hasMissionAttempt(id){
+ const attempts=state.student?.attempts;
+ return Array.isArray(attempts)&&attempts.some(a=>{
+  const raw=String(a?.sessionId||a?.missionId||'').toLowerCase().replace(/[ _:-]/g,'');
+  const normalized=raw.replace(/^mission(?=\d)/,'s').replace(/^m(?=\d)/,'s').replace(/^session(?=\d)/,'s').replace(/^boss(?=\d)/,'b');
+  return normalized===id.toLowerCase();
+ });
+}
 function rows(){return ORDER.map(([id,title])=>({id,title,r:state.progress?.[id.toLowerCase()]}));}
 function render(){
  const rr=rows(),completed=rr.filter(x=>x.r?.completed===true).length;
  const next=rr.find(x=>x.r?.unlocked===true&&x.r?.completed!==true);
  $('aqspResults').innerHTML=
   '<div class="aqsp-summary"><div><small>ครบทั้ง 3 ส่วน</small><b>'+completed+'/20</b></div><div><small>ขั้นที่ทำต่อ</small><b>'+esc(next?.id||(completed===20?'COMPLETE':'—'))+'</b></div><div><small>สถานะ</small><b>'+esc(next?step(next.r):completed===20?'จบหลักสูตร':'ยังไม่ยืนยัน')+'</b></div></div>'+
-  '<div class="aqsp-scroll"><table><thead><tr><th>Stage</th><th>Mission</th><th>Coding Lab</th><th>Reflection</th><th>ถัดไป</th><th>Best Mission / Coding</th></tr></thead><tbody>'+
+  '<div class="aqsp-scroll"><table><thead><tr><th>Stage</th><th>Mission</th><th>Coding Lab</th><th>Reflection</th><th>ถัดไป</th><th>Best Mission / Coding</th><th>หลักฐาน Mission</th></tr></thead><tbody>'+
   rr.map(({id,title,r})=>{
-   if(!r)return '<tr><td><b>'+esc(id)+'</b><small>'+esc(title)+'</small></td><td colspan="5">— ยังไม่ยืนยัน</td></tr>';
+   if(!r)return '<tr><td><b>'+esc(id)+'</b><small>'+esc(title)+'</small></td><td colspan="6">— ยังไม่ยืนยัน</td></tr>';
    const locked=!bool(r.unlocked)&&!bool(r.completed);
-   return '<tr><td><b>'+esc(id)+'</b><small>'+esc(title)+'</small></td><td>'+mark(bool(r.mission?.completed),locked)+'</td><td>'+mark(bool(r.coding?.completed),locked)+'</td><td>'+mark(bool(r.reflection?.completed),locked)+'</td><td>'+esc(step(r))+'</td><td>'+score(r.mission?.bestScore)+' / '+score(r.coding?.bestScore)+'</td></tr>';
+   return '<tr><td><b>'+esc(id)+'</b><small>'+esc(title)+'</small></td><td>'+mark(bool(r.mission?.completed),locked)+'</td><td>'+mark(bool(r.coding?.completed),locked)+'</td><td>'+mark(bool(r.reflection?.completed),locked)+'</td><td>'+esc(step(r))+'</td><td>'+(r.mission?.gradedRows?score(r.mission.bestScore):'—')+' / '+(r.coding?.found?score(r.coding.bestScore):'—')+'</td><td>'+(hasMissionAttempt(id)?'<button type="button" class="btn secondary" data-aqsp-session="'+esc(id)+'">ดู Attempts</button>':'—')+'</td></tr>';
   }).join('')+'</tbody></table></div>';
  $('aqspExport').disabled=false;
  message('✓ Sheet ยืนยันสถานะทั้ง 20 ด่าน • '+state.student.studentId+' • '+new Date().toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}),'good');
@@ -121,6 +129,16 @@ function mount(){
  parent.insertAdjacentElement('afterend',section);
  $('aqspStudent').onchange=()=>{cancel();state.student=students().find(x=>String(x.studentId)===$('aqspStudent').value)||null;state.progress=null;$('aqspResults').innerHTML='';$('aqspExport').disabled=true;$('aqspCheck').disabled=!state.student;message(state.student?'เลือก '+state.student.studentId+' • '+state.student.studentName+' แล้ว กดตรวจจาก Sheet':'เลือกนักศึกษาเพื่อดูความก้าวหน้า');};
  $('aqspCheck').onclick=check;$('aqspExport').onclick=exportCsv;
+ $('aqspResults').addEventListener('click',e=>{
+  const b=e.target.closest?.('[data-aqsp-session]');if(!b||!state.student)return;
+  const inspector=window.AIQUEST_TEACHER_INSPECTOR_V704;
+  if(inspector&&typeof inspector.openSession==='function')inspector.openSession(state.student,b.dataset.aqspSession);
+  else message('Teacher Inspector ไม่พร้อมใช้งาน กรุณา Refresh หน้า Teacher Console','warn');
+ });
+ $('refreshBtn')?.addEventListener('click',()=>{
+  cancel();state.progress=null;$('aqspResults').innerHTML='';$('aqspExport').disabled=true;
+  message('รายชื่อกำลัง Refresh • ตรวจสถานะจาก Sheet อีกครั้งหลังโหลดเสร็จ');
+ });
  const list=$('studentsBox');if(list)new MutationObserver(sync).observe(list,{childList:true});
  sync();
 }
