@@ -1,11 +1,11 @@
-/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.2
+/* CSAI2102 Teacher Console — Learning Analytics Suite v7.2.3
    Part 2: heatmap, weak concepts, traps, risk, radar, timeline,
    alerts, class analytics, reflection analytics, evidence summary.
 */
 (()=>{'use strict';
   if(window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__)return;
   window.__AIQUEST_TEACHER_LEARNING_ANALYTICS_V710__=true;
-  const VERSION='v7.2.2';
+  const VERSION='v7.2.3';
   const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
   const TITLES={s1:'S1',s2:'S2',s3:'S3',b1:'B1',s4:'S4',s5:'S5',s6:'S6',b2:'B2',s7:'S7',s8:'S8',s9:'S9',b3:'B3',s10:'S10',s11:'S11',s12:'S12',b4:'B4',s13:'S13',s14:'S14',s15:'S15',b5:'B5'};
   const runtime=()=>window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532||null;
@@ -37,7 +37,7 @@
    * Only AIQFLOW.GET_FLOW_PROGRESS can certify the three official parts.
    * One bounded, cancellable student request at a time; never auto-fetch class.
    * ========================================================= */
-  let heatMode='parts',auditFilter='all';
+  let heatMode='parts',auditFilter='all',heatExpanded=false;
   const partCache=new Map();
   const partErrors=new Map();
   let partBusy=false,partSeq=0,partController=null,partStatus='',partDetail=null;
@@ -147,7 +147,9 @@
        '<button type="button" data-aq710-check="batch" '+(partBusy?'disabled':'')+'>ตรวจ 5 คนถัดไป</button>'+
        '<button type="button" data-aq710-check="all" '+(partBusy?'disabled':'')+'>ตรวจทั้งห้อง</button>'+
        (partBusy?'<button type="button" data-aq710-stop="1">หยุดการตรวจ</button>':'')+
-       '</div>':'')+'</div>';
+       '</div>':'')+
+       '<button type="button" class="aq710-expandbtn" data-aq710-expand="1" aria-expanded="'+(heatExpanded?'true':'false')+'">'+
+       (heatExpanded?'↙ ย่อกลับ':'⛶ ขยายเต็มจอ')+'</button></div>';
     if(!rows.length)return intro+'<div class="aq710-empty">ยังไม่มีรายชื่อนักศึกษาในกลุ่มที่เลือก</div>';
     const note=heatMode==='parts'?'<p class="aq710-partnote">ตัวเลขใหญ่ = คะแนน Mission เดิม • M = Mission • C = Coding Lab • R = Reflection • ✓ ผ่าน • ○ ยังไม่ผ่าน • 🔒 ล็อก • M/C/R ? = รอตรวจจาก Sheet • กดตรวจข้อมูลหรือคลิกช่องเพื่อยืนยันรายคน</p><p class="aq710-partnote">'+
        'ยืนยันแล้ว '+counts.verified+'/'+counts.total+' คน'+(counts.errors?' • มีข้อผิดพลาด '+counts.errors+' คน':'')+
@@ -233,6 +235,7 @@
   }
   function heatClick(e){
     const btn=e.target.closest?.('button');if(!btn||!e.currentTarget?.contains(btn))return;
+    if(btn.hasAttribute('data-aq710-expand')){heatExpanded=!heatExpanded;render();return;}
     if(btn.hasAttribute('data-aq710-mode')){heatMode=btn.dataset.aq710Mode;render();return;}
     if(btn.hasAttribute('data-aq710-stop')){stopPartChecks(false);return;}
     if(btn.hasAttribute('data-aq710-check')){
@@ -268,13 +271,23 @@
   function classStats(){return ORDER.map(id=>{const scores=cohort().map(s=>latestBySession(s,id)).filter(Boolean).map(a=>num(a.score));return {id,n:scores.length,avg:avg(scores),min:scores.length?Math.min(...scores):0,max:scores.length?Math.max(...scores):0,sd:std(scores)};});}
   function reflectionStats(subject){const ss=subject?[subject]:cohort(),words=new Map(),quality={Excellent:0,Good:0,Basic:0,Missing:0};const keys=['evidence','human review','audit trail','monitoring','risk','privacy','fairness','threshold','fallback','appeal','PEAS','citation','retrieval'];ss.forEach(s=>attempts(s).forEach(a=>{const text=[a.reflection1,a.reflection2,a.reflection3].filter(Boolean).join(' ');if(!text.trim()){quality.Missing++;return;}const len=text.length,hit=keys.filter(k=>text.toLowerCase().includes(k.toLowerCase())).length;if(len>500&&hit>=3)quality.Excellent++;else if(len>250&&hit>=2)quality.Good++;else quality.Basic++;keys.forEach(k=>{const n=(text.toLowerCase().match(new RegExp(k.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'))||[]).length;if(n)words.set(k,(words.get(k)||0)+n);});}));return {quality,words:[...words.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12)};}
   function summary(subject){const ss=subject?[subject]:cohort().filter(s=>attempts(s).length);if(!ss.length)return 'ยังไม่มีข้อมูลเพียงพอสำหรับสรุป';const latestScores=ss.map(latestAttempt).filter(Boolean).map(a=>num(a.score));const concepts=conceptStats(subject),traps=trapStats(subject),weak=concepts[0],strong=concepts.slice().sort((a,b)=>b.score-a.score)[0],low=ss.filter(s=>num(latestAttempt(s)?.score)<60).length;let text=`${subject?'ผู้เรียนคนนี้':'ผู้เรียนใน cohort นี้'}มีคะแนนล่าสุดเฉลี่ย ${Math.round(avg(latestScores))}% จาก ${ss.length} คนที่มีข้อมูล`;if(strong)text+=` จุดแข็งที่พบคือ ${strong.k} (${Math.round(strong.score)}%)`;if(weak)text+=` ส่วนหัวข้อที่ควรทบทวนคือ ${weak.k} (${Math.round(weak.score)}%)`;if(traps[0])text+=` กับดักที่ควรนำกลับมาสอนคือ ${traps[0].k}`;text+=low?` มี ${low} คนที่ควรได้รับการช่วยเหลือเร่งด่วน`:' ยังไม่พบผู้เรียนคะแนนล่าสุดต่ำกว่า 60';text+=' แนะนำให้ใช้ Replay Audit และ Reflection Evidence ตรวจยืนยันก่อนมอบหมายกิจกรรมเสริม';return text;}
-  function render(){const host=document.getElementById('aqLearningAnalyticsV710');if(!host)return;const subject=selectedStudent();const weak=conceptStats(subject).slice(0,8),traps=trapStats(subject).slice(0,8),risks=riskStats(subject),alertsList=alerts(subject),cls=classStats(),refl=reflectionStats(subject);host.innerHTML=`
+  function render(){const host=document.getElementById('aqLearningAnalyticsV710');if(!host)return;
+    const oldScroll=host.querySelector?.('.aq710-heatwrap');
+    const oldAudit=host.querySelector?.('.aq710-auditscroll');
+    const oldFullscreen=host.querySelector?.('.aq710-heatcard.aq710-expanded');
+    const saved={x:oldScroll?.scrollLeft||0,y:oldScroll?.scrollTop||0,auditY:oldAudit?.scrollTop||0,cardY:oldFullscreen?.scrollTop||0};
+    document.body?.classList?.toggle('aq710-fullscreen-open',heatExpanded);
+    const subject=selectedStudent();const weak=conceptStats(subject).slice(0,8),traps=trapStats(subject).slice(0,8),risks=riskStats(subject),alertsList=alerts(subject),cls=classStats(),refl=reflectionStats(subject);host.innerHTML=`
     <div class="aq710-head"><div><h2>Learning Analytics Suite</h2><p>Analytics 1–10 • ใช้ cohort เดียวกับตัวกรองซ่อนข้อมูลทดสอบ</p></div><div><select id="aq710Student">${studentOptions()}</select></div></div>
-    <div class="aq710-grid wide">${card('1. Learning Progress Heatmap',heatmap(subject),'span2')}${card('2. Weak Concept Analytics',weak.length?weak.map(x=>bar(x.k,x.score,`${x.n} evidence`)).join(''):'<div class="aq710-empty">ยังไม่มีข้อมูล</div>')}${card('3. Trap Analytics',traps.length?traps.map(x=>bar(x.k,x.score,`${x.n} occurrences`)).join(''):'<div class="aq710-empty">ยังไม่มีข้อมูล</div>')}</div>
+    <div class="aq710-grid aq710-heatonly">${card('1. Learning Progress Heatmap',heatmap(subject),'aq710-heatcard'+(heatExpanded?' aq710-expanded':''))}</div>
+    <div class="aq710-grid aq710-secondary">${card('2. Weak Concept Analytics',weak.length?weak.map(x=>bar(x.k,x.score,`${x.n} evidence`)).join(''):'<div class="aq710-empty">ยังไม่มีข้อมูล</div>')}${card('3. Trap Analytics',traps.length?traps.map(x=>bar(x.k,x.score,`${x.n} occurrences`)).join(''):'<div class="aq710-empty">ยังไม่มีข้อมูล</div>')}</div>
     <div class="aq710-grid">${card('4. Risk Distribution',Object.entries(risks).map(([k,v])=>bar(k,v.length?avg(v):0,`${v.length} cards`)).join(''))}${card('5. Session / Skill Radar',radar(subject))}${card('6. Learning Timeline',timeline(subject),'span2')}</div>
     <div class="aq710-grid">${card('7. Teacher Alerts',alertsList.length?alertsList.map(a=>`<div class="aq710-alert ${a.sev}"><b>${esc(a.t)}</b><span>${esc(a.d)}</span></div>`).join(''):'<div class="aq710-empty">ยังไม่มี alert สำคัญ</div>')}${card('8. Class Analytics',`<div class="aq710-class"><table><thead><tr><th>Session</th><th>N</th><th>Avg</th><th>Min</th><th>Max</th><th>SD</th></tr></thead><tbody>${cls.map(x=>`<tr><td>${TITLES[x.id]}</td><td>${x.n}</td><td>${x.n?Math.round(x.avg):'—'}</td><td>${x.n?x.min:'—'}</td><td>${x.n?x.max:'—'}</td><td>${x.n?x.sd.toFixed(1):'—'}</td></tr>`).join('')}</tbody></table></div>`,'span2')}</div>
     <div class="aq710-grid">${card('9. Reflection Analytics',`<div class="aq710-quality">${Object.entries(refl.quality).map(([k,v])=>`<div><b>${v}</b><span>${k}</span></div>`).join('')}</div><div class="aq710-tags">${refl.words.map(([k,v])=>`<span>${esc(k)} • ${v}</span>`).join('')||'<span>ยังไม่มี keyword</span>'}</div>`)}${card('10. Teacher Evidence Summary',`<div class="aq710-summary">${esc(summary(subject))}</div><p class="aq710-note">สรุปนี้สร้างจากคะแนน, selected case, replay audit และ reflection ที่มีอยู่จริง ไม่ประเมินสิ่งที่ไม่มีหลักฐาน</p>`,'span2')}</div>`;
     const sel=document.getElementById('aq710Student');if(sel){sel.value=subject?String(subject.studentId):'all';sel.onchange=render;}
+    const heatWrap=host.querySelector?.('.aq710-heatwrap');if(heatWrap){heatWrap.scrollLeft=saved.x;heatWrap.scrollTop=saved.y;}
+    const auditWrap=host.querySelector?.('.aq710-auditscroll');if(auditWrap)auditWrap.scrollTop=saved.auditY;
+    const fullCard=host.querySelector?.('.aq710-heatcard.aq710-expanded');if(fullCard)fullCard.scrollTop=saved.cardY;
   }
   function mount(){if(document.getElementById('aqLearningAnalyticsV710'))return;const section=document.createElement('section');section.id='aqLearningAnalyticsV710';section.className='card aq710-root';section.innerHTML='<div class="loading">กำลังสร้าง Learning Analytics 1–10…</div>';const target=document.getElementById('phase2AuditBox');(target?.parentNode||document.querySelector('main'))?.insertBefore(section,target?.nextSibling||null);const style=document.createElement('style');style.textContent=`
     .aq710-root{margin-top:16px}.aq710-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.aq710-head p{color:#9fb2cc;margin:5px 0 0}.aq710-head select{min-width:280px}.aq710-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.aq710-grid.wide{grid-template-columns:2fr 1fr 1fr}.aq710-card{border:1px solid rgba(148,163,184,.2);border-radius:17px;padding:14px;background:rgba(255,255,255,.025);min-width:0}.aq710-card.span2{grid-column:span 2}.aq710-card h3{margin:0 0 12px}.aq710-empty{color:#9fb2cc;padding:18px;text-align:center}.aq710-heatwrap,.aq710-class{overflow:auto}.aq710-heatwrap table,.aq710-class table{min-width:760px;width:100%;border-collapse:collapse}.aq710-heatwrap th,.aq710-heatwrap td,.aq710-class th,.aq710-class td{padding:8px;border-bottom:1px solid rgba(148,163,184,.12);font-size:12px}.aq710-heatwrap td:first-child{position:sticky;left:0;background:#111c31;z-index:1}.aq710-heatwrap td small{display:block;color:#9fb2cc}.aq710-cell{text-align:center;font-weight:900;border-radius:7px}.aq710-cell.good{background:rgba(34,197,94,.22)}.aq710-cell.mid{background:rgba(251,191,36,.20)}.aq710-cell.bad{background:rgba(248,113,113,.22)}.aq710-cell.none{color:#64748b}.aq710-barrow{display:grid;grid-template-columns:1fr auto;gap:5px;margin:10px 0}.aq710-barrow small{display:block;color:#9fb2cc}.aq710-bar{grid-column:1/3;height:8px;background:rgba(148,163,184,.16);border-radius:99px;overflow:hidden}.aq710-bar i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:99px}.aq710-radar{display:grid;place-items:center}.aq710-radar svg{width:min(100%,340px)}.aq710-radar .grid circle,.aq710-radar .grid line{fill:none;stroke:rgba(148,163,184,.25)}.aq710-radar text{fill:#9fb2cc;font-size:9px}.aq710-radar polygon{fill:rgba(56,189,248,.25);stroke:#38bdf8;stroke-width:2}.aq710-timeline{display:flex;gap:8px;overflow:auto;padding:8px 0}.aq710-node{min-width:78px;padding:10px;border-radius:12px;text-align:center;background:rgba(148,163,184,.12)}.aq710-node b,.aq710-node strong,.aq710-node span{display:block}.aq710-node strong{font-size:23px}.aq710-node.good{border:1px solid rgba(34,197,94,.4)}.aq710-node.mid{border:1px solid rgba(251,191,36,.4)}.aq710-node.bad{border:1px solid rgba(248,113,113,.4)}.aq710-alert{padding:10px;border-radius:12px;margin:8px 0;border:1px solid rgba(148,163,184,.22)}.aq710-alert b,.aq710-alert span{display:block}.aq710-alert span{color:#9fb2cc;margin-top:3px}.aq710-alert.bad{border-color:rgba(248,113,113,.5)}.aq710-alert.warn{border-color:rgba(251,191,36,.5)}.aq710-alert.good{border-color:rgba(34,197,94,.5)}.aq710-quality{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.aq710-quality div{padding:10px;text-align:center;border:1px solid rgba(148,163,184,.2);border-radius:12px}.aq710-quality b,.aq710-quality span{display:block}.aq710-quality b{font-size:22px}.aq710-quality span{color:#9fb2cc;font-size:12px}.aq710-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.aq710-tags span{padding:5px 8px;border-radius:99px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);font-size:12px}.aq710-summary{font-size:16px;line-height:1.7;padding:14px;border-radius:14px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.25)}.aq710-note{color:#9fb2cc;font-size:12px}@media(max-width:980px){.aq710-grid,.aq710-grid.wide{grid-template-columns:1fr 1fr}.aq710-card.span2{grid-column:span 2}}@media(max-width:680px){.aq710-grid,.aq710-grid.wide{grid-template-columns:1fr}.aq710-card.span2{grid-column:span 1}.aq710-quality{grid-template-columns:1fr 1fr}.aq710-head select{min-width:0;width:100%}}
@@ -324,9 +337,32 @@
     .aq710-auditscroll button{padding:6px 9px;background:#173555;color:#dff0ff;border:1px solid #40668c;border-radius:7px;cursor:pointer}
     .aq710-auditscroll button:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
 
+    /* Heatmap uses its own full-width row; other analytics remain in their own grid. */
+    .aq710-grid.aq710-heatonly{display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0}
+    .aq710-grid.aq710-secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .aq710-heatcard{width:100%;min-width:0}
+    .aq710-heatcard .aq710-heatwrap{overflow:auto;max-width:100%;overscroll-behavior:contain;scrollbar-gutter:stable}
+    .aq710-heatcard .aq710-heatwrap table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
+    .aq710-heatcard .aq710-heatwrap th{position:sticky;top:0;z-index:3;background:#13253c}
+    .aq710-heatcard .aq710-heatwrap tr>th:first-child{position:sticky;left:0;z-index:5;min-width:145px;background:#13253c}
+    .aq710-heatcard .aq710-heatwrap tr>td:first-child{position:sticky;left:0;z-index:4;min-width:145px;background:#111c31}
+    .aq710-heatcard .aq710-heatwrap th,.aq710-heatcard .aq710-heatwrap td{white-space:nowrap}
+    .aq710-heatcard .aq710-expandbtn{border-color:#38bdf8;background:#0c4a6e;color:#e0f2fe;font-weight:800;margin-left:auto}
+    .aq710-heatcard .aq710-expandbtn:focus-visible{outline:2px solid #67e8f9;outline-offset:2px}
+    body.aq710-fullscreen-open{overflow:hidden!important}
+    .aq710-root .aq710-heatcard.aq710-expanded{position:fixed;inset:0;z-index:20010;width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;margin:0;padding:14px 18px;border-radius:0;background:#09172a;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+    .aq710-expanded .aq710-heatwrap{height:calc(100vh - 220px);height:calc(100dvh - 220px);max-height:none;min-height:270px;overflow:auto}
+    .aq710-expanded .aq710-heatwrap th,.aq710-expanded .aq710-heatwrap td{padding:7px 4px}
+    .aq710-expanded .aq710-heatwrap .aq710-partcell button{min-width:62px;padding:4px 2px}
+    .aq710-expanded .aq710-heatwrap .aq710-partcell .aq710-tri span{font-size:9px}
+    .aq710-expanded .aq710-heatwrap .aq710-partcell .aq710-preserved-score{font-size:14px}
+    .aq710-expanded .aq710-heatwrap tr>th:first-child,.aq710-expanded .aq710-heatwrap tr>td:first-child{min-width:145px}
+    @media(max-width:680px){.aq710-grid.aq710-heatonly,.aq710-grid.aq710-secondary{grid-template-columns:minmax(0,1fr)}.aq710-root .aq710-heatcard.aq710-expanded{padding:10px 8px}.aq710-expanded .aq710-heatwrap{height:calc(100dvh - 240px)}}
+
+
 
   `;document.head.appendChild(style);render();}
-  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.getElementById('aqLearningAnalyticsV710')?.addEventListener('change',e=>{if(e.target?.id==='aq710AuditFilter'){auditFilter=e.target.value;render();}});document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
+  function boot(){const badge=document.querySelector('.brand .row');if(badge&&!document.getElementById('aq710Badge'))badge.insertAdjacentHTML('beforeend','<span id="aq710Badge" class="pill good">✓ Learning Analytics v710</span>');mount();document.getElementById('aqLearningAnalyticsV710')?.addEventListener('click',heatClick);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&heatExpanded){heatExpanded=false;render();}});document.getElementById('aqLearningAnalyticsV710')?.addEventListener('change',e=>{if(e.target?.id==='aq710AuditFilter'){auditFilter=e.target.value;render();}});document.getElementById('aqHideTestV698')?.addEventListener('change',()=>setTimeout(render,0));document.getElementById('refreshBtn')?.addEventListener('click',()=>{stopPartChecks(true);setTimeout(render,1200);});window.addEventListener('aiquest:cohort-change',()=>setTimeout(render,0));let n=0;const t=setInterval(()=>{n++;if(runtime()?.state?.students){mount();render();if(runtime().state.students.length||n>30)clearInterval(t);}if(n>60)clearInterval(t);},500);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.AIQUEST_TEACHER_LEARNING_ANALYTICS_V710={VERSION,render,mount};
 })();
