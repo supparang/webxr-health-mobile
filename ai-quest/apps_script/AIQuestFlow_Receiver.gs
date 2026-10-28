@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Integrated Flow Receiver v1.3.3
+ * CSAI2102 AI Quest Integrated Flow Receiver v1.3.4
  * Google Sheet is the sole authority. No doGet(e) / doPost(e).
  *
  * Official progression rules:
@@ -11,7 +11,7 @@
  */
 var AIQFLOW = AIQFLOW || {};
 
-AIQFLOW.VERSION = '20261006-AIQ-FLOW-V1.3.3-ROSTER-FAST-LOOKUP';
+AIQFLOW.VERSION = '20261028-AIQ-FLOW-V1.3.4-PROGRESS-READ-CACHE';
 AIQFLOW.SECTION = '101';
 AIQFLOW.REFLECTION_SHEET = 'aiquest_reflections';
 AIQFLOW.COMPLETION_SHEET = 'aiquest_session_completion';
@@ -100,10 +100,15 @@ AIQFLOW.headerIndex_ = function(headers,names){
   }
   return -1;
 };
-AIQFLOW.rows_ = function(sh){
+AIQFLOW.rows_ = function(sh,requestCache){
   if(!sh||sh.getLastRow()<2||sh.getLastColumn()<1)return {headers:[],rows:[]};
+  // Cache is scoped to a single read-only progress request. No cross-user storage.
+  var key=requestCache?String(sh.getSheetId()):'';
+  if(requestCache&&Object.prototype.hasOwnProperty.call(requestCache,key))return requestCache[key];
   var values=sh.getRange(1,1,sh.getLastRow(),sh.getLastColumn()).getDisplayValues();
-  return {headers:values[0],rows:values.slice(1)};
+  var result={headers:values[0],rows:values.slice(1)};
+  if(requestCache)requestCache[key]=result;
+  return result;
 };
 AIQFLOW.ensureSheet_ = function(name,headers){
   var ss=AIQFLOW.ss_(),sh=ss.getSheetByName(name);
@@ -250,11 +255,11 @@ AIQFLOW.lookupProfile_ = function(p){
   return {ok:true,found:!!profile,profile:profile,version:AIQFLOW.VERSION};
 };
 
-AIQFLOW.codingStatus_ = function(studentId,section,sessionId){
+AIQFLOW.codingStatus_ = function(studentId,section,sessionId,requestCache){
   var sheets=AIQFLOW.sheetCandidates_(['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','coding_attempt','Coding_Attempts']);
   var best=0,count=0,completed=false,sources=[],matched=[];
   for(var s=0;s<sheets.length;s++){
-    var sh=sheets[s],data=AIQFLOW.rows_(sh),h=data.headers;
+    var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
     var iScore=AIQFLOW.headerIndex_(h,['coding_score','codingScore','score','total_score','totalScore']);
     var iDone=AIQFLOW.headerIndex_(h,['completed','passed','coding_completed','codingCompleted','status']);
     var before=count;
@@ -281,11 +286,11 @@ AIQFLOW.missionPass_ = function(sessionId,score,done,bossWin){
   if(id==='B5')return bossWin&&score>=75;
   return bossWin;
 };
-AIQFLOW.missionStatus_ = function(studentId,section,sessionId){
+AIQFLOW.missionStatus_ = function(studentId,section,sessionId,requestCache){
   var sheets=AIQFLOW.sheetCandidates_(['session_attempts','aiquest_session_attempts','mission_attempts','attempts']);
   var best=0,found=false,passed=false,source='',matched=[],ignoredPractice=0,gradedRows=0;
   for(var s=0;s<sheets.length;s++){
-    var sh=sheets[s],data=AIQFLOW.rows_(sh),h=data.headers;
+    var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
     var iScore=AIQFLOW.headerIndex_(h,['score','best_score','bestScore','accuracy','percent','percentage']);
     var iPassed=AIQFLOW.headerIndex_(h,['passed','mastered','mission_completed','missionCompleted','gate_status','status','completed']);
     var iBoss=AIQFLOW.headerIndex_(h,['bossWin','boss_win','bossWon','boss_won']);
@@ -320,10 +325,10 @@ AIQFLOW.missionStatus_ = function(studentId,section,sessionId){
   };
 };
 
-AIQFLOW.reflectionStatus_ = function(studentId,section,sessionId){
+AIQFLOW.reflectionStatus_ = function(studentId,section,sessionId,requestCache){
   var sheets=AIQFLOW.sheetCandidates_([AIQFLOW.REFLECTION_SHEET,'reflections','aiquest_reflection']);
   for(var s=0;s<sheets.length;s++){
-    var sh=sheets[s],data=AIQFLOW.rows_(sh),h=data.headers;
+    var sh=sheets[s],data=AIQFLOW.rows_(sh,requestCache),h=data.headers;
     var iPassed=AIQFLOW.headerIndex_(h,['passed','completed','reflection_completed','reflectionCompleted','status']);
     var iQuality=AIQFLOW.headerIndex_(h,['quality_score','qualityScore']);
     var iQualityStatus=AIQFLOW.headerIndex_(h,['quality_status','qualityStatus']);
@@ -453,13 +458,13 @@ AIQFLOW.getSessionStatus_ = function(p){
 };
 AIQFLOW.getProgress_ = function(p){
   p=p||{};
-  var studentId=AIQFLOW.text_(p.studentId),section=AIQFLOW.text_(p.section||AIQFLOW.SECTION),progress={};
+  var studentId=AIQFLOW.text_(p.studentId),section=AIQFLOW.text_(p.section||AIQFLOW.SECTION),progress={},requestCache={};
   if(!studentId)return {ok:false,code:'MISSING_STUDENT_ID',version:AIQFLOW.VERSION};
 
   AIQFLOW.ORDER.forEach(function(sessionId,index){
-    var mission=AIQFLOW.missionStatus_(studentId,section,sessionId);
-    var coding=AIQFLOW.codingStatus_(studentId,section,sessionId);
-    var reflection=AIQFLOW.reflectionStatus_(studentId,section,sessionId);
+    var mission=AIQFLOW.missionStatus_(studentId,section,sessionId,requestCache);
+    var coding=AIQFLOW.codingStatus_(studentId,section,sessionId,requestCache);
+    var reflection=AIQFLOW.reflectionStatus_(studentId,section,sessionId,requestCache);
     var completed=!!(mission.completed&&coding.completed&&reflection.completed);
     progress[sessionId.toLowerCase()]={
       sessionId:sessionId,mission:mission,coding:coding,reflection:reflection,
