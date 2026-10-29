@@ -2,15 +2,15 @@
 <html lang="th"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426">
 <meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0"><meta http-equiv="Pragma" content="no-cache">
-<title>CSAI2102 • Coding Gate v3.3.1</title>
+<title>CSAI2102 • Coding Gate v3.3.2</title>
 <style>
 :root{--bg:#071426;--panel:#101d33;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--green:#059669;--blue:#0284c7;--amber:#b45309;--bad:#be3455}*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}body{display:flex;flex-direction:column}.gate{max-width:760px;margin:auto;padding:18px;width:100%}.card{padding:18px;border:1px solid var(--line);border-radius:20px;background:var(--panel)}h1,p{margin-top:0}.muted{color:var(--muted);line-height:1.55}.notice{padding:13px;border:1px solid var(--line);border-radius:14px;background:#17263f;line-height:1.5}.good{border-color:#15803d;background:#052e24;color:#bbf7d0}.bad{border-color:var(--bad);background:#35101d;color:#fecdd3}.actions{display:grid;gap:10px;margin-top:14px}.btn{min-height:52px;padding:11px 14px;border:1px solid var(--line);border-radius:13px;background:#17263f;color:#fff;text-decoration:none;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer}.btn.green{background:var(--green)}.btn.blue{background:var(--blue)}.btn.amber{background:var(--amber)}iframe{border:0;width:100%;height:100%;display:none;background:var(--bg)}.floatTop{position:fixed;right:12px;bottom:12px;z-index:50;width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:#17263f;color:#fff;font-weight:900;display:none;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,.35)}
 </style></head><body>
-<div id="gate" class="gate"><section class="card"><h1 id="title">กำลังตรวจ Coding Lab…</h1><p class="muted" id="identity"></p><div id="notice" class="notice">กำลังยืนยันสิทธิ์จาก Google Sheet</div><div id="actions" class="actions"></div></section></div>
+<div id="gate" class="gate"><section class="card"><h1 id="title">กำลังตรวจ Coding Lab…</h1><p class="muted" id="identity"></p><p class="muted" style="font-size:12px;margin:0 0 14px">Coding Gate v3.3.2 • Resume S/B</p><div id="notice" class="notice">กำลังยืนยันสิทธิ์จาก Google Sheet</div><div id="actions" class="actions"></div></section></div>
 <iframe id="lab" title="CSAI2102 Coding Lab"></iframe><button id="top" class="floatTop" aria-label="กลับด้านบน">↑</button>
 <script>
 (function(){'use strict';
-const VERSION='20261029-CODING-GATE-V3.3.1-RESUME-PRESERVE-DRAFT';
+const VERSION='20261029-CODING-GATE-V3.3.2-RESUME-VISIBLE';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);
