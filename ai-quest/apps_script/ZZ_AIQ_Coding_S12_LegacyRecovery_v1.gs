@@ -69,6 +69,9 @@ AIQ_S12_RECOVERY.plan_ = function(){
   }
   var coding=AIQCODING,ss=SpreadsheetApp.getActiveSpreadsheet();
   result.codingVersion=String(coding.VERSION||'UNKNOWN');
+  if(typeof coding.writeCodingRow_!=='function' ||
+     result.codingVersion.indexOf('V3.2.3-HEADER-ALIGNED-READBACK')<0)
+    result.blockers.push('CODING_RECEIVER_V3_2_3_REQUIRED');
   if(!ss){result.blockers.push('ACTIVE_SPREADSHEET_MISSING');return {cfg:cfg,result:result};}
   result.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
   var roster=ss.getSheetByName('students_roster');
@@ -236,6 +239,9 @@ function AIQ_RECOVERY_S12_APPLY_EXPLICITLY() {
         Number(selected.obj.coding_score);
     if(!valid)throw new Error('RESTORE_WRITE_OCCURRED_BUT_READBACK_NOT_VALID_REVIEW_NEW_ROW');
     var status=AIQCODING.getStatus_({studentId:cfg.id,section:cfg.section,sessionId:cfg.stage});
+    if(!status||status.found!==true||status.completed!==true||
+       Number(status.bestScore)!==Number(selected.obj.coding_score))
+      throw new Error('RECOVERY_ROW_WRITTEN_BUT_STATUS_DISAGREES_REVIEW_SHEET');
     var report={audit:'AIQ_S12_LEGACY_RECOVERY_V1',
       mode:'ONE_ROW_WRITTEN_FROM_LEGACY_EVIDENCE',
       restoredSourceRow:cfg.sourceRow,appendedRow:newly,
