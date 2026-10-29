@@ -312,3 +312,89 @@ function TEST_AIQ_S11_CODING_STAGE_DISTRIBUTION_READONLY() {
     'NO_S11_ROW_FOR_STUDENT_CHECK_SUBMIT_CONFIRMATION';
   Logger.log(JSON.stringify(report));return report;
 }
+
+
+/**
+ * V4: Detect whether a Coding submission was appended in a fixed column order
+ * that differs from the live coding_attempts header order.
+ *
+ * READ ONLY. Never fixes a row, assigns marks or changes unlock state.
+ * Reuses AIQ_QA_STUDENT_ID, AIQ_QA_SECTION, AIQ_QA_SESSION Script Properties.
+ * Output contains ONLY counts, column positions and row numbers; no answers
+ * or personally identifying values.
+ */
+function TEST_AIQ_CODING_HEADER_ALIGNMENT_READONLY() {
+  var p=PropertiesService.getScriptProperties();
+  var sid=String(p.getProperty('AIQ_QA_STUDENT_ID')||'').trim();
+  var section=String(p.getProperty('AIQ_QA_SECTION')||'101').trim();
+  var session=String(p.getProperty('AIQ_QA_SESSION')||'S12').trim();
+  var report={audit:'AIQ_CODING_HEADER_ALIGNMENT_V4',
+    mode:'READ_ONLY_NO_WRITE',studentConfigured:!!sid,section:section,
+    sessionId:session,headerOrderAligned:null,actualColumnCount:0,
+    canonicalColumnCount:0,headerPositions:{},suspectedLegacyOrderRows:[],
+    identityFoundInOtherColumnRows:[],correctlyMappedRows:[],
+    totalRowsScanned:0,result:'NOT_RUN'};
+  if(!sid||typeof AIQFLOW==='undefined'||typeof AIQCODING==='undefined'||
+    !AIQFLOW.findProfile_||!AIQCODING.HEADERS){
+    report.result='MISSING_ID_OR_MODULE';Logger.log(JSON.stringify(report));return report;
+  }
+  if(!AIQFLOW.findProfile_(sid,section)){
+    report.result='ROSTER_NOT_AUTHORIZED';Logger.log(JSON.stringify(report));return report;
+  }
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ss){report.result='SHEET_MISSING';Logger.log(JSON.stringify(report));return report;}
+  report.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
+  var sh=ss.getSheetByName(AIQCODING.SHEET||'coding_attempts');
+  if(!sh){report.result='CODING_ATTEMPTS_TAB_MISSING';Logger.log(JSON.stringify(report));return report;}
+  var canonical=AIQCODING.HEADERS.map(function(s){return AIQCODING.key_(s);});
+  var actual=sh.getLastColumn()>0?
+    sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(AIQCODING.key_):[];
+  report.actualColumnCount=actual.length;
+  report.canonicalColumnCount=canonical.length;
+  report.headerOrderAligned=canonical.length<=actual.length&&canonical.every(function(k,i){return actual[i]===k;});
+  var labels=['student_id','section','session_id','coding_attempt_id','coding_score','completed'];
+  labels.forEach(function(label){
+    var key=AIQCODING.key_(label);
+    report.headerPositions[label]={
+      actualColumn:actual.indexOf(key)+1,
+      canonicalColumn:canonical.indexOf(key)+1
+    };
+  });
+  if(sh.getLastRow()<2){
+    report.result='EMPTY_CODING_SHEET';Logger.log(JSON.stringify(report));return report;
+  }
+  var rows=sh.getDataRange().getDisplayValues();
+  report.totalRowsScanned=rows.length-1;
+  var idCol=actual.indexOf(AIQCODING.key_('student_id'));
+  var sectionCol=actual.indexOf(AIQCODING.key_('section'));
+  var sessionCol=actual.indexOf(AIQCODING.key_('session_id'));
+  var cId=canonical.indexOf(AIQCODING.key_('student_id'));
+  var cSec=canonical.indexOf(AIQCODING.key_('section'));
+  var cSession=canonical.indexOf(AIQCODING.key_('session_id'));
+  var sameId=function(a){return AIQFLOW.idKey_(a)===AIQFLOW.idKey_(sid);};
+  var sameSection=function(a){return AIQFLOW.sectionKey_(a||'101')===AIQFLOW.sectionKey_(section);};
+  var sameSession=function(a){return AIQFLOW.sessionKey_(a)===AIQFLOW.sessionKey_(session);};
+  for(var n=1;n<rows.length;n++){
+    var row=rows[n];
+    var mapped=idCol>=0&&sessionCol>=0&&sectionCol>=0&&
+      sameId(row[idCol])&&sameSession(row[sessionCol])&&sameSection(row[sectionCol]);
+    var fixed=cId>=0&&cSession>=0&&cSec>=0&&
+      sameId(row[cId])&&sameSession(row[cSession])&&sameSection(row[cSec]);
+    var anywhereId=row.some(sameId),anywhereSession=row.some(sameSession);
+    if(mapped&&report.correctlyMappedRows.length<15)report.correctlyMappedRows.push(n+1);
+    if(fixed&&!mapped&&report.suspectedLegacyOrderRows.length<15)
+      report.suspectedLegacyOrderRows.push(n+1);
+    if(anywhereId&&anywhereSession&&!mapped&&!fixed&&report.identityFoundInOtherColumnRows.length<15)
+      report.identityFoundInOtherColumnRows.push(n+1);
+  }
+  report.result=report.correctlyMappedRows.length?
+    'CORRECTLY_MAPPED_CODING_ROWS_EXIST':
+    report.suspectedLegacyOrderRows.length?
+    'POSSIBLE_HEADER_ORDER_WRITE_MISMATCH_REVIEW_ROWS':
+    report.identityFoundInOtherColumnRows.length?
+    'POSSIBLE_MISALIGNED_ID_AND_SESSION_REVIEW_ROWS':
+    report.headerOrderAligned?
+    'NO_TARGET_CODING_ROWS_IN_CANONICAL_LAYOUT':
+    'NONCANONICAL_HEADERS_BUT_NO_TARGET_ROW_IDENTIFIED';
+  Logger.log(JSON.stringify(report));return report;
+}
