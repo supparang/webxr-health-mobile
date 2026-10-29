@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20260831-AIQ-CODING-RECEIVER-V3.2.2-PREDICT-CONCEPT-GROUPS';
+AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.3-HEADER-ALIGNED-READBACK';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -96,6 +96,30 @@ AIQCODING.ensureSheet_ = function(){
   if(missing.length)sh.getRange(1,lastCol+1,1,missing.length).setValues([missing]);
   sh.setFrozenRows(1); return sh;
 };
+AIQCODING.writeCodingRow_ = function(sh,obj){
+  // Preserve legacy Sheet column order. Never append HEADERS-ordered values
+  // to a differently ordered existing header row.
+  var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
+  var vals={},present={},duplicates={};
+  AIQCODING.HEADERS.forEach(function(h){vals[AIQCODING.key_(h)]=obj[h]==null?'':obj[h];});
+  headers.forEach(function(h){
+    var k=AIQCODING.key_(h);
+    if(!k)return;
+    if(present[k])duplicates[k]=true;
+    present[k]=true;
+  });
+  var critical=['student_id','section','session_id','coding_attempt_id','coding_score','completed'];
+  critical.forEach(function(h){
+    var k=AIQCODING.key_(h);
+    if(!present[k]||duplicates[k])throw Error('CODING_HEADER_INVALID_'+k);
+  });
+  var row=headers.map(function(h){
+    var k=AIQCODING.key_(h);
+    return Object.prototype.hasOwnProperty.call(vals,k)?vals[k]:'';
+  });
+  sh.appendRow(row);
+};
+
 AIQCODING.objectRows_ = function(sh){
   if(!sh||sh.getLastRow()<2||sh.getLastColumn()<1)return [];
   var values=sh.getDataRange().getDisplayValues(),headers=values[0].map(AIQCODING.text_);
@@ -189,13 +213,19 @@ AIQCODING.submit_ = function(payload){
   if(!evidence.modifyPassed)return {ok:false,code:'MODIFY_SEMANTIC_FAILED',message:'Scenario Modification ยังไม่มีเงื่อนไขสำคัญของด่าน',evidence:evidence,version:AIQCODING.VERSION};
   if(!evidence.quizPassed)return {ok:false,code:'QUIZ_NOT_PASSED',message:'Mini Quiz ต้องผ่านอย่างน้อย 4/5',evidence:evidence,version:AIQCODING.VERSION};
 
-  var historical=AIQCODING.allHistoricalRows_().filter(function(r){return AIQCODING.matches_(r,studentId,section,sessionId);});
+  var allBefore=AIQCODING.allHistoricalRows_();
+  var historical=allBefore.filter(function(r){return AIQCODING.matches_(r,studentId,section,sessionId);});
   var attemptNumber=historical.length+1;
   var score=evidence.runScore+evidence.modifyScore+evidence.challengeScore+evidence.quizPoint;
   var completed=evidence.predictionCorrect&&evidence.completedCodePassed&&evidence.outputPassed&&evidence.modifyPassed&&evidence.quizPassed;
   var now=Utilities.formatDate(new Date(),'Asia/Bangkok',"yyyy-MM-dd'T'HH:mm:ssXXX");
   var attemptId=AIQCODING.text_(payload.codingAttemptId||Utilities.getUuid());
-  var duplicate=AIQCODING.allHistoricalRows_().some(function(r){return AIQCODING.text_(AIQCODING.pick_(r,['coding_attempt_id','codingAttemptId','attemptId']))===attemptId;});
+  var duplicateRows=allBefore.filter(function(r){
+    return AIQCODING.text_(AIQCODING.pick_(r,['coding_attempt_id','codingAttemptId','attemptId']))===attemptId;
+  });
+  if(duplicateRows.length&&!duplicateRows.some(function(r){return AIQCODING.matches_(r,studentId,section,sessionId);}))
+    return {ok:false,code:'ATTEMPT_ID_COLLISION',version:AIQCODING.VERSION};
+  var duplicate=duplicateRows.length>0;
 
   if(!duplicate){
     var x=evidence.parsed||{};
@@ -208,10 +238,21 @@ AIQCODING.submit_ = function(payload){
       challenge_code:AIQCODING.text_(x.challengeCode).slice(0,20000),challenge_level:x.challengeLevel||'',validation_mode:evidence.mode,
       used_time_sec:Number(payload.usedTimeSec||0),version:AIQCODING.VERSION
     };
-    AIQCODING.ensureSheet_().appendRow(AIQCODING.HEADERS.map(function(h){return obj[h]==null?'':obj[h];}));
+    AIQCODING.writeCodingRow_(AIQCODING.ensureSheet_(),obj);
+    SpreadsheetApp.flush();
   }
 
-  return {ok:true,duplicate:duplicate,studentId:studentId,studentName:studentName,section:section,sessionId:sessionId,attemptNumber:attemptNumber,codingScore:score,completed:completed,evidence:evidence,serverValidated:true,challengePolicy:'optional-bonus-20',authority:'Google Sheet coding evidence, exact normalized student ID',version:AIQCODING.VERSION};
+  // A successful write call alone is not proof that the evidence can be
+  // matched later by the same status API. Fail closed on unreadable receipts.
+  var readBack=AIQCODING.allHistoricalRows_().filter(function(r){
+    return AIQCODING.text_(AIQCODING.pick_(r,['coding_attempt_id','codingAttemptId','attemptId']))===attemptId &&
+      AIQCODING.matches_(r,studentId,section,sessionId);
+  });
+  var saved=readBack.length?readBack[readBack.length-1]:null;
+  if(!saved||!AIQCODING.rowCompleted_(saved)){
+    return {ok:false,code:'CODING_WRITE_NOT_CONFIRMED',studentId:studentId,section:section,sessionId:sessionId,version:AIQCODING.VERSION};
+  }
+  return {ok:true,duplicate:duplicate,studentId:studentId,studentName:studentName,section:section,sessionId:sessionId,attemptNumber:attemptNumber,codingScore:AIQCODING.rowScore_(saved),completed:true,evidence:evidence,serverValidated:true,challengePolicy:'optional-bonus-20',authority:'Google Sheet coding evidence, exact normalized student ID',version:AIQCODING.VERSION};
 };
 
 AIQCODING.getStatus_ = function(payload){
