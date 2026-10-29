@@ -1,5 +1,5 @@
 /**
- * CSAI2102 • S12 legacy Coding receipt recovery • v1
+ * CSAI2102 • S12 legacy Coding receipt recovery • v1.1
  * Source evidence: original rows 319 and 320 in coding_attempts.
  *
  * DRY RUN by default. It does not write anything.
@@ -48,11 +48,12 @@ AIQ_S12_RECOVERY.hash_ = function(s){
 
 AIQ_S12_RECOVERY.plan_ = function(){
   var cfg=AIQ_S12_RECOVERY.config_();
-  var result={audit:'AIQ_S12_LEGACY_RECOVERY_V1',
+  var result={audit:'AIQ_S12_LEGACY_RECOVERY_V1_1',
     mode:'DRY_RUN_NO_WRITE',result:'NOT_RUN',
     studentConfigured:!!cfg.id,section:cfg.section,sessionId:cfg.stage,
     sourceRows:[],sourceAttemptIdsSame:null,sourceRowsValid:false,
     headerOrderAligned:null,headerCount:0,expectedHeaderCount:27,
+    mappingStrategy:'NORMALIZED_ALIAS_MIRROR_V2',headerAliasColumns:{},
     missingHeaders:[],duplicateHeaders:[],officialMatchingRows:[],
     idCollisionRows:[],recommendedRow:319,reviewHash:'',
     spreadsheetIdSuffix:'',codingVersion:'MISSING',
@@ -70,7 +71,7 @@ AIQ_S12_RECOVERY.plan_ = function(){
   var coding=AIQCODING,ss=SpreadsheetApp.getActiveSpreadsheet();
   result.codingVersion=String(coding.VERSION||'UNKNOWN');
   if(typeof coding.writeCodingRow_!=='function' ||
-     result.codingVersion.indexOf('V3.2.3-HEADER-ALIGNED-READBACK')<0)
+     !/V3\.2\.[34]-(?:HEADER-ALIGNED-READBACK|DUPLICATE-ALIASES)/.test(result.codingVersion))
     result.blockers.push('CODING_RECEIVER_V3_2_3_REQUIRED');
   if(!ss){result.blockers.push('ACTIVE_SPREADSHEET_MISSING');return {cfg:cfg,result:result};}
   result.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
@@ -118,17 +119,32 @@ AIQ_S12_RECOVERY.plan_ = function(){
   result.headerOrderAligned=actual.length===canonical.length&&
     canonical.every(function(k,i){return actual[i]===k;});
   canonical.forEach(function(k){
-    var count=actual.filter(function(h){return h===k;}).length;
-    if(!count)result.missingHeaders.push(k);
-    if(count>1)result.duplicateHeaders.push(k);
+    var indices=[];
+    actual.forEach(function(h,i){if(h===k)indices.push(i);});
+    result.headerAliasColumns[k]=indices.map(function(i){return i+1;});
+    if(!indices.length)result.missingHeaders.push(k);
+    if(indices.length>1)result.duplicateHeaders.push(k);
   });
-  if(result.missingHeaders.length||result.duplicateHeaders.length)
-    result.blockers.push('HEADERS_MISSING_OR_DUPLICATED');
-
-  var idPos=actual.indexOf(key('student_id')),
-      secPos=actual.indexOf(key('section')),
-      stagePos=actual.indexOf(key('session_id')),
-      attemptPos=actual.indexOf(key('coding_attempt_id'));
+  if(result.missingHeaders.length)result.blockers.push('HEADERS_MISSING');
+  // Duplicate normalized labels are expected in the legacy 52-column Sheet.
+  // They are SAFE only when all aliases in the restored row are mirrored.
+  function allPositions(name){
+    var target=key(name),list=[];
+    actual.forEach(function(h,i){if(h===target)list.push(i);});
+    return list;
+  }
+  var idCols=allPositions('student_id'),
+      secCols=allPositions('section'),
+      stageCols=allPositions('session_id'),
+      attemptCols=allPositions('coding_attempt_id');
+  function anyMatch(row,cols,condition){
+    return cols.some(function(i){return condition(row[i]);});
+  }
+  function canonicalIdentity(row){
+    return anyMatch(row,idCols,function(v){return normalId(v)===normalId(cfg.id);}) &&
+      anyMatch(row,secCols,function(v){return normalSec(v)===normalSec(cfg.section);}) &&
+      anyMatch(row,stageCols,function(v){return normalStage(v)===normalStage(cfg.stage);});
+  }
 
   var sources=[];
   [319,320].forEach(function(line){
@@ -156,10 +172,7 @@ AIQ_S12_RECOVERY.plan_ = function(){
       legacyScore:Number(obj.coding_score)||0,quizScore:Number(obj.quiz_score)||0,
       completed:coding.bool_(obj.completed),attemptIdPresent:!!obj.coding_attempt_id,
       timestampPresent:!!obj.submitted_at,savedVersion:obj.version,
-      canonicalIdentityAlreadyMatches: idPos>=0&&secPos>=0&&stagePos>=0 &&
-        normalId(raw[idPos])===normalId(cfg.id)&&
-        normalSec(raw[secPos])===normalSec(cfg.section)&&
-        normalStage(raw[stagePos])===normalStage(cfg.stage)});
+      canonicalIdentityAlreadyMatches:canonicalIdentity(raw)});
   });
   result.sourceAttemptIdsSame=sources[0].obj.coding_attempt_id===
     sources[1].obj.coding_attempt_id;
@@ -171,19 +184,16 @@ AIQ_S12_RECOVERY.plan_ = function(){
   var attempts=sources.map(function(s){return s.obj.coding_attempt_id;});
   for(var n=1;n<values.length;n++){
     var row=values[n];
-    var isTarget=idPos>=0&&secPos>=0&&stagePos>=0&&
-      normalId(row[idPos])===normalId(cfg.id)&&
-      normalSec(row[secPos])===normalSec(cfg.section)&&
-      normalStage(row[stagePos])===normalStage(cfg.stage);
-    if(isTarget&&result.officialMatchingRows.length<20)
+    if(canonicalIdentity(row)&&result.officialMatchingRows.length<20)
       result.officialMatchingRows.push(n+1);
-    if(attemptPos>=0&&attempts.indexOf(String(row[attemptPos]||''))>=0&&
+    if(attemptCols.some(function(i){return attempts.indexOf(String(row[i]||''))>=0;})&&
        result.idCollisionRows.length<20)result.idCollisionRows.push(n+1);
   }
   if(result.officialMatchingRows.length)result.blockers.push('OFFICIAL_S12_ALREADY_EXISTS');
   if(result.idCollisionRows.length)result.blockers.push('ATTEMPT_ID_ALREADY_PRESENT');
   result.reviewHash=AIQ_S12_RECOVERY.hash_(JSON.stringify({
-    actual:actual,sources:sources.map(function(s){return s.values;}),
+    mapping:'NORMALIZED_ALIAS_MIRROR_V2',actual:actual,
+    sources:sources.map(function(s){return s.values;}),
     target:cfg.section+':'+cfg.stage,selected:cfg.sourceRow
   }));
   result.recommendedRow=319;
@@ -212,6 +222,9 @@ function AIQ_RECOVERY_S12_APPLY_EXPLICITLY() {
   var lock=LockService.getScriptLock();
   if(!lock.tryLock(30000))throw new Error('RECOVERY_LOCK_BUSY');
   try{
+    if(typeof AIQCODING==='undefined'||
+       String(AIQCODING.VERSION||'').indexOf('V3.2.4-DUPLICATE-ALIASES')<0)
+      throw new Error('APPLY_REQUIRES_CODING_RECEIVER_V3_2_4');
     var plan=AIQ_S12_RECOVERY.plan_(),summary=plan.result;
     if(!summary.readyForHumanReview||summary.reviewHash!==cfg.reviewHash)
       throw new Error('RECOVERY_REVIEW_CHANGED_OR_BLOCKED');
@@ -219,8 +232,10 @@ function AIQ_RECOVERY_S12_APPLY_EXPLICITLY() {
     if(!selected||selected.issues.length)throw new Error('SELECTED_ROW_FAILED_REVIEW');
     var vals={};
     AIQ_S12_RECOVERY.KEYS.forEach(function(h,i){vals[AIQCODING.key_(h)]=selected.values[i];});
-    // Append values by ACTUAL header order. Extra columns not in the legacy
-    // 27-field source are deliberately blank, never fabricated.
+    // Mirror each canonical value across ALL normalized alias headers.
+    // This supports both Flow (first header match) and Status Repair
+    // (last normalized key), without overwriting legacy source rows.
+    // Extra columns not in the original 27 fields remain blank.
     var mapped=plan.actual.map(function(h){
       return Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:'';
     });
@@ -231,18 +246,25 @@ function AIQ_RECOVERY_S12_APPLY_EXPLICITLY() {
     var r=plan.sh.getRange(newly,1,1,plan.sh.getLastColumn()).getDisplayValues()[0];
     var obj={};
     h.forEach(function(label,i){obj[AIQCODING.key_(label)]=r[i];});
-    var valid=AIQCODING.matches_(obj,cfg.id,cfg.section,cfg.stage) &&
+    var aliasConsistent=AIQ_S12_RECOVERY.KEYS.every(function(label){
+      var target=AIQCODING.key_(label);
+      return plan.actual.every(function(k,i){
+        return k!==target || String(r[i])===String(selected.obj[label]);
+      });
+    });
+    var valid=aliasConsistent &&
+      AIQCODING.matches_(obj,cfg.id,cfg.section,cfg.stage) &&
       AIQCODING.text_(AIQCODING.pick_(obj,['coding_attempt_id']))===
         selected.obj.coding_attempt_id &&
       AIQCODING.rowCompleted_(obj) &&
       Number(AIQCODING.pick_(obj,['coding_score']))===
         Number(selected.obj.coding_score);
-    if(!valid)throw new Error('RESTORE_WRITE_OCCURRED_BUT_READBACK_NOT_VALID_REVIEW_NEW_ROW');
+    if(!valid)throw new Error('RESTORE_WRITE_OCCURRED_BUT_ALIAS_READBACK_NOT_VALID_REVIEW_NEW_ROW');
     var status=AIQCODING.getStatus_({studentId:cfg.id,section:cfg.section,sessionId:cfg.stage});
     if(!status||status.found!==true||status.completed!==true||
        Number(status.bestScore)!==Number(selected.obj.coding_score))
       throw new Error('RECOVERY_ROW_WRITTEN_BUT_STATUS_DISAGREES_REVIEW_SHEET');
-    var report={audit:'AIQ_S12_LEGACY_RECOVERY_V1',
+    var report={audit:'AIQ_S12_LEGACY_RECOVERY_V1_1',
       mode:'ONE_ROW_WRITTEN_FROM_LEGACY_EVIDENCE',
       restoredSourceRow:cfg.sourceRow,appendedRow:newly,
       originalSourceRowsPreserved:[319,320],
