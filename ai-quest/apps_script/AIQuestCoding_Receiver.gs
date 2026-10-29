@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.4
+ * CSAI2102 AI Quest Coding Receiver v3.2.5
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.4-DUPLICATE-ALIASES';
+AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.5-SEMANTIC-EQUIVALENCE';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -44,6 +44,28 @@ AIQCODING.minCounts_ = function(text,counts){
     return (t.match(new RegExp(escaped,'g'))||[]).length>=Number(counts[k]||1);
   });
 };
+AIQCODING.s14QTableUpdateEquivalent_ = function(code){
+ var clean=String(code||'').split(/\r?\n/).map(function(line){return line.replace(/#.*$/,'');}).join('\n');
+ if(!/\balpha\b/i.test(clean)||!/\breward\b/i.test(clean))return false;
+ var writes=/\b(?:self\.)?(?:q_table|q_values|q)\s*\[[^\]\r\n]{1,120}\](?:\s*\[[^\]\r\n]{1,120}\])?\s*(\+=|=)\s*([^\r\n]+)/gi;
+ var match;
+ while((match=writes.exec(clean))!==null){
+  var op=match[1],rhs=match[2];
+  var alpha=/\balpha\b/i.test(rhs);
+  var direct=/\breward\b/i.test(rhs);
+  var td=/\btd_error\b/i.test(rhs)&&/\btd_error\s*=\s*[^\r\n]+/i.test(clean)&&/\btd_target\s*=\s*[^\r\n]*\breward\b/i.test(clean);
+  var target=/\btd_target\b/i.test(rhs)&&/\btd_target\s*=\s*[^\r\n]*\breward\b/i.test(clean);
+  var oldQ=/\b(?:q_table|q_values|q|old_q|q_old|td_error|td_target)\b/i.test(rhs);
+  if(alpha&&(direct||td||target)&&(op==='+='||oldQ))return true;
+  var alias=/^\s*(?:updated_q|q_updated|q_new|updated_value|new_value)\b/i.exec(rhs);
+  if(alias){
+   var id=alias[0].trim().replace(/\W/g,'');
+   var assignment=new RegExp('\\b'+id+'\\s*=\\s*([^\\r\\n]+)','i').exec(clean);
+   if(assignment&&/\balpha\b/i.test(assignment[1])&&/\breward\b/i.test(assignment[1])&&(/\b(?:q_table|q_values|q|old_q|q_old)\b/i.test(assignment[1])||op==='+='))return true;
+  }
+ }
+ return false;
+};
 AIQCODING.matchesGroups_ = function(text,groups){
   var t=AIQCODING.norm_(text);
   groups=groups||[];
@@ -65,7 +87,7 @@ AIQCODING.RULES = Object.freeze({
  S1:{expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']],b:['temperature','if','print'],m:['38.5','38','39'],c:['if','elif','else','low','normal','high'],ca:['confidence','explanation','fallback']},
  S2:{expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
  S3:{expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
- B1:{expected:'search_new_route',pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
+ B1:{expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
  S4:{expected:'D 6',pg:[['d'],['6']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
  S5:{expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
  S6:{expected:'3',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
@@ -79,7 +101,7 @@ AIQCODING.RULES = Object.freeze({
  S12:{expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
  B4:{expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
  S13:{expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
- S14:{expected:'0.55',pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
+ S14:{expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
  S15:{expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
  B5:{expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
 });
@@ -166,8 +188,11 @@ AIQCODING.validateEvidenceV31_ = function(sessionId,payload){
   if(!rule)return {mode:'TEACHING_V3_2_2_CONCEPT_GROUPS',predictionCorrect:false,completedCodePassed:false,outputPassed:false,modifyPassed:false,challengePassed:false,challengeAttempted:false,quizPassed:false,quizScore:0,runScore:0,modifyScore:0,challengeScore:0,quizPoint:0,parsed:x,diagnostics:{error:'RULE_NOT_FOUND'}};
 
   var expected=AIQCODING.norm_(rule.expected);
-  var predictionCorrect=x.predictionAnswer.length>=2&&x.predictionReason.length>=20&&AIQCODING.matchesGroups_(x.predictionAnswer,rule.pg||[[rule.expected]]);
-  var completedCodePassed=x.completedCode.length>=40&&!/\bTODO\b/i.test(x.completedCode)&&AIQCODING.containsAll_(x.completedCode,rule.b)&&AIQCODING.containsAny_(x.completedCode,rule.ba);
+  var predictionSource=rule.allowCombinedPredictReason?(x.predictionAnswer+' '+x.predictionReason):x.predictionAnswer;
+  var predictionCorrect=x.predictionAnswer.length>=2&&x.predictionReason.length>=20&&AIQCODING.matchesGroups_(predictionSource,rule.pg||[[rule.expected]]);
+  var missingCode=AIQCODING.missing_(x.completedCode,rule.b);
+  var acceptedEquivalent=!!(rule.allowQTableUpdateEquivalent&&sessionId==='S14'&&missingCode.length===1&&missingCode[0]==='new_q'&&AIQCODING.s14QTableUpdateEquivalent_(x.completedCode));
+  var completedCodePassed=x.completedCode.length>=40&&!/\bTODO\b/i.test(x.completedCode)&&(missingCode.length===0||acceptedEquivalent)&&AIQCODING.containsAny_(x.completedCode,rule.ba);
   var outputPassed=output.length>=2&&AIQCODING.norm_(output).indexOf(expected)>=0;
   var modifyPassed=x.scenarioCode.length>=30&&AIQCODING.containsAll_(x.scenarioCode,rule.m)&&AIQCODING.containsAny_(x.scenarioCode,rule.ma)&&AIQCODING.minCounts_(x.scenarioCode,rule.mc);
   var challengeBody=x.challengeCode.replace(/#\s*(Level|QuizScore)[^\r\n]*/gi,'').trim();
@@ -178,7 +203,7 @@ AIQCODING.validateEvidenceV31_ = function(sessionId,payload){
   return {
     mode:'TEACHING_V3_2_2_CONCEPT_GROUPS',predictionCorrect:predictionCorrect,completedCodePassed:completedCodePassed,outputPassed:outputPassed,modifyPassed:modifyPassed,challengeAttempted:challengeAttempted,challengePassed:challengePassed,quizPassed:quizPassed,quizScore:x.quizScore,
     runScore:(completedCodePassed&&outputPassed)?25:0,modifyScore:modifyPassed?35:0,challengeScore:challengePassed?20:0,quizPoint:quizPassed?20:x.quizScore*4,parsed:x,
-    diagnostics:{expectedOutput:rule.expected,predictConceptGroups:rule.pg||[[rule.expected]],predictionReasonLength:x.predictionReason.length,missingCompletedKeywords:AIQCODING.missing_(x.completedCode,rule.b),missingModifyKeywords:AIQCODING.missing_(x.scenarioCode,rule.m),missingChallengeKeywords:challengeAttempted?AIQCODING.missing_(challengeBody,rule.c):[],challengePolicy:'optional-bonus-20'}
+    diagnostics:{expectedOutput:rule.expected,predictConceptGroups:rule.pg||[[rule.expected]],predictionReasonLength:x.predictionReason.length,combinedPredictReasonUsed:!!(rule.allowCombinedPredictReason&&!AIQCODING.matchesGroups_(x.predictionAnswer,rule.pg||[[rule.expected]])&&predictionCorrect),qTableUpdateEquivalentAccepted:acceptedEquivalent,missingCompletedKeywords:acceptedEquivalent?[]:missingCode,missingModifyKeywords:AIQCODING.missing_(x.scenarioCode,rule.m),missingChallengeKeywords:challengeAttempted?AIQCODING.missing_(challengeBody,rule.c):[],challengePolicy:'optional-bonus-20'}
   };
 };
 AIQCODING.validateEvidenceLegacy_ = function(sessionId,payload){
