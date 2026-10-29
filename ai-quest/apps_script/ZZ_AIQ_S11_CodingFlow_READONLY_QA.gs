@@ -398,3 +398,113 @@ function TEST_AIQ_CODING_HEADER_ALIGNMENT_READONLY() {
     'NONCANONICAL_HEADERS_BUT_NO_TARGET_ROW_IDENTIFIED';
   Logger.log(JSON.stringify(report));return report;
 }
+
+
+/**
+ * V5 standalone Coding header/row audit.
+ * Unlike V4, this requires AIQCODING only and checks students_roster directly.
+ * READ ONLY. No writes, no scores or student identifiers in logs.
+ * Uses the existing AIQ_QA_STUDENT_ID/SECTION/SESSION Script Properties.
+ */
+function TEST_AIQ_CODING_HEADER_ALIGNMENT_STANDALONE_READONLY() {
+  var p=PropertiesService.getScriptProperties();
+  var studentId=String(p.getProperty('AIQ_QA_STUDENT_ID')||'').trim();
+  var section=String(p.getProperty('AIQ_QA_SECTION')||'101').trim();
+  var sessionId=String(p.getProperty('AIQ_QA_SESSION')||'S12').trim();
+  var report={
+    audit:'AIQ_CODING_HEADER_ALIGNMENT_STANDALONE_V5',
+    mode:'READ_ONLY_NO_WRITE',studentConfigured:!!studentId,
+    section:section,sessionId:sessionId,
+    codingVersion:'MISSING',headerWriterPresent:false,
+    hasFlow:typeof AIQFLOW!=='undefined',
+    headerOrderAligned:null,headerPositions:{},
+    actualColumnCount:0,canonicalColumnCount:0,
+    totalCodingRows:0,correctlyMappedRows:[],
+    suspectedLegacyOrderRows:[],possibleOtherColumnRows:[],
+    result:'NOT_RUN'
+  };
+  function done(code){report.result=code;Logger.log(JSON.stringify(report));return report;}
+  if(!studentId)return done('SET_AIQ_QA_STUDENT_ID');
+  if(typeof AIQCODING==='undefined'||!AIQCODING.HEADERS||
+     typeof AIQCODING.key_!=='function'||
+     typeof AIQCODING.section_!=='function'||
+     typeof AIQCODING.session_!=='function')return done('CODING_MODULE_INCOMPLETE');
+  var coding=AIQCODING;
+  report.codingVersion=String(coding.VERSION||'UNKNOWN');
+  report.headerWriterPresent=typeof coding.writeCodingRow_==='function';
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ss)return done('ACTIVE_SPREADSHEET_NOT_FOUND');
+  report.spreadsheetIdSuffix=String(ss.getId()).slice(-6);
+  var roster=ss.getSheetByName('students_roster');
+  if(!roster||roster.getLastRow()<2)return done('STUDENTS_ROSTER_MISSING_OR_EMPTY');
+  function col(h,aliases){
+    var keys=aliases.map(coding.key_);
+    for(var i=0;i<h.length;i++)if(keys.indexOf(coding.key_(h[i]))>=0)return i;
+    return -1;
+  }
+  var rh=roster.getRange(1,1,1,roster.getLastColumn()).getDisplayValues()[0];
+  var idCol=col(rh,['student_id','studentId','id']);
+  var secCol=col(rh,['section','class_section','classSection']);
+  var statusCol=col(rh,['status','active_status']);
+  var roleCol=col(rh,['role','user_role']);
+  if(idCol<0)return done('ROSTER_ID_HEADER_MISSING');
+  var idNorm=function(v){return String(v==null?'':v).trim().toLowerCase();};
+  var secNorm=function(v){return coding.section_(v||'101');};
+  var sessionNorm=function(v){return coding.session_(v);};
+  var authorized=false;
+  var rosterRows=roster.getDataRange().getDisplayValues();
+  for(var r=rosterRows.length-1;r>=1;r--){
+    var rr=rosterRows[r];
+    if(idNorm(rr[idCol])!==idNorm(studentId))continue;
+    if(secCol>=0&&secNorm(rr[secCol])!==secNorm(section))continue;
+    var active=statusCol>=0?String(rr[statusCol]).trim().toLowerCase():'active';
+    var role=roleCol>=0?String(rr[roleCol]).trim().toLowerCase():'student';
+    if((!active||active==='active')&&(role==='student'||role==='test')){authorized=true;break;}
+    return done('ROSTER_NOT_AUTHORIZED');
+  }
+  if(!authorized)return done('ROSTER_NOT_AUTHORIZED');
+  var sh=ss.getSheetByName(coding.SHEET||'coding_attempts');
+  if(!sh)return done('CODING_ATTEMPTS_SHEET_NOT_FOUND');
+  var canonical=coding.HEADERS.map(coding.key_);
+  var actual=sh.getLastColumn()>0?
+    sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0].map(coding.key_):[];
+  report.canonicalColumnCount=canonical.length;
+  report.actualColumnCount=actual.length;
+  report.headerOrderAligned=canonical.length<=actual.length &&
+    canonical.every(function(k,i){return actual[i]===k;});
+  ['student_id','section','session_id','coding_attempt_id','coding_score','completed'].forEach(function(label){
+    var k=coding.key_(label);
+    report.headerPositions[label]={
+      actualColumn:actual.indexOf(k)+1,canonicalColumn:canonical.indexOf(k)+1
+    };
+  });
+  if(sh.getLastRow()<2)return done('CODING_ATTEMPTS_EMPTY');
+  var rows=sh.getDataRange().getDisplayValues();
+  report.totalCodingRows=rows.length-1;
+  var ai=actual.indexOf(coding.key_('student_id'));
+  var as=actual.indexOf(coding.key_('section'));
+  var at=actual.indexOf(coding.key_('session_id'));
+  var ci=canonical.indexOf(coding.key_('student_id'));
+  var cs=canonical.indexOf(coding.key_('section'));
+  var ct=canonical.indexOf(coding.key_('session_id'));
+  function exact(row,i,s,t){
+    return i>=0&&s>=0&&t>=0&&
+      idNorm(row[i])===idNorm(studentId)&&
+      secNorm(row[s])===secNorm(section)&&
+      sessionNorm(row[t])===sessionNorm(sessionId);
+  }
+  for(var n=1;n<rows.length;n++){
+    var row=rows[n],mapped=exact(row,ai,as,at),fixed=exact(row,ci,cs,ct);
+    if(mapped&&report.correctlyMappedRows.length<20)report.correctlyMappedRows.push(n+1);
+    if(fixed&&!mapped&&report.suspectedLegacyOrderRows.length<20)report.suspectedLegacyOrderRows.push(n+1);
+    if(!mapped&&!fixed &&
+       row.some(function(v){return idNorm(v)===idNorm(studentId);}) &&
+       row.some(function(v){return sessionNorm(v)===sessionNorm(sessionId);}) &&
+       report.possibleOtherColumnRows.length<20)report.possibleOtherColumnRows.push(n+1);
+  }
+  return done(report.correctlyMappedRows.length?'CORRECTLY_MAPPED_TARGET_ROWS_FOUND':
+    report.suspectedLegacyOrderRows.length?'POSSIBLE_FIXED_ORDER_WRITE_MISMATCH':
+    report.possibleOtherColumnRows.length?'POSSIBLE_MISALIGNED_ID_STAGE':
+    report.headerOrderAligned?'NO_MATCHING_TARGET_ROWS_CANONICAL':
+    'NONCANONICAL_HEADERS_NO_TARGET_FOUND');
+}
