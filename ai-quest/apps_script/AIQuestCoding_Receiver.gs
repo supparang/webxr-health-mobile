@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.3-HEADER-ALIGNED-READBACK';
+AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.4-DUPLICATE-ALIASES';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -100,19 +100,17 @@ AIQCODING.writeCodingRow_ = function(sh,obj){
   // Preserve legacy Sheet column order. Never append HEADERS-ordered values
   // to a differently ordered existing header row.
   var headers=sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0];
-  var vals={},present={},duplicates={};
+  var vals={},present={};
   AIQCODING.HEADERS.forEach(function(h){vals[AIQCODING.key_(h)]=obj[h]==null?'':obj[h];});
-  headers.forEach(function(h){
-    var k=AIQCODING.key_(h);
-    if(!k)return;
-    if(present[k])duplicates[k]=true;
-    present[k]=true;
-  });
+  headers.forEach(function(h){var k=AIQCODING.key_(h);if(k)present[k]=true;});
   var critical=['student_id','section','session_id','coding_attempt_id','coding_score','completed'];
   critical.forEach(function(h){
     var k=AIQCODING.key_(h);
-    if(!present[k]||duplicates[k])throw Error('CODING_HEADER_INVALID_'+k);
+    if(!present[k])throw Error('CODING_HEADER_MISSING_'+k);
   });
+  // Historical Sheets may contain both student_id/studentId etc. Write the
+  // same source value to EVERY normalized alias of a canonical field, so
+  // the first-column Flow reader and last-key Status Repair agree.
   var row=headers.map(function(h){
     var k=AIQCODING.key_(h);
     return Object.prototype.hasOwnProperty.call(vals,k)?vals[k]:'';
