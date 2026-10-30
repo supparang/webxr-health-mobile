@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.5
+ * CSAI2102 AI Quest Coding Receiver v3.2.6
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261029-AIQ-CODING-RECEIVER-V3.2.5-SEMANTIC-EQUIVALENCE';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.6-OUTPUT-PARITY';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -66,6 +66,80 @@ AIQCODING.s14QTableUpdateEquivalent_ = function(code){
  }
  return false;
 };
+AIQCODING.s4UcsOutputEvidence_ = function(text) {
+  // Original S4 graph: A->B 2, A->C 5, B->D 4, C->D 1.
+  // Accept equal-cost outputs, not contradictory or ungrounded assertions.
+  var lines=String(text||'').trim().split(/\r?\n/);
+  var goalCosts=[],totalCosts=[],paths=[],goalSeen=false,issues=[];
+  var edge={A:{B:2,C:5},B:{D:4},C:{D:1},D:{}};
+  var isSix=function(v){return isFinite(Number(v))&&Math.abs(Number(v)-6)<1e-8;};
+  lines.forEach(function(src){
+    var line=String(src||'').trim();
+    if(!line)return;
+    var goal=line.match(/^(?:(?:Expanding|Expanded|Visited|Goal)\s*:\s*)?D\s*\(\s*(?:Cost|Path\s*Cost)\s*:\s*(-?\d+(?:\.\d+)?)\s*\)$/i)||
+      line.match(/^(?:(?:Expanding|Expanded|Visited|Goal)\s*:\s*)?D\s*(?:[:=]|\s+)\s*(-?\d+(?:\.\d+)?)$/i);
+    if(goal){goalSeen=true;goalCosts.push(Number(goal[1]));return;}
+    var goalLabel=line.match(/^(?:Goal|Target|Reached)\s*:\s*(\w+)\s*$/i);
+    if(goalLabel){if(goalLabel[1].toUpperCase()==='D')goalSeen=true;else issues.push('GOAL_NOT_D');return;}
+    if(/^(?:Total\s+(?:Path\s+)?Cost|Path\s+Cost|Minimum\s+Cost)\s*[:=]/i.test(line)){
+      var total=line.match(/^(?:Total\s+(?:Path\s+)?Cost|Path\s+Cost|Minimum\s+Cost)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*$/i);
+      if(!total)issues.push('TOTAL_COST_NOT_NUMERIC');else totalCosts.push(Number(total[1]));
+      return;
+    }
+    if(/^(?:Optimal\s+|Shortest\s+)?Path\s*[:=]/i.test(line)){
+      var path=line.match(/^(?:Optimal\s+|Shortest\s+)?Path\s*[:=]\s*(.+)$/i);
+      if(!path){issues.push('PATH_EMPTY');return;}
+      var clean=path[1].replace(/[\[\]\(\)'"]/g,'').replace(/\s*(?:->|→|,)\s*/g,' ').trim();
+      var nodes=clean.split(/\s+/).map(function(v){return v.toUpperCase();});
+      if(nodes.length<2||nodes[0]!=='A'||nodes[nodes.length-1]!=='D'||nodes.some(function(n){return !/^[A-D]$/.test(n);})){
+        issues.push('PATH_INVALID');return;
+      }
+      var cost=0;
+      for(var i=1;i<nodes.length;i++){
+        var from=nodes[i-1],to=nodes[i];
+        if(!Object.prototype.hasOwnProperty.call(edge[from],to)){issues.push('PATH_INVALID_EDGE');return;}
+        cost+=edge[from][to];
+      }
+      paths.push({nodes:nodes,cost:cost});
+    }
+  });
+  if(goalCosts.some(function(v){return !isSix(v);}))issues.push('GOAL_COST_NOT_6');
+  if(totalCosts.some(function(v){return !isSix(v);}))issues.push('TOTAL_COST_NOT_6');
+  if(paths.some(function(v){return !isSix(v.cost);}))issues.push('PATH_COST_NOT_6');
+  var grounded=goalCosts.length>0||(goalSeen&&totalCosts.length>0)||(paths.length>0&&totalCosts.length>0);
+  if(!grounded)issues.push('GOAL_D_COST_6_NOT_CONFIRMED');
+  return {passed:issues.length===0,mode:'S4_UCS_GOAL_COST_V1',issue:issues[0]||''};
+};
+AIQCODING.s6MinimaxOutputEvidence_ = function(text) {
+  // A one-character answer "3" is the S6 canonical output.
+  // Do not mistake "13" or "30" for 3.
+  var lines=String(text||'').trim().split(/\r?\n/);
+  var values=[],issues=[];
+  lines.forEach(function(src){
+    var line=String(src||'').trim();
+    if(!line)return;
+    if(/^-?\d+(?:\.\d+)?$/.test(line)){values.push(Number(line));return;}
+    if(/^(?:Result|Output|Root\s*MAX|MAX|Best\s*Score|Minimax(?:\s*Value)?|Value|Score)\s*[:=]/i.test(line)){
+      var v=line.match(/^(?:Result|Output|Root\s*MAX|MAX|Best\s*Score|Minimax(?:\s*Value)?|Value|Score)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*$/i);
+      if(!v)issues.push('MINIMAX_RESULT_NOT_NUMERIC');else values.push(Number(v[1]));
+    }
+  });
+  if(!values.length)issues.push('MINIMAX_RESULT_3_NOT_FOUND');
+  if(values.some(function(v){return Math.abs(v-3)>1e-8;}))issues.push('MINIMAX_RESULT_NOT_3');
+  return {passed:issues.length===0,mode:'S6_NUMERIC_RESULT_V1',issue:issues[0]||''};
+};
+
+AIQCODING.validateOutputEvidence_ = function(sessionId,output,rule) {
+  var value=AIQCODING.text_(output),r=rule||AIQCODING.RULES[sessionId];
+  if(!r)return {passed:false,mode:'NO_RULE',issue:'RULE_NOT_FOUND'};
+  if(sessionId==='S4'&&r.outputValidation==='S4_UCS_GOAL_COST_V1')
+    return AIQCODING.s4UcsOutputEvidence_(value);
+  if(sessionId==='S6'&&r.outputValidation==='S6_NUMERIC_RESULT_V1')
+    return AIQCODING.s6MinimaxOutputEvidence_(value);
+  return {passed:value.length>=2&&AIQCODING.norm_(value).indexOf(AIQCODING.norm_(r.expected))>=0,
+    mode:'NORMALIZED_EXPECTED_SUBSTRING',issue:''};
+};
+
 AIQCODING.matchesGroups_ = function(text,groups){
   var t=AIQCODING.norm_(text);
   groups=groups||[];
@@ -88,9 +162,9 @@ AIQCODING.RULES = Object.freeze({
  S2:{expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
  S3:{expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
  B1:{expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
- S4:{expected:'D 6',pg:[['d'],['6']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
+ S4:{expected:'D 6',outputValidation:'S4_UCS_GOAL_COST_V1',pg:[['d'],['6']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
  S5:{expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
- S6:{expected:'3',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
+ S6:{expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
  B2:{expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
  S7:{expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
  S8:{expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
@@ -193,7 +267,8 @@ AIQCODING.validateEvidenceV31_ = function(sessionId,payload){
   var missingCode=AIQCODING.missing_(x.completedCode,rule.b);
   var acceptedEquivalent=!!(rule.allowQTableUpdateEquivalent&&sessionId==='S14'&&missingCode.length===1&&missingCode[0]==='new_q'&&AIQCODING.s14QTableUpdateEquivalent_(x.completedCode));
   var completedCodePassed=x.completedCode.length>=40&&!/\bTODO\b/i.test(x.completedCode)&&(missingCode.length===0||acceptedEquivalent)&&AIQCODING.containsAny_(x.completedCode,rule.ba);
-  var outputPassed=output.length>=2&&AIQCODING.norm_(output).indexOf(expected)>=0;
+  var outputResult=AIQCODING.validateOutputEvidence_(sessionId,output,rule);
+  var outputPassed=outputResult.passed;
   var modifyPassed=x.scenarioCode.length>=30&&AIQCODING.containsAll_(x.scenarioCode,rule.m)&&AIQCODING.containsAny_(x.scenarioCode,rule.ma)&&AIQCODING.minCounts_(x.scenarioCode,rule.mc);
   var challengeBody=x.challengeCode.replace(/#\s*(Level|QuizScore)[^\r\n]*/gi,'').trim();
   var challengeAttempted=challengeBody.length>0;
@@ -203,7 +278,7 @@ AIQCODING.validateEvidenceV31_ = function(sessionId,payload){
   return {
     mode:'TEACHING_V3_2_2_CONCEPT_GROUPS',predictionCorrect:predictionCorrect,completedCodePassed:completedCodePassed,outputPassed:outputPassed,modifyPassed:modifyPassed,challengeAttempted:challengeAttempted,challengePassed:challengePassed,quizPassed:quizPassed,quizScore:x.quizScore,
     runScore:(completedCodePassed&&outputPassed)?25:0,modifyScore:modifyPassed?35:0,challengeScore:challengePassed?20:0,quizPoint:quizPassed?20:x.quizScore*4,parsed:x,
-    diagnostics:{expectedOutput:rule.expected,predictConceptGroups:rule.pg||[[rule.expected]],predictionReasonLength:x.predictionReason.length,combinedPredictReasonUsed:!!(rule.allowCombinedPredictReason&&!AIQCODING.matchesGroups_(x.predictionAnswer,rule.pg||[[rule.expected]])&&predictionCorrect),qTableUpdateEquivalentAccepted:acceptedEquivalent,missingCompletedKeywords:acceptedEquivalent?[]:missingCode,missingModifyKeywords:AIQCODING.missing_(x.scenarioCode,rule.m),missingChallengeKeywords:challengeAttempted?AIQCODING.missing_(challengeBody,rule.c):[],challengePolicy:'optional-bonus-20'}
+    diagnostics:{expectedOutput:rule.expected,predictConceptGroups:rule.pg||[[rule.expected]],predictionReasonLength:x.predictionReason.length,outputValidationMode:outputResult.mode,outputIssue:outputResult.issue,combinedPredictReasonUsed:!!(rule.allowCombinedPredictReason&&!AIQCODING.matchesGroups_(x.predictionAnswer,rule.pg||[[rule.expected]])&&predictionCorrect),qTableUpdateEquivalentAccepted:acceptedEquivalent,missingCompletedKeywords:acceptedEquivalent?[]:missingCode,missingModifyKeywords:AIQCODING.missing_(x.scenarioCode,rule.m),missingChallengeKeywords:challengeAttempted?AIQCODING.missing_(challengeBody,rule.c):[],challengePolicy:'optional-bonus-20'}
   };
 };
 AIQCODING.validateEvidenceLegacy_ = function(sessionId,payload){
@@ -211,7 +286,7 @@ AIQCODING.validateEvidenceLegacy_ = function(sessionId,payload){
   if(!rule)return {mode:'LEGACY_V2',predictionCorrect:false,completedCodePassed:false,outputPassed:false,modifyPassed:false,challengePassed:false,challengeAttempted:false,quizPassed:false,quizScore:0,runScore:0,modifyScore:0,challengeScore:0,quizPoint:0,parsed:{}};
   var prediction=AIQCODING.text_(payload.predictionAnswer),output=AIQCODING.norm_(payload.output),modified=AIQCODING.text_(payload.modifiedCode),challenge=AIQCODING.text_(payload.challengeCode),expected=AIQCODING.norm_(rule.expected);
   var predictionCorrect=AIQCODING.matchesGroups_(prediction,rule.pg||[[rule.expected]]);
-  var outputPassed=output.indexOf(expected)>=0;
+  var outputPassed=AIQCODING.validateOutputEvidence_(sessionId,payload.output,rule).passed;
   var modifyPassed=AIQCODING.containsAll_(modified,rule.m)&&AIQCODING.containsAny_(modified,rule.ma)&&AIQCODING.minCounts_(modified,rule.mc);
   var challengeAttempted=challenge.length>0;
   var challengePassed=challengeAttempted&&AIQCODING.containsAll_(challenge,rule.c)&&AIQCODING.containsAny_(challenge,rule.ca)&&AIQCODING.minCounts_(challenge,rule.cc);
