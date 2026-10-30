@@ -20,8 +20,11 @@ function TEST_UXQ_W15_MISSION_READONLY_V1() {
   var sheet=typeof UXQ_restoreAttemptsSheet_==='function'
     ? UXQ_restoreAttemptsSheet_()
     : (function(){
-        var ss=SpreadsheetApp.getActiveSpreadsheet();
-        if(!ss)throw Error('SHEET_NOT_FOUND');
+        var id='';
+        try{if(typeof UXQ_RECEIVER_SPREADSHEET_ID!=='undefined')id=String(UXQ_RECEIVER_SPREADSHEET_ID||'').trim();}catch(_){}
+        if(!id)id=String(props.getProperty('UXQ_RECEIVER_SPREADSHEET_ID')||'').trim();
+        var ss=id?SpreadsheetApp.openById(id):SpreadsheetApp.getActiveSpreadsheet();
+        if(!ss)throw Error('SHEET_NOT_FOUND_SET_UXQ_RECEIVER_SPREADSHEET_ID');
         return ss.getSheetByName('UXQuest_Attempts');
       })();
   if(!sheet)throw Error('UXQUEST_ATTEMPTS_NOT_FOUND');
