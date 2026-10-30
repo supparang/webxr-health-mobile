@@ -206,7 +206,7 @@
     root.setAttribute('aria-label', 'CSAI2401 legacy progress bridge');
     root.innerHTML = `
       <div class="csai2401-legacy-head">
-        <div><span class="csai2401-legacy-kicker">CSAI2401 · PROGRESS BRIDGE</span>
+        <div><span class="csai2401-legacy-kicker">CSAI2401 · เชื่อมความก้าวหน้า (Progress Bridge)</span>
           <strong>ย้ายผลการเรียนเดิมจาก CSAI2104</strong></div>
         <button type="button" class="csai2401-legacy-dismiss" aria-label="ซ่อนแถบนี้">ซ่อน</button>
       </div>
@@ -214,11 +214,11 @@
       <div id="csai2401-legacy-message" class="csai2401-legacy-message" role="status" hidden></div>
       <div data-legacy-list></div>
       <nav class="csai2401-legacy-nav" aria-label="CSAI2401 navigation">
-        <a href="./">Mission Control</a>
-        <a href="learning-lab.html?week=1">W1 Learning Lab</a>
-        <a href="learning-lab.html?week=2">W2 Learning Lab</a>
-        <a href="learning-lab.html?week=3">W3 Learning Lab</a>
-        <a href="learning-lab.html?week=5">W5 Learning Lab</a>
+        <a href="./">หน้าควบคุมภารกิจ (Mission Control)</a>
+        <a href="learning-lab.html?week=1">W1 ห้องฝึก (Learning Lab)</a>
+        <a href="learning-lab.html?week=2">W2 ห้องฝึก (Learning Lab)</a>
+        <a href="learning-lab.html?week=3">W3 ห้องฝึก (Learning Lab)</a>
+        <a href="learning-lab.html?week=5">W5 ห้องฝึก (Learning Lab)</a>
       </nav>`;
     root.querySelector('.csai2401-legacy-dismiss').addEventListener('click', () => {
       root.hidden = true;
