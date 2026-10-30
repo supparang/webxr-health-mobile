@@ -5,16 +5,18 @@
  */
 (() => {
  'use strict';
- const VERSION='20261030-W15-FINAL-SHEET-CONFIRM-V1';
+ const VERSION='20261030-UXQ-W15-FINAL-SHEET-CONFIRM-V1.1-IDENTITY-LATCH';
  if(!/(?:^|[?&])(?:node|id)=W15(?:&|$)/i.test(location.search||''))return;
  const MAX_RETRIES=2, MAX_AGE_MS=3600000;
- let activeId='', retries=0, busy=false, pending=0, message='';
+ let activeId='', retries=0, busy=false, pending=0, message='', playedFor=null;
  const $=()=>document.querySelector('#uxqCanonicalNode .results');
  const identity=()=>{try{return window.UXQIdentity?.get?.()||{};}catch(_){return {};}};
  function localProof(){
    const sender=window.CSAI2601UXQAutoSheet, p=identity();
    if(!$()||!sender||typeof sender.payload!=='function')return null;
    const item=sender.payload();
+   if(!playedFor||String(p.studentId)!==playedFor.studentId||
+      String(p.studentName)!==playedFor.studentName||String(p.section)!==playedFor.section)return null;
    if(!item||item.eventType!=='mission_completed'||String(item.missionId).toLowerCase()!=='w15'||
       !item.eventId||!p.studentId||!p.studentName||!p.section||
       String(item.studentId)!==String(p.studentId)||
@@ -112,7 +114,21 @@
    }
  }
  function boot(){
-   scan();new MutationObserver(scan).observe(document.getElementById('uxqCanonicalNode')||document.body,{childList:true,subtree:true});
+   // Bind the actual gameplay attempt to the learner who clicked Start/Retry.
+   // The generic client payload always uses the current profile, so profile
+   // equality without this latch cannot protect shared-device profile switches.
+   document.addEventListener('click',function(event){
+     const button=event.target.closest?.('[data-start],[data-retry]');
+     const root=document.getElementById('uxqCanonicalNode');
+     if(!button||!root||!root.contains(button))return;
+     const p=identity();
+     playedFor=p.studentId&&p.studentName&&p.section
+       ? {studentId:String(p.studentId),studentName:String(p.studentName),section:String(p.section)}
+       : null;
+     activeId='';retries=0;
+   },true);
+   scan();
+   new MutationObserver(scan).observe(document.getElementById('uxqCanonicalNode')||document.body,{childList:true,subtree:true});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
  window.UXQW15FinalSheetProof=Object.freeze({version:VERSION,classifySheet,verify,getMessage:()=>message});
