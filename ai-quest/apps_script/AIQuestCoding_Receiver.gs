@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.14
+ * CSAI2102 AI Quest Coding Receiver v3.2.15
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.14-EXPLANATION-PARITY';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.15-S9-BATCH-PARITY';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -127,6 +127,66 @@ AIQCODING.s6MinimaxOutputEvidence_ = function(text) {
   if(!values.length)issues.push('MINIMAX_RESULT_3_NOT_FOUND');
   if(values.some(function(v){return Math.abs(v-3)>1e-8;}))issues.push('MINIMAX_RESULT_NOT_3');
   return {passed:issues.length===0,mode:'S6_NUMERIC_RESULT_V1',issue:issues[0]||''};
+};
+
+AIQCODING.s9ScenarioBatchEvidenceV1_ = function(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  // Only the explicitly labeled S9 A-E batch uses this alternate format.
+  // The original one-result S9 grader remains unchanged for ordinary output.
+  var header=/^(?:Case\s+)?([A-E])\s*[:.)]\s*(.+)$/i;
+  var rows=raw.split(/\r?\n/).map(function(row){return row.trim();}).filter(Boolean);
+  if(!rows.some(function(row){return header.test(row);}))return null;
+  var result=function(ok,issue){return {passed:!!ok,mode:'S9_SCENARIO_BATCH_V1',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return result(false,'OUTPUT_REQUIRES_REVIEW');
+  var cases={},order=[],current=null,lastWasExplanation=false,problem='';
+  var decisions={recommend_checkup:1,rest_and_monitor:1,go_to_emergency_room:1};
+  var noteLabel=/^(?:explanation|reason|rationale|คำอธิบาย|เหตุผล)\s*_*\s*[:：]\s*(.*)$/i;
+  var decisionLabel=/^(?:recommendation|คำแนะนำ)\s*[:：]\s*(.*)$/i;
+  var embedded=/(?:^|[\s;|])(?:recommendation|decision|action|result|output|answer|classification|diagnosis|strategy|choice|selected|final_decision)\s*[:=]/i;
+  rows.forEach(function(line){
+    if(problem)return;
+    var h=header.exec(line);
+    if(h){
+      var key=h[1].toUpperCase(),description=h[2].trim();
+      if(!description||cases[key]){problem='DUPLICATE_OR_EMPTY_CASE';return;}
+      current={id:key,description:description,recommendations:[],explanations:[]};
+      cases[key]=current;order.push(key);lastWasExplanation=false;return;
+    }
+    if(!current){problem='UNLABELED_BATCH_OUTPUT';return;}
+    var decision=decisionLabel.exec(line);
+    if(decision){
+      var value=decision[1].trim().toLowerCase().replace(/[\s-]+/g,'_');
+      if(!decisions[value]){problem='S9_UNRECOGNIZED_RECOMMENDATION';return;}
+      current.recommendations.push(value);lastWasExplanation=false;return;
+    }
+    var explanation=noteLabel.exec(line);
+    if(explanation){
+      var detail=explanation[1].trim();
+      if(!detail||embedded.test(detail)){problem='S9_INVALID_EXPLANATION';return;}
+      current.explanations.push(detail);lastWasExplanation=true;return;
+    }
+    // A parenthesized continuation is an explanation only when it follows one.
+    if(lastWasExplanation&&/^\([^()]{1,250}\)$/.test(line)&&!embedded.test(line)){
+      current.explanations[current.explanations.length-1]+=' '+line;return;
+    }
+    problem='S9_UNRECOGNIZED_BATCH_LINE';
+  });
+  if(problem)return result(false,problem);
+  if(order.length<2||!cases.B)return result(false,'S9_BASELINE_CASE_B_REQUIRED');
+  for(var i=0;i<order.length;i++){
+    var c=cases[order[i]];
+    if(c.recommendations.length!==1)return result(false,'S9_ONE_RECOMMENDATION_PER_CASE_REQUIRED');
+    if(c.explanations.length!==1)return result(false,'S9_ONE_EXPLANATION_PER_CASE_REQUIRED');
+  }
+  if(cases.B.recommendations[0]!=='recommend_checkup')return result(false,'S9_BASELINE_B_RECOMMENDATION_MISMATCH');
+  for(var j=0;j<order.length;j++){
+    var item=cases[order[j]];
+    if(/(?:หายใจลำบาก|shortness[_\s-]*of[_\s-]*breath|chest[_\s-]*pain|เจ็บหน้าอก)/i.test(item.description)&&
+       item.recommendations[0]!=='go_to_emergency_room')
+      return result(false,'S9_SEVERE_CASE_MUST_REFER_URGENTLY');
+  }
+  return result(true,'');
 };
 
 AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
@@ -325,7 +385,7 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
     case 'B2':return category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});
     case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
     case 'S8':return numeric(0.154,'proportion');
-    case 'S9':return category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});
+    case 'S9':{var batch=AIQCODING.s9ScenarioBatchEvidenceV1_(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
     case 'B3':return category(function(v){return /^(?:high[_\s-]*risk[_\s-]*with[_\s-]*evidence|high\s+risk\s+(?:and|with)\s+evidence|ความเสี่ยงสูงพร้อมหลักฐาน)$/i.test(v)?'expected':'';});
     case 'S10':{
       var pairs=[],train=[],test=[];
