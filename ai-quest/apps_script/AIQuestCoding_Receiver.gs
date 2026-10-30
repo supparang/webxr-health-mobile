@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.8
+ * CSAI2102 AI Quest Coding Receiver v3.2.9
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.8-ALL20-OUTPUT-GUARDED';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.9-STRUCTURED-DICT-OUTPUT';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -178,18 +178,124 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
     return result(true);
   };
   var category=function(accept){
-    var found=[],bad=[];
-    lines.forEach(function(line){
+    var found=[],bad=[],objects=[],outside='';
+    // Parse printed JSON/Python dictionaries as structural evidence rather
+    // than treating each property and brace as a contradictory output line.
+    // Scan braces outside strings; never evaluate a student's code.
+    var depth=0,start=-1,quote='',escaped=false;
+    for(var pos=0;pos<raw.length;pos++){
+      var c=raw.charAt(pos);
+      if(quote){
+        if(escaped)escaped=false;
+        else if(c==='\\')escaped=true;
+        else if(c===quote)quote='';
+        continue;
+      }
+      if(c==='"'||c==="'"){quote=c;continue;}
+      if(c==='{'){
+        if(depth===0)start=pos;
+        depth++;
+      }else if(c==='}'){
+        if(depth===0){bad.push('UNBALANCED_STRUCTURED_OUTPUT');break;}
+        depth--;
+        if(depth===0)objects.push(raw.slice(start,pos+1));
+      }
+    }
+    if(depth!==0)bad.push('UNBALANCED_STRUCTURED_OUTPUT');
+    if(quote&&depth>0)bad.push('UNTERMINATED_STRUCTURED_STRING');
+    if(objects.length){
+      var cursor=0;
+      objects.forEach(function(block){
+        var at=raw.indexOf(block,cursor);
+        if(at<0){bad.push('STRUCTURED_OUTPUT_EXTRACT_FAILED');return;}
+        outside+=raw.slice(cursor,at)+'\n';
+        cursor=at+block.length;
+      });
+      outside+=raw.slice(cursor);
+    }else outside=raw;
+    var pythonDictToJson=function(src){
+      var out='',i=0;
+      while(i<src.length){
+        var ch=src.charAt(i);
+        if(ch==='"'){
+          var st=i++,close=false,esc=false;
+          while(i<src.length){
+            var q=src.charAt(i++);
+            if(esc){esc=false;continue;}
+            if(q==='\\'){esc=true;continue;}
+            if(q==='"'){close=true;break;}
+          }
+          if(!close)throw Error('UNCLOSED_JSON_STRING');
+          out+=src.slice(st,i);continue;
+        }
+        if(ch==="'"){
+          i++;var word='',finished=false;
+          while(i<src.length){
+            var part=src.charAt(i++);
+            if(part==='\\'){
+              if(i>=src.length)throw Error('UNCLOSED_PYTHON_ESCAPE');
+              var escChar=src.charAt(i++);
+              if(escChar==='n')word+='\n';
+              else if(escChar==='t')word+='\t';
+              else word+=escChar;
+              continue;
+            }
+            if(part==="'"){finished=true;break;}
+            word+=part;
+          }
+          if(!finished)throw Error('UNCLOSED_PYTHON_STRING');
+          out+=JSON.stringify(word);continue;
+        }
+        if(/[a-zA-Z_]/.test(ch)){
+          var end=i+1;
+          while(end<src.length&&/[a-zA-Z0-9_]/.test(src.charAt(end)))end++;
+          var keyword=src.slice(i,end);
+          out+=keyword==='True'?'true':keyword==='False'?'false':keyword==='None'?'null':keyword;
+          i=end;continue;
+        }
+        out+=ch;i++;
+      }
+      return out;
+    };
+    var resultKeys={decision:true,action:true,result:true,output:true,
+      recommendation:true,diagnosis:true,classification:true,strategy:true,
+      choice:true,selected:true,final_decision:true};
+    objects.forEach(function(block){
+      var seen={};
+      var keys=block.match(/(?:["'])(?:decision|action|result|output|recommendation|diagnosis|classification|strategy|choice|selected|final_decision)(?:["'])\s*:/gi)||[];
+      keys.forEach(function(key){
+        var name=key.replace(/["':\s]/g,'').toLowerCase();
+        if(seen[name])bad.push('DUPLICATE_RESULT_FIELD');
+        seen[name]=true;
+      });
+      var obj;
+      try{
+        try{obj=JSON.parse(block);}
+        catch(_){obj=JSON.parse(pythonDictToJson(block));}
+      }catch(_){bad.push('MALFORMED_STRUCTURED_OUTPUT');return;}
+      if(!obj||typeof obj!=='object'||Array.isArray(obj)){
+        bad.push('STRUCTURED_OBJECT_EXPECTED');return;
+      }
+      Object.keys(obj).forEach(function(key){
+        if(!resultKeys[key.toLowerCase()])return;
+        var value=obj[key];
+        if(typeof value!=='string'){bad.push('NON_TEXT_RESULT_FIELD');return;}
+        if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
+        if(accept(value))found.push('expected');
+        else bad.push('CONFLICTING_STRUCTURED_DECISION');
+      });
+    });
+    outside.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(line){
       if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
+      if(objects.length&&/^(?:result|output|answer|decision)\s*[:=]\s*$/i.test(line))return;
       var value=take(line);
       if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
-      var answer=accept(value);
-      if(answer)found.push(answer);
+      if(accept(value))found.push('expected');
       else bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
     });
     if(bad.length)return result(false,bad[0]);
     if(!found.length)return result(false,'CATEGORY_NOT_CONFIRMED');
-    return found.every(function(a){return a==='expected';})?result(true):result(false,'CATEGORY_MISMATCH');
+    return result(true);
   };
   switch(stage){
     case 'S1':return category(function(v){return /^(?:high\s+(?:temperature|temp)\s+(?:alert|warning)|alert\s*:\s*high\s+(?:temperature|temp))$/i.test(v)?'expected':'';});
