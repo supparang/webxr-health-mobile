@@ -186,6 +186,9 @@ function showServerRuleInfo(){
   e.textContent=structured?
    'เกณฑ์ Output จาก Server: ตรวจโครงสร้างและค่าผลลัพธ์ของ '+session+' รองรับรูปแบบเทียบเท่าที่กำหนด และปฏิเสธค่าขัดแย้ง'+(session==='B5'?' • B5 รองรับ REJECT/HOLD เมื่อ Privacy Compliant: False พร้อม Failed Governance Gates และ Excess Fields':'')+' • คำตอบนอกแบบที่รองรับอาจต้องตรวจโดยผู้สอน':
    '⚠ Server ยังใช้กฎ Output แบบจับข้อความเดิมสำหรับ '+session+' • คำตอบที่ถูกต้องบางรูปแบบอาจไม่ผ่าน โปรดแจ้งผู้สอนเพื่อตรวจ Deployment';
+  if(session==='S9'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1'){
+   e.className='check bad';e.textContent+=' • เซิร์ฟเวอร์ยังไม่รองรับผลหลายสถานการณ์ A–E กรุณาอัปเดต Receiver V3.2.15 ก่อนส่งงานรูปแบบนี้';
+  }
   return;
  }
  e.style.display='block';
@@ -601,7 +604,8 @@ function validate(){
   (session==='S6'&&serverRule.outputValidation==='S6_NUMERIC_RESULT_V1')?s6MinimaxOutputEvidence(output):
   (serverRule.outputValidation==='STRUCTURED_OUTPUT_V2')?structuredOutputEvidenceV2(session,output):
   {passed:!!output&&norm(output).includes(norm(serverRule.expected||lab.expected)),issue:'OLD_SERVER_OUTPUT_VALIDATOR'},
-  outputOK=outputCheck.passed;
+  outputOK=outputCheck.passed&&!(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1');
+ if(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')outputCheck.issue='S9_BACKEND_BATCH_CONTRACT_MISSING';
  const modifyCode=$('modifiedCode').value.trim(),modifyReason=$('modifyReason').value.trim(),modifyKeywords=serverRule.m||lab.modifyKeywords||[],modifyAny=serverRule.ma||lab.modifyAnyKeywords||[],modifyCounts=serverRule.mc||lab.modifyMinCounts||{},modifyMissing=missing(modifyCode,modifyKeywords),modifyAnyMissing=modifyAny.length>0&&!hasAny(modifyCode,modifyAny),modifyCountMissing=countShortfalls(modifyCode,modifyCounts),modifyOK=modifyCode.length>=30&&minReason(modifyReason)&&modifyMissing.length===0&&!modifyAnyMissing&&modifyCountMissing.length===0;
  const challengeCode=$('challengeCode').value.trim(),challengeAttempted=challengeCode.length>0,challengeMissing=missing(challengeCode,lab.challengeKeywords),challengeOK=challengeAttempted&&challengeCode.length>=20&&challengeMissing.length===0&&hasAny(challengeCode,lab.challengeAnyKeywords),quizOK=validateQuiz(true);
  let pm='';
@@ -633,7 +637,7 @@ function validate(){
  mark('outputCheck',outputOK,
   outputOK?(outputCheck.mode==='B5_PRIVACY_HOLD_V1'?'✓ B5: REJECT/HOLD สอดคล้องกับ Privacy Compliant: False และ Failed Governance Gates (ยังต้องตรวจผลการรันจริง)':specialOutput?'✓ Output ตรวจผลลัพธ์ตามเกณฑ์ '+session+' ของ Server ผ่าน':'✓ Output ตรงกับผลที่โจทย์กำหนด'):
   (!output?'✗ ยังไม่ได้วาง Output Evidence':specialOutput?
-  '✗ Output '+session+' ยังไม่ยืนยันผลที่ถูกต้อง หรือมีข้อมูลขัดแย้งกัน ('+outputCheck.issue+')':
+  '✗ Output '+session+' ยังไม่ยืนยันผล หรือเซิร์ฟเวอร์ยังไม่รองรับรูปแบบนี้ ('+outputCheck.issue+')':
   '✗ Output ยังไม่ตรงกับผลที่คาด: '+(serverRule.expected||lab.expected)));
  if(outputCheck.reviewRequired===true){const e=$('outputCheck');e.className='check optional';e.textContent='⚠ Output ยังยืนยันผลไม่ได้อัตโนมัติ ('+outputCheck.issue+') • โปรดเก็บหลักฐานการรันจริงเพื่อให้ผู้สอนตรวจ • ระบบยังไม่อนุมัติส่งอัตโนมัติ';}
  let mm='';if(modifyOK)mm='✓ Scenario Modification มีหลักฐานเชิงความหมายครบ';else if(modifyCode.length<30)mm='✗ Scenario Modification Code ต้องมีอย่างน้อย 30 ตัวอักษร';else if(!minReason(modifyReason))mm='✗ เหตุผลของ Scenario Modification ต้องมีอย่างน้อย 20 ตัวอักษร';else mm='✗ Scenario Modification ยังขาด: '+([...(modifyMissing.length?['คำสำคัญ '+modifyMissing.join(', ')]:[]),...(modifyAnyMissing?['อย่างน้อยหนึ่งรายการ '+modifyAny.join(' หรือ ')]:[]),...(modifyCountMissing.length?['จำนวนครั้ง '+modifyCountMissing.join(', ')]:[])].join(' • ')||'องค์ประกอบที่โจทย์กำหนด');mark('modifyCheck',modifyOK,mm);
