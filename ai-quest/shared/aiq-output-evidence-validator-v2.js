@@ -5,7 +5,7 @@
  * S4 and S6 retain existing dedicated validators; this function handles the other 18.
  * This is a deterministic structural checker, NOT general natural-language understanding.
  */
-var AIQ_OUTPUT_VALIDATOR_VERSION='20261030-OUTPUT-EVIDENCE-V2-ALL20-STRUCTURED-VALIDATION';
+var AIQ_OUTPUT_VALIDATOR_VERSION='20261030-OUTPUT-EVIDENCE-V2.1-CONTRADICTION-GUARD';
 function structuredOutputEvidenceV2(stage,output) {
   // Pure, deterministic, read-only output validator for the 18 non-S4/S6 stages.
   // Only supported representations of the provided lab outputs are accepted.
@@ -57,11 +57,12 @@ function structuredOutputEvidenceV2(stage,output) {
   var category=function(accept){
     var found=[],bad=[];
     lines.forEach(function(line){
+      if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
       var value=take(line);
       if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
       var answer=accept(value);
       if(answer)found.push(answer);
-      else if(label.test(line))bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
+      else bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
     });
     if(bad.length)return result(false,bad[0]);
     if(!found.length)return result(false,'CATEGORY_NOT_CONFIRMED');
