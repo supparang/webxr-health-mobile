@@ -17,7 +17,7 @@
       id: 'w1', label: 'W1', title: 'Diagnostic Simulation', key: 'csai2104_diag_v4',
       href: 'learning-lab.html?week=1',
       read(value) {
-        try { return Boolean(value && JSON.parse(value).w1 === true); } catch (_) { return false; }
+        try { return Boolean(value && JSON.parse(value).w1 === true) && window.localStorage.getItem('csai2401_w1_lab_complete') === 'true'; } catch (_) { return false; }
       },
     },
     {
