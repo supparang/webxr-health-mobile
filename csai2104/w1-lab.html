@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>CSAI2401 W1 Engineering Studio</title>
+<title>CSAI2401 W1 — ห้องฝึกวิศวกรรม (Engineering Studio)</title>
 <style>
 :root{--bg:#07111f;--p:#0b1728;--line:#294866;--txt:#eef7ff;--muted:#9fb2c8;--a:#70a5ff;--ok:#42d392;--warn:#ffd166;--bad:#ff7b7b}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}.shell{max-width:1100px;margin:auto;padding:16px}
@@ -21,31 +21,31 @@ textarea,input{width:100%;margin-top:5px;padding:10px;border-radius:9px;border:1
 </head>
 <body>
 <main class="shell">
-<header class="top"><div><div class="muted">CSAI2401 · W1 · ENGINEERING STUDIO</div><h1 style="margin:4px 0">Practice Lab: Reproduce → Repair → Prove</h1><div class="muted">ต่อจาก SYSTEM DOWN! — เปลี่ยนการวินิจฉัยให้เป็นหลักฐานทางวิศวกรรมซอฟต์แวร์จริง</div></div><span class="pill">Lab <b id="labStatus">PENDING</b></span></header>
-<section class="panel"><b>W1 Flow</b><p class="muted">Mission ✓ → <b>Practice Lab</b> → Challenge → Evidence → Clear</p><div class="progress"><div id="bar"></div></div></section>
+<header class="top"><div><div class="muted">CSAI2401 · W1 · ห้องฝึกวิศวกรรม (Engineering Studio)</div><h1 style="margin:4px 0">ห้องฝึกปฏิบัติ: ทำซ้ำปัญหา → แก้ไข → พิสูจน์ (Reproduce → Repair → Prove)</h1><div class="muted">ต่อจากภารกิจระบบล่ม (System Down) — เปลี่ยนการวินิจฉัยให้เป็นหลักฐานทางวิศวกรรมซอฟต์แวร์จริง</div></div><span class="pill">ห้องฝึก (Lab) <b id="labStatus">รอดำเนินการ</b></span></header>
+<section class="panel"><b>ลำดับกิจกรรม W1 (Learning Flow)</b><p class="muted">ภารกิจ ✓ → <b>ฝึกปฏิบัติ (Practice Lab)</b> → โจทย์ท้าทาย → หลักฐาน → ผ่านด่าน</p><div class="progress"><div id="bar"></div></div></section>
 
-<section class="step" id="s1"><div class="stageLabel">PRACTICE LAB · STEP 1</div><h2>1. Inspect the project</h2><p>ระบบมีอาการ false completion: หน้าจอประกาศ COMPLETE ก่อน server ยืนยันว่าบันทึกสำเร็จ</p>
+<section class="step" id="s1"><div class="stageLabel">ฝึกปฏิบัติ · ขั้นที่ 1</div><h2>1. ตรวจสอบโครงการ (Inspect the Project)</h2><p>ระบบมีอาการสำเร็จลวง (False Completion): หน้าจอประกาศ COMPLETE ก่อนเซิร์ฟเวอร์ (Server) ยืนยันว่าบันทึกสำเร็จ</p>
 <div class="tabs" id="tabs"></div><div class="codebox"><pre id="code"></pre></div>
 <div class="feedback neutral" id="inspectFb">เปิดดูอย่างน้อย 3 ไฟล์ แล้วระบุว่า “แหล่งความจริง” ควรอยู่ที่ใด</div>
 <div class="grid" id="authorityChoices"></div></section>
 
-<section class="step hidden" id="s2"><div class="stageLabel">PRACTICE LAB · STEP 2</div><h2>2. Reproduce the defect</h2><p class="muted">รัน regression scenario: timeout เกิดก่อน acknowledgement จาก server</p><button id="runFail">▶ RUN BUG REPRODUCTION</button><div class="tests" id="failTests"></div><div id="reproFb"></div></section>
+<section class="step hidden" id="s2"><div class="stageLabel">ฝึกปฏิบัติ · ขั้นที่ 2</div><h2>2. ทำซ้ำข้อบกพร่อง (Reproduce the Defect)</h2><p class="muted">ทดสอบทำซ้ำกรณีการรอคำตอบหมดเวลา (Timeout) ก่อนรับคำยืนยัน (Acknowledgement) จากเซิร์ฟเวอร์</p><button id="runFail">▶ ทดสอบทำซ้ำข้อบกพร่อง (Run Reproduction)</button><div class="tests" id="failTests"></div><div id="reproFb"></div></section>
 
-<section class="step hidden" id="s3"><div class="stageLabel">CHALLENGE · STEP 3</div><h2>3. Choose the engineering patch</h2><p>เลือก patch ที่แก้ failure mechanism ไม่ใช่แค่ซ่อนอาการ</p><div class="grid" id="patches"></div><button id="applyPatch" disabled style="margin-top:10px">APPLY SELECTED PATCH</button><div id="patchFb"></div></section>
+<section class="step hidden" id="s3"><div class="stageLabel">โจทย์ท้าทาย · ขั้นที่ 3</div><h2>3. เลือกแนวทางแก้ไข (Engineering Patch)</h2><p>เลือกการแก้ไข (Patch) ที่จัดการกลไกความล้มเหลว ไม่ใช่เพียงซ่อนอาการ</p><div class="grid" id="patches"></div><button id="applyPatch" disabled style="margin-top:10px">ใช้แนวทางแก้ไขที่เลือก (Apply Patch)</button><div id="patchFb"></div></section>
 
-<section class="step hidden" id="s4"><div class="stageLabel">EVIDENCE · STEP 4</div><h2>4. Run regression verification</h2><button id="runRegression">🧪 RUN REGRESSION SUITE</button><div class="tests" id="regTests"></div><div id="regFb"></div></section>
+<section class="step hidden" id="s4"><div class="stageLabel">ตรวจหลักฐาน · ขั้นที่ 4</div><h2>4. ทดสอบป้องกันปัญหาซ้ำ (Regression Verification)</h2><button id="runRegression">🧪 รันชุดทดสอบป้องกันปัญหาซ้ำ (Regression Tests)</button><div class="tests" id="regTests"></div><div id="regFb"></div></section>
 
-<section class="step hidden" id="s5"><div class="stageLabel">EVIDENCE PACK · STEP 5</div><h2>5. Incident Investigation Pack</h2><p class="muted">บันทึกสิ่งที่พิสูจน์ได้จาก Lab นี้ ระบบจะเก็บไว้เป็นหลักฐานของ W1</p>
+<section class="step hidden" id="s5"><div class="stageLabel">ชุดหลักฐาน · ขั้นที่ 5</div><h2>5. แฟ้มสืบสวนเหตุขัดข้อง (Incident Investigation Pack)</h2><p class="muted">บันทึกสิ่งที่พิสูจน์ได้จากห้องฝึกนี้เป็นหลักฐานของ W1 สามารถอธิบายเป็นภาษาไทย ภาษาอังกฤษ หรือผสมกันได้ โดยเน้นเหตุผลและหลักฐานที่ถูกต้อง</p>
 <div class="pack">
-<label>Observed symptom<textarea id="symptom" rows="2">UI แสดง COMPLETE ก่อน server persistence acknowledgement</textarea></label>
-<label>Root cause<textarea id="root" rows="2">Client ยกระดับสถานะเป็น complete ก่อน authoritative write ยืนยันสำเร็จ</textarea></label>
-<label>Evidence<textarea id="evidence" rows="3" placeholder="เช่น timeout trace, missing DB record, relogin state"></textarea></label>
-<label>Regression guard<textarea id="guard" rows="3" placeholder="เช่น timeout → retry → relogin → unlock ต้องผ่าน"></textarea></label>
-<label style="grid-column:1/-1">Residual risk<textarea id="risk" rows="2" placeholder="สิ่งที่ยังต้องเฝ้าระวัง"></textarea></label>
+<label>อาการที่พบ (Observed Symptom)<textarea id="symptom" rows="2">หน้าจอ (UI) แสดง COMPLETE ก่อนเซิร์ฟเวอร์ยืนยันการบันทึกข้อมูล (Persistence Acknowledgement)</textarea></label>
+<label>สาเหตุราก (Root Cause)<textarea id="root" rows="2">โปรแกรมฝั่งผู้ใช้ (Client) เปลี่ยนสถานะเป็นเสร็จสิ้นก่อนที่ระบบจัดเก็บหลัก (Authoritative Store) ยืนยันการบันทึกสำเร็จ</textarea></label>
+<label>หลักฐาน (Evidence)<textarea id="evidence" rows="3" placeholder="เช่น บันทึกคำขอหมดเวลา (Timeout Trace), ไม่พบข้อมูลในฐานข้อมูล, สถานะหลังเข้าสู่ระบบใหม่ไม่ตรงกัน"></textarea></label>
+<label>การทดสอบป้องกันปัญหาซ้ำ (Regression Guard)<textarea id="guard" rows="3" placeholder="เช่น ทดสอบ Timeout → ส่งซ้ำ (Retry) → เข้าระบบใหม่ (Relogin) → ปลดล็อก (Unlock)"></textarea></label>
+<label style="grid-column:1/-1">ความเสี่ยงคงเหลือ (Residual Risk)<textarea id="risk" rows="2" placeholder="สิ่งที่ยังต้องเฝ้าระวัง"></textarea></label>
 </div>
-<button id="savePack" style="margin-top:10px">💾 SAVE EVIDENCE & CLEAR W1 LAB</button><div id="saveFb"></div></section>
+<button id="savePack" style="margin-top:10px">💾 บันทึกหลักฐานและผ่านห้องฝึก W1</button><div id="saveFb"></div></section>
 
-<div class="actions" style="margin-top:12px"><button class="secondary" onclick="location.href='./'">← Mission Control</button><button class="secondary" id="resetLab">เริ่ม Lab ใหม่</button></div>
+<div class="actions" style="margin-top:12px"><button class="secondary" onclick="location.href='./'">← กลับหน้าควบคุมภารกิจ (Mission Control)</button><button class="secondary" id="resetLab">เริ่มห้องฝึกใหม่</button></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -73,20 +73,20 @@ const files={
 };
 let opened=new Set(),authority=null,patch=null,reproduced=false,verified=false;
 const saved=localStorage.getItem('csai2401_w1_lab_complete')==='true';
-if(saved){$('labStatus').textContent='CLEARED';$('bar').style.width='100%'}
-function showFile(name){opened.add(name);[...$('tabs').children].forEach(b=>b.classList.toggle('sel',b.dataset.f===name));$('code').textContent=files[name];if(opened.size>=3)$('inspectFb').textContent='ตรวจไฟล์ครบแล้ว — เลือก authoritative source สำหรับ completion';}
+if(saved){$('labStatus').textContent='ผ่านแล้ว';$('bar').style.width='100%'}
+function showFile(name){opened.add(name);[...$('tabs').children].forEach(b=>b.classList.toggle('sel',b.dataset.f===name));$('code').textContent=files[name];if(opened.size>=3)$('inspectFb').textContent='ตรวจไฟล์ครบแล้ว — เลือกแหล่งข้อมูลหลัก (Authoritative Source) สำหรับยืนยันความสำเร็จ';}
 Object.keys(files).forEach((name,i)=>{const b=document.createElement('button');b.dataset.f=name;b.textContent=name;b.onclick=()=>showFile(name);$('tabs').appendChild(b);if(i===0)showFile(name)});
-[['Client UI','client'],['Progress Store / server persistence','store'],['Dashboard projection','dashboard']].forEach(([label,v])=>{const b=document.createElement('button');b.className='choice';b.textContent=label;b.onclick=()=>{[...$('authorityChoices').children].forEach(x=>x.classList.remove('sel'));b.classList.add('sel');authority=v;if(v==='store'&&opened.size>=3){$('inspectFb').className='feedback good';$('inspectFb').textContent='ถูกต้อง: authoritative completion ต้องยืนยันจาก server persistence';$('s2').classList.remove('hidden');$('bar').style.width='20%'}else{$('inspectFb').className='feedback bad';$('inspectFb').textContent='ยังไม่พอ: ต้องตรวจครบ 3 ไฟล์และเลือก source ที่ตัดสินสถานะทางการได้'}};$('authorityChoices').appendChild(b)});
-$('runFail').onclick=()=>{reproduced=true;const rows=[['UI state after click','FAIL: COMPLETE ก่อน ack',false],['Server record at timeout','FAIL: ยังไม่มี authoritative record',false],['Relogin consistency','FAIL: UI กับ server ไม่ตรงกัน',false]];$('failTests').innerHTML=rows.map(x=>'<div class="test '+(x[2]?'pass':'fail')+'"><b>'+x[0]+'</b><br>'+x[1]+'</div>').join('');$('reproFb').className='feedback good';$('reproFb').textContent='DEFECT REPRODUCED — failure mechanism ถูกสร้างซ้ำได้แล้ว';$('s3').classList.remove('hidden');$('bar').style.width='40%'};
+[['หน้าจอฝั่งผู้ใช้ (Client UI)','client'],['แหล่งบันทึกหลักบนเซิร์ฟเวอร์ (Progress Store)','store'],['ข้อมูลที่แสดงบนแดชบอร์ด (Dashboard Projection)','dashboard']].forEach(([label,v])=>{const b=document.createElement('button');b.className='choice';b.textContent=label;b.onclick=()=>{[...$('authorityChoices').children].forEach(x=>x.classList.remove('sel'));b.classList.add('sel');authority=v;if(v==='store'&&opened.size>=3){$('inspectFb').className='feedback good';$('inspectFb').textContent='ถูกต้อง: การผ่านภารกิจต้องได้รับการยืนยันจากการบันทึกข้อมูลหลักบนเซิร์ฟเวอร์';$('s2').classList.remove('hidden');$('bar').style.width='20%'}else{$('inspectFb').className='feedback bad';$('inspectFb').textContent='ยังไม่ผ่าน: ต้องตรวจครบ 3 ไฟล์และเลือกแหล่งข้อมูลที่มีอำนาจยืนยันผล'}};$('authorityChoices').appendChild(b)});
+$('runFail').onclick=()=>{reproduced=true;const rows=[['สถานะหน้าจอหลังคลิก','ไม่ผ่าน: แสดง COMPLETE ก่อนคำยืนยัน',false],['ข้อมูลเซิร์ฟเวอร์เมื่อหมดเวลารอ','ไม่ผ่าน: ยังไม่มีข้อมูลในแหล่งบันทึกหลัก',false],['ความสอดคล้องหลังเข้าสู่ระบบใหม่','ไม่ผ่าน: หน้าจอกับเซิร์ฟเวอร์ไม่ตรงกัน',false]];$('failTests').innerHTML=rows.map(x=>'<div class="test '+(x[2]?'pass':'fail')+'"><b>'+x[0]+'</b><br>'+x[1]+'</div>').join('');$('reproFb').className='feedback good';$('reproFb').textContent='ทำซ้ำข้อบกพร่องได้แล้ว — ยืนยันกลไกความล้มเหลวด้วยการทดสอบ';$('s3').classList.remove('hidden');$('bar').style.width='40%'};
 const patchData=[
-['A','เพิ่ม debounce หลัง retry แต่ UI ยังขึ้น COMPLETE ก่อน ack',false],
-['B','ตั้ง UI=PENDING จน server ack; retry แบบ idempotent; relogin อ่าน authoritative state',true],
-['C','แก้ Dashboard filter อย่างเดียว',false]
+['A','เพิ่มการหน่วงหลังส่งคำขอซ้ำ แต่หน้าจอยังขึ้น COMPLETE ก่อนคำยืนยัน',false],
+['B','คง UI=PENDING จนเซิร์ฟเวอร์ยืนยัน; ส่งซ้ำอย่างปลอดภัย (Idempotent Retry); เข้าระบบใหม่โดยอ่านสถานะจากแหล่งข้อมูลหลัก',true],
+['C','แก้เฉพาะตัวกรองข้อมูลบนแดชบอร์ด (Dashboard Filter)',false]
 ];
 patchData.forEach(([id,label,ok])=>{const b=document.createElement('button');b.className='choice';b.textContent=id+'. '+label;b.onclick=()=>{patch={id,ok};[...$('patches').children].forEach(x=>x.classList.remove('sel'));b.classList.add('sel');$('applyPatch').disabled=false};$('patches').appendChild(b)});
-$('applyPatch').onclick=()=>{if(!patch)return;if(!reproduced){$('patchFb').className='feedback bad';$('patchFb').textContent='ต้อง reproduce defect ก่อน';return}if(!patch.ok){$('patchFb').className='feedback bad';$('patchFb').textContent='Patch นี้ยังไม่แก้ failure mechanism ที่พิสูจน์ได้';return}$('patchFb').className='feedback good';$('patchFb').innerHTML='<b>PATCH APPLIED</b><br>UI remains PENDING until acknowledgement + idempotent retry + authoritative restore';$('s4').classList.remove('hidden');$('bar').style.width='60%'};
-$('runRegression').onclick=()=>{if(!patch||!patch.ok)return;verified=true;const rows=[['Normal completion','PASS'],['Timeout before acknowledgement','PASS'],['Duplicate retry / idempotency','PASS'],['Relogin → authoritative restore → unlock','PASS']];$('regTests').innerHTML=rows.map(x=>'<div class="test pass"><b>'+x[0]+'</b><br>✓ '+x[1]+'</div>').join('');$('regFb').className='feedback good';$('regFb').textContent='REGRESSION VERIFIED — 4/4 tests passed';$('s5').classList.remove('hidden');$('bar').style.width='80%'};
-$('savePack').onclick=()=>{const evidence=$('evidence').value.trim(),guard=$('guard').value.trim(),risk=$('risk').value.trim();if(!verified||!evidence||!guard||!risk){$('saveFb').className='feedback bad';$('saveFb').textContent='ต้องผ่าน regression และกรอก Evidence, Regression guard, Residual risk ให้ครบ';return}const pack={course:'CSAI2401',week:1,type:'Incident Investigation Pack',savedAt:new Date().toISOString(),symptom:$('symptom').value.trim(),rootCause:$('root').value.trim(),evidence,regressionGuard:guard,residualRisk:risk,lab:{filesInspected:[...opened],authority,patch:patch&&patch.id,regressionPassed:true}};localStorage.setItem('csai2401_w1_incident_pack',JSON.stringify(pack));localStorage.setItem('csai2401_w1_lab_complete','true');$('labStatus').textContent='CLEARED';$('bar').style.width='100%';$('saveFb').className='feedback good';$('saveFb').innerHTML='<b>✓ W1 PRACTICE LAB CLEARED</b><br>Incident Investigation Pack ถูกบันทึกแล้ว • W2 พร้อมปลดล็อก';};
-$('resetLab').onclick=()=>{if(confirm('เริ่ม Lab ใหม่? หลักฐาน W1 Lab ที่บันทึกไว้จะถูกล้าง')){localStorage.removeItem('csai2401_w1_lab_complete');localStorage.removeItem('csai2401_w1_incident_pack');location.reload()}};
+$('applyPatch').onclick=()=>{if(!patch)return;if(!reproduced){$('patchFb').className='feedback bad';$('patchFb').textContent='ต้องทำซ้ำข้อบกพร่อง (Reproduce Defect) ก่อน';return}if(!patch.ok){$('patchFb').className='feedback bad';$('patchFb').textContent='แนวทางแก้ไขนี้ยังไม่จัดการกลไกความล้มเหลวที่พิสูจน์ได้';return}$('patchFb').className='feedback good';$('patchFb').innerHTML='<b>ใช้แนวทางแก้ไขแล้ว (Patch Applied)</b><br>หน้าจอคง PENDING จนได้รับคำยืนยัน พร้อมส่งซ้ำอย่างปลอดภัย และกู้คืนสถานะจากแหล่งข้อมูลหลัก';$('s4').classList.remove('hidden');$('bar').style.width='60%'};
+$('runRegression').onclick=()=>{if(!patch||!patch.ok)return;verified=true;const rows=[['บันทึกความสำเร็จตามปกติ','PASS'],['หมดเวลารอก่อนรับคำยืนยัน','PASS'],['ส่งคำขอซ้ำและตรวจการทำซ้ำอย่างปลอดภัย','PASS'],['เข้าระบบใหม่ → กู้คืนสถานะจากข้อมูลหลัก → ปลดล็อก','PASS']];$('regTests').innerHTML=rows.map(x=>'<div class="test pass"><b>'+x[0]+'</b><br>✓ '+x[1]+'</div>').join('');$('regFb').className='feedback good';$('regFb').textContent='ตรวจสอบการทดสอบป้องกันปัญหาซ้ำแล้ว — ผ่าน 4/4 กรณี';$('s5').classList.remove('hidden');$('bar').style.width='80%'};
+$('savePack').onclick=()=>{const evidence=$('evidence').value.trim(),guard=$('guard').value.trim(),risk=$('risk').value.trim();if(!verified||!evidence||!guard||!risk){$('saveFb').className='feedback bad';$('saveFb').textContent='ต้องผ่านการทดสอบป้องกันปัญหาซ้ำ และกรอกหลักฐาน วิธีป้องกันปัญหาซ้ำ และความเสี่ยงคงเหลือให้ครบ';return}const pack={course:'CSAI2401',week:1,type:'Incident Investigation Pack',savedAt:new Date().toISOString(),symptom:$('symptom').value.trim(),rootCause:$('root').value.trim(),evidence,regressionGuard:guard,residualRisk:risk,lab:{filesInspected:[...opened],authority,patch:patch&&patch.id,regressionPassed:true}};localStorage.setItem('csai2401_w1_incident_pack',JSON.stringify(pack));localStorage.setItem('csai2401_w1_lab_complete','true');$('labStatus').textContent='ผ่านแล้ว';$('bar').style.width='100%';$('saveFb').className='feedback good';$('saveFb').innerHTML='<b>✓ ผ่านห้องฝึกปฏิบัติ W1 แล้ว</b><br>บันทึกแฟ้มสืบสวนเหตุขัดข้อง (Incident Investigation Pack) ในเครื่องแล้ว • พร้อมปลดล็อก W2 สำหรับฝึกต่อ';};
+$('resetLab').onclick=()=>{if(confirm('เริ่มห้องฝึกใหม่? หลักฐาน W1 Lab ที่บันทึกไว้จะถูกล้าง')){localStorage.removeItem('csai2401_w1_lab_complete');localStorage.removeItem('csai2401_w1_incident_pack');location.reload()}};
 </script>
 </body></html>
