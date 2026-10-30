@@ -3,6 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
 const core=require('../core.js');
 const curriculum=require('../curriculum.js');
 
@@ -120,3 +121,14 @@ test('boss gate cannot pass with zero-score steps, even if total would otherwise
  assert.deepEqual(failed.assessment.failedSteps,[3]);
  assert.equal(core.isUnlocked(11,core.load(store)),false);
 }));
+
+test('Learning Lab progress total uses canonical statuses and source scripts parse',()=>{
+ const lab=fs.readFileSync(path.join(__dirname,'../learning-lab.html'),'utf8');
+ assert.ok(lab.includes("filter(n=>CSAICore.status(n,st)==='completed')"));
+ for(const file of ['index.html','learning-lab.html','w1-lab.html','b1.html','w2.html','w3.html','w4.html','w5.html']){
+  const source=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
+  const scripts=[...source.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(x=>x[1]).filter(x=>x.trim());
+  assert.ok(scripts.length>0,file+' should have an inline game script');
+  for(const inline of scripts)assert.doesNotThrow(()=>new vm.Script(inline,{filename:file}),file+' script must parse');
+ }
+});
