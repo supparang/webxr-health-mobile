@@ -130,7 +130,7 @@ test('a failed replay preserves an earlier completed week and its evidence',()=>
 
 test('boss gate cannot pass with zero-score steps, even if total would otherwise pass',()=>withStorage(store=>{
  setupPrereqs(store,9);
- const r=core.begin(10,'w10s1',store);
+ const r=core.begin(10,curriculum.byWeek[10].scenarios[0].id,store);
  assert.equal(r.ok,true);
  answer(10,r.challengeId,[2,2,0],store);
  const failed=core.finish(10,r.challengeId,4,'Debugging Pack',store);
