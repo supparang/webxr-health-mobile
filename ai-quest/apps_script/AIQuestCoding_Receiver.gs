@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.12
+ * CSAI2102 AI Quest Coding Receiver v3.2.13
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.12-ALL20-PREDICT-PARITY';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.13-ALL20-RELEASE-GATE';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -619,9 +619,10 @@ AIQCODING.validateEvidenceLegacy_ = function(sessionId,payload){
   return {mode:'LEGACY_V2_CONCEPT_GROUPS',predictionCorrect:predictionCorrect,completedCodePassed:true,outputPassed:outputPassed,modifyPassed:modifyPassed,challengeAttempted:challengeAttempted,challengePassed:challengePassed,quizPassed:true,quizScore:0,runScore:outputPassed?30:0,modifyScore:modifyPassed?50:0,challengeScore:challengePassed?20:0,quizPoint:0,parsed:{predictionAnswer:AIQCODING.text_(payload.predictionAnswer),predictionReason:'legacy',completedCode:'legacy',scenarioCode:modified,challengeCode:challenge,challengeLevel:'legacy'}};
 };
 AIQCODING.validateEvidence_ = function(sessionId,payload){
-  var modified=AIQCODING.text_(payload.modifiedCode),challenge=AIQCODING.text_(payload.challengeCode);
-  var isV31=modified.indexOf('# Scenario Modification')>=0||/#\s*QuizScore\s+\d+\s*\/\s*5/i.test(challenge)||AIQCODING.text_(payload.completedCode)!=='';
-  return isV31?AIQCODING.validateEvidenceV31_(sessionId,payload):AIQCODING.validateEvidenceLegacy_(sessionId,payload);
+  // All newly submitted Coding Labs must satisfy every V3.1 evidence field.
+  // Historical legacy records remain readable; old thin submissions can no
+  // longer be granted Completed Code or Quiz completion by default.
+  return AIQCODING.validateEvidenceV31_(sessionId,payload||{});
 };
 
 AIQCODING.submit_ = function(payload){
