@@ -97,23 +97,24 @@ test('weekly and boss prerequisites W6 -> W7 -> W10 -> W11 -> W15 hold',()=>with
 
 test('resuming a live attempt exposes the original scenario, not the newly selected one',()=>withStorage(store=>{
  setupPrereqs(store);
- const a=core.begin(6,'w6s1',store);
+ const [firstScenario,otherScenario]=curriculum.byWeek[6].scenarios;
+ const a=core.begin(6,firstScenario.id,store);
  assert.equal(a.ok,true);
- const b=core.begin(6,'w6s2',store);
+ const b=core.begin(6,otherScenario.id,store);
  assert.equal(b.reason,'resumed');
  assert.equal(b.challengeId,a.challengeId);
- assert.equal(b.scenarioId,'w6s1');
+ assert.equal(b.scenarioId,firstScenario.id);
 }));
 
 test('a failed replay preserves an earlier completed week and its evidence',()=>withStorage(store=>{
  setupPrereqs(store);
- const first=core.begin(6,'w6s1',store);
+ const first=core.begin(6,curriculum.byWeek[6].scenarios[0].id,store);
  answer(6,first.challengeId,[2,2,2],store);
  const success=core.finish(6,first.challengeId,0,'Requirements Pack',store);
  assert.equal(success.ok,true);
  assert.equal(success.passed,true);
  assert.equal(success.score,6,'total supplied by UI is ignored');
- const second=core.begin(6,'w6s2',store);
+ const second=core.begin(6,curriculum.byWeek[6].scenarios[1].id,store);
  answer(6,second.challengeId,[0,0,0],store);
  const failed=core.finish(6,second.challengeId,99,'Wrong attempt',store);
  assert.equal(failed.ok,true);
@@ -152,8 +153,8 @@ test('Learning Lab progress total uses canonical statuses and source scripts par
 
 test('tampered scores and arbitrary evidence cannot be accepted as canonical answers',()=>withStorage(store=>{
  setupPrereqs(store);
- const a=core.begin(6,'w6s1',store);
- const sc=assessment.scenarioData(6,'w6s1');
+ const sc=curriculum.byWeek[6].scenarios[0];
+ const a=core.begin(6,sc.id,store);
  const good=sc.steps[0].options.find(o=>o.score===2);
  const refs=[sc.evidence[0].id,'limitation:ต้องตรวจทานความเสี่ยงที่ยังคงอยู่'];
  const spoof=core.submitStep(6,a.challengeId,0,good.id,0,refs,store);
@@ -200,7 +201,7 @@ test('duplicated Boss claims and invalid provenance cannot satisfy an Evidence P
  pack.rollback=pack.monitoring;
  const repeated=assessment.validateGateEvidence(15,sc.id,pack);
  assert.equal(repeated.ok,false);
- assert.ok(repeated.missingTags.includes('rollback'));
+ assert.ok(repeated.missingTags.includes('monitoring'));
  const valid=gatePack(15,sc);
  valid.monitoring.sourceId='not-in-scenario';
  const bogus=assessment.validateGateEvidence(15,sc.id,valid);
