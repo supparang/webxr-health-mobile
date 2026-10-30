@@ -15,7 +15,7 @@ test('Mission Control uses Thai-first names for every week and optional B1',()=>
  }
  const fixedTitles=[...source.matchAll(/title:'([^']+)'/g)].map(x=>x[1]);
  assert.ok(fixedTitles.filter(x=>thai.test(x)).length>=6);
- const weeksBlock=source.match(/const names={([sS]*?)};return {id:'W'+n/);
+ const names=weeksBlock[1].split('],').map(x=>x.match(/\['([^']+)'/)).filter(Boolean).map(x=>x[1]);
  assert.ok(weeksBlock,'W6-W15 catalog must exist');
  const names=[...weeksBlock[1].matchAll(/(?:6|7|8|9|10|11|12|13|14|15):['([^']+)'/g)].map(x=>x[1]);
  assert.equal(names.length,10);
