@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.7
+ * CSAI2102 AI Quest Coding Receiver v3.2.8
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.7-ALL20-OUTPUT-STRUCTURED';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.8-ALL20-OUTPUT-GUARDED';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -180,11 +180,12 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
   var category=function(accept){
     var found=[],bad=[];
     lines.forEach(function(line){
+      if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
       var value=take(line);
       if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
       var answer=accept(value);
       if(answer)found.push(answer);
-      else if(label.test(line))bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
+      else bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
     });
     if(bad.length)return result(false,bad[0]);
     if(!found.length)return result(false,'CATEGORY_NOT_CONFIRMED');
