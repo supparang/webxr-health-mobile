@@ -11,10 +11,10 @@
    const sources=scenario.evidence.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.label)+'</option>').join('');
    return '<div class="metaCard" style="margin:8px 0"><label><b>'+(i+1)+'. '+esc(labels[tag]||tag)+'</b> <small>('+esc(tag)+')</small>'+
     '<textarea class="field gateEvidenceStatement" data-evidence-tag="'+esc(tag)+'" rows="2" maxlength="1200" placeholder="อธิบายข้อพิสูจน์ / เหตุผลของตนเอง โดยระบุสิ่งที่ตรวจสอบได้"></textarea></label>'+
-    '<label class="muted">หลักฐานอ้างอิงจากสถานการณ์<select class="field gateEvidenceSource" data-evidence-source="'+esc(tag)+'"><option value="">-- เลือกหลักฐาน --</option>'+sources+'</select></label></div>';
+    '<label class="muted">หลักฐานอ้างอิงจากสถานการณ์ (Evidence Source)<select class="field gateEvidenceSource" data-evidence-source="'+esc(tag)+'"><option value="">-- เลือกหลักฐาน --</option>'+sources+'</select></label></div>';
   }).join('');
-  return '<section class="metaCard gatePanel" id="gateEvidencePanel"><h3>Evidence Pack ก่อนผ่าน Boss Gate</h3>'+
-   '<p class="muted">ต้องเขียนให้ครบทุกหัวข้อและระบุแหล่งหลักฐาน ผลนี้เป็นเพียงการตรวจความครบถ้วนเชิงโครงสร้างโดยเกม ผู้สอนยังต้องตรวจความถูกต้องก่อนให้คะแนนทางการ</p>'+
+  return '<section class="metaCard gatePanel" id="gateEvidencePanel"><h3>ชุดหลักฐาน (Evidence Pack) ก่อนผ่านด่านบอส (Boss Gate)</h3>'+
+   '<p class="muted">อธิบายเป็นภาษาไทย ภาษาอังกฤษ หรือผสมกันได้ โดยต้องเขียนให้ครบทุกหัวข้อและเลือกแหล่งหลักฐานที่สอดคล้องกัน เกมตรวจเฉพาะความครบถ้วนเชิงโครงสร้าง ผู้สอนต้องตรวจความถูกต้องของเนื้อหาก่อนให้คะแนนทางการ</p>'+
    fields+'</section>';
  }
  function collect(week){
