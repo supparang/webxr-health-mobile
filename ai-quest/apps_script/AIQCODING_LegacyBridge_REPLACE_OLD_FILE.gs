@@ -92,7 +92,7 @@ function TEST_AIQ_CODING_SINGLE_AUTHORITY_READONLY() {
     mode:'READ_ONLY_NO_WRITE',
     bridgeLoaded:!!bridge,
     receiverVersion:receiverVersion,
-    expectedReceiver:/V3\.2\.(?:4-DUPLICATE-ALIASES|5-SEMANTIC-EQUIVALENCE|6-OUTPUT-PARITY|7-ALL20-OUTPUT-STRUCTURED)/.test(receiverVersion),
+    expectedReceiver:/V3\.2\.(?:4-DUPLICATE-ALIASES|5-SEMANTIC-EQUIVALENCE|6-OUTPUT-PARITY|7-ALL20-OUTPUT-STRUCTURED|8-ALL20-OUTPUT-GUARDED)/.test(receiverVersion),
     writerVersion324:writer.indexOf('CODING_HEADER_MISSING_')>=0,
     writerVersion323:writer.indexOf('CODING_HEADER_INVALID_')>=0,
     routerAliasesReady:!!(coding&&typeof coding.route==='function'&&
