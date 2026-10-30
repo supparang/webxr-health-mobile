@@ -62,7 +62,7 @@
     "title": "Uniform Cost Search",
     "concept": "UCS ใช้ priority queue ขยาย frontier ที่มี cumulative path cost g(n) ต่ำสุด",
     "starter": "import heapq\n\ngraph = {'A':[('B',2),('C',5)],'B':[('D',4)],'C':[('D',1)],'D':[]}\nfrontier = [(0,'A')]\nwhile frontier:\n    cost,node = heapq.heappop(frontier)\n    print(node,cost)\n    if node == 'D':\n        break\n    for nxt,w in graph[node]:\n        heapq.heappush(frontier,(cost+w,nxt))",
-    "predict": "เมื่อถึง D ต้นทุนต่ำสุดที่แสดงคือเท่าไร",
+    "predict": "UCS จะ pop โหนดใดก่อนจาก Frontier ที่เริ่มด้วย (0, 'A') และเพราะอะไร",
     "modify": "เพิ่มเส้นทาง B ไป C น้ำหนัก 1 แล้ววิเคราะห์ frontier ใหม่",
     "challenge": "เก็บ best_cost และ parent แล้วคืน optimal path กับ total cost",
     "expected": "D 6",
