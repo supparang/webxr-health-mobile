@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.6
+ * CSAI2102 AI Quest Coding Receiver v3.2.7
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.6-OUTPUT-PARITY';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.7-ALL20-OUTPUT-STRUCTURED';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -129,6 +129,116 @@ AIQCODING.s6MinimaxOutputEvidence_ = function(text) {
   return {passed:issues.length===0,mode:'S6_NUMERIC_RESULT_V1',issue:issues[0]||''};
 };
 
+AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
+  // Pure, deterministic, read-only output validator for the 18 non-S4/S6 stages.
+  // Only supported representations of the provided lab outputs are accepted.
+  // Unknown/ambiguous answers are left for instructor review, never auto-credited.
+  var mode='STRUCTURED_OUTPUT_V2', raw=String(output==null?'':output).trim();
+  var result=function(ok,issue){return {passed:!!ok,mode:mode,issue:issue||'',reviewRequired:!ok&&(issue==='CATEGORY_NOT_CONFIRMED'||issue==='NUMERIC_RESULT_NOT_FOUND'||issue==='SEQUENCE_NOT_FOUND'||issue==='SPLIT_NOT_FOUND'||issue==='B_COST_NOT_FOUND')};};
+  if(!raw)return result(false,'EMPTY_OUTPUT');
+  if(raw.length>30000)return result(false,'OUTPUT_REQUIRES_REVIEW');
+  var lines=raw.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+  var label=/^(?:output|result|answer|action|decision|prediction|classification|diagnosis|recommendation|strategy|value|selected|choice)\s*[:=]\s*/i;
+  var take=function(s){return String(s||'').replace(label,'').trim();};
+  var isNegated=function(s){return /\b(?:no|not|never|without|cannot|can't|don't|doesn't|didn't)\b|(?:ไม่|ไม่ได้|ไม่ต้อง|ห้าม)/i.test(s);};
+  var numeric=function(value,unit){
+    var values=[],bad=[];
+    lines.forEach(function(line){
+      var text=take(line);
+      text=text.replace(/^(?:posterior|probability|prediction|q(?:[-_\s]*value)?|score|value|y|relu\s*output)\s*[:=]\s*/i,'');
+      if(/^-?(?:\d+\.?\d*|\.\d+)\s*%?$/.test(text)){
+        var percentage=/%$/.test(text);
+        if(percentage&&unit!=='proportion'){bad.push('PERCENT_NOT_ALLOWED');return;}
+        values.push(Number(text.replace('%',''))/(percentage?100:1));
+      }else if(/^(?:output|result|value|posterior|probability|q[-_\s]*value|prediction|score)\s*[:=]/i.test(line)){
+        bad.push('MALFORMED_RESULT');
+      }
+    });
+    if(bad.length)return result(false,bad[0]);
+    if(!values.length)return result(false,'NUMERIC_RESULT_NOT_FOUND');
+    if(values.some(function(x){return !isFinite(x)||Math.abs(x-value)>1e-8;}))return result(false,'NUMERIC_VALUE_MISMATCH');
+    return result(true);
+  };
+  var sequence=function(expected,letters){
+    var found=[],issues=[];
+    lines.forEach(function(line){
+      var text=take(line).replace(/^(?:visited(?:\s+order)?|traversal(?:\s+order)?|bfs|dfs|predictions|predicted\s+labels|clusters|cluster\s+ids|labels|sequence|path|order)\s*[:=]\s*/i,'').trim();
+      if(!/^\s*\[/.test(text)&&!/->|→|,/.test(text))return;
+      var clean=text.replace(/[\[\]\(\)'"]/g,'').trim();
+      var tokens=clean.split(/\s*(?:,|->|→)\s*/).map(function(t){return t.trim();});
+      if(tokens.length>1&&tokens.every(function(t){return letters?/^[A-Z]$/i.test(t):/^-?\d+$/.test(t);}))
+        found.push(tokens.map(function(t){return letters?t.toUpperCase():Number(t);}));
+      else if(/^(?:\[|(?:visited|traversal|predictions|clusters|labels|path|sequence|order)\s*[:=])/i.test(line))
+        issues.push('INVALID_SEQUENCE');
+    });
+    if(issues.length)return result(false,issues[0]);
+    if(!found.length)return result(false,'SEQUENCE_NOT_FOUND');
+    if(found.some(function(v){return v.length!==expected.length||v.some(function(k,i){return k!==expected[i];});}))
+      return result(false,'SEQUENCE_VALUE_MISMATCH');
+    return result(true);
+  };
+  var category=function(accept){
+    var found=[],bad=[];
+    lines.forEach(function(line){
+      var value=take(line);
+      if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
+      var answer=accept(value);
+      if(answer)found.push(answer);
+      else if(label.test(line))bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
+    });
+    if(bad.length)return result(false,bad[0]);
+    if(!found.length)return result(false,'CATEGORY_NOT_CONFIRMED');
+    return found.every(function(a){return a==='expected';})?result(true):result(false,'CATEGORY_MISMATCH');
+  };
+  switch(stage){
+    case 'S1':return category(function(v){return /^(?:high\s+(?:temperature|temp)\s+(?:alert|warning)|alert\s*:\s*high\s+(?:temperature|temp))$/i.test(v)?'expected':'';});
+    case 'S2':return category(function(v){return /^(?:clean|cleaning)$/i.test(v)?'expected':'';});
+    case 'S3':return sequence(['A','B','C','D','E'],true);
+    case 'B1':return category(function(v){return /^search(?:[_\s-]*new[_\s-]*route)$/i.test(v)?'expected':'';});
+    case 'S5':{
+      var scores=[];
+      lines.forEach(function(line){
+        var m=line.match(/^(?:(?:Expanding|Expanded|Visited)\s*:\s*)?B\s*(?:[:=]|\s+)\s*(-?\d+(?:\.\d+)?)\s*$/i)||
+          line.match(/^B\s*\(\s*(?:Cost|Score|f)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*\)$/i)||
+          line.match(/^B\s+(?:Cost|Score|f)\s*[:=]\s*(-?\d+(?:\.\d+)?)\s*$/i);
+        if(m)scores.push(Number(m[1]));
+      });
+      if(!scores.length)return result(false,'B_COST_NOT_FOUND');
+      return scores.every(function(n){return Math.abs(n-4)<1e-8;})?result(true):result(false,'B_COST_NOT_4');
+    }
+    case 'B2':return category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});
+    case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
+    case 'S8':return numeric(0.154,'proportion');
+    case 'S9':return category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});
+    case 'B3':return category(function(v){return /^(?:high[_\s-]*risk[_\s-]*with[_\s-]*evidence|high\s+risk\s+(?:and|with)\s+evidence|ความเสี่ยงสูงพร้อมหลักฐาน)$/i.test(v)?'expected':'';});
+    case 'S10':{
+      var pairs=[],train=[],test=[];
+      lines.forEach(function(line){
+        var text=take(line),m=text.match(/^(\d+)\s*(?:,|\s+)\s*(\d+)$/);
+        if(m)pairs.push([Number(m[1]),Number(m[2])]);
+        var tr=line.match(/\btrain(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var te=line.match(/\btest(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        if(tr)train.push(Number(tr[1]));
+        if(te)test.push(Number(te[1]));
+      });
+      if(train.length||test.length){
+        if(!train.length||!test.length)return result(false,'SPLIT_MISSING_COMPONENT');
+        if(train.some(function(x){return x!==8;})||test.some(function(x){return x!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
+      }
+      if(pairs.some(function(p){return p[0]!==8||p[1]!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
+      return (pairs.length||(train.length&&test.length))?result(true):result(false,'SPLIT_NOT_FOUND');
+    }
+    case 'S11':return sequence([0,1,1],false);
+    case 'S12':return sequence([0,0,1,1],false);
+    case 'B4':return category(function(v){return /^(?:overfitting|overfit|โอเวอร์ฟิต|เรียนเกิน)$/i.test(v)?'expected':'';});
+    case 'S13':return numeric(0.1);
+    case 'S14':return numeric(0.55);
+    case 'S15':return category(function(v){return /^rag\s+(?:retriev(?:es|ed|ing|e)|found|finds)\s+(?:the\s+)?evidence$/i.test(v)?'expected':'';});
+    case 'B5':return category(function(v){return /^(?:(?:human[\s_-]+)?review[_\s-]*with[_\s-]*evidence|ทบทวนโดยมนุษย์พร้อมหลักฐาน)$/i.test(v)?'expected':'';});
+    default:return result(false,'STAGE_NOT_SUPPORTED');
+  }
+};
+
 AIQCODING.validateOutputEvidence_ = function(sessionId,output,rule) {
   var value=AIQCODING.text_(output),r=rule||AIQCODING.RULES[sessionId];
   if(!r)return {passed:false,mode:'NO_RULE',issue:'RULE_NOT_FOUND'};
@@ -136,6 +246,8 @@ AIQCODING.validateOutputEvidence_ = function(sessionId,output,rule) {
     return AIQCODING.s4UcsOutputEvidence_(value);
   if(sessionId==='S6'&&r.outputValidation==='S6_NUMERIC_RESULT_V1')
     return AIQCODING.s6MinimaxOutputEvidence_(value);
+  if(r.outputValidation==='STRUCTURED_OUTPUT_V2')
+    return AIQCODING.structuredOutputEvidenceV2_(sessionId,value);
   return {passed:value.length>=2&&AIQCODING.norm_(value).indexOf(AIQCODING.norm_(r.expected))>=0,
     mode:'NORMALIZED_EXPECTED_SUBSTRING',issue:''};
 };
@@ -158,26 +270,26 @@ AIQCODING.matchesGroups_ = function(text,groups){
  * Output still uses expected exactly/semantically, independently from Predict.
  */
 AIQCODING.RULES = Object.freeze({
- S1:{expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']],b:['temperature','if','print'],m:['38.5','38','39'],c:['if','elif','else','low','normal','high'],ca:['confidence','explanation','fallback']},
- S2:{expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
- S3:{expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
- B1:{expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
+ S1:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']],b:['temperature','if','print'],m:['38.5','38','39'],c:['if','elif','else','low','normal','high'],ca:['confidence','explanation','fallback']},
+ S2:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
+ S3:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
+ B1:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
  S4:{expected:'D 6',outputValidation:'S4_UCS_GOAL_COST_V1',pg:[['d'],['6']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
- S5:{expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
+ S5:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
  S6:{expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
- B2:{expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
- S7:{expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
- S8:{expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
- S9:{expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
- B3:{expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
- S10:{expected:'8 2',pg:[['8'],['2']],b:['data','train','test'],m:['0.7','train','test'],c:['split_data','ratio','seed'],ca:['leakage','overlap','set(']},
- S11:{expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
- S12:{expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
- B4:{expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
- S13:{expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
- S14:{expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
- S15:{expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
- B5:{expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
+ B2:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
+ S7:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
+ S8:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
+ S9:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
+ B3:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
+ S10:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']],b:['data','train','test'],m:['0.7','train','test'],c:['split_data','ratio','seed'],ca:['leakage','overlap','set(']},
+ S11:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
+ S12:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
+ B4:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
+ S13:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
+ S14:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
+ S15:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
+ B5:{outputValidation:'STRUCTURED_OUTPUT_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
 });
 
 AIQCODING.ss_ = function(){ var ss=SpreadsheetApp.getActiveSpreadsheet(); if(!ss)throw new Error('SPREADSHEET_NOT_FOUND'); return ss; };
