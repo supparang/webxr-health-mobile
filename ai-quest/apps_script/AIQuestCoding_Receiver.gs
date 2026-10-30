@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.9
+ * CSAI2102 AI Quest Coding Receiver v3.2.10
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.9-STRUCTURED-DICT-OUTPUT';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.10-B5-PRIVACY-HOLD';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -341,7 +341,36 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
     case 'S13':return numeric(0.1);
     case 'S14':return numeric(0.55);
     case 'S15':return category(function(v){return /^rag\s+(?:retriev(?:es|ed|ing|e)|found|finds)\s+(?:the\s+)?evidence$/i.test(v)?'expected':'';});
-    case 'B5':return category(function(v){return /^(?:(?:human[\s_-]+)?review[_\s-]*with[_\s-]*evidence|ทบทวนโดยมนุษย์พร้อมหลักฐาน)$/i.test(v)?'expected':'';});
+    case 'B5':{
+      // Baseline: review_with_evidence. A completed privacy/fairness
+      // governance run may rightly return REJECT/HOLD instead.
+      // Require independently labeled privacy failure, offending fields,
+      // explicit HOLD decision, and its governance explanation.
+      var isGovernance=/\bPrivacy\s+Compliant\s*:|\bFailed\s+Governance\s+Gates\b|\bDecision\s*:\s*REJECT\s*\/\s*HOLD\b/i.test(raw);
+      if(!isGovernance)
+        return category(function(v){return /^(?:(?:human[\s_-]+)?review[_\s-]*with[_\s-]*evidence|ทบทวนโดยมนุษย์พร้อมหลักฐาน)$/i.test(v)?'expected':'';});
+      var privacy=[],privacyOK=[],decisions=[],excess=[],errors=[];
+      lines.forEach(function(line){
+        var p=line.match(/^Privacy\s+Compliant\s*:\s*(True|False)\b/i);
+        if(p)privacy.push(p[1].toLowerCase()==='true');
+        var gate=line.match(/\bPrivacy\s+OK\s*:\s*(True|False)\b/i);
+        if(gate)privacyOK.push(gate[1].toLowerCase()==='true');
+        var d=line.match(/\b(?:Final\s+)?Decision\s*:\s*(REJECT\s*\/\s*HOLD|REJECT|HOLD|APPROVE|review[_\s-]*with[_\s-]*evidence)\b/i);
+        if(d)decisions.push(d[1].replace(/\s+/g,'').toUpperCase());
+        var x=line.match(/\bExcess\s+Fields\s*:\s*\[([^\]\r\n]*)\]/i);
+        if(x)excess.push(x[1].trim());
+        if(/^(?:review[_\s-]*with[_\s-]*evidence|approve|approved)\s*$/i.test(line))
+          errors.push('CONTRADICTORY_UNLABELED_RESULT');
+      });
+      if(!privacy.length||privacy.some(function(x){return x;}))errors.push('PRIVACY_FAILURE_NOT_CONFIRMED');
+      if(privacyOK.some(function(x){return x;}))errors.push('PRIVACY_GATE_CONFLICT');
+      if(!decisions.length||decisions.some(function(x){return x!=='REJECT/HOLD';}))errors.push('REJECT_HOLD_NOT_CONFIRMED');
+      if(!/\bFailed\s+Governance\s+Gates\b/i.test(raw))errors.push('GOVERNANCE_REASON_MISSING');
+      if(!excess.length||excess.some(function(x){return !x;}))errors.push('EXCESS_PRIVACY_FIELDS_MISSING');
+      if(errors.length)return {passed:false,mode:'B5_PRIVACY_HOLD_V1',
+        issue:errors[0],reviewRequired:errors[0]==='REJECT_HOLD_NOT_CONFIRMED'||errors[0]==='EXCESS_PRIVACY_FIELDS_MISSING'};
+      return {passed:true,mode:'B5_PRIVACY_HOLD_V1',issue:'',reviewRequired:false};
+    }
     default:return result(false,'STAGE_NOT_SUPPORTED');
   }
 };
