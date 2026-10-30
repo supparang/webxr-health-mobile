@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.13
+ * CSAI2102 AI Quest Coding Receiver v3.2.14
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.13-ALL20-RELEASE-GATE';
+AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.14-EXPLANATION-PARITY';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -287,6 +287,15 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
     });
     outside.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(line){
       if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
+      // Explicit explanatory metadata is not a second result. Keep real
+      // labeled decisions and contradictory output lines authoritative.
+      var note=/^(?:explanation|reason|rationale|คำอธิบาย|เหตุผล)\s*[:：]\s*(.*)$/i.exec(line);
+      if(note){
+        var detail=note[1].trim();
+        var embeddedDecision=/(?:^|[\s;|])(?:recommendation|decision|action|result|output|answer|classification|diagnosis|strategy|choice|selected|final_decision)\s*[:=]/i.test(detail);
+        if(!detail||embeddedDecision)bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
+        return;
+      }
       if(objects.length&&/^(?:result|output|answer|decision)\s*[:=]\s*$/i.test(line))return;
       var value=take(line);
       if(isNegated(value)){bad.push('NEGATED_OR_AMBIGUOUS_OUTPUT');return;}
