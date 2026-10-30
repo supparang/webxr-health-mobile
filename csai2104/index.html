@@ -12,19 +12,26 @@ const catalog=[
 const $=id=>document.getElementById(id);let state=JSON.parse(localStorage.getItem('csai2104_diag_v4')||'{"ep":0,"integrity":82,"w1":false}'),run;
 function shuffle(a){return a.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(x=>x[1])}
 function persist(){localStorage.setItem('csai2104_diag_v4',JSON.stringify(state));render()}
-function completed(id){const m=catalog.find(x=>x.id===id);return !!(m&&m.complete&&m.complete())}
+function completed(id){
+ const m=catalog.find(x=>x.id===id);
+ if(!m)return false;
+ // CSAICore is the canonical 15-week progression authority.
+ // Keep legacy flags only as a fallback for older standalone pages.
+ if(/^W(\d+)$/.test(id)&&window.CSAICore){
+  try{return CSAICore.status(Number(id.slice(1)),CSAICore.load())==='completed'}catch(_){}
+ }
+ return !!(m.complete&&m.complete());
+}
 function unlocked(id){
- if(id==='W1')return true;
- if(id==='W2')return completed('W1');
+ // B1 is a supplementary legacy challenge; the course's assessed Boss Gates are W5/W10/W15.
  if(id==='B1')return completed('W2');
- if(id==='W3')return completed('B1');
- if(id==='W4')return completed('W3');
- if(id==='W5')return completed('W4');
- if(/^W(\\d+)$/.test(id)){
-   const n=+id.slice(1);
-   if(n===6)return completed('W5');
-   if(window.CSAICore){try{return CSAICore.isUnlocked(n,CSAICore.load())}catch(_){}}
-   return n===6?completed('W5'):false;
+ if(/^W(\d+)$/.test(id)){
+  const n=Number(id.slice(1));
+  if(n===1)return true;
+  if(window.CSAICore){
+   try{return CSAICore.isUnlocked(n,CSAICore.load())}catch(_){}
+  }
+  return n===2?completed('W1'):completed('W'+(n-1));
  }
  return false;
 }
