@@ -37,9 +37,75 @@ function isUnlocked(n,state){const req=prerequisites(n);return req.every(x=>comp
 function status(n,state){const k=weekKey(n);if(completed(state,Number(n)))return 'completed';if(state.attempts[k]&&!state.attempts[k].used)return 'in-progress';return isUnlocked(n,state)?'available':'locked'}
 function result(ok,reason,state){return {ok,reason:reason||null,state}}
 function recordHistory(state,event){state.history.push({...event,at:now()});if(state.history.length>MAX_HISTORY)state.history=state.history.slice(-MAX_HISTORY)}
-function begin(week,scenarioId,s){const state=load(s),n=Number(week),k=weekKey(n);if(!isUnlocked(n,state))return result(false,'prerequisite-not-complete',state);const existing=state.attempts[k];if(existing&&!existing.used&&existing.challengeId)return {...result(true,'resumed',state),challengeId:existing.challengeId,scenarioId:existing.scenarioId};const a={challengeId:randomId(),week:n,scenarioId:String(scenarioId||''),stepIndex:0,answers:[],score:0,used:false,startedAt:now()};state.attempts[k]=a;const saved=persist(state,s);return {...saved,challengeId:saved.state.attempts[k]&&saved.state.attempts[k].challengeId}}
-function submitStep(week,challengeId,stepIndex,optionId,score,evidenceRefs,s){const state=load(s),k=weekKey(week),a=state.attempts[k];if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);if(a.used)return result(false,'challenge-already-used',state);if(a.stepIndex!==Number(stepIndex)||a.stepIndex>=STEP_COUNT)return result(false,'step-replay-or-out-of-order',state);if(!String(optionId||'').trim())return result(false,'option-required',state);const stepScore=Number(score);if(!Number.isInteger(stepScore)||stepScore<0||stepScore>2)return result(false,'invalid-step-score',state);const answer={stepIndex:Number(stepIndex),optionId:String(optionId),score:stepScore,evidenceRefs:Array.isArray(evidenceRefs)?evidenceRefs.map(String).slice(0,10):[],at:now()};a.answers.push(answer);a.score=a.answers.reduce((sum,x)=>sum+Number(x.score||0),0);a.stepIndex+=1;const saved=persist(state,s);return {...saved,attempt:saved.state.attempts[k]}}
-function finish(week,challengeId,score,artifact,s){const state=load(s),n=Number(week),k=weekKey(n),a=state.attempts[k];if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);if(a.used)return result(false,'challenge-already-used',state);if(a.stepIndex!==STEP_COUNT||!Array.isArray(a.answers)||a.answers.length!==STEP_COUNT)return result(false,'steps-incomplete',state);const validScores=a.answers.every((x,i)=>x.stepIndex===i&&Number.isInteger(x.score)&&x.score>=0&&x.score<=2);if(!validScores)return result(false,'assessment-incomplete',state);const isGate=GATE_WEEKS.includes(n),requiredScore=isGate?5:4,stepScores=a.answers.map(x=>x.score),failedSteps=isGate?stepScores.map((x,i)=>x<1?i+1:null).filter(x=>x!==null):[],finalScore=stepScores.reduce((sum,x)=>sum+x,0),passed=finalScore>=requiredScore&&failedSteps.length===0,assessment={isGate,requiredScore,requiresEveryStep:isGate,stepScores,failedSteps,reason:passed?null:(failedSteps.length?'gate-step-not-passed':'score-below-threshold')};a.used=true;a.score=finalScore;recordHistory(state,{type:'attempt-finished',week:n,challengeId,score:finalScore,passed,assessment});if(passed){state.weeks[k]={status:'completed',completed:true,score:finalScore,assessment,artifact:artifact||null,evidenceRefs:a.answers.flatMap(x=>x.evidenceRefs||[]),completedAt:now()};}else if(state.weeks[k]&&state.weeks[k].status==='completed'){state.weeks[k]={...state.weeks[k],lastAttempt:{score:finalScore,passed:false,assessment,at:now()}};}else{state.weeks[k]={status:'available',completed:false,lastScore:finalScore,assessment,artifact:artifact||null,updatedAt:now()};}const saved=persist(state,s);if(!saved.ok)return {...saved,reason:'pending-save',passed:false,score:finalScore,assessment};return {...saved,passed,score:finalScore,assessment,status:saved.state.weeks[k].status}}
+function assessment(){
+ try{
+  if(typeof globalThis!=='undefined'&&globalThis.CSAIAssessment)return globalThis.CSAIAssessment;
+  if(typeof module==='object'&&module.exports&&typeof require==='function')return require('./assessment.js');
+ }catch(_){}
+ return null;
+}
+function begin(week,scenarioId,s){
+ const state=load(s),n=Number(week),k=weekKey(n),check=assessment();
+ if(!isUnlocked(n,state))return result(false,'prerequisite-not-complete',state);
+ if(!check)return result(false,'assessment-not-ready',state);
+ if(!check.scenarioData(n,String(scenarioId||'')))return result(false,'unknown-scenario',state);
+ const existing=state.attempts[k];
+ if(existing&&!existing.used&&existing.challengeId)return {...result(true,'resumed',state),challengeId:existing.challengeId,scenarioId:existing.scenarioId};
+ const a={challengeId:randomId(),week:n,scenarioId:String(scenarioId),stepIndex:0,answers:[],score:0,used:false,startedAt:now()};
+ state.attempts[k]=a;
+ const saved=persist(state,s);
+ return {...saved,challengeId:saved.state.attempts[k]&&saved.state.attempts[k].challengeId};
+}
+function submitStep(week,challengeId,stepIndex,optionId,score,evidenceRefs,s,gatePack){
+ const state=load(s),n=Number(week),k=weekKey(n),a=state.attempts[k],check=assessment();
+ if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);
+ if(a.used)return result(false,'challenge-already-used',state);
+ if(a.stepIndex!==Number(stepIndex)||a.stepIndex>=STEP_COUNT)return result(false,'step-replay-or-out-of-order',state);
+ if(!check)return result(false,'assessment-not-ready',state);
+ const scored=check.scoreStep(n,a.scenarioId,Number(stepIndex),optionId,evidenceRefs);
+ if(!scored.ok)return result(false,scored.reason,state);
+ if(!Number.isInteger(Number(score))||Number(score)!==scored.score)return result(false,'score-mismatch',state);
+ if(GATE_WEEKS.includes(n)&&Number(stepIndex)===STEP_COUNT-1){
+  const checked=check.validateGateEvidence(n,a.scenarioId,gatePack);
+  if(!checked.ok)return {...result(false,checked.reason,state),missingTags:checked.missingTags||[]};
+  a.gateEvidence=checked.normalized;
+ }
+ const answer={stepIndex:Number(stepIndex),optionId:String(optionId),score:scored.score,evidenceRefs:scored.evidenceRefs,at:now()};
+ a.answers.push(answer);a.score=a.answers.reduce((sum,x)=>sum+Number(x.score||0),0);a.stepIndex+=1;
+ const saved=persist(state,s);
+ return {...saved,attempt:saved.state.attempts[k]};
+}
+function finish(week,challengeId,score,artifact,s){
+ const state=load(s),n=Number(week),k=weekKey(n),a=state.attempts[k],check=assessment();
+ if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);
+ if(a.used)return result(false,'challenge-already-used',state);
+ if(!check)return result(false,'assessment-not-ready',state);
+ if(a.stepIndex!==STEP_COUNT||!Array.isArray(a.answers)||a.answers.length!==STEP_COUNT)return result(false,'steps-incomplete',state);
+ const graded=a.answers.map((x,i)=>x.stepIndex===i?check.scoreStep(n,a.scenarioId,i,x.optionId,x.evidenceRefs):{ok:false});
+ if(!graded.every(x=>x.ok))return result(false,'answer-integrity-failed',state);
+ if(!graded.every((x,i)=>x.score===a.answers[i].score))return result(false,'score-integrity-failed',state);
+ const isGate=GATE_WEEKS.includes(n);
+ if(isGate){
+  const checked=check.validateGateEvidence(n,a.scenarioId,a.gateEvidence);
+  if(!checked.ok)return {...result(false,checked.reason,state),missingTags:checked.missingTags||[]};
+ }
+ const stepScores=graded.map(x=>x.score),requiredScore=isGate?5:4;
+ const failedSteps=isGate?stepScores.map((x,i)=>x<1?i+1:null).filter(x=>x!==null):[];
+ const finalScore=stepScores.reduce((sum,x)=>sum+x,0),passed=finalScore>=requiredScore&&failedSteps.length===0;
+ const assessmentDetail={isGate,requiredScore,requiresEveryStep:isGate,stepScores,failedSteps,localValidation:true,official:false,reviewRequired:true,reason:passed?null:(failedSteps.length?'gate-step-not-passed':'score-below-threshold')};
+ a.used=true;a.score=finalScore;
+ recordHistory(state,{type:'attempt-finished',week:n,challengeId,score:finalScore,passed,assessment:assessmentDetail});
+ if(passed){
+  state.weeks[k]={status:'completed',completed:true,score:finalScore,assessment:assessmentDetail,artifact:artifact||null,evidenceRefs:a.answers.flatMap(x=>x.evidenceRefs||[]),gateEvidence:isGate?a.gateEvidence:null,official:false,reviewStatus:'pending-instructor-review',completedAt:now()};
+ }else if(state.weeks[k]&&state.weeks[k].status==='completed'){
+  state.weeks[k]={...state.weeks[k],lastAttempt:{score:finalScore,passed:false,assessment:assessmentDetail,at:now()}};
+ }else{
+  state.weeks[k]={status:'available',completed:false,lastScore:finalScore,assessment:assessmentDetail,artifact:artifact||null,official:false,updatedAt:now()};
+ }
+ const saved=persist(state,s);
+ if(!saved.ok)return {...saved,reason:'pending-save',passed:false,score:finalScore,assessment:assessmentDetail};
+ return {...saved,passed,score:finalScore,assessment:assessmentDetail,status:saved.state.weeks[k].status};
+}
 function cancel(week,challengeId,s){const state=load(s),k=weekKey(week),a=state.attempts[k];if(!a||a.challengeId!==challengeId)return result(false,'challenge-mismatch',state);if(a.used)return result(false,'challenge-already-used',state);a.used=true;a.cancelledAt=now();recordHistory(state,{type:'attempt-cancelled',week:Number(week),challengeId});const saved=persist(state,s);return {...saved,status:status(week,saved.state)}}
 function recordLegacy(week,payload,s){const state=load(s),k=typeof week==='string'?week:weekKey(week);const body=payload&&typeof payload==='object'?payload:{};const bucket=k.charAt(0).toLowerCase()==='b'?'gates':'weeks';state[bucket][k]={status:'completed',completed:true,score:Number(body.score||0),artifact:body.artifact||null,source:body.source||'legacy',legacyKey:body.legacyKey||null,verifiedAt:now()};recordHistory(state,{type:'legacy-import',week:k,source:body.source||'legacy'});const saved=persist(state,s);return {...saved,passed:saved.ok}}
 function clear(s){const st=storage(s);if(!st)return {ok:false,reason:'storage-unavailable'};try{st.removeItem(KEY);return {ok:st.getItem(KEY)===null}}catch(_){return {ok:false,reason:'storage-remove-failed'}}}
