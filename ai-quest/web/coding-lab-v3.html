@@ -362,7 +362,7 @@ function s11SupervisedOutputEvidenceV1(output) {
     bad='S11_UNRECOGNIZED_OUTPUT_LINE';
   });
   // Leave ordinary single-sequence output under the existing canonical gate.
-  if(items.length<=1&&!items.some(function(item){return item.role==='modified';}))return null;
+  if(items.length<=1&&!bad&&!items.some(function(item){return item.role==='modified';}))return null;
   var out=function(ok,issue){return {passed:!!ok,mode:'S11_BASELINE_MODIFIED_V1',issue:issue||'',reviewRequired:false};};
   if(raw.length>30000)return out(false,'OUTPUT_REQUIRES_REVIEW');
   if(bad)return out(false,bad);
