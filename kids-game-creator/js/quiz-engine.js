@@ -1,4 +1,5 @@
 import {detectQuizTopic,getQuizQuestions} from "./quiz-bank.js";
+import {CREATION_LEVELS} from "./creation-presets.js";
 export function mountQuiz(container,game,prompt,onStatus=()=>{}){
  const topic=detectQuizTopic(prompt);
  const ageCount={p1:3,p4:4,m1:5,m4:6};
