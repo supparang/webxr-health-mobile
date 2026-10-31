@@ -1,7 +1,8 @@
 import {detectQuizTopic,getQuizQuestions} from "./quiz-bank.js";
 export function mountQuiz(container,game,prompt,onStatus=()=>{}){
  const topic=detectQuizTopic(prompt);
- const questions=getQuizQuestions(topic,game.ageLevel,Math.min(6,Math.max(3,game.rules.targetScore)));
+ const ageCount={p1:3,p4:4,m1:5,m4:6};
+ const questions=getQuizQuestions(topic,game.ageLevel,ageCount[game.ageLevel]||4);
  let position=0,score=0,answered=false,finished=false;
  container.hidden=false;
  function element(tag,text,className){
