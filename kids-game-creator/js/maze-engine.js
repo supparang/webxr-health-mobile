@@ -2,7 +2,10 @@
 export function mountMaze(canvas,game,onStatus=()=>{}){
  const ctx=canvas.getContext("2d");if(!ctx)throw Error("Canvas unavailable");
  canvas.width=720;canvas.height=400;
- const cols=15,rows=9,cell=38,ox=75,oy=27;
+ const sizes={p1:[7,5],p4:[11,7],m1:[13,9],m4:[15,9]};
+ const [cols,rows]=sizes[game.ageLevel]||sizes.p4;
+ const cell=Math.min(38,Math.floor(340/rows),Math.floor(650/cols));
+ const ox=Math.floor((720-cols*cell)/2),oy=Math.floor((400-rows*cell)/2);
  const keys=new Set(),touch=new Set();
  let grid,player,phase,level,raf=0,moveAt=0;
  const index=(x,y)=>y*cols+x;
