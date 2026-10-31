@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.16
+ * CSAI2102 AI Quest Coding Receiver v3.2.17
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261031-AIQ-CODING-RECEIVER-V3.2.16-S11-SUPERVISED-OUTPUT';
+AIQCODING.VERSION = '20261031-AIQ-CODING-RECEIVER-V3.2.17-B2-STRATEGY-REASON';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -235,6 +235,41 @@ AIQCODING.s11SupervisedOutputEvidenceV1_ = function(output) {
   return out(true,'');
 };
 
+AIQCODING.b2StrategyReasonOutputV1_ = function(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  var rows=raw.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+  // Keep legacy bare "A*" and structured output under the old validator.
+  if(!rows.some(function(x){return /^(?:strategy|กลยุทธ์|reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]/i.test(x);}))return null;
+  var decision=null,reason=null,problem='';
+  var response=function(ok,issue){return {passed:!!ok,mode:'B2_STRATEGY_REASON_V1',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return response(false,'OUTPUT_REQUIRES_REVIEW');
+  var strategyLine=/^(?:strategy|กลยุทธ์)\s*[:：]\s*(.*)$/i;
+  var reasonLine=/^(?:reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]\s*(.*)$/i;
+  var alternative=/(?:^|[\s,;|]|และ)(?:เลือกใช้|เลือก|ใช้|choose|selected|select|using|use)\s*(?:BFS|DFS|UCS|Minimax|Adversarial\s+Search)\b/i;
+  var nested=/(?:^|[\s;|])(?:strategy|decision|action|result|output|answer|recommendation|choice|selected)\s*[:=]/i;
+  rows.forEach(function(line){
+    if(problem)return;
+    var s=strategyLine.exec(line);
+    if(s){if(decision!==null||!s[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_STRATEGY';return;}decision=s[1].trim();return;}
+    var r=reasonLine.exec(line);
+    if(r){if(reason!==null||!r[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_REASON';return;}reason=r[1].trim();return;}
+    // Accept a bare canonical value followed by a labeled explanation.
+    if(/^(?:a\*|a[\s_-]*star|astar)$/i.test(line)&&decision===null){decision=line;return;}
+    problem='B2_UNRECOGNIZED_OUTPUT_LINE';
+  });
+  if(problem)return response(false,problem);
+  if(!decision)return response(false,'B2_STRATEGY_NOT_FOUND');
+  if(/(?:ไม่ควร|ไม่ใช้|ไม่เลือก|avoid|wrong|incorrect|not\s+recommended)/i.test(decision))
+    return response(false,'B2_NEGATED_STRATEGY');
+  var selected=/^(?:(?:เลือกใช้|ควรใช้|เลือก|ใช้|choose|select|use|using)\s+)?(?:a\*|a[\s_-]*star|astar)(?=$|[\s,.!?;:()])/i;
+  if(!selected.test(decision))return response(false,'B2_EXPECTED_ASTAR');
+  if(alternative.test(decision)||reason&&alternative.test(reason))
+    return response(false,'B2_CONFLICTING_STRATEGY');
+  if(reason&&nested.test(reason))return response(false,'B2_NESTED_DECISION_IN_REASON');
+  return response(true,'');
+};
+
 AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
   // Pure, deterministic, read-only output validator for the 18 non-S4/S6 stages.
   // Only supported representations of the provided lab outputs are accepted.
@@ -428,7 +463,7 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
       if(!scores.length)return result(false,'B_COST_NOT_FOUND');
       return scores.every(function(n){return Math.abs(n-4)<1e-8;})?result(true):result(false,'B_COST_NOT_4');
     }
-    case 'B2':return category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});
+    case 'B2':{var strategy=AIQCODING.b2StrategyReasonOutputV1_(raw);return strategy||category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});}
     case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
     case 'S8':return numeric(0.154,'proportion');
     case 'S9':{var batch=AIQCODING.s9ScenarioBatchEvidenceV1_(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
@@ -528,7 +563,7 @@ AIQCODING.RULES = Object.freeze({
  S4:{predictQuestion:"UCS จะ pop โหนดใดก่อนจาก Frontier ที่เริ่มด้วย (0, 'A') และเพราะอะไร",expected:'D 6',outputValidation:'S4_UCS_GOAL_COST_V1',predictionValidation:'S4_FIRST_POP_PREDICT_V1',pg:[['a'],['0']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
  S5:{s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',predictQuestion:"ค่า f ของโหนด B เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
  S6:{predictQuestion:"ราก MAX จะเลือกคะแนนเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
- B2:{predictQuestion:"ระบบจะเลือกกลยุทธ์ใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
+ B2:{b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',predictQuestion:"ระบบจะเลือกกลยุทธ์ใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
  S7:{predictQuestion:"โปรแกรมจะแสดงข้อสรุปอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
  S8:{predictQuestion:"posterior ที่ปัดทศนิยม 3 ตำแหน่งคือเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
  S9:{predictQuestion:"ระบบจะแนะนำอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},

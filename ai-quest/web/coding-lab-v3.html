@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426"><meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
-<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.20</title>
+<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.21</title>
 <style>
 :root{--bg:#071426;--panel:#101d33;--panel2:#142640;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--blue:#0284c7;--green:#07875a;--amber:#b45309;--bad:#9f1239}*{box-sizing:border-box;min-width:0}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}main{max-width:1080px;margin:auto;padding:16px 14px 110px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:17px;margin:11px 0}.hero{border-color:#38bdf8}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#065f46;color:#d1fae5;font-weight:900}.muted{color:var(--muted);line-height:1.5}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}.box{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:5px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:#dbeafe}.stepTitle{display:flex;align-items:center;gap:9px}.stepTitle h2{margin:0}.stepNo{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#075985;font-weight:900}.textarea,input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#17263f;color:#fff;font:inherit}.code{min-height:190px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}.btn{min-height:42px;padding:9px 13px;border:1px solid var(--line);border-radius:11px;background:#17263f;color:#fff;font-weight:850;cursor:pointer}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap}.notice,.check{padding:10px 11px;border-radius:10px;background:#17263f;border:1px solid var(--line);margin-top:8px;white-space:pre-wrap}.ok{background:#052e24;border-color:#15803d;color:#bbf7d0}.bad{background:#35101d;border-color:var(--bad);color:#fecdd3}.optional{background:#17263f;border-color:#64748b;color:#dbeafe}.todoList{margin:0;padding-left:20px}.todoList li{margin:6px 0;color:#dbeafe}.challengeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.challenge{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.challenge h3{margin:0 0 5px}.quiz{display:grid;gap:10px}.quizItem{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.choice{display:flex!important;align-items:flex-start;gap:8px;margin:7px 0!important;padding:7px 8px;border:1px solid transparent;border-radius:9px;cursor:pointer}.choice:hover{background:#17263f}.choice input{width:auto;margin-top:3px}.feedback{font-size:13px;margin-top:6px;color:var(--muted)}details.card{padding:0;overflow:hidden}details.card>summary{list-style:none;cursor:pointer;padding:15px 17px;font-weight:900;display:flex;align-items:center;gap:9px}details.card>summary::-webkit-details-marker{display:none}details.card>summary::after{content:'＋';margin-left:auto}details.card[open]>summary::after{content:'−'}details.card>.inside{padding:0 17px 17px}.takeaways li{margin:6px 0}.sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(7,20,38,.96);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;backdrop-filter:blur(10px)}@media(max-width:720px){main{padding:9px 8px 120px}.card{padding:13px;border-radius:14px}.grid2,.challengeGrid{grid-template-columns:1fr}.code{min-height:165px}.actions{display:grid}.actions .btn{width:100%}.sticky{display:grid;grid-template-columns:1fr 1fr}.sticky .btn{width:100%}details.card>summary{padding:13px}.inside{padding:0 13px 13px!important}}
 </style>
@@ -21,7 +21,7 @@
 <script src="aiquest-coding-client.js?v=20261028-fallback-unverified"></script><script src="aiquest-core-client.js"></script>
 <script>
 (function(){'use strict';
-const VERSION='20261031-CODING-LAB-V3.3.20-S11-SUPERVISED-OUTPUT';
+const VERSION='20261031-CODING-LAB-V3.3.21-B2-STRATEGY-REASON';
 const ENDPOINT='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const q=new URLSearchParams(location.search),session=(q.get('session')||q.get('mission')||'S1').toUpperCase(),startedAt=Date.now(),$=id=>document.getElementById(id);
 let lab=null,curr=null,act=null,last=null,quizScore=0,serverRule=null,serverRuleVersion='';
@@ -172,7 +172,7 @@ function render(){const c=curr.sessions[session];$('badge').textContent=session;
 async function api(action,payload){const r=await fetch(ENDPOINT,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module:'AIQCODING',action:action,section:'101'},payload||{}))});if(!r.ok)throw Error('HTTP_'+r.status);return await r.json()}
 async function loadServerRule(){const result=await api('GET_LAB_CONFIG',{sessionId:session});if(!result||result.ok===false||!result.config)throw Error((result&&result.code)||'LAB_CONFIG_NOT_AVAILABLE');serverRule=result.config;serverRuleVersion=String(result.version||'UNKNOWN');return serverRule}
 function showServerRuleInfo(){
- $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.20 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
+ $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.21 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
  const e=$('ruleInfo');
  if(session==='S4'||session==='S6'){
   e.style.display='block';
@@ -193,6 +193,9 @@ function showServerRuleInfo(){
   e.textContent=structured?
    'เกณฑ์ Output จาก Server: ตรวจโครงสร้างและค่าผลลัพธ์ของ '+session+' รองรับรูปแบบเทียบเท่าที่กำหนด และปฏิเสธค่าขัดแย้ง'+(session==='B5'?' • B5 รองรับ REJECT/HOLD เมื่อ Privacy Compliant: False พร้อม Failed Governance Gates และ Excess Fields':'')+' • คำตอบนอกแบบที่รองรับอาจต้องตรวจโดยผู้สอน':
    '⚠ Server ยังใช้กฎ Output แบบจับข้อความเดิมสำหรับ '+session+' • คำตอบที่ถูกต้องบางรูปแบบอาจไม่ผ่าน โปรดแจ้งผู้สอนเพื่อตรวจ Deployment';
+  if(session==='B2'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1'){
+   e.className='check bad';e.textContent+=' • เซิร์ฟเวอร์ยังไม่รองรับการอธิบายกลยุทธ์ B2 กรุณาอัปเดต Receiver V3.2.17 ก่อนส่ง';
+  }
   if(session==='S11'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1'){
    e.className='check bad';e.textContent+=' • เซิร์ฟเวอร์ยังไม่รองรับผล S11 สองชุด กรุณาอัปเดต Receiver V3.2.16 ก่อนส่งงานรูปแบบนี้';
   }
@@ -378,6 +381,41 @@ function s11SupervisedOutputEvidenceV1(output) {
   if(base.values.join(',')!=='0,1,1')return out(false,'S11_BASELINE_SEQUENCE_MISMATCH');
   if(modified.values.join(',')!=='0,0,1')return out(false,'S11_MODIFIED_SEQUENCE_MISMATCH');
   return out(true,'');
+}
+
+function b2StrategyReasonOutputV1(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  var rows=raw.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+  // Keep legacy bare "A*" and structured output under the old validator.
+  if(!rows.some(function(x){return /^(?:strategy|กลยุทธ์|reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]/i.test(x);}))return null;
+  var decision=null,reason=null,problem='';
+  var response=function(ok,issue){return {passed:!!ok,mode:'B2_STRATEGY_REASON_V1',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return response(false,'OUTPUT_REQUIRES_REVIEW');
+  var strategyLine=/^(?:strategy|กลยุทธ์)\s*[:：]\s*(.*)$/i;
+  var reasonLine=/^(?:reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]\s*(.*)$/i;
+  var alternative=/(?:^|[\s,;|]|และ)(?:เลือกใช้|เลือก|ใช้|choose|selected|select|using|use)\s*(?:BFS|DFS|UCS|Minimax|Adversarial\s+Search)\b/i;
+  var nested=/(?:^|[\s;|])(?:strategy|decision|action|result|output|answer|recommendation|choice|selected)\s*[:=]/i;
+  rows.forEach(function(line){
+    if(problem)return;
+    var s=strategyLine.exec(line);
+    if(s){if(decision!==null||!s[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_STRATEGY';return;}decision=s[1].trim();return;}
+    var r=reasonLine.exec(line);
+    if(r){if(reason!==null||!r[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_REASON';return;}reason=r[1].trim();return;}
+    // Accept a bare canonical value followed by a labeled explanation.
+    if(/^(?:a\*|a[\s_-]*star|astar)$/i.test(line)&&decision===null){decision=line;return;}
+    problem='B2_UNRECOGNIZED_OUTPUT_LINE';
+  });
+  if(problem)return response(false,problem);
+  if(!decision)return response(false,'B2_STRATEGY_NOT_FOUND');
+  if(/(?:ไม่ควร|ไม่ใช้|ไม่เลือก|avoid|wrong|incorrect|not\s+recommended)/i.test(decision))
+    return response(false,'B2_NEGATED_STRATEGY');
+  var selected=/^(?:(?:เลือกใช้|ควรใช้|เลือก|ใช้|choose|select|use|using)\s+)?(?:a\*|a[\s_-]*star|astar)(?=$|[\s,.!?;:()])/i;
+  if(!selected.test(decision))return response(false,'B2_EXPECTED_ASTAR');
+  if(alternative.test(decision)||reason&&alternative.test(reason))
+    return response(false,'B2_CONFLICTING_STRATEGY');
+  if(reason&&nested.test(reason))return response(false,'B2_NESTED_DECISION_IN_REASON');
+  return response(true,'');
 }
 
 function structuredOutputEvidenceV2(stage,output) {
@@ -573,7 +611,7 @@ function structuredOutputEvidenceV2(stage,output) {
       if(!scores.length)return result(false,'B_COST_NOT_FOUND');
       return scores.every(function(n){return Math.abs(n-4)<1e-8;})?result(true):result(false,'B_COST_NOT_4');
     }
-    case 'B2':return category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});
+    case 'B2':{var strategy=b2StrategyReasonOutputV1(raw);return strategy||category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});}
     case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
     case 'S8':return numeric(0.154,'proportion');
     case 'S9':{var batch=s9ScenarioBatchEvidenceV1(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
@@ -660,9 +698,10 @@ function validate(){
   (session==='S6'&&serverRule.outputValidation==='S6_NUMERIC_RESULT_V1')?s6MinimaxOutputEvidence(output):
   (serverRule.outputValidation==='STRUCTURED_OUTPUT_V2')?structuredOutputEvidenceV2(session,output):
   {passed:!!output&&norm(output).includes(norm(serverRule.expected||lab.expected)),issue:'OLD_SERVER_OUTPUT_VALIDATOR'},
-  outputOK=outputCheck.passed&&!(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')&&!(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1');
+  outputOK=outputCheck.passed&&!(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')&&!(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1')&&!(session==='B2'&&outputCheck.mode==='B2_STRATEGY_REASON_V1'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1');
  if(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')outputCheck.issue='S9_BACKEND_BATCH_CONTRACT_MISSING';
  if(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1')outputCheck.issue='S11_BACKEND_OUTPUT_CONTRACT_MISSING';
+ if(session==='B2'&&outputCheck.mode==='B2_STRATEGY_REASON_V1'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1')outputCheck.issue='B2_BACKEND_STRATEGY_CONTRACT_MISSING';
  const modifyCode=$('modifiedCode').value.trim(),modifyReason=$('modifyReason').value.trim(),modifyKeywords=serverRule.m||lab.modifyKeywords||[],modifyAny=serverRule.ma||lab.modifyAnyKeywords||[],modifyCounts=serverRule.mc||lab.modifyMinCounts||{},modifyMissing=missing(modifyCode,modifyKeywords),modifyAnyMissing=modifyAny.length>0&&!hasAny(modifyCode,modifyAny),modifyCountMissing=countShortfalls(modifyCode,modifyCounts),modifyOK=modifyCode.length>=30&&minReason(modifyReason)&&modifyMissing.length===0&&!modifyAnyMissing&&modifyCountMissing.length===0;
  const challengeCode=$('challengeCode').value.trim(),challengeAttempted=challengeCode.length>0,challengeMissing=missing(challengeCode,lab.challengeKeywords),challengeOK=challengeAttempted&&challengeCode.length>=20&&challengeMissing.length===0&&hasAny(challengeCode,lab.challengeAnyKeywords),quizOK=validateQuiz(true);
  let pm='';
@@ -686,6 +725,7 @@ function validate(){
      S11_MODIFIED_SEQUENCE_MISMATCH:'ผลจากการปรับ threshold เป็น 0.8 ต้องได้ [0, 0, 1] ตามข้อมูลตั้งต้น',
      S11_MODIFIED_SEQUENCE_NEEDS_LABEL_OR_METRICS:'หากแสดงผลสองชุด ต้องระบุ new_predictions หรือแสดงผลหลังตัวชี้วัดเพื่อแยกการทดลอง',
      S11_BACKEND_OUTPUT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล S11 สองชุด ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง',
+     B2_BACKEND_STRATEGY_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล B2 ที่มีคำอธิบาย ต้องอัปเดต Receiver V3.2.17 ก่อนส่ง',
      S5_BACKEND_FORMAT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับรูปแบบวงเล็บเหลี่ยมในคำตอบ S5 ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง หรือใช้รูปแบบ f(B)=4 ตามโค้ดตั้งต้น',
      S8_BAYES_REASON_MISSING:'เหตุผลต้องกล่าวถึง prior, likelihood, evidence และ posterior',
      G_A_MUST_BE_0:'โหนด A เริ่มต้นด้วย g(A)=0 ตาม Scaffold',
@@ -804,7 +844,7 @@ async function verifySaved(){
   $('status').textContent='ตรวจผล Server ไม่สำเร็จ: '+String(e.message||e)+' • ยังไม่ถือว่าผ่าน';
  }finally{button.disabled=false;}
 }
-async function load(){try{const stamp='content330-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.20\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
+async function load(){try{const stamp='content330-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.21\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
 $('copyStarter').onclick=async()=>{try{await navigator.clipboard.writeText($('starter').value);$('status').textContent='คัดลอก Scaffold แล้ว'}catch(e){$('starter').select();document.execCommand('copy')}};$('checkQuiz').onclick=()=>validateQuiz(true);$('validate').onclick=()=>validate();$('submit').onclick=()=>submit();$('verifySaved').onclick=()=>verifySaved();$('goTop').onclick=()=>scrollTo({top:0,behavior:'smooth'});document.querySelectorAll('input,textarea').forEach(e=>e.setAttribute('autocomplete','off'));$('quiz').addEventListener('change',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;$('quizResult').textContent='คำตอบเปลี่ยนแล้ว กรุณาตรวจแบบทดสอบและหลักฐานอีกครั้ง';});['prediction','predictionReason','completedCode','output','modifiedCode','modifyReason'].forEach(id=>$(id).addEventListener('input',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;if($('status').classList.contains('ok')){$('status').className='notice';$('status').textContent='มีการแก้ไขหลักฐาน กรุณากด “ตรวจหลักฐานทั้งหมด” อีกครั้ง'}}));window.addEventListener('pageshow',e=>{if(e.persisted){document.querySelectorAll('.quizItem input').forEach(x=>x.checked=false);$('submit').disabled=true}});profile();load();
 })();
 </script></body></html>
