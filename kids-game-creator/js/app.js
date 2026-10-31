@@ -31,7 +31,7 @@ refreshAge();
 document.querySelector("#generate").addEventListener("click",()=>{
  try{
   const game=createGameFromThai(prompt.value,age.value);
-  if(game.type===selectedType){
+  if(game.type===selectedType && age.value!=="p1"){
    const p=CREATION_LEVELS[age.value]||CREATION_LEVELS.p4;
    game.rules.targetScore=clamp(targetInput.value,1,100,p.score);
    game.player.lives=clamp(livesInput.value,1,10,3);
