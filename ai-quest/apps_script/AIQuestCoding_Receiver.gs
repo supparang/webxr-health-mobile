@@ -246,7 +246,7 @@ AIQCODING.b2StrategyReasonOutputV1_ = function(output) {
   if(raw.length>30000)return response(false,'OUTPUT_REQUIRES_REVIEW');
   var strategyLine=/^(?:strategy|กลยุทธ์)\s*[:：]\s*(.*)$/i;
   var reasonLine=/^(?:reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]\s*(.*)$/i;
-  var alternative=/(?:^|[\s,;|])(?:เลือกใช้|เลือก|ใช้|choose|selected|select|using|use)\s*(?:BFS|DFS|UCS|Minimax|Adversarial\s+Search)\b/i;
+  var alternative=/(?:^|[\s,;|]|และ)(?:เลือกใช้|เลือก|ใช้|choose|selected|select|using|use)\s*(?:BFS|DFS|UCS|Minimax|Adversarial\s+Search)\b/i;
   var nested=/(?:^|[\s;|])(?:strategy|decision|action|result|output|answer|recommendation|choice|selected)\s*[:=]/i;
   rows.forEach(function(line){
     if(problem)return;
