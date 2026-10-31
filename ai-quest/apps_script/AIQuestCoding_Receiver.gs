@@ -200,7 +200,7 @@ AIQCODING.s11SupervisedOutputEvidenceV1_ = function(output) {
     var m=seqRe.exec(line);
     if(m){
       var parts=m[2].slice(1,-1).split(',').map(function(x){return x.trim();});
-      if(parts.length!==3||!parts.every(function(x){return /^[01]$/.test(x))){bad='S11_INVALID_SEQUENCE';return;}
+      if(parts.length!==3||!parts.every(function(x){return /^[01]$/.test(x);})){bad='S11_INVALID_SEQUENCE';return;}
       var label=(m[1]||'').toLowerCase();
       items.push({role:/^(?:new_predictions|modified_predictions|threshold_0\.8_predictions)$/.test(label)?'modified':label?'baseline':'unlabeled',
         values:parts.map(Number),hadMetrics:metricBefore.length>0});
