@@ -192,6 +192,8 @@ AIQCODING.s9ScenarioBatchEvidenceV1_ = function(output) {
 AIQCODING.s11SupervisedOutputEvidenceV1_ = function(output) {
   'use strict';
   var raw=String(output==null?'':output).trim();
+  // Retain canonical flat one-line sequences via the original checker.
+  if(/^\s*-?\d+(?:\s*,\s*-?\d+)+\s*$/.test(raw))return null;
   var lines=raw.split(/\r?\n/).map(function(line){return line.trim();}).filter(Boolean);
   var seqRe=/^(?:(predictions|predicted_labels|baseline_predictions|threshold_0\.5_predictions|new_predictions|modified_predictions|threshold_0\.8_predictions)\s*[:=]\s*)?(\[[^\]\r\n]*\])$/i;
   var metricRe=/^(?:TN|FP|FN|TP|Accuracy|Precision|Recall|F1)\s*[:=]/i;
