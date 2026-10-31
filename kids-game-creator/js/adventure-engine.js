@@ -10,7 +10,7 @@ export function mountAdventure(canvas, game, onStatus = () => {}) {
   const levelTarget=level=>Math.ceil(goal*level/game.rules.levels);
   let coins=[],enemies=[];
   function populate(){
-    coins=Array.from({length:Math.min(18,Math.max(4,levelTarget(state.level)-state.score))},(_,i)=>({x:115+i*36,y:ground-65-(i%3)*32,taken:false}));
+    coins=Array.from({length:Math.min(12,Math.max(1,levelTarget(state.level)-state.score))},(_,i)=>({x:115+(i%12)*46,y:ground-32-(i%3)*12,taken:false}));
     enemies=Array.from({length:Math.min(5,game.rules.enemyCount)},(_,i)=>({x:250+i*95,y:ground-30,dir:i%2?1:-1}));
     state.x=55;state.y=ground-38;state.vy=0;
   }
@@ -26,7 +26,7 @@ export function mountAdventure(canvas, game, onStatus = () => {}) {
     if(state.y>ground-38){state.y=ground-38;state.vy=0;}
     state.x=Math.max(0,Math.min(W-32,state.x));
     for(const c of coins){
-      if(!c.taken&&Math.abs(state.x+16-c.x)<22&&Math.abs(state.y+18-c.y)<30){c.taken=true;state.score++;}
+      if(!c.taken&&Math.abs(state.x+16-c.x)<22&&Math.abs(state.y+18-c.y)<30){c.taken=true;state.score=Math.min(goal,state.score+1);}
     }
     for(const e of enemies){
       e.x+=e.dir*(.65+game.rules.difficulty*.17);
@@ -69,7 +69,7 @@ export function mountAdventure(canvas, game, onStatus = () => {}) {
   function down(e){const k=keyMap[e.code];if(k){e.preventDefault();state.keys.add(k);}}
   function up(e){const k=keyMap[e.code];if(k){e.preventDefault();state.keys.delete(k);}}
   window.addEventListener("keydown",down);window.addEventListener("keyup",up);
-  function restart(){state.score=0;state.lives=game.player.lives;state.level=1;state.phase="playing";state.invulnerable=0;populate();onStatus("เริ่มเกมแล้ว");}
+  function restart(){state.score=0;state.lives=game.player.lives;state.level=1;state.phase="playing";state.invulnerable=0;state.keys.clear();state.touch.clear();previous=0;accumulator=0;populate();onStatus("เริ่มเกมแล้ว");}
   function setTouch(key,active){if(active)state.touch.add(key);else state.touch.delete(key);}
   function destroy(){cancelAnimationFrame(raf);window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);state.keys.clear();state.touch.clear();}
   populate();raf=requestAnimationFrame(loop);
