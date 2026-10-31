@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.15
+ * CSAI2102 AI Quest Coding Receiver v3.2.16
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261030-AIQ-CODING-RECEIVER-V3.2.15-S9-BATCH-PARITY';
+AIQCODING.VERSION = '20261031-AIQ-CODING-RECEIVER-V3.2.16-S11-SUPERVISED-OUTPUT';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -187,6 +187,50 @@ AIQCODING.s9ScenarioBatchEvidenceV1_ = function(output) {
       return result(false,'S9_SEVERE_CASE_MUST_REFER_URGENTLY');
   }
   return result(true,'');
+};
+
+AIQCODING.s11SupervisedOutputEvidenceV1_ = function(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  var lines=raw.split(/\r?\n/).map(function(line){return line.trim();}).filter(Boolean);
+  var seqRe=/^(?:(predictions|predicted_labels|baseline_predictions|threshold_0\.5_predictions|new_predictions|modified_predictions|threshold_0\.8_predictions)\s*[:=]\s*)?(\[[^\]\r\n]*\])$/i;
+  var metricRe=/^(?:TN|FP|FN|TP|Accuracy|Precision|Recall|F1)\s*[:=]/i;
+  var items=[],metricBefore=[],bad='';
+  lines.forEach(function(line){
+    var m=seqRe.exec(line);
+    if(m){
+      var parts=m[2].slice(1,-1).split(',').map(function(x){return x.trim();});
+      if(parts.length!==3||!parts.every(function(x){return /^[01]$/.test(x))){bad='S11_INVALID_SEQUENCE';return;}
+      var label=(m[1]||'').toLowerCase();
+      items.push({role:/^(?:new_predictions|modified_predictions|threshold_0\.8_predictions)$/.test(label)?'modified':label?'baseline':'unlabeled',
+        values:parts.map(Number),hadMetrics:metricBefore.length>0});
+      return;
+    }
+    if(/^\[|^(?:predictions|predicted_labels|baseline_predictions|threshold_0\.5_predictions|new_predictions|modified_predictions|threshold_0\.8_predictions)\s*[:=]/i.test(line)){
+      bad='S11_INVALID_SEQUENCE';return;
+    }
+    if(metricRe.test(line)){
+      var fields=line.split(/,\s*(?=[A-Za-z]+\s*[:=])/);
+      if(!fields.every(function(field){return /^(?:TN|FP|FN|TP|Accuracy|Precision|Recall|F1)\s*[:=]\s*(?:\d+(?:\.\d+)?|\.\d+)\s*$/i.test(field)})){
+        bad='S11_INVALID_METRIC_LINE';return;
+      }
+      metricBefore.push(line);return;
+    }
+    bad='S11_UNRECOGNIZED_OUTPUT_LINE';
+  });
+  // Leave ordinary single-sequence output under the existing canonical gate.
+  if(items.length<=1&&!items.some(function(item){return item.role==='modified';}))return null;
+  var out=function(ok,issue){return {passed:!!ok,mode:'S11_BASELINE_MODIFIED_V1',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return out(false,'OUTPUT_REQUIRES_REVIEW');
+  if(bad)return out(false,bad);
+  if(items.length<2||items.length>2)return out(false,'S11_TWO_SEQUENCES_REQUIRED');
+  var base=items[0],modified=items[1];
+  if(base.role==='modified')return out(false,'S11_BASELINE_SEQUENCE_REQUIRED_FIRST');
+  if(modified.role==='baseline')return out(false,'S11_DUPLICATE_BASELINE_SEQUENCE');
+  if(modified.role==='unlabeled'&&!modified.hadMetrics)return out(false,'S11_MODIFIED_SEQUENCE_NEEDS_LABEL_OR_METRICS');
+  if(base.values.join(',')!=='0,1,1')return out(false,'S11_BASELINE_SEQUENCE_MISMATCH');
+  if(modified.values.join(',')!=='0,0,1')return out(false,'S11_MODIFIED_SEQUENCE_MISMATCH');
+  return out(true,'');
 };
 
 AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
@@ -404,7 +448,7 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
       if(pairs.some(function(p){return p[0]!==8||p[1]!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
       return (pairs.length||(train.length&&test.length))?result(true):result(false,'SPLIT_NOT_FOUND');
     }
-    case 'S11':return sequence([0,1,1],false);
+    case 'S11':{var study=AIQCODING.s11SupervisedOutputEvidenceV1_(raw);return study||sequence([0,1,1],false);}
     case 'S12':return sequence([0,0,1,1],false);
     case 'B4':return category(function(v){return /^(?:overfitting|overfit|โอเวอร์ฟิต|เรียนเกิน)$/i.test(v)?'expected':'';});
     case 'S13':return numeric(0.1);
@@ -488,7 +532,7 @@ AIQCODING.RULES = Object.freeze({
  S9:{predictQuestion:"ระบบจะแนะนำอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
  B3:{predictQuestion:"ระบบจะแสดงผลอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
  S10:{predictQuestion:"โปรแกรมจะแสดงจำนวน train และ test เท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']],b:['data','train','test'],m:['0.7','train','test'],c:['split_data','ratio','seed'],ca:['leakage','overlap','set(']},
- S11:{predictQuestion:"predictions จะเป็นรายการใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
+ S11:{s11SupervisedOutputValidation:'S11_BASELINE_MODIFIED_V1',predictQuestion:"predictions จะเป็นรายการใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
  S12:{predictQuestion:"clusters จะเป็นรายการใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
  B4:{predictQuestion:"ระบบจะวินิจฉัยว่าอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
  S13:{predictQuestion:"ค่า output หลัง ReLU เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
@@ -620,10 +664,16 @@ AIQCODING.aiqPredictAnswerParityV1_ = function(stage,prediction,reason,rule,vali
   var oldConcept=!numeric[stage]&&matchesGroups(source,(rule&&rule.pg)||[]);
   if(/\b(?:no|not|never|cannot|can't|don't)\b|(?:ไม่ใช่|ไม่ต้อง|ไม่ได้)/i.test(p))oldConcept=false;
   if(stage==='S5'){
+    // Predict always refers to canonical starter g(B)=2, h(B)=2, f(B)=4.
+    // Accept integer answers wrapped in [ ] but never credit the wrong value.
     var text=p+' '+r,seen=[],m;
-    var token=/\bf\s*\(\s*B\s*\)\s*[:=]\s*(-?\d+(?:\.\d+)?)|\bB\s*(?:[:=]|\s+)\s*(-?\d+(?:\.\d+)?)\b/gi;
+    var token=/\bf\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?|\bB\s*(?:[:=]|\s+)\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
     while((m=token.exec(text))!==null)seen.push(Number(m[1]||m[2]));
-    var c=/\bf\s*\(\s*C\s*\)\s*[:=]\s*(-?\d+(?:\.\d+)?)/gi;
+    var g=/\bg\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
+    while((m=g.exec(text))!==null)if(Number(m[1])!==2)return out(false,'S5_STARTER_INPUT_MISMATCH');
+    var h=/\bh\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
+    while((m=h.exec(text))!==null)if(Number(m[1])!==2)return out(false,'S5_STARTER_INPUT_MISMATCH');
+    var c=/\bf\s*\(\s*C\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
     while((m=c.exec(text))!==null)if(Number(m[1])!==4)return out(false,'S5_F_C_INCORRECT');
     if(seen.some(function(x){return x!==4;}))return out(false,'S5_F_B_INCORRECT');
     return answer.passed||seen.length>0?out(true,'','S5_COMPUTED_RESULT'):out(false,'S5_CALCULATED_VALUE_REQUIRED');
