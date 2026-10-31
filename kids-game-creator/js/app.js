@@ -9,8 +9,8 @@ document.querySelector("#generate").addEventListener("click",()=>{
  try{
   const game=createGameFromThai(prompt.value,age.value);
   out.textContent=JSON.stringify(game,null,2);
-  active?.destroy();active=null;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;
-  if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
+  active?.destroy();active=null;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
+  if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
   else if(game.type==="quiz"){canvas.hidden=true;active=mountQuiz(quizPanel,game,prompt.value,message=>status.textContent=message);status.textContent="เลือกคำตอบเพื่อเริ่มเล่น";}
   else{canvas.hidden=true;status.textContent="สร้าง JSON สำเร็จ — Game Engine ประเภทนี้อยู่ระหว่างพัฒนา";}
  }catch(e){out.textContent="";status.textContent=e.message;active?.destroy();active=null;canvas.hidden=true;quizPanel.hidden=true;controls.hidden=true;}
