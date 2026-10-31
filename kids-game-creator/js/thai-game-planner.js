@@ -8,5 +8,5 @@ export function createGameFromThai(prompt,ageLevel="p4"){
  if(prompt.length>1000)throw Error("ข้อความยาวเกิน 1,000 ตัวอักษร");
  if(!Object.hasOwn(AGE_PRESETS,ageLevel))throw Error("ระดับชั้นไม่ถูกต้อง");
  const t=prompt.trim(),p=AGE_PRESETS[ageLevel];
- return validateGame({type:detectType(t),ageLevel,title:t.slice(0,60),theme:detectTheme(t),player:{name:detectPlayer(t),lives:number(t,/(\d+)\s*ชีวิต/,p.lives)},rules:{difficulty:p.difficulty,timeLimit:number(t,/(\d+)\s*วินาที/,p.timeLimit),targetScore:number(t,/(?:เก็บ|สะสม)\D{0,25}?(\d+)\s*(?:ชิ้น|ดวง|เหรียญ|คะแนน|อัน)/,10),enemyCount:number(t,/(?:ศัตรู|หมาป่า|อุปสรรค)\s*(\d+)\s*ตัว/,2),levels:number(t,/(\d+)\s*ด่าน/,1)}});
+ return validateGame({type:detectType(t),ageLevel,title:t.slice(0,60),theme:detectTheme(t),player:{name:detectPlayer(t),lives:number(t,/(\d+)\s*ชีวิต/,p.lives)},rules:{difficulty:p.difficulty,timeLimit:number(t,/(\d+)\s*วินาที/,p.timeLimit),targetScore:number(t,/(?:เก็บ|สะสม|ทำ|ได้)\D{0,25}?(\d+)\s*(?:ชิ้น|ดวง|เหรียญ|คะแนน|อัน)/,10),enemyCount:number(t,/(?:ศัตรู|หมาป่า|อุปสรรค)\s*(\d+)\s*ตัว/,2),levels:number(t,/(\d+)\s*ด่าน/,1)}});
 }
