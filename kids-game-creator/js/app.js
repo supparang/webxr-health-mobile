@@ -1,5 +1,6 @@
 import {createGameFromThai} from "./thai-game-planner.js";
 import {mountAdventure} from "./adventure-engine.js";
+import {mountMaze} from "./maze-engine.js";
 const prompt=document.querySelector("#prompt"),age=document.querySelector("#ageLevel"),out=document.querySelector("#output"),status=document.querySelector("#status"),canvas=document.querySelector("#gameCanvas");
 let active=null;
 document.querySelector("#generate").addEventListener("click",()=>{
@@ -7,7 +8,7 @@ document.querySelector("#generate").addEventListener("click",()=>{
   const game=createGameFromThai(prompt.value,age.value);
   out.textContent=JSON.stringify(game,null,2);
   active?.destroy();active=null;
-  if(game.type==="adventure"){active=mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
+  if(game.type==="adventure"||game.type==="maze"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
   else{canvas.hidden=true;status.textContent="สร้าง JSON สำเร็จ — Game Engine ประเภทนี้อยู่ระหว่างพัฒนา";}
  }catch(e){out.textContent="";status.textContent=e.message;active?.destroy();active=null;canvas.hidden=true;}
 });
