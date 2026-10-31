@@ -353,7 +353,7 @@ function s11SupervisedOutputEvidenceV1(output) {
       bad='S11_INVALID_SEQUENCE';return;
     }
     if(metricRe.test(line)){
-      var fields=line.split(/,\s*(?=[A-Za-z]+\s*[:=])/);
+      var fields=line.split(/,\s*(?=[A-Za-z][A-Za-z0-9]*\s*[:=])/);
       if(!fields.every(function(field){return /^(?:TN|FP|FN|TP|Accuracy|Precision|Recall|F1)\s*[:=]\s*(?:\d+(?:\.\d+)?|\.\d+)\s*$/i.test(field)})){
         bad='S11_INVALID_METRIC_LINE';return;
       }
