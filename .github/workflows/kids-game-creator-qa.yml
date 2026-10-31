@@ -1,0 +1,23 @@
+name: Kids Game Creator QA
+on:
+  push:
+    paths:
+      - 'kids-game-creator/**'
+      - '.github/workflows/kids-game-creator-qa.yml'
+  pull_request:
+    paths:
+      - 'kids-game-creator/**'
+  workflow_dispatch:
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kids-game-creator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run planner, schema and age matrix tests
+        run: npm test
