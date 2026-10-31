@@ -136,6 +136,8 @@ function predictForSession(prediction,reason){
   if((session==='S4'&&flag!=='S4_FIRST_POP_PREDICT_V1')||
      (session!=='S4'&&flag!=='AIQ_PREDICT_PARITY_V1'))
     return {passed:false,mode:'BACKEND_CONTRACT_MISSING',issue:'PREDICT_RULE_VERSION_MISMATCH'};
+  if(session==='S5'&&/\bf\s*\(\s*B\s*\)\s*[:=]\s*\[/.test(prediction)&&rule?.s5StarterPredictValidation!=='S5_BRACKET_NUMERIC_V1')
+    return {passed:false,mode:'BACKEND_CONTRACT_MISSING',issue:'S5_BACKEND_FORMAT_CONTRACT_MISSING'};
   return aiqPredictAnswerParityV1(
     session,prediction,reason,rule,
     (stage,value,r)=>stage==='S4'?s4UcsOutputEvidence(value):
@@ -684,6 +686,7 @@ function validate(){
      S11_MODIFIED_SEQUENCE_MISMATCH:'ผลจากการปรับ threshold เป็น 0.8 ต้องได้ [0, 0, 1] ตามข้อมูลตั้งต้น',
      S11_MODIFIED_SEQUENCE_NEEDS_LABEL_OR_METRICS:'หากแสดงผลสองชุด ต้องระบุ new_predictions หรือแสดงผลหลังตัวชี้วัดเพื่อแยกการทดลอง',
      S11_BACKEND_OUTPUT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล S11 สองชุด ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง',
+     S5_BACKEND_FORMAT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับรูปแบบวงเล็บเหลี่ยมในคำตอบ S5 ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง หรือใช้รูปแบบ f(B)=4 ตามโค้ดตั้งต้น',
      S8_BAYES_REASON_MISSING:'เหตุผลต้องกล่าวถึง prior, likelihood, evidence และ posterior',
      G_A_MUST_BE_0:'โหนด A เริ่มต้นด้วย g(A)=0 ตาม Scaffold',
      FIRST_POP_MUST_BE_A:'ตรวจว่า UCS pop โหนดใดจาก Frontier เป็นลำดับแรก',
