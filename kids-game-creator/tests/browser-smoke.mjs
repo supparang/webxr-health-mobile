@@ -32,7 +32,7 @@ try {
     }
     await page.locator(".genre-card").nth(index).click();
     await page.locator("#generate").click();
-    const game=JSON.parse(await page.locator("#output").innerText());
+    const game=JSON.parse(await page.locator("#output").textContent());
     if(age==="p1"){
      assert.equal(await page.locator("#gameArea").isVisible(),true);
      assert.equal(await page.locator("#technicalDetails").isVisible(),false);
