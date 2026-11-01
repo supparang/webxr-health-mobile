@@ -54,7 +54,9 @@ const app=createServer(async(req,res)=>{
       if(!validImage(body?.image))return reply(res,400,{error:"กรุณาส่งภาพ JPEG/PNG/WebP ที่มีขนาดไม่เกิน 3 MB และเป็นไฟล์รูปภาพที่ถูกต้อง"});
       const result=await classifyFood(body.image,{
         apiKey:process.env.OPENAI_API_KEY,
-        model:process.env.OPENAI_VISION_MODEL||"gpt-4.1-mini"
+        model:process.env.OPENAI_VISION_MODEL||"gpt-4.1-mini",
+        ...(process.env.NODE_ENV==="test"&&process.env.OPENAI_VISION_TEST_ENDPOINT
+          ?{endpoint:process.env.OPENAI_VISION_TEST_ENDPOINT}:{})
       });
       if(!result.foodId)return reply(res,422,{error:result.status==="not_food"
         ?"AI ไม่พบอาหารในภาพนี้ กรุณาถ่ายภาพอาหารใหม่"
@@ -82,4 +84,5 @@ const app=createServer(async(req,res)=>{
     res.end(content);
   }catch{res.writeHead(500);res.end("Server error");}
 });
-app.listen(port,()=>console.log("NutriLens TH listening on http://localhost:"+port));
+const host=process.env.HOST||"127.0.0.1";
+app.listen(port,host,()=>console.log("NutriLens TH listening on http://"+host+":"+port));
