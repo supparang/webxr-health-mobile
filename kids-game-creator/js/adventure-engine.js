@@ -44,14 +44,66 @@ export function mountAdventure(canvas, game, onStatus = () => {}) {
       populate();
     }
   }
+  // Phase 2.9: original vector artwork; no external assets or changes to hitboxes.
+  function cloud(x,y,scale=1){
+    ctx.fillStyle="rgba(255,255,255,.88)";
+    for(const [dx,dy,r] of [[0,0,18],[19,-8,23],[41,0,17]]){
+      ctx.beginPath();ctx.arc(x+dx*scale,y+dy*scale,r*scale,0,Math.PI*2);ctx.fill();
+    }
+  }
+  function tree(x,y,scale=1){
+    ctx.fillStyle="#93613f";ctx.fillRect(x-7*scale,y-68*scale,14*scale,74*scale);
+    for(const [dx,dy,r,color] of [[0,-91,31,"#368b55"],[-20,-72,24,"#48a968"],[22,-72,25,"#3e9b60"]]){
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(x+dx*scale,y+dy*scale,r*scale,0,Math.PI*2);ctx.fill();
+    }
+  }
+  function carrot(x,y){
+    ctx.save();ctx.translate(x,y);
+    ctx.fillStyle="#3b9950";ctx.beginPath();ctx.ellipse(-4,-10,4,9,-.5,0,Math.PI*2);ctx.ellipse(4,-10,4,9,.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fa902e";ctx.beginPath();ctx.moveTo(-10,-5);ctx.quadraticCurveTo(0,-12,10,-5);ctx.lineTo(0,12);ctx.closePath();ctx.fill();
+    ctx.strokeStyle="#cf6420";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-5,1);ctx.lineTo(-1,3);ctx.moveTo(3,5);ctx.lineTo(6,3);ctx.stroke();
+    ctx.restore();
+  }
+  function rabbit(x,y,frame){
+    const hop=Math.sin(frame*.18)*1.2;
+    ctx.save();ctx.translate(x+16,y+hop);
+    ctx.fillStyle="#fff7ed";
+    ctx.beginPath();ctx.ellipse(-7,-11,6,17,-.13,0,Math.PI*2);ctx.ellipse(7,-11,6,17,.13,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#f6b5c6";
+    ctx.beginPath();ctx.ellipse(-7,-12,2.5,11,-.13,0,Math.PI*2);ctx.ellipse(7,-12,2.5,11,.13,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fff7ed";ctx.beginPath();ctx.ellipse(0,19,15,17,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(0,9,14,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#343b55";ctx.beginPath();ctx.arc(-5,8,1.8,0,Math.PI*2);ctx.arc(5,8,1.8,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#e68aa2";ctx.beginPath();ctx.arc(0,13,2.6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fff7ed";ctx.beginPath();ctx.ellipse(-9,34,7,4,0,0,Math.PI*2);ctx.ellipse(9,34,7,4,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  function fox(x,y){
+    ctx.save();ctx.translate(x+14,y);
+    ctx.fillStyle="#d96e42";ctx.beginPath();ctx.moveTo(-13,13);ctx.lineTo(-11,-4);ctx.lineTo(-3,4);ctx.lineTo(3,4);ctx.lineTo(11,-4);ctx.lineTo(13,13);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#e88a4b";ctx.beginPath();ctx.ellipse(0,19,14,14,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fff1d9";ctx.beginPath();ctx.moveTo(-10,16);ctx.lineTo(0,27);ctx.lineTo(10,16);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#342f36";ctx.beginPath();ctx.arc(-5,12,2,0,Math.PI*2);ctx.arc(5,12,2,0,Math.PI*2);ctx.arc(0,21,2,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
   function draw(){
-    ctx.fillStyle="#c9efff";ctx.fillRect(0,0,W,H);
-    ctx.fillStyle="#8ecf9b";ctx.fillRect(0,ground,W,H-ground);
-    ctx.fillStyle="#28683b";ctx.fillRect(0,ground,W,4);
-    for(const c of coins)if(!c.taken){ctx.fillStyle="#ffb400";ctx.beginPath();ctx.arc(c.x,c.y,10,0,Math.PI*2);ctx.fill();}
-    for(const e of enemies){ctx.fillStyle="#b94553";ctx.fillRect(e.x,e.y,28,30);}
-    if(state.invulnerable%8<4){ctx.fillStyle="#4261d6";ctx.fillRect(state.x,state.y,32,38);}
-    ctx.fillStyle="#14263e";ctx.font="bold 18px system-ui";ctx.fillText("คะแนน "+state.score+"/"+goal+"   ชีวิต "+state.lives+"   ด่าน "+state.level+"/"+game.rules.levels,16,28);
+    const sky=ctx.createLinearGradient(0,0,0,ground);
+    sky.addColorStop(0,"#a7ddf9");sky.addColorStop(1,"#e6f9ff");
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+    cloud(75,67,1);cloud(380,84,.7);cloud(575,55,.85);
+    ctx.fillStyle="#b7dfb2";ctx.beginPath();ctx.ellipse(155,ground+34,225,112,0,0,Math.PI*2);ctx.ellipse(525,ground+40,265,124,0,0,Math.PI*2);ctx.fill();
+    tree(75,ground,.72);tree(670,ground,.85);tree(455,ground,.55);
+    ctx.fillStyle="#7bc67c";ctx.fillRect(0,ground,W,H-ground);
+    ctx.fillStyle="#42965a";ctx.fillRect(0,ground,W,5);
+    for(let i=0;i<15;i++){
+      const x=22+i*51;ctx.fillStyle=i%2?"#5caa61":"#70b96a";
+      ctx.beginPath();ctx.ellipse(x,ground+19,14,5,0,0,Math.PI*2);ctx.fill();
+    }
+    for(const c of coins)if(!c.taken)carrot(c.x,c.y);
+    for(const e of enemies)fox(e.x,e.y);
+    if(state.invulnerable%8<4)rabbit(state.x,state.y,state.frame);
+    ctx.fillStyle="#193b49";ctx.font="bold 18px system-ui";
+    ctx.fillText("คะแนน "+state.score+"/"+goal+"   ชีวิต "+state.lives+"   ด่าน "+state.level+"/"+game.rules.levels,16,28);
     if(state.phase!=="playing"){
       ctx.fillStyle="rgba(10,25,45,.75)";ctx.fillRect(0,0,W,H);
       ctx.fillStyle="white";ctx.textAlign="center";ctx.font="bold 36px system-ui";
