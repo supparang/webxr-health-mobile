@@ -21,3 +21,28 @@ jobs:
           node-version: '22'
       - name: Run planner, schema and age matrix tests
         run: npm test
+  browser-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kids-game-creator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start local web server
+        run: |
+          python3 -m http.server 5500 --bind 127.0.0.1 --directory . > /tmp/kids-game-http.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5500/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/kids-game-http.log
+          exit 1
+      - name: Test desktop and mobile game creation
+        run: node tests/browser-smoke.mjs
