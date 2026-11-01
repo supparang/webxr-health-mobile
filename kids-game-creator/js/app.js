@@ -10,6 +10,27 @@ const targetInput=document.querySelector("#targetInput"),livesInput=document.que
 const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))&&value!==""?Math.max(min,Math.min(max,Math.round(Number(value)))):fallback;
 const workspace=document.querySelector("#ageWorkspace"),numericPanel=document.querySelector("#numericPanel"),promptLabel=document.querySelector("#promptLabel");
 const choices={theme:"forest",score:5,enemyCount:2,timeLimit:90,character:"กระต่าย"};
+const steps=document.querySelector("#learningSteps"),chooseStep=document.querySelector("#chooseStep"),designStep=document.querySelector("#designStep"),gameArea=document.querySelector("#gameArea"),editGame=document.querySelector("#editGame"),backToChoose=document.querySelector("#backToChoose");
+let beginnerStep="choose";
+function setBeginnerStep(step,{scroll=false}={}){
+ beginnerStep=step;
+ const beginner=age.value==="p1";
+ steps.hidden=!beginner;
+ chooseStep.hidden=beginner&&step!=="choose";
+ designStep.hidden=beginner&&step!=="design";
+ document.querySelector("#designActions").hidden=beginner&&step!=="design";
+ document.querySelector("#learningGoal").hidden=beginner&&step==="play";
+ gameArea.hidden=beginner&&step!=="play";
+ backToChoose.hidden=!beginner;
+ editGame.hidden=!beginner;
+ for(const el of steps.querySelectorAll("[data-step]")){
+  if(beginner&&el.dataset.step===step)el.setAttribute("aria-current","step");
+  else el.removeAttribute("aria-current");
+ }
+ if(scroll){(step==="choose"?chooseStep:step==="design"?designStep:gameArea).scrollIntoView({behavior:"auto",block:"start"});}
+}
+editGame.addEventListener("click",()=>setBeginnerStep("design",{scroll:true}));
+backToChoose.addEventListener("click",()=>setBeginnerStep("choose",{scroll:true}));
 const themes=[["forest","🌳 ป่า"],["space","🌌 อวกาศ"],["castle","🏰 ปราสาท"],["ocean","🌊 ทะเล"]];
 const themeThai={forest:"ป่า",space:"อวกาศ",castle:"ปราสาท",ocean:"ทะเล"};
 function addText(parent,tag,value,className=""){
@@ -84,12 +105,14 @@ function refreshAge(){
  const beginner=age.value==="p1";
  choices.score=p.score;choices.enemyCount=2;choices.timeLimit=age.value==="m4"?45:age.value==="m1"?60:90;choices.theme="forest";choices.character="กระต่าย";
  renderWorkspace();
+ setBeginnerStep("choose");
+ gameArea.dataset.ready="false";
  targetInput.disabled=beginner;livesInput.disabled=beginner;levelsInput.disabled=beginner;
  updatePrompt();
 }
 for(const [i,b] of [...document.querySelectorAll(".genre-card")].entries()){
  b.dataset.genre=GENRES[i].type;
- b.addEventListener("click",()=>{selectedType=b.dataset.genre;updatePrompt();});
+ b.addEventListener("click",()=>{selectedType=b.dataset.genre;updatePrompt();if(age.value==="p1")setBeginnerStep("design",{scroll:true});});
 }
 age.addEventListener("change",refreshAge);
 refreshAge();
@@ -110,6 +133,8 @@ document.querySelector("#generate").addEventListener("click",()=>{
   if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
   else if(game.type==="quiz"){canvas.hidden=true;active=mountQuiz(quizPanel,game,prompt.value,message=>status.textContent=message);status.textContent="เลือกคำตอบเพื่อเริ่มเล่น";}
   else{canvas.hidden=true;status.textContent="สร้าง JSON สำเร็จ — Game Engine ประเภทนี้อยู่ระหว่างพัฒนา";}
+  gameArea.dataset.ready="true";
+  if(age.value==="p1")setBeginnerStep("play",{scroll:true});
  }catch(e){out.textContent="";status.textContent=e.message;active?.destroy();active=null;canvas.hidden=true;quizPanel.hidden=true;controls.hidden=true;}
 });
 document.querySelector("#restart").addEventListener("click",()=>active?.restart());
