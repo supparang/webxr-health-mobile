@@ -95,7 +95,7 @@ try {
       });
       await page.route("**/api/analyze",handler);
       await page.locator("#analyze").click();
-      assert.equal(await page.locator("#result-panel").isVisible(),true);
+      await page.locator("#result-panel").waitFor({state:"visible",timeout:10000});
       assert.equal(await page.locator("#food-select").inputValue(),"som-tam");
       assert.match(await page.locator("#source-notice").innerText(),/ยังไม่มีค่า/);
       assert.equal((await page.locator("#energy").innerText()).trim(),"—");
