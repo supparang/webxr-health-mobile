@@ -18,7 +18,8 @@ try {
    if(age==="p1"){
     assert.equal(await page.locator("#learningSteps").isVisible(),true);
     assert.equal(await page.locator("#designStep").isHidden(),true);
-    await page.locator(".genre-card").first().click();
+    assert.equal(await page.locator("#nextToDesign").isVisible(),true);
+    await page.locator("#nextToDesign").click();
     assert.equal(await page.locator("#designStep").isVisible(),true);
     await page.getByRole("button",{name:"🐱 แมว"}).click();
     const beginnerPrompt=await page.locator("#prompt").inputValue();
