@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426"><meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
-<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.22</title>
+<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.23</title>
 <style>
 :root{--bg:#071426;--panel:#101d33;--panel2:#142640;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--blue:#0284c7;--green:#07875a;--amber:#b45309;--bad:#9f1239}*{box-sizing:border-box;min-width:0}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}main{max-width:1080px;margin:auto;padding:16px 14px 110px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:17px;margin:11px 0}.hero{border-color:#38bdf8}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#065f46;color:#d1fae5;font-weight:900}.muted{color:var(--muted);line-height:1.5}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}.box{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:5px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:#dbeafe}.stepTitle{display:flex;align-items:center;gap:9px}.stepTitle h2{margin:0}.stepNo{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#075985;font-weight:900}.textarea,input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#17263f;color:#fff;font:inherit}.code{min-height:190px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}.btn{min-height:42px;padding:9px 13px;border:1px solid var(--line);border-radius:11px;background:#17263f;color:#fff;font-weight:850;cursor:pointer}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap}.notice,.check{padding:10px 11px;border-radius:10px;background:#17263f;border:1px solid var(--line);margin-top:8px;white-space:pre-wrap}.ok{background:#052e24;border-color:#15803d;color:#bbf7d0}.bad{background:#35101d;border-color:var(--bad);color:#fecdd3}.optional{background:#17263f;border-color:#64748b;color:#dbeafe}.todoList{margin:0;padding-left:20px}.todoList li{margin:6px 0;color:#dbeafe}.challengeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.challenge{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.challenge h3{margin:0 0 5px}.quiz{display:grid;gap:10px}.quizItem{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.choice{display:flex!important;align-items:flex-start;gap:8px;margin:7px 0!important;padding:7px 8px;border:1px solid transparent;border-radius:9px;cursor:pointer}.choice:hover{background:#17263f}.choice input{width:auto;margin-top:3px}.feedback{font-size:13px;margin-top:6px;color:var(--muted)}details.card{padding:0;overflow:hidden}details.card>summary{list-style:none;cursor:pointer;padding:15px 17px;font-weight:900;display:flex;align-items:center;gap:9px}details.card>summary::-webkit-details-marker{display:none}details.card>summary::after{content:'＋';margin-left:auto}details.card[open]>summary::after{content:'−'}details.card>.inside{padding:0 17px 17px}.takeaways li{margin:6px 0}.sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(7,20,38,.96);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;backdrop-filter:blur(10px)}@media(max-width:720px){main{padding:9px 8px 120px}.card{padding:13px;border-radius:14px}.grid2,.challengeGrid{grid-template-columns:1fr}.code{min-height:165px}.actions{display:grid}.actions .btn{width:100%}.sticky{display:grid;grid-template-columns:1fr 1fr}.sticky .btn{width:100%}details.card>summary{padding:13px}.inside{padding:0 13px 13px!important}}
 </style>
@@ -21,7 +21,7 @@
 <script src="aiquest-coding-client.js?v=20261028-fallback-unverified"></script><script src="aiquest-core-client.js"></script>
 <script>
 (function(){'use strict';
-const VERSION='20261031-CODING-LAB-V3.3.22-B2-STARTER-PREDICT-CLARITY';
+const VERSION='20261101-CODING-LAB-V3.3.23-B5-STRUCTURED-PRIVACY';
 const ENDPOINT='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const q=new URLSearchParams(location.search),session=(q.get('session')||q.get('mission')||'S1').toUpperCase(),startedAt=Date.now(),$=id=>document.getElementById(id);
 let lab=null,curr=null,act=null,last=null,quizScore=0,serverRule=null,serverRuleVersion='';
@@ -191,7 +191,7 @@ function render(){const c=curr.sessions[session];$('badge').textContent=session;
 async function api(action,payload){const r=await fetch(ENDPOINT,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module:'AIQCODING',action:action,section:'101'},payload||{}))});if(!r.ok)throw Error('HTTP_'+r.status);return await r.json()}
 async function loadServerRule(){const result=await api('GET_LAB_CONFIG',{sessionId:session});if(!result||result.ok===false||!result.config)throw Error((result&&result.code)||'LAB_CONFIG_NOT_AVAILABLE');serverRule=result.config;serverRuleVersion=String(result.version||'UNKNOWN');return serverRule}
 function showServerRuleInfo(){
- $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.22 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
+ $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.23 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
  const e=$('ruleInfo');
  if(session==='S4'||session==='S6'){
   e.style.display='block';
@@ -212,6 +212,9 @@ function showServerRuleInfo(){
   e.textContent=structured?
    'เกณฑ์ Output จาก Server: ตรวจโครงสร้างและค่าผลลัพธ์ของ '+session+' รองรับรูปแบบเทียบเท่าที่กำหนด และปฏิเสธค่าขัดแย้ง'+(session==='B5'?' • B5 รองรับ REJECT/HOLD เมื่อ Privacy Compliant: False พร้อม Failed Governance Gates และ Excess Fields':'')+' • คำตอบนอกแบบที่รองรับอาจต้องตรวจโดยผู้สอน':
    '⚠ Server ยังใช้กฎ Output แบบจับข้อความเดิมสำหรับ '+session+' • คำตอบที่ถูกต้องบางรูปแบบอาจไม่ผ่าน โปรดแจ้งผู้สอนเพื่อตรวจ Deployment';
+  if(session==='B5'&&serverRule.b5StructuredPrivacyValidation!=='B5_STRUCTURED_PRIVACY_V2'){
+   e.className='check bad';e.textContent+=' • เซิร์ฟเวอร์ยังไม่รองรับผล B5 แบบ Python Dict ที่มี Privacy Gate กรุณาอัปเดต Receiver V3.2.18 ก่อนส่งงาน';
+  }
   if(session==='B2'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1'){
    e.className='check bad';e.textContent+=' • เซิร์ฟเวอร์ยังไม่รองรับการอธิบายกลยุทธ์ B2 กรุณาอัปเดต Receiver V3.2.17 ก่อนส่ง';
   }
@@ -437,6 +440,106 @@ function b2StrategyReasonOutputV1(output) {
   return response(true,'');
 }
 
+function b5StructuredPrivacyDecisionV2(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  if(raw.charAt(0)!=='{')return null; // Preserve existing non-object B5 evidence.
+  var result=function(ok,issue){return {passed:!!ok,mode:'B5_STRUCTURED_PRIVACY_V2',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return result(false,'OUTPUT_REQUIRES_REVIEW');
+  // Parse strict JSON or Python-literal dictionaries without eval.
+  var pythonToJson=function(src){
+    var out='',i=0;
+    while(i<src.length){
+      var ch=src.charAt(i);
+      if(ch==='"'){
+        var start=i++,esc=false,closed=false;
+        while(i<src.length){
+          var c=src.charAt(i++);
+          if(esc){esc=false;continue;}
+          if(c==='\\'){esc=true;continue;}
+          if(c==='"'){closed=true;break;}
+        }
+        if(!closed)throw Error('UNCLOSED_JSON_STRING');
+        out+=src.slice(start,i);continue;
+      }
+      if(ch==="'"){
+        i++;var word='',closedSingle=false;
+        while(i<src.length){
+          var p=src.charAt(i++);
+          if(p==='\\'){
+            if(i>=src.length)throw Error('UNCLOSED_PYTHON_ESCAPE');
+            var next=src.charAt(i++);
+            word+=next==='n'?'\n':next==='t'?'\t':next;
+            continue;
+          }
+          if(p==="'"){closedSingle=true;break;}
+          word+=p;
+        }
+        if(!closedSingle)throw Error('UNCLOSED_PYTHON_STRING');
+        out+=JSON.stringify(word);continue;
+      }
+      if(/[a-zA-Z_]/.test(ch)){
+        var end=i+1;
+        while(end<src.length&&/[a-zA-Z0-9_]/.test(src.charAt(end)))end++;
+        var word=src.slice(i,end);
+        out+=word==='True'?'true':word==='False'?'false':word==='None'?'null':word;
+        i=end;continue;
+      }
+      out+=ch;i++;
+    }
+    return out;
+  };
+  var obj;
+  try{obj=JSON.parse(pythonToJson(raw));}
+  catch(e){return result(false,'B5_INVALID_STRUCTURED_OUTPUT');}
+  if(!obj||Array.isArray(obj)||typeof obj!=='object')return result(false,'B5_OBJECT_REQUIRED');
+  // Existing baseline dicts use the original category validator.
+  var chosen=String(obj.decision||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(chosen==='REVIEW_WITH_EVIDENCE'||chosen==='HUMAN_REVIEW_WITH_EVIDENCE')return null;
+  if(!/^(?:REJECT|HOLD|REJECT\/HOLD)$/.test(chosen))return result(false,'B5_REJECT_HOLD_NOT_CONFIRMED');
+  var audit=obj.audit_log;
+  if(!audit||Array.isArray(audit)||typeof audit!=='object')
+    return result(false,'B5_AUDIT_LOG_REQUIRED');
+  if(audit.privacy_check!==false)return result(false,'B5_PRIVACY_FAILURE_NOT_CONFIRMED');
+  if(Object.prototype.hasOwnProperty.call(obj,'privacy_check')&&obj.privacy_check!==false)
+    return result(false,'B5_PRIVACY_GATE_CONFLICT');
+  if(Object.prototype.hasOwnProperty.call(obj,'privacy_compliant')&&obj.privacy_compliant!==false)
+    return result(false,'B5_PRIVACY_GATE_CONFLICT');
+  var failed=audit.failed_governance_gates;
+  if(!Array.isArray(failed)||!failed.some(function(x){return typeof x==='string'&&x.trim().toLowerCase()==='privacy';}))
+    return result(false,'B5_PRIVACY_GATE_REASON_MISSING');
+  if(obj.human_review!==true||Object.prototype.hasOwnProperty.call(audit,'human_review')&&audit.human_review!==true)
+    return result(false,'B5_HUMAN_REVIEW_NOT_CONFIRMED');
+  var explanation=String(obj.explanation||'');
+  if(!/(?:privacy|ความเป็นส่วนตัว)/i.test(explanation)||
+     !/(?:fail|false|viola|breach|not\s+compliant|ไม่ผ่าน|ละเมิด|ล้มเหลว)/i.test(explanation))
+    return result(false,'B5_PRIVACY_EXPLANATION_REQUIRED');
+  if(!Array.isArray(obj.evidence)||!obj.evidence.length||
+     !obj.evidence.every(function(x){return typeof x==='string'&&x.trim().length>0;}))
+    return result(false,'B5_EVIDENCE_LIST_REQUIRED');
+  if(typeof obj.confidence!=='number'||!isFinite(obj.confidence)||obj.confidence<0||obj.confidence>1)
+    return result(false,'B5_CONFIDENCE_OUT_OF_RANGE');
+  if(Object.prototype.hasOwnProperty.call(audit,'confidence')&&
+     (typeof audit.confidence!=='number'||Math.abs(audit.confidence-obj.confidence)>1e-9))
+    return result(false,'B5_AUDIT_CONFIDENCE_CONFLICT');
+  if(Object.prototype.hasOwnProperty.call(audit,'fairness_check')&&
+     Object.prototype.hasOwnProperty.call(obj,'fairness_check')&&
+     audit.fairness_check!==obj.fairness_check)
+    return result(false,'B5_FAIRNESS_AUDIT_CONFLICT');
+  var conflicting=['final_decision','result','output','action','recommendation','strategy','choice','selected'];
+  var bad=function(container){
+    return conflicting.some(function(key){
+      if(!Object.prototype.hasOwnProperty.call(container,key))return false;
+      var value=String(container[key]||'').trim().toUpperCase().replace(/\s+/g,'');
+      return value!==chosen;
+    });
+  };
+  if(bad(obj)||bad(audit)||
+     Object.prototype.hasOwnProperty.call(audit,'decision')&&String(audit.decision||'').trim().toUpperCase().replace(/\s+/g,'')!==chosen)
+    return result(false,'B5_CONTRADICTORY_DECISION');
+  return result(true,'');
+}
+
 function structuredOutputEvidenceV2(stage,output) {
   // Pure, deterministic, read-only output validator for the 18 non-S4/S6 stages.
   // Only supported representations of the provided lab outputs are accepted.
@@ -659,6 +762,8 @@ function structuredOutputEvidenceV2(stage,output) {
     case 'S14':return numeric(0.55);
     case 'S15':return category(function(v){return /^rag\s+(?:retriev(?:es|ed|ing|e)|found|finds)\s+(?:the\s+)?evidence$/i.test(v)?'expected':'';});
     case 'B5':{
+      var privacyDecision=b5StructuredPrivacyDecisionV2(raw);
+      if(privacyDecision)return privacyDecision;
       // Baseline: review_with_evidence. A completed privacy/fairness
       // governance run may rightly return REJECT/HOLD instead.
       // Require independently labeled privacy failure, offending fields,
@@ -717,10 +822,11 @@ function validate(){
   (session==='S6'&&serverRule.outputValidation==='S6_NUMERIC_RESULT_V1')?s6MinimaxOutputEvidence(output):
   (serverRule.outputValidation==='STRUCTURED_OUTPUT_V2')?structuredOutputEvidenceV2(session,output):
   {passed:!!output&&norm(output).includes(norm(serverRule.expected||lab.expected)),issue:'OLD_SERVER_OUTPUT_VALIDATOR'},
-  outputOK=outputCheck.passed&&!(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')&&!(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1')&&!(session==='B2'&&outputCheck.mode==='B2_STRATEGY_REASON_V1'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1');
+  outputOK=outputCheck.passed&&!(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')&&!(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1')&&!(session==='B2'&&outputCheck.mode==='B2_STRATEGY_REASON_V1'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1')&&!(session==='B5'&&outputCheck.mode==='B5_STRUCTURED_PRIVACY_V2'&&serverRule.b5StructuredPrivacyValidation!=='B5_STRUCTURED_PRIVACY_V2');
  if(session==='S9'&&outputCheck.mode==='S9_SCENARIO_BATCH_V1'&&serverRule.s9ScenarioBatchValidation!=='S9_SCENARIO_BATCH_V1')outputCheck.issue='S9_BACKEND_BATCH_CONTRACT_MISSING';
  if(session==='S11'&&outputCheck.mode==='S11_BASELINE_MODIFIED_V1'&&serverRule.s11SupervisedOutputValidation!=='S11_BASELINE_MODIFIED_V1')outputCheck.issue='S11_BACKEND_OUTPUT_CONTRACT_MISSING';
  if(session==='B2'&&outputCheck.mode==='B2_STRATEGY_REASON_V1'&&serverRule.b2StrategyReasonValidation!=='B2_STRATEGY_REASON_V1')outputCheck.issue='B2_BACKEND_STRATEGY_CONTRACT_MISSING';
+ if(session==='B5'&&outputCheck.mode==='B5_STRUCTURED_PRIVACY_V2'&&serverRule.b5StructuredPrivacyValidation!=='B5_STRUCTURED_PRIVACY_V2')outputCheck.issue='B5_BACKEND_PRIVACY_CONTRACT_MISSING';
  const modifyCode=$('modifiedCode').value.trim(),modifyReason=$('modifyReason').value.trim(),modifyKeywords=serverRule.m||lab.modifyKeywords||[],modifyAny=serverRule.ma||lab.modifyAnyKeywords||[],modifyCounts=serverRule.mc||lab.modifyMinCounts||{},modifyMissing=missing(modifyCode,modifyKeywords),modifyAnyMissing=modifyAny.length>0&&!hasAny(modifyCode,modifyAny),modifyCountMissing=countShortfalls(modifyCode,modifyCounts),modifyOK=modifyCode.length>=30&&minReason(modifyReason)&&modifyMissing.length===0&&!modifyAnyMissing&&modifyCountMissing.length===0;
  const challengeCode=$('challengeCode').value.trim(),challengeAttempted=challengeCode.length>0,challengeMissing=missing(challengeCode,lab.challengeKeywords),challengeOK=challengeAttempted&&challengeCode.length>=20&&challengeMissing.length===0&&hasAny(challengeCode,lab.challengeAnyKeywords),quizOK=validateQuiz(true);
  let pm='';
@@ -745,6 +851,7 @@ function validate(){
      S11_MODIFIED_SEQUENCE_NEEDS_LABEL_OR_METRICS:'หากแสดงผลสองชุด ต้องระบุ new_predictions หรือแสดงผลหลังตัวชี้วัดเพื่อแยกการทดลอง',
      S11_BACKEND_OUTPUT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล S11 สองชุด ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง',
      B2_BACKEND_STRATEGY_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล B2 ที่มีคำอธิบาย ต้องอัปเดต Receiver V3.2.17 ก่อนส่ง',
+     B5_BACKEND_PRIVACY_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับผล B5 แบบ Python Dict ที่มี audit_log ต้องอัปเดต Receiver V3.2.18 ก่อนส่ง',
      S5_BACKEND_FORMAT_CONTRACT_MISSING:'เซิร์ฟเวอร์ยังไม่รองรับรูปแบบวงเล็บเหลี่ยมในคำตอบ S5 ต้องอัปเดต Receiver V3.2.16 ก่อนส่ง หรือใช้รูปแบบ f(B)=4 ตามโค้ดตั้งต้น',
      S8_BAYES_REASON_MISSING:'เหตุผลต้องกล่าวถึง prior, likelihood, evidence และ posterior',
      G_A_MUST_BE_0:'โหนด A เริ่มต้นด้วย g(A)=0 ตาม Scaffold',
@@ -863,7 +970,7 @@ async function verifySaved(){
   $('status').textContent='ตรวจผล Server ไม่สำเร็จ: '+String(e.message||e)+' • ยังไม่ถือว่าผ่าน';
  }finally{button.disabled=false;}
 }
-async function load(){try{const stamp='content330-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.22\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
+async function load(){try{const stamp='content330-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.23\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
 $('copyStarter').onclick=async()=>{try{await navigator.clipboard.writeText($('starter').value);$('status').textContent='คัดลอก Scaffold แล้ว'}catch(e){$('starter').select();document.execCommand('copy')}};$('checkQuiz').onclick=()=>validateQuiz(true);$('validate').onclick=()=>validate();$('submit').onclick=()=>submit();$('verifySaved').onclick=()=>verifySaved();$('goTop').onclick=()=>scrollTo({top:0,behavior:'smooth'});document.querySelectorAll('input,textarea').forEach(e=>e.setAttribute('autocomplete','off'));$('quiz').addEventListener('change',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;$('quizResult').textContent='คำตอบเปลี่ยนแล้ว กรุณาตรวจแบบทดสอบและหลักฐานอีกครั้ง';});['prediction','predictionReason','completedCode','output','modifiedCode','modifyReason'].forEach(id=>$(id).addEventListener('input',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;if($('status').classList.contains('ok')){$('status').className='notice';$('status').textContent='มีการแก้ไขหลักฐาน กรุณากด “ตรวจหลักฐานทั้งหมด” อีกครั้ง'}}));window.addEventListener('pageshow',e=>{if(e.persisted){document.querySelectorAll('.quizItem input').forEach(x=>x.checked=false);$('submit').disabled=true}});profile();load();
 })();
 </script></body></html>
