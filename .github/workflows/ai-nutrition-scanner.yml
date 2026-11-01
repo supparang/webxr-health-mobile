@@ -1,4 +1,5 @@
-name: NutriLens TH MVP unit tests
+name: NutriLens TH MVP QA
+
 on:
   push:
     paths:
@@ -8,6 +9,11 @@ on:
     paths:
       - "ai-nutrition-scanner/**"
       - ".github/workflows/ai-nutrition-scanner.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
@@ -19,4 +25,42 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm test
+      - name: Unit and server smoke tests
+        run: npm test
+
+  browser-tests:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ai-nutrition-scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start local NutriLens server without AI credentials
+        env:
+          PORT: "3000"
+          OPENAI_API_KEY: ""
+        run: |
+          node server.mjs > /tmp/nutrilens-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/status > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/nutrilens-server.log
+          exit 1
+      - name: Browser QA - desktop and two mobile viewports
+        run: node tests/browser-smoke.mjs
+      - name: Upload screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nutrilens-browser-qa-screenshots
+          path: ai-nutrition-scanner/qa-artifacts/*.png
+          if-no-files-found: ignore
+          retention-days: 14
