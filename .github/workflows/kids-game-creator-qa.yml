@@ -22,7 +22,7 @@ jobs:
       - name: Run planner, schema and age matrix tests
         run: npm test
   browser-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: kids-game-creator
