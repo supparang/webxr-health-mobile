@@ -142,7 +142,7 @@ document.querySelector("#generate").addEventListener("click",()=>{
   if(age.value==="p1" && game.type===selectedType){game.rules.targetScore=choices.score;if(selectedType==="adventure")game.player.name=choices.character;}
   game.theme=choices.theme;
   out.textContent=JSON.stringify(game,null,2);
-  active?.destroy();active=null;completion.hidden=true;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
+  active?.destroy();active=null;canvas.dataset.completionUi=age.value==="p1"?"external":"canvas";completion.hidden=true;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
   if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,handleGameStatus):game.type==="dodge"?mountDodge(canvas,game,handleGameStatus):mountAdventure(canvas,game,handleGameStatus);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
   else if(game.type==="quiz"){canvas.hidden=true;active=mountQuiz(quizPanel,game,prompt.value,handleGameStatus);status.textContent="เลือกคำตอบเพื่อเริ่มเล่น";}
   else{canvas.hidden=true;status.textContent="สร้าง JSON สำเร็จ — Game Engine ประเภทนี้อยู่ระหว่างพัฒนา";}
