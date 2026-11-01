@@ -18,7 +18,7 @@ try {
    if(age==="p1"){
     await page.getByRole("button",{name:"🐱 แมว"}).click();
     const beginnerPrompt=await page.locator("#prompt").inputValue();
-    assert.equal((beginnerPrompt.match(/เก็บ \\d+ คะแนน/g)||[]).length,1,"beginner prompt must not repeat target score");
+    assert.equal((beginnerPrompt.match(/เก็บ \d+ คะแนน/g)||[]).length,1,"beginner prompt must not repeat target score");
     assert.equal(await page.locator("#prompt").isEditable(),false);
    }
    for (const [index,type] of ["adventure","maze","quiz","dodge"].entries()) {
