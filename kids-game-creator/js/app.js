@@ -23,6 +23,8 @@ function setBeginnerStep(step,{scroll=false}={}){
  document.querySelector("#designActions").hidden=beginner&&step!=="design";
  document.querySelector("#learningGoal").hidden=beginner&&step==="play";
  gameArea.hidden=beginner&&step!=="play";
+ status.hidden=beginner&&step!=="play";
+ if(beginner&&step!=="play")status.textContent="";
  backToChoose.hidden=!beginner;
  editGame.hidden=!beginner;
  for(const el of steps.querySelectorAll("[data-step]")){
@@ -46,6 +48,15 @@ function handleGameStatus(message){
 }
 const themes=[["forest","🌳 ป่า"],["space","🌌 อวกาศ"],["castle","🏰 ปราสาท"],["ocean","🌊 ทะเล"]];
 const themeThai={forest:"ป่า",space:"อวกาศ",castle:"ปราสาท",ocean:"ทะเล"};
+const preview=document.querySelector("#designPreview"),previewCharacter=document.querySelector("#previewCharacter"),previewTheme=document.querySelector("#previewTheme"),previewScore=document.querySelector("#previewScore");
+const characterEmoji={"กระต่าย":"🐰","แมว":"🐱","หมี":"🐻","หุ่นยนต์":"🤖"};
+const themeEmoji={forest:"🌳",space:"🌌",castle:"🏰",ocean:"🌊"};
+function updatePreview(){
+ preview.hidden=age.value!=="p1";
+ previewCharacter.textContent=characterEmoji[choices.character]||"🐰";
+ previewTheme.textContent=(themeEmoji[choices.theme]||"🌳")+" "+themeThai[choices.theme];
+ previewScore.textContent="⭐ เป้าหมาย "+choices.score+" คะแนน";
+}
 function addText(parent,tag,value,className=""){
  const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;parent.append(el);return el;
 }
@@ -106,6 +117,7 @@ function updatePrompt(){
  }else{
   prompt.value=base+" ฉาก"+themeThai[choices.theme]+(level==="m1"||level==="m4"?" ศัตรู "+choices.enemyCount+" ตัว มีเวลา "+choices.timeLimit+" วินาที":"");
  }
+ updatePreview();
  for(const b of document.querySelectorAll(".genre-card"))b.setAttribute("aria-pressed",String(b.dataset.genre===selectedType));
 }
 
@@ -119,7 +131,7 @@ function refreshAge(){
  choices.score=p.score;choices.enemyCount=2;choices.timeLimit=age.value==="m4"?45:age.value==="m1"?60:90;choices.theme="forest";choices.character="กระต่าย";
  renderWorkspace();
  setBeginnerStep("choose");
- gameArea.dataset.ready="false";completion.hidden=true;
+ gameArea.dataset.ready="false";completion.hidden=true;status.textContent="";
  targetInput.disabled=beginner;livesInput.disabled=beginner;levelsInput.disabled=beginner;
  updatePrompt();
 }
@@ -153,7 +165,7 @@ document.querySelector("#generate").addEventListener("click",()=>{
 function restartCurrentGame(){completion.hidden=true;restartButton.hidden=false;if(canvas.hidden===false)controls.hidden=false;active?.restart();}
 restartButton.addEventListener("click",restartCurrentGame);
 document.querySelector("#playAgain").addEventListener("click",restartCurrentGame);
-document.querySelector("#createAnother").addEventListener("click",()=>setBeginnerStep("choose",{scroll:true}));
+document.querySelector("#createAnother").addEventListener("click",()=>{active?.destroy();active=null;completion.hidden=true;status.textContent="";gameArea.dataset.ready="false";setBeginnerStep("choose",{scroll:true});});
 for(const button of document.querySelectorAll("[data-control]")){
  const control=button.dataset.control;
  const release=()=>active?.setTouch(control,false);
