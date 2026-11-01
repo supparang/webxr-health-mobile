@@ -16,15 +16,26 @@ try {
    assert.equal(await page.locator("body").getAttribute("data-age"),age);
    assert.equal(await page.locator("#targetInput").isDisabled(),age==="p1");
    if(age==="p1"){
+    assert.equal(await page.locator("#learningSteps").isVisible(),true);
+    assert.equal(await page.locator("#designStep").isHidden(),true);
+    await page.locator(".genre-card").first().click();
+    assert.equal(await page.locator("#designStep").isVisible(),true);
     await page.getByRole("button",{name:"🐱 แมว"}).click();
     const beginnerPrompt=await page.locator("#prompt").inputValue();
     assert.equal((beginnerPrompt.match(/เก็บ \d+ คะแนน/g)||[]).length,1,"beginner prompt must not repeat target score");
     assert.equal(await page.locator("#prompt").isEditable(),false);
    }
    for (const [index,type] of ["adventure","maze","quiz","dodge"].entries()) {
+    if(age==="p1")await page.locator("#backToChoose").click();
     await page.locator(".genre-card").nth(index).click();
     await page.locator("#generate").click();
     const game=JSON.parse(await page.locator("#output").innerText());
+    if(age==="p1"){
+     assert.equal(await page.locator("#gameArea").isVisible(),true);
+     assert.equal(await page.locator("#technicalDetails").isVisible(),false);
+     await page.locator("#editGame").click();
+     assert.equal(await page.locator("#designStep").isVisible(),true);
+    }
     assert.equal(game.type,type);
     assert.equal(game.ageLevel,age);
     if(age==="p1" && type==="adventure"){
