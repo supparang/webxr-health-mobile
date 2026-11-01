@@ -115,7 +115,10 @@ try {
         body:JSON.stringify({error:"AI ยังไม่สามารถจำแนกอาหารนี้ได้อย่างชัดเจน"})
       };
       await page.locator("#analyze").click();
-      assert.match(await page.locator("#message").innerText(),/ยังไม่สามารถจำแนกอาหาร/);
+      await page.waitForFunction(
+        ()=>document.querySelector("#message")?.textContent?.includes("ยังไม่สามารถจำแนกอาหาร"),
+        null,{timeout:10000}
+      );
       assert.equal(await page.locator("#result-panel").isVisible(),false);
       await page.unroute("**/api/analyze",handler);
 
