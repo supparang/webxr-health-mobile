@@ -1,5 +1,5 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v3.2.17
+ * CSAI2102 AI Quest Coding Receiver v3.2.18
  * Sheet authority + exact identity reconciliation + semantic evidence validation.
  * Prediction validation uses session-specific concept groups instead of forcing
  * the Predict answer to equal the program output.
@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261031-AIQ-CODING-RECEIVER-V3.2.17-B2-STRATEGY-REASON';
+AIQCODING.VERSION = '20261101-AIQ-CODING-RECEIVER-V3.2.18-B5-STRUCTURED-PRIVACY';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -270,6 +270,106 @@ AIQCODING.b2StrategyReasonOutputV1_ = function(output) {
   return response(true,'');
 };
 
+AIQCODING.b5StructuredPrivacyDecisionV2_ = function(output) {
+  'use strict';
+  var raw=String(output==null?'':output).trim();
+  if(raw.charAt(0)!=='{')return null; // Preserve existing non-object B5 evidence.
+  var result=function(ok,issue){return {passed:!!ok,mode:'B5_STRUCTURED_PRIVACY_V2',issue:issue||'',reviewRequired:false};};
+  if(raw.length>30000)return result(false,'OUTPUT_REQUIRES_REVIEW');
+  // Parse strict JSON or Python-literal dictionaries without eval.
+  var pythonToJson=function(src){
+    var out='',i=0;
+    while(i<src.length){
+      var ch=src.charAt(i);
+      if(ch==='"'){
+        var start=i++,esc=false,closed=false;
+        while(i<src.length){
+          var c=src.charAt(i++);
+          if(esc){esc=false;continue;}
+          if(c==='\\'){esc=true;continue;}
+          if(c==='"'){closed=true;break;}
+        }
+        if(!closed)throw Error('UNCLOSED_JSON_STRING');
+        out+=src.slice(start,i);continue;
+      }
+      if(ch==="'"){
+        i++;var word='',closedSingle=false;
+        while(i<src.length){
+          var p=src.charAt(i++);
+          if(p==='\\'){
+            if(i>=src.length)throw Error('UNCLOSED_PYTHON_ESCAPE');
+            var next=src.charAt(i++);
+            word+=next==='n'?'\n':next==='t'?'\t':next;
+            continue;
+          }
+          if(p==="'"){closedSingle=true;break;}
+          word+=p;
+        }
+        if(!closedSingle)throw Error('UNCLOSED_PYTHON_STRING');
+        out+=JSON.stringify(word);continue;
+      }
+      if(/[a-zA-Z_]/.test(ch)){
+        var end=i+1;
+        while(end<src.length&&/[a-zA-Z0-9_]/.test(src.charAt(end)))end++;
+        var word=src.slice(i,end);
+        out+=word==='True'?'true':word==='False'?'false':word==='None'?'null':word;
+        i=end;continue;
+      }
+      out+=ch;i++;
+    }
+    return out;
+  };
+  var obj;
+  try{obj=JSON.parse(pythonToJson(raw));}
+  catch(e){return result(false,'B5_INVALID_STRUCTURED_OUTPUT');}
+  if(!obj||Array.isArray(obj)||typeof obj!=='object')return result(false,'B5_OBJECT_REQUIRED');
+  // Existing baseline dicts use the original category validator.
+  var chosen=String(obj.decision||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(chosen==='REVIEW_WITH_EVIDENCE'||chosen==='HUMAN_REVIEW_WITH_EVIDENCE')return null;
+  if(!/^(?:REJECT|HOLD|REJECT\/HOLD)$/.test(chosen))return result(false,'B5_REJECT_HOLD_NOT_CONFIRMED');
+  var audit=obj.audit_log;
+  if(!audit||Array.isArray(audit)||typeof audit!=='object')
+    return result(false,'B5_AUDIT_LOG_REQUIRED');
+  if(audit.privacy_check!==false)return result(false,'B5_PRIVACY_FAILURE_NOT_CONFIRMED');
+  if(Object.prototype.hasOwnProperty.call(obj,'privacy_check')&&obj.privacy_check!==false)
+    return result(false,'B5_PRIVACY_GATE_CONFLICT');
+  if(Object.prototype.hasOwnProperty.call(obj,'privacy_compliant')&&obj.privacy_compliant!==false)
+    return result(false,'B5_PRIVACY_GATE_CONFLICT');
+  var failed=audit.failed_governance_gates;
+  if(!Array.isArray(failed)||!failed.some(function(x){return typeof x==='string'&&x.trim().toLowerCase()==='privacy';}))
+    return result(false,'B5_PRIVACY_GATE_REASON_MISSING');
+  if(obj.human_review!==true||Object.prototype.hasOwnProperty.call(audit,'human_review')&&audit.human_review!==true)
+    return result(false,'B5_HUMAN_REVIEW_NOT_CONFIRMED');
+  var explanation=String(obj.explanation||'');
+  if(!/(?:privacy|ความเป็นส่วนตัว)/i.test(explanation)||
+     !/(?:fail|false|viola|breach|not\s+compliant|ไม่ผ่าน|ละเมิด|ล้มเหลว)/i.test(explanation))
+    return result(false,'B5_PRIVACY_EXPLANATION_REQUIRED');
+  if(!Array.isArray(obj.evidence)||!obj.evidence.length||
+     !obj.evidence.every(function(x){return typeof x==='string'&&x.trim().length>0;}))
+    return result(false,'B5_EVIDENCE_LIST_REQUIRED');
+  if(typeof obj.confidence!=='number'||!isFinite(obj.confidence)||obj.confidence<0||obj.confidence>1)
+    return result(false,'B5_CONFIDENCE_OUT_OF_RANGE');
+  if(Object.prototype.hasOwnProperty.call(audit,'confidence')&&
+     (typeof audit.confidence!=='number'||Math.abs(audit.confidence-obj.confidence)>1e-9))
+    return result(false,'B5_AUDIT_CONFIDENCE_CONFLICT');
+  if(Object.prototype.hasOwnProperty.call(audit,'fairness_check')&&
+     Object.prototype.hasOwnProperty.call(obj,'fairness_check')&&
+     audit.fairness_check!==obj.fairness_check)
+    return result(false,'B5_FAIRNESS_AUDIT_CONFLICT');
+  var conflicting=['final_decision','result','output','action','recommendation','strategy','choice','selected'];
+  var bad=function(container){
+    return conflicting.some(function(key){
+      if(!Object.prototype.hasOwnProperty.call(container,key))return false;
+      var value=String(container[key]||'').trim().toUpperCase().replace(/\s+/g,'');
+      return value!==chosen;
+    });
+  };
+  if(bad(obj)||bad(audit)||
+     Object.prototype.hasOwnProperty.call(audit,'decision')&&String(audit.decision||'').trim().toUpperCase().replace(/\s+/g,'')!==chosen)
+    return result(false,'B5_CONTRADICTORY_DECISION');
+  return result(true,'');
+};
+
 AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
   // Pure, deterministic, read-only output validator for the 18 non-S4/S6 stages.
   // Only supported representations of the provided lab outputs are accepted.
@@ -492,6 +592,8 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
     case 'S14':return numeric(0.55);
     case 'S15':return category(function(v){return /^rag\s+(?:retriev(?:es|ed|ing|e)|found|finds)\s+(?:the\s+)?evidence$/i.test(v)?'expected':'';});
     case 'B5':{
+      var privacyDecision=AIQCODING.b5StructuredPrivacyDecisionV2_(raw);
+      if(privacyDecision)return privacyDecision;
       // Baseline: review_with_evidence. A completed privacy/fairness
       // governance run may rightly return REJECT/HOLD instead.
       // Require independently labeled privacy failure, offending fields,
@@ -575,7 +677,7 @@ AIQCODING.RULES = Object.freeze({
  S13:{predictQuestion:"ค่า output หลัง ReLU เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
  S14:{predictQuestion:"new_q เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
  S15:{predictQuestion:"ระบบจะเลือกเอกสารใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
- B5:{predictQuestion:"ระบบจะแสดงสถานะใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
+ B5:{b5StructuredPrivacyValidation:'B5_STRUCTURED_PRIVACY_V2',predictQuestion:"ระบบจะแสดงสถานะใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
 });
 
 AIQCODING.ss_ = function(){ var ss=SpreadsheetApp.getActiveSpreadsheet(); if(!ss)throw new Error('SPREADSHEET_NOT_FOUND'); return ss; };
