@@ -27,7 +27,11 @@ try {
     const game=JSON.parse(await page.locator("#output").innerText());
     assert.equal(game.type,type);
     assert.equal(game.ageLevel,age);
-    if(age==="p1" && type==="adventure")assert.equal(game.player.name,"แมว");
+    if(age==="p1" && type==="adventure"){
+     assert.equal(game.player.name,"แมว");
+     assert.equal(await page.locator("#gameCanvas").getAttribute("data-character"),"แมว");
+     assert.equal(await page.locator("#gameCanvas").getAttribute("data-theme"),"forest");
+    }
     if(type==="quiz"){
      assert.equal(await page.locator("#gameCanvas").isHidden(),true);
      assert.equal(await page.locator("#quizPanel").isVisible(),true);
