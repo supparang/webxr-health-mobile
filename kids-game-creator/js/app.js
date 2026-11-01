@@ -10,12 +10,14 @@ const targetInput=document.querySelector("#targetInput"),livesInput=document.que
 const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))&&value!==""?Math.max(min,Math.min(max,Math.round(Number(value)))):fallback;
 const workspace=document.querySelector("#ageWorkspace"),numericPanel=document.querySelector("#numericPanel"),promptLabel=document.querySelector("#promptLabel");
 const choices={theme:"forest",score:5,enemyCount:2,timeLimit:90,character:"กระต่าย"};
+const nextToDesign=document.querySelector("#nextToDesign");
 const steps=document.querySelector("#learningSteps"),chooseStep=document.querySelector("#chooseStep"),designStep=document.querySelector("#designStep"),gameArea=document.querySelector("#gameArea"),editGame=document.querySelector("#editGame"),backToChoose=document.querySelector("#backToChoose");
 let beginnerStep="choose";
 function setBeginnerStep(step,{scroll=false}={}){
  beginnerStep=step;
  const beginner=age.value==="p1";
  steps.hidden=!beginner;
+ nextToDesign.hidden=!beginner||step!=="choose";
  chooseStep.hidden=beginner&&step!=="choose";
  designStep.hidden=beginner&&step!=="design";
  document.querySelector("#designActions").hidden=beginner&&step!=="design";
@@ -29,6 +31,7 @@ function setBeginnerStep(step,{scroll=false}={}){
  }
  if(scroll){(step==="choose"?chooseStep:step==="design"?designStep:gameArea).scrollIntoView({behavior:"auto",block:"start"});}
 }
+nextToDesign.addEventListener("click",()=>setBeginnerStep("design",{scroll:true}));
 editGame.addEventListener("click",()=>setBeginnerStep("design",{scroll:true}));
 backToChoose.addEventListener("click",()=>setBeginnerStep("choose",{scroll:true}));
 const themes=[["forest","🌳 ป่า"],["space","🌌 อวกาศ"],["castle","🏰 ปราสาท"],["ocean","🌊 ทะเล"]];
