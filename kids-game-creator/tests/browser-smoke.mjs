@@ -35,6 +35,8 @@ try {
      assert.equal(await page.locator("#technicalDetails").isVisible(),false);
      await page.locator("#editGame").click();
      assert.equal(await page.locator("#designStep").isVisible(),true);
+     await page.locator("#generate").click();
+     assert.equal(await page.locator("#gameArea").isVisible(),true);
     }
     assert.equal(game.type,type);
     assert.equal(game.ageLevel,age);
