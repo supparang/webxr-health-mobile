@@ -82,6 +82,43 @@ try {
         null,{timeout:10000}
       );
       assert.equal(await page.locator("#result-panel").isVisible(),false);
+
+      // Model-provider response is mocked at the browser boundary: no live provider call.
+      let mockReply={
+        status:200,
+        body:JSON.stringify({foodId:"som-tam",status:"matched"})
+      };
+      const handler=route=>route.fulfill({
+        status:mockReply.status,
+        contentType:"application/json",
+        body:mockReply.body
+      });
+      await page.route("**/api/analyze",handler);
+      await page.locator("#analyze").click();
+      assert.equal(await page.locator("#result-panel").isVisible(),true);
+      assert.equal(await page.locator("#food-select").inputValue(),"som-tam");
+      assert.match(await page.locator("#source-notice").innerText(),/ยังไม่มีค่า/);
+      assert.equal((await page.locator("#energy").innerText()).trim(),"—");
+      assert.match(await page.locator("#nutrients").innerText(),/ยังไม่มีค่า/);
+      await page.locator("#grams").fill("180");
+      await page.locator("#save").click();
+      assert.match(await page.locator("#history-list").innerText(),/ยังไม่มีค่าพลังงาน/);
+      const aiDownload=page.waitForEvent("download");
+      await page.locator("#export").click();
+      const aiCsv=await readFile(await (await aiDownload).path(),"utf8");
+      const aiRow=aiCsv.split(/\r?\n/).find(line=>line.includes("AI_CLASSIFICATION_ONLY_NO_VERIFIED_NUTRIENTS"));
+      assert.ok(aiRow,"AI-only classification row must be labeled");
+      assert.ok(aiRow.endsWith(',"","","","","",""'),"No invented nutrient numbers in AI CSV export");
+
+      mockReply={
+        status:422,
+        body:JSON.stringify({error:"AI ยังไม่สามารถจำแนกอาหารนี้ได้อย่างชัดเจน"})
+      };
+      await page.locator("#analyze").click();
+      assert.match(await page.locator("#message").innerText(),/ยังไม่สามารถจำแนกอาหาร/);
+      assert.equal(await page.locator("#result-panel").isVisible(),false);
+      await page.unroute("**/api/analyze",handler);
+
       assert.deepEqual(errors,[],"No uncaught JavaScript errors");
 
       const sizing=await page.evaluate(()=>({
