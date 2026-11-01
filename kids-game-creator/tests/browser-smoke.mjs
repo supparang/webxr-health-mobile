@@ -26,7 +26,10 @@ try {
     assert.equal(await page.locator("#prompt").isEditable(),false);
    }
    for (const [index,type] of ["adventure","maze","quiz","dodge"].entries()) {
-    if(age==="p1")await page.locator("#backToChoose").click();
+    if(age==="p1"){
+     if(await page.locator("#gameArea").isVisible())await page.locator("#editGame").click();
+     await page.locator("#backToChoose").click();
+    }
     await page.locator(".genre-card").nth(index).click();
     await page.locator("#generate").click();
     const game=JSON.parse(await page.locator("#output").innerText());
