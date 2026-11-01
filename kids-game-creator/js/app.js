@@ -34,6 +34,16 @@ function setBeginnerStep(step,{scroll=false}={}){
 nextToDesign.addEventListener("click",()=>setBeginnerStep("design",{scroll:true}));
 editGame.addEventListener("click",()=>setBeginnerStep("design",{scroll:true}));
 backToChoose.addEventListener("click",()=>setBeginnerStep("choose",{scroll:true}));
+const completion=document.querySelector("#completionPanel"),completionText=document.querySelector("#completionText"),restartButton=document.querySelector("#restart");
+function handleGameStatus(message){
+ const ended=/ชนะแล้ว|แพ้แล้ว|เกมจบ/.test(message);
+ const beginner=age.value==="p1";
+ completion.hidden=!(beginner&&ended);
+ controls.hidden=beginner&&ended;
+ restartButton.hidden=beginner&&ended;
+ completionText.textContent=message.includes("ชนะ")?"ยอดเยี่ยม! ทำภารกิจสำเร็จแล้ว 🎉":"ลองอีกครั้งนะ! ฝึกฝนแล้วจะเก่งขึ้น 💪";
+ status.textContent=beginner&&ended?"":message;
+}
 const themes=[["forest","🌳 ป่า"],["space","🌌 อวกาศ"],["castle","🏰 ปราสาท"],["ocean","🌊 ทะเล"]];
 const themeThai={forest:"ป่า",space:"อวกาศ",castle:"ปราสาท",ocean:"ทะเล"};
 function addText(parent,tag,value,className=""){
@@ -109,7 +119,7 @@ function refreshAge(){
  choices.score=p.score;choices.enemyCount=2;choices.timeLimit=age.value==="m4"?45:age.value==="m1"?60:90;choices.theme="forest";choices.character="กระต่าย";
  renderWorkspace();
  setBeginnerStep("choose");
- gameArea.dataset.ready="false";
+ gameArea.dataset.ready="false";completion.hidden=true;
  targetInput.disabled=beginner;livesInput.disabled=beginner;levelsInput.disabled=beginner;
  updatePrompt();
 }
@@ -132,15 +142,18 @@ document.querySelector("#generate").addEventListener("click",()=>{
   if(age.value==="p1" && game.type===selectedType){game.rules.targetScore=choices.score;if(selectedType==="adventure")game.player.name=choices.character;}
   game.theme=choices.theme;
   out.textContent=JSON.stringify(game,null,2);
-  active?.destroy();active=null;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
-  if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
+  active?.destroy();active=null;completion.hidden=true;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
+  if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,handleGameStatus):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
   else if(game.type==="quiz"){canvas.hidden=true;active=mountQuiz(quizPanel,game,prompt.value,message=>status.textContent=message);status.textContent="เลือกคำตอบเพื่อเริ่มเล่น";}
   else{canvas.hidden=true;status.textContent="สร้าง JSON สำเร็จ — Game Engine ประเภทนี้อยู่ระหว่างพัฒนา";}
   gameArea.dataset.ready="true";
   if(age.value==="p1")setBeginnerStep("play",{scroll:true});
  }catch(e){out.textContent="";status.textContent=e.message;active?.destroy();active=null;canvas.hidden=true;quizPanel.hidden=true;controls.hidden=true;}
 });
-document.querySelector("#restart").addEventListener("click",()=>active?.restart());
+function restartCurrentGame(){completion.hidden=true;restartButton.hidden=false;if(canvas.hidden===false)controls.hidden=false;active?.restart();}
+restartButton.addEventListener("click",restartCurrentGame);
+document.querySelector("#playAgain").addEventListener("click",restartCurrentGame);
+document.querySelector("#createAnother").addEventListener("click",()=>setBeginnerStep("choose",{scroll:true}));
 for(const button of document.querySelectorAll("[data-control]")){
  const control=button.dataset.control;
  const release=()=>active?.setTouch(control,false);
