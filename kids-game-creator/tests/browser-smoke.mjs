@@ -15,12 +15,19 @@ try {
    await page.locator("#ageLevel").selectOption(age);
    assert.equal(await page.locator("body").getAttribute("data-age"),age);
    assert.equal(await page.locator("#targetInput").isDisabled(),age==="p1");
+   if(age==="p1"){
+    await page.getByRole("button",{name:"🐱 แมว"}).click();
+    const beginnerPrompt=await page.locator("#prompt").inputValue();
+    assert.equal((beginnerPrompt.match(/เก็บ \\d+ คะแนน/g)||[]).length,1,"beginner prompt must not repeat target score");
+    assert.equal(await page.locator("#prompt").isEditable(),false);
+   }
    for (const [index,type] of ["adventure","maze","quiz","dodge"].entries()) {
     await page.locator(".genre-card").nth(index).click();
     await page.locator("#generate").click();
     const game=JSON.parse(await page.locator("#output").innerText());
     assert.equal(game.type,type);
     assert.equal(game.ageLevel,age);
+    if(age==="p1" && type==="adventure")assert.equal(game.player.name,"แมว");
     if(type==="quiz"){
      assert.equal(await page.locator("#gameCanvas").isHidden(),true);
      assert.equal(await page.locator("#quizPanel").isVisible(),true);
