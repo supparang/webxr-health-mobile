@@ -141,7 +141,7 @@ export function mountAdventure(canvas, game, onStatus = () => {}) {
     if(state.invulnerable%8<4)playerArtwork(state.x,state.y,state.frame);
     ctx.fillStyle="#193b49";ctx.font="bold 18px system-ui";
     ctx.fillText("คะแนน "+state.score+"/"+goal+"   ชีวิต "+state.lives+"   ด่าน "+state.level+"/"+game.rules.levels,16,28);
-    if(state.phase!=="playing"){
+    if(state.phase!=="playing" && canvas.dataset.completionUi!=="external"){
       ctx.fillStyle="rgba(10,25,45,.75)";ctx.fillRect(0,0,W,H);
       ctx.fillStyle="white";ctx.textAlign="center";ctx.font="bold 36px system-ui";
       ctx.fillText(state.phase==="won"?"ชนะแล้ว!":"เกมจบ",W/2,H/2);
