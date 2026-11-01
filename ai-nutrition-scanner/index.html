@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0e7569">
+<meta name="description" content="ต้นแบบบันทึกอาหารไทยจากภาพ พร้อมการตรวจสอบผลโดยผู้ใช้">
+<title>NutriLens TH | AI Nutrition Scanner</title>
+<link rel="stylesheet" href="./styles.css">
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<header class="topbar"><div class="brand"><span class="brand-icon">◉</span><span>NutriLens <b>TH</b><small>AI Nutrition Scanner · MVP 0.1</small></span></div><span class="status-pill">ต้นแบบวิจัย</span></header>
+<main class="layout">
+<section class="hero"><div class="eyebrow">เห็นอาหาร · เข้าใจโภชนาการ</div><h1>สแกนมื้ออาหาร<br><em>อย่างรู้เท่าทัน</em></h1><p>ถ่ายภาพ เลือกรายการอาหาร ตรวจสอบปริมาณ แล้วดูสารอาหารโดยประมาณ พร้อมเก็บประวัติไว้ในเครื่อง</p><div class="hero-note">ภาพอาหารเพียงภาพเดียวไม่สามารถวัดน้ำหนัก น้ำมัน น้ำตาล หรือโซเดียมได้อย่างแม่นยำ</div></section>
+<section class="panel scanner" aria-labelledby="scan-heading"><div class="section-head"><span class="step">01</span><div><h2 id="scan-heading">เริ่มวิเคราะห์มื้ออาหาร</h2><p>ใช้ภาพจากกล้องหรืออัปโหลดภาพอาหาร</p></div></div>
+<div class="capture-area" id="capture-area"><div class="camera-icon" aria-hidden="true">📷</div><strong>เพิ่มภาพอาหาร</strong><span>JPEG / PNG / WebP · สูงสุด 3 MB</span><label class="upload-btn" for="photo">ถ่ายภาพ / เลือกภาพ</label><input id="photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="เลือกรูปภาพอาหาร"><img id="preview" alt="ตัวอย่างรูปอาหารที่เลือก" hidden><button id="remove-photo" class="text-button" type="button" hidden>ลบภาพ</button></div>
+<div class="field"><label for="mode">วิธีวิเคราะห์</label><select id="mode"><option value="demo">โหมดสาธิต (ไม่วิเคราะห์รูปภาพ)</option><option value="ai">วิเคราะห์ภาพด้วย AI (ต้องมีเซิร์ฟเวอร์)</option></select></div>
+<div class="field" id="demo-field"><label for="demo-food">เลือกอาหารสำหรับสาธิต</label><select id="demo-food"></select><div class="microcopy">โหมดสาธิตใช้รายการตัวอย่างที่เลือก ไม่ได้วิเคราะห์จากพิกเซลของรูป</div></div>
+<button class="primary" type="button" id="analyze">วิเคราะห์มื้อนี้ <span aria-hidden="true">→</span></button><p id="message" class="message" role="status" aria-live="polite"></p>
+</section>
+<section class="panel results" id="result-panel" hidden aria-labelledby="result-heading"><div class="section-head"><span class="step">02</span><div><h2 id="result-heading">ตรวจสอบก่อนบันทึก</h2><p id="result-label">แก้ไขชื่ออาหารและปริมาณให้ตรงกับที่รับประทาน</p></div></div>
+<div class="notice" id="source-notice">ข้อมูลโภชนาการเป็นตัวเลขสาธิต ยังไม่ได้ยืนยันกับฐานข้อมูลโภชนาการอ้างอิง</div><div class="edit-grid"><div class="field"><label for="food-select">รายการอาหาร</label><select id="food-select"></select></div><div class="field"><label for="grams">น้ำหนักอาหาร (กรัม)</label><input id="grams" type="number" min="1" max="2000" step="1" inputmode="numeric" value="200"></div></div>
+<div class="confidence" id="confidence"></div>
+<div class="energy"><div><span>พลังงานโดยประมาณ</span><strong id="energy">—</strong><small>กิโลแคลอรี</small></div><div class="kcal-ring" aria-hidden="true">≈</div></div>
+<div class="nutrients" id="nutrients"></div><div class="warning"><strong>ข้อจำกัดสำคัญ</strong><p>ตัวเลขทั้งหมดเป็นค่าประมาณเพื่อทดสอบระบบ ไม่ใช่ผลตรวจอาหารจริง และยังใช้ประเมินสุขภาพรายบุคคลไม่ได้ โดยเฉพาะน้ำตาลและโซเดียม</p></div>
+<button id="save" class="primary" type="button">ยืนยันและบันทึกมื้ออาหาร</button></section>
+<section class="panel history" aria-labelledby="history-heading"><div class="section-head"><span class="step">03</span><div><h2 id="history-heading">ประวัติที่บันทึก</h2><p>จัดเก็บเฉพาะข้อมูลที่ยืนยันในเบราว์เซอร์เครื่องนี้ ไม่จัดเก็บภาพ</p></div></div><div id="history-list" class="history-list"><p class="empty">ยังไม่มีข้อมูลที่บันทึก</p></div><div class="history-actions"><button id="export" type="button" class="outline">ส่งออก CSV</button><button id="clear" type="button" class="danger">ลบประวัติทั้งหมด</button></div></section>
+<footer><strong>NutriLens TH · Research MVP</strong><p>ไม่ใช่อุปกรณ์ทางการแพทย์ · ยังไม่ใช่ระบบวิเคราะห์โภชนาการที่ผ่านการตรวจสอบความถูกต้อง · โปรดขอความยินยอมก่อนใช้ภาพของบุคคลอื่น</p></footer>
+</main>
+</body></html>

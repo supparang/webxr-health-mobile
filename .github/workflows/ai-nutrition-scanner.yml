@@ -1,0 +1,22 @@
+name: NutriLens TH MVP unit tests
+on:
+  push:
+    paths:
+      - "ai-nutrition-scanner/**"
+      - ".github/workflows/ai-nutrition-scanner.yml"
+  pull_request:
+    paths:
+      - "ai-nutrition-scanner/**"
+      - ".github/workflows/ai-nutrition-scanner.yml"
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-nutrition-scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm test
