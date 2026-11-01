@@ -9,7 +9,7 @@ let active=null,selectedType="adventure";
 const targetInput=document.querySelector("#targetInput"),livesInput=document.querySelector("#livesInput"),levelsInput=document.querySelector("#levelsInput");
 const clamp=(value,min,max,fallback)=>Number.isFinite(Number(value))&&value!==""?Math.max(min,Math.min(max,Math.round(Number(value)))):fallback;
 const workspace=document.querySelector("#ageWorkspace"),numericPanel=document.querySelector("#numericPanel"),promptLabel=document.querySelector("#promptLabel");
-const choices={theme:"forest",score:5,enemyCount:2,timeLimit:90};
+const choices={theme:"forest",score:5,enemyCount:2,timeLimit:90,character:"กระต่าย"};
 const themes=[["forest","🌳 ป่า"],["space","🌌 อวกาศ"],["castle","🏰 ปราสาท"],["ocean","🌊 ทะเล"]];
 const themeThai={forest:"ป่า",space:"อวกาศ",castle:"ปราสาท",ocean:"ทะเล"};
 function addText(parent,tag,value,className=""){
@@ -37,6 +37,7 @@ function renderWorkspace(){
  addText(workspace,"h3",titles[level]);
  if(level==="p1"){
   addText(workspace,"p","ไม่ต้องพิมพ์! เลือกภาพ ฉาก และเป้าหมาย แล้วกดสร้างเกม");
+  addChoices(workspace,"เลือกตัวละคร","character",[["กระต่าย","🐰 กระต่าย"],["แมว","🐱 แมว"],["หมี","🐻 หมี"],["หุ่นยนต์","🤖 หุ่นยนต์"]]);
   addChoices(workspace,"เลือกฉาก", "theme",themes);
   addChoices(workspace,"เก็บกี่คะแนนดี?", "score",[[3,"⭐ 3 คะแนน"],[5,"⭐⭐ 5 คะแนน"],[10,"🏆 10 คะแนน"]]);
  }else if(level==="p4"){
@@ -63,9 +64,17 @@ function renderWorkspace(){
  prompt.readOnly=level==="p1";
 }
 function updatePrompt(){
- prompt.value=exampleFor(selectedType,age.value)+(age.value==="p1"?" เก็บ "+choices.score+" คะแนน":"")+" ฉาก"+themeThai[choices.theme]+(age.value==="m1"||age.value==="m4"?" ศัตรู "+choices.enemyCount+" ตัว มีเวลา "+choices.timeLimit+" วินาที":"");
+ const level=age.value;
+ const base=exampleFor(selectedType,level);
+ if(level==="p1"){
+  const kind=selectedType==="adventure"?"สร้างเกม"+choices.character+"ผจญภัย":base.replace(/ เก็บ \d+ คะแนน.*$/,"");
+  prompt.value=kind+" ฉาก"+themeThai[choices.theme]+(selectedType==="adventure"||selectedType==="dodge"?" เก็บ "+choices.score+" คะแนน":"");
+ }else{
+  prompt.value=base+" ฉาก"+themeThai[choices.theme]+(level==="m1"||level==="m4"?" ศัตรู "+choices.enemyCount+" ตัว มีเวลา "+choices.timeLimit+" วินาที":"");
+ }
  for(const b of document.querySelectorAll(".genre-card"))b.setAttribute("aria-pressed",String(b.dataset.genre===selectedType));
 }
+
 function refreshAge(){
  const p=CREATION_LEVELS[age.value]||CREATION_LEVELS.p4;
  document.body.dataset.age=age.value;
@@ -73,7 +82,7 @@ function refreshAge(){
  document.querySelector("#ageHelp").textContent=p.help;
  targetInput.value=p.score;livesInput.value=age.value==="p1"?5:age.value==="m4"?2:3;levelsInput.value=p.levels;
  const beginner=age.value==="p1";
- choices.score=p.score;choices.enemyCount=2;choices.timeLimit=age.value==="m4"?45:age.value==="m1"?60:90;choices.theme="forest";
+ choices.score=p.score;choices.enemyCount=2;choices.timeLimit=age.value==="m4"?45:age.value==="m1"?60:90;choices.theme="forest";choices.character="กระต่าย";
  renderWorkspace();
  targetInput.disabled=beginner;livesInput.disabled=beginner;levelsInput.disabled=beginner;
  updatePrompt();
@@ -94,7 +103,8 @@ document.querySelector("#generate").addEventListener("click",()=>{
    game.rules.levels=clamp(levelsInput.value,1,10,p.levels);
    if(age.value==="m1"||age.value==="m4"){game.rules.enemyCount=choices.enemyCount;game.rules.timeLimit=choices.timeLimit;}
   }
-  if(age.value==="p1" && game.type===selectedType){game.rules.targetScore=choices.score;}
+  if(age.value==="p1" && game.type===selectedType){game.rules.targetScore=choices.score;if(selectedType==="adventure")game.player.name=choices.character;}
+  game.theme=choices.theme;
   out.textContent=JSON.stringify(game,null,2);
   active?.destroy();active=null;quizPanel.hidden=true;quizPanel.replaceChildren();controls.hidden=true;document.querySelector("#restart").hidden=false;
   if(game.type==="adventure"||game.type==="maze"||game.type==="dodge"){active=game.type==="maze"?mountMaze(canvas,game,message=>status.textContent=message):game.type==="dodge"?mountDodge(canvas,game,message=>status.textContent=message):mountAdventure(canvas,game,message=>status.textContent=message);canvas.hidden=false;controls.hidden=false;for(const b of controls.querySelectorAll("[data-control]"))b.hidden=game.type==="maze"?b.dataset.control==="jump":!["left","right",...(game.type==="adventure"?["jump"]:[])].includes(b.dataset.control);status.textContent="เกมพร้อมเล่น — ใช้ลูกศรหรือปุ่มบนจอ";}
