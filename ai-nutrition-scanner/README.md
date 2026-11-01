@@ -1,4 +1,4 @@
-# NutriLens TH — AI Nutrition Scanner (Research MVP 0.2)
+# NutriLens TH — AI Nutrition Scanner (Research MVP 0.3)
 
 An isolated mobile-first Thai-language food scanner prototype, located within the existing repo but **not** connected to the live HeroHealth application.
 
@@ -51,3 +51,16 @@ GitHub Pages is static and **cannot run /api/analyze**; the AI recognition mode 
 - tests/nutrition.test.mjs, tests/server.test.mjs — deterministic and API tests
 - tests/browser-smoke.mjs — automated desktop/mobile browser QA
 - .github/workflows/ai-nutrition-scanner.yml — test workflow and QA screenshots
+
+
+## Phase 3 — structured AI classification and data provenance (November 2026)
+- Classifier uses OpenAI Responses API with strict JSON schema via text.format, constraining possible food IDs, with explicit matched / uncertain / not_food states.
+- Malformed, unsupported, refused or incomplete model responses fail closed instead of returning invented foods.
+- Gateway validates uploaded image signatures, enforces upload limits, runs a 30-second request timeout, and defaults to binding to localhost only.
+- There is no API key in the client. AI mode requires a server secret and a paid/approved provider connection, which has NOT been exercised with live credentials in automated QA.
+- During real AI-assisted mode the app **never shows fabricated nutritional values**, including in history and CSV exports. It records only the user's confirmed label and portion. Demo mode remains separated and visibly marked as illustrative data.
+- Vision unit tests and server-to-provider integration tests use a mock provider. Browser QA also simulates matched/unknown outputs and verifies the no-fake-nutrients rule.
+- Provenance, rights and planned source review: [data/THAI_FCD_INTEGRATION.md](data/THAI_FCD_INTEGRATION.md).
+- Primary potential nutrition reference: Institute of Nutrition, Mahidol University, *Thai Food Composition Database*, Online Version 3 (August 2025). See its official terms and obtain redistribution permission when needed. **No source records have been copied into this MVP.**
+
+Real-image provider QA, independently validated Thai food reference values, model accuracy testing and real-device QA remain pending. Do not merge as a production-ready health app.
