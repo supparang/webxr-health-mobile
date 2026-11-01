@@ -1,8 +1,8 @@
 import {createGameFromThai} from "./thai-game-planner.js";
-import {mountAdventure} from "./adventure-engine.js";
-import {mountMaze} from "./maze-engine.js";
-import {mountQuiz} from "./quiz-engine.js";
-import {mountDodge} from "./dodge-engine.js";
+import {mountAdventure} from "./adventure-engine.js?v=2.15.3";
+import {mountMaze} from "./maze-engine.js?v=2.15.3";
+import {mountQuiz} from "./quiz-engine.js?v=2.15.3";
+import {mountDodge} from "./dodge-engine.js?v=2.15.3";
 import {CREATION_LEVELS,GENRES,exampleFor} from "./creation-presets.js";
 const prompt=document.querySelector("#prompt"),age=document.querySelector("#ageLevel"),out=document.querySelector("#output"),status=document.querySelector("#status"),canvas=document.querySelector("#gameCanvas"),quizPanel=document.querySelector("#quizPanel"),controls=document.querySelector("#gameControls");
 let active=null,selectedType="adventure";
