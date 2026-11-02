@@ -8,7 +8,7 @@
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20261101-AIQ-CODING-RECEIVER-V3.2.18-B5-STRUCTURED-PRIVACY';
+AIQCODING.VERSION = '20261101-AIQ-CODING-RECEIVER-V3.2.19-REFLECTION-PREDICT';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.SHEET_CANDIDATES = ['coding_attempts','aiquest_coding_attempts','AIQuest_Coding_Attempts','Coding_Attempts'];
 AIQCODING.HEADERS = [
@@ -658,26 +658,26 @@ AIQCODING.matchesGroups_ = function(text,groups){
  * Output still uses expected exactly/semantically, independently from Predict.
  */
 AIQCODING.RULES = Object.freeze({
- S1:{predictQuestion:"เมื่อ temperature = 38 โปรแกรมจะแสดงอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']],b:['temperature','if','print'],m:['38.5','38','39'],c:['if','elif','else','low','normal','high'],ca:['confidence','explanation','fallback']},
- S2:{predictQuestion:"เมื่อ percept = dirty โปรแกรมจะแสดงอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
- S3:{predictQuestion:"ลำดับ visited ของ BFS จะเป็นอย่างไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
- B1:{predictQuestion:"Agent จะเลือก action ใดเมื่อ percept เป็น blocked",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
- S4:{predictQuestion:"UCS จะ pop โหนดใดก่อนจาก Frontier ที่เริ่มด้วย (0, 'A') และเพราะอะไร",expected:'D 6',outputValidation:'S4_UCS_GOAL_COST_V1',predictionValidation:'S4_FIRST_POP_PREDICT_V1',pg:[['a'],['0']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
- S5:{s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',predictQuestion:"ค่า f ของโหนด B เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
- S6:{predictQuestion:"ราก MAX จะเลือกคะแนนเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
- B2:{b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',predictQuestion:"ระบบจะเลือกกลยุทธ์ใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
- S7:{predictQuestion:"โปรแกรมจะแสดงข้อสรุปอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
- S8:{predictQuestion:"posterior ที่ปัดทศนิยม 3 ตำแหน่งคือเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
- S9:{predictQuestion:"ระบบจะแนะนำอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
- B3:{predictQuestion:"ระบบจะแสดงผลอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
- S10:{predictQuestion:"โปรแกรมจะแสดงจำนวน train และ test เท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']],b:['data','train','test'],m:['0.7','train','test'],c:['split_data','ratio','seed'],ca:['leakage','overlap','set(']},
- S11:{s11SupervisedOutputValidation:'S11_BASELINE_MODIFIED_V1',predictQuestion:"predictions จะเป็นรายการใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
- S12:{predictQuestion:"clusters จะเป็นรายการใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
- B4:{predictQuestion:"ระบบจะวินิจฉัยว่าอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
- S13:{predictQuestion:"ค่า output หลัง ReLU เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
- S14:{predictQuestion:"new_q เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
- S15:{predictQuestion:"ระบบจะเลือกเอกสารใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
- B5:{b5StructuredPrivacyValidation:'B5_STRUCTURED_PRIVACY_V2',predictQuestion:"ระบบจะแสดงสถานะใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
+ S1:{predictQuestion:"เมื่อ temperature = 38 โปรแกรมจะแสดงอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']],b:['temperature','if','print'],m:['38.5','38','39'],c:['if','elif','else','low','normal','high'],ca:['confidence','explanation','fallback']},
+ S2:{predictQuestion:"เมื่อ percept = dirty โปรแกรมจะแสดงอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']],b:['def','agent','percept','return'],m:['obstacle','turn'],c:['battery_low','goal_found','return'],ca:['state','goal','utility']},
+ S3:{predictQuestion:"ลำดับ visited ของ BFS จะเป็นอย่างไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']],b:['deque','queue','visited'],m:["'f'","'d'"],ma:['stack','dfs','pop()'],c:['goal','path','visited'],ca:['break','return']},
+ B1:{predictQuestion:"Agent จะเลือก action ใดเมื่อ percept เป็น blocked",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'search_new_route',allowCombinedPredictReason:true,pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']],b:['choose_action','blocked','return'],m:['percept','return'],mc:{percept:3,return:3},c:['deque','blocked'],ca:['path','route','fallback']},
+ S4:{predictQuestion:"UCS จะ pop โหนดใดก่อนจาก Frontier ที่เริ่มด้วย (0, 'A') และเพราะอะไร",expected:'D 6',outputValidation:'S4_UCS_GOAL_COST_V1',predictionValidation:'AIQ_REFLECTION_V1',pg:[['a'],['0']],b:['heapq','frontier','cost'],m:["'b'","'c'",'1'],c:['parent','path','cost'],ca:['best_cost','distance','visited']},
+ S5:{s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',predictQuestion:"ค่า f ของโหนด B เท่ากับเท่าไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
+ S6:{predictQuestion:"ราก MAX จะเลือกคะแนนเท่าไร",predictionValidation:'AIQ_REFLECTION_V1',expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
+ B2:{b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',predictQuestion:"ระบบจะเลือกกลยุทธ์ใด",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
+ S7:{predictQuestion:"โปรแกรมจะแสดงข้อสรุปอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
+ S8:{predictQuestion:"posterior ที่ปัดทศนิยม 3 ตำแหน่งคือเท่าไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
+ S9:{predictQuestion:"ระบบจะแนะนำอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
+ B3:{predictQuestion:"ระบบจะแสดงผลอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
+ S10:{predictQuestion:"โปรแกรมจะแสดงจำนวน train และ test เท่าไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']],b:['data','train','test'],m:['0.7','train','test'],c:['split_data','ratio','seed'],ca:['leakage','overlap','set(']},
+ S11:{s11SupervisedOutputValidation:'S11_BASELINE_MODIFIED_V1',predictQuestion:"predictions จะเป็นรายการใด",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']],b:['scores','predictions','0.5'],m:['0.8'],c:['confusion_matrix','y_true','y_pred','accuracy','precision','recall'],ca:['f1','false_positive','false_negative']},
+ S12:{predictQuestion:"clusters จะเป็นรายการใด",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']],b:['points','centers','clusters'],m:['5'],ma:['tie','equal','<=','>='],c:['kmeans','clusters','centroids'],ca:['iteration','range(2','inertia','silhouette']},
+ B4:{predictQuestion:"ระบบจะวินิจฉัยว่าอะไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']],b:['train_accuracy','test_accuracy','0.2'],m:['underfitting','0.6'],c:['evaluate_model','diagnosis','recommendation'],ca:['metrics','evidence','deployment']},
+ S13:{predictQuestion:"ค่า output หลัง ReLU เท่ากับเท่าไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']],b:['x','w','b'],ba:['max(0','relu'],m:['sigmoid','exp','z'],c:['dense_layer','weights','bias','outputs'],ca:['loss','gradient','backprop']},
+ S14:{predictQuestion:"new_q เท่ากับเท่าไร",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.55',allowQTableUpdateEquivalent:true,pg:[['0.55']],b:['q','reward','alpha','new_q'],m:['gamma','next_max_q'],c:['epsilon_greedy','explore','exploit','random'],ca:['reward','episode','decay']},
+ S15:{predictQuestion:"ระบบจะเลือกเอกสารใด",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']],b:['documents','query','selected'],m:['lower'],c:['simple_rag','answer','sources','fallback'],ca:['citation','grounding','evidence']},
+ B5:{b5StructuredPrivacyValidation:'B5_STRUCTURED_PRIVACY_V2',predictQuestion:"ระบบจะแสดงสถานะใด",predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']],b:['prediction','confidence','evidence'],m:['human_review','0.75'],c:['trustworthy_ai_decision','decision','confidence','evidence','fairness_check','audit_log'],ca:['privacy','human_review','explanation']}
 });
 
 AIQCODING.ss_ = function(){ var ss=SpreadsheetApp.getActiveSpreadsheet(); if(!ss)throw new Error('SPREADSHEET_NOT_FOUND'); return ss; };
@@ -790,45 +790,13 @@ AIQCODING.s4FirstPopPredictV1_ = function(prediction,reason) {
 };
 
 AIQCODING.aiqPredictAnswerParityV1_ = function(stage,prediction,reason,rule,validateOutput,matchesGroups,s4Check){
-  // Shared Web+GAS Predict checker, aligned with canonical lab.predict.
-  // Retains old activity concept answers except for numerical/vector gates.
+  // Reflection contract: retain the student's prediction and explanation
+  // without forcing a teacher-defined expected value.
   var p=String(prediction||'').trim(),r=String(reason||'').trim();
-  function out(ok,issue,mode){return {passed:!!ok,issue:issue||'',mode:mode||'PREDICT_ANSWER_PARITY_V1'};}
+  var out=function(ok,issue,mode){return {passed:!!ok,issue:issue||'',mode:mode||'AIQ_REFLECTION_V1'};};
   if(!p)return out(false,'PREDICTION_EMPTY');
   if(r.length<20)return out(false,'REASON_TOO_SHORT');
-  if(stage==='S4')return s4Check(p,r);
-  var answer=validateOutput(stage,p,rule);
-  var numeric={S5:1,S6:1,S8:1,S10:1,S11:1,S12:1,S13:1,S14:1};
-  var source=rule&&rule.allowCombinedPredictReason?p+' '+r:p;
-  var oldConcept=!numeric[stage]&&matchesGroups(source,(rule&&rule.pg)||[]);
-  if(/\b(?:no|not|never|cannot|can't|don't)\b|(?:ไม่ใช่|ไม่ต้อง|ไม่ได้)/i.test(p))oldConcept=false;
-  if(stage==='S5'){
-    // Predict always refers to canonical starter g(B)=2, h(B)=2, f(B)=4.
-    // Accept integer answers wrapped in [ ] but never credit the wrong value.
-    var text=p+' '+r,seen=[],m;
-    var token=/\bf\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?|\bB\s*(?:[:=]|\s+)\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
-    while((m=token.exec(text))!==null)seen.push(Number(m[1]||m[2]));
-    var g=/\bg\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
-    while((m=g.exec(text))!==null)if(Number(m[1])!==2)return out(false,'S5_STARTER_INPUT_MISMATCH');
-    var h=/\bh\s*\(\s*B\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
-    while((m=h.exec(text))!==null)if(Number(m[1])!==2)return out(false,'S5_STARTER_INPUT_MISMATCH');
-    var c=/\bf\s*\(\s*C\s*\)\s*[:=]\s*\[?\s*(-?\d+(?:\.\d+)?)\s*\]?/gi;
-    while((m=c.exec(text))!==null)if(Number(m[1])!==4)return out(false,'S5_F_C_INCORRECT');
-    if(seen.some(function(x){return x!==4;}))return out(false,'S5_F_B_INCORRECT');
-    return answer.passed||seen.length>0?out(true,'','S5_COMPUTED_RESULT'):out(false,'S5_CALCULATED_VALUE_REQUIRED');
-  }
-  if(stage==='S8'&&answer.passed){
-    var n=r.toLowerCase().replace(/\s+/g,'');
-    if(!(/prior|ฐานเดิม/.test(n)&&/likelihood|sensitivity|ความไว/.test(n)&&
-      /evidence|normaliz|หลักฐาน|ตัวหาร/.test(n)&&/posterior|ภายหลัง|หลังเห็นหลักฐาน/.test(n)))
-      return out(false,'S8_BAYES_REASON_MISSING');
-  }
-  if(stage==='B5'&&/\bREJECT\s*\/\s*HOLD\b/i.test(p)&&
-    /(?:privacy|ความเป็นส่วนตัว)[^\r\n]{0,45}(?:fail|false|ไม่ผ่าน|ละเมิด)|(?:fail|false|ไม่ผ่าน)[^\r\n]{0,45}(?:privacy|ความเป็นส่วนตัว)/i.test(r))
-    return out(true,'','B5_REASONED_PRIVACY_HOLD');
-  if(answer.passed)return out(true,'','CANONICAL_RESULT');
-  if(oldConcept)return out(true,'','PREVIOUS_ACTIVITY_CONCEPT');
-  return out(false,'PREDICT_RESULT_NOT_CONFIRMED');
+  return out(true,'','REFLECTION_RECORDED');
 };
 
 AIQCODING.validatePredictV1_ = function(stage,prediction,reason,rule){
