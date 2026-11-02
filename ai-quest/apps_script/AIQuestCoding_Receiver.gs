@@ -564,7 +564,17 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
       return scores.every(function(n){return Math.abs(n-4)<1e-8;})?result(true):result(false,'B_COST_NOT_4');
     }
     case 'B2':{var strategy=AIQCODING.b2StrategyReasonOutputV1_(raw);return strategy||category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});}
-    case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
+    case 'S7':{
+      // S7 has an exception rule: validate the final Facts snapshot, not
+      // intermediate fly=True printed before Penguin conflict resolution.
+      var finalFacts=lines.filter(function(line){return /^Facts\s+สรุปสุดท้ายหลังจากจัดการ\s+Conflict\s*:/i.test(line);});
+      if(finalFacts.length){
+        var finalFly=finalFacts[finalFacts.length-1].match(/['"]?fly['"]?\s*:\s*(True|False|true|false)\b/);
+        if(!finalFly)return result(false,'S7_FINAL_FLY_VALUE_NOT_FOUND');
+        return /^(?:False|false)$/.test(finalFly[1])?result(true):result(false,'S7_FINAL_FLY_VALUE_MISMATCH');
+      }
+      return category(function(v){return /^(?:false|บินไม่ได้|ไม่สามารถบินได้|fly\s*[:=]\s*false)$/i.test(v)?'expected':'';});
+    }
     case 'S8':return numeric(0.154,'proportion');
     case 'S9':{var batch=AIQCODING.s9ScenarioBatchEvidenceV1_(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
     case 'B3':return category(function(v){return /^(?:high[_\s-]*risk[_\s-]*with[_\s-]*evidence|high\s+risk\s+(?:and|with)\s+evidence|ความเสี่ยงสูงพร้อมหลักฐาน)$/i.test(v)?'expected':'';});
@@ -666,7 +676,7 @@ AIQCODING.RULES = Object.freeze({
  S5:{s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',predictQuestion:"ค่า f ของโหนด B เท่ากับเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'B 4',pg:[['b'],['4']],b:['g','h','print'],m:["'d'",'3','1'],c:['astar','heapq','path'],ca:['heuristic','h[','g_score']},
  S6:{predictQuestion:"ราก MAX จะเลือกคะแนนเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',expected:'3',outputValidation:'S6_NUMERIC_RESULT_V1',pg:[['3']],b:['scores','min','max'],m:['8','1','6','4'],c:['minimax','max','min','alpha','beta'],ca:['maximizing','maximizing_player']},
  B2:{b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',predictQuestion:"ระบบจะเลือกกลยุทธ์ใด",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'A*',pg:[['a*','astar','a star']],b:['weighted','heuristic','strategy'],m:['false','weighted','ucs'],c:['choose_strategy','bfs','ucs','a*','minimax'],ca:['reason','tradeoff','memory']},
- S7:{predictQuestion:"โปรแกรมจะแสดงข้อสรุปอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']],b:['facts','bird','has_wings'],m:['penguin','cannot_fly'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
+ S7:{predictQuestion:"โปรแกรมจะแสดงข้อสรุปอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'False',pg:[['false','fly: false','บินไม่ได้','ไม่สามารถบินได้']],b:['facts','bird','has_wings'],m:['true','can_fly','บินได้'],c:['forward_chaining','facts','rules'],ca:['conflict','explanation','trace']},
  S8:{predictQuestion:"posterior ที่ปัดทศนิยม 3 ตำแหน่งคือเท่าไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']],b:['prior','sensitivity','posterior'],m:['0.10'],c:['bayes','prior','likelihood','posterior'],ca:['evidence','normalize','network']},
  S9:{predictQuestion:"ระบบจะแนะนำอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']],b:['symptoms','fever','cough'],m:['rest_and_monitor','not','cough'],c:['inference_engine','rules','reason'],ca:['conflict','explanation','referral']},
  B3:{predictQuestion:"ระบบจะแสดงผลอะไร",predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']],b:['facts','probability','0.8'],m:['medium_risk','0.5','0.8'],c:['decision','confidence','explanation'],ca:['evidence','review','conflict']},
