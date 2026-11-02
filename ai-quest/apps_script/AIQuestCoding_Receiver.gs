@@ -238,35 +238,29 @@ AIQCODING.s11SupervisedOutputEvidenceV1_ = function(output) {
 AIQCODING.b2StrategyReasonOutputV1_ = function(output) {
   'use strict';
   var raw=String(output==null?'':output).trim();
+  if(!raw)return null;
   var rows=raw.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
-  // Keep legacy bare "A*" and structured output under the old validator.
-  if(!rows.some(function(x){return /^(?:strategy|กลยุทธ์|reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]/i.test(x);}))return null;
-  var decision=null,reason=null,problem='';
-  var response=function(ok,issue){return {passed:!!ok,mode:'B2_STRATEGY_REASON_V1',issue:issue||'',reviewRequired:false};};
+  var response=function(ok,issue){return {passed:!!ok,mode:'B2_STRATEGY_REASON_V2',issue:issue||'',reviewRequired:false};};
   if(raw.length>30000)return response(false,'OUTPUT_REQUIRES_REVIEW');
-  var strategyLine=/^(?:strategy|กลยุทธ์)\s*[:：]\s*(.*)$/i;
-  var reasonLine=/^(?:reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]\s*(.*)$/i;
-  var alternative=/(?:^|[\s,;|]|และ)(?:เลือกใช้|เลือก|ใช้|choose|selected|select|using|use)\s*(?:BFS|DFS|UCS|Minimax|Adversarial\s+Search)\b/i;
-  var nested=/(?:^|[\s;|])(?:strategy|decision|action|result|output|answer|recommendation|choice|selected)\s*[:=]/i;
+  var decision=null,reason=null,free=[],invalid=false;
   rows.forEach(function(line){
-    if(problem)return;
-    var s=strategyLine.exec(line);
-    if(s){if(decision!==null||!s[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_STRATEGY';return;}decision=s[1].trim();return;}
-    var r=reasonLine.exec(line);
-    if(r){if(reason!==null||!r[1].trim()){problem='B2_DUPLICATE_OR_EMPTY_REASON';return;}reason=r[1].trim();return;}
-    // Accept a bare canonical value followed by a labeled explanation.
-    if(/^(?:a\*|a[\s_-]*star|astar)$/i.test(line)&&decision===null){decision=line;return;}
-    problem='B2_UNRECOGNIZED_OUTPUT_LINE';
+    var s=/^(?:strategy|กลยุทธ์)\s*[:：]\s*(.*)$/i.exec(line);
+    var r=/^(?:reason|explanation|rationale|เหตุผล|คำอธิบาย)\s*[:：]\s*(.*)$/i.exec(line);
+    if(s){if(decision!==null||!s[1].trim())invalid=true;else decision=s[1].trim();}
+    else if(r){if(reason!==null||!r[1].trim())invalid=true;else reason=r[1].trim();}
+    else free.push(line);
   });
-  if(problem)return response(false,problem);
-  if(!decision)return response(false,'B2_STRATEGY_NOT_FOUND');
-  if(/(?:ไม่ควร|ไม่ใช้|ไม่เลือก|avoid|wrong|incorrect|not\s+recommended)/i.test(decision))
-    return response(false,'B2_NEGATED_STRATEGY');
-  var selected=/^(?:(?:เลือกใช้|ควรใช้|เลือก|ใช้|choose|select|use|using)\s+)?(?:a\*|a[\s_-]*star|astar)(?=$|[\s,.!?;:()])/i;
-  if(!selected.test(decision))return response(false,'B2_EXPECTED_ASTAR');
-  if(alternative.test(decision)||reason&&alternative.test(reason))
-    return response(false,'B2_CONFLICTING_STRATEGY');
-  if(reason&&nested.test(reason))return response(false,'B2_NESTED_DECISION_IN_REASON');
+  if(invalid)return response(false,'B2_DUPLICATE_OR_EMPTY_FIELD');
+  var all=[decision||'',reason||'',free.join(' ')].join(' ');
+  var heuristic=/\bheuristic\b|ฮิวริสติก|ฮิวริสติค/i.test(all);
+  var heuristicOn=/\bheuristic\s*=\s*true\b|ฮิวริสติก.{0,30}(?:เปิด|true|ใช้)/i.test(all);
+  var opponentOff=/\bopponent\s*=\s*false\b|ไม่มีคู่แข่ง|ไม่ใช้คู่แข่ง/i.test(all);
+  var aStar=/\ba\s*\*|\bastar\b|a[\s_-]*star|เอสตาร์/i.test(all);
+  var other=/(?:เลือกใช้|เลือก|ใช้|choose|select)\s+(?:BFS|DFS|UCS|Minimax)\b/i.test(all);
+  if(other)return response(false,'B2_CONFLICTING_STRATEGY');
+  if(decision&&/(?:ไม่ควร|ไม่ใช้|ไม่เลือก|avoid|wrong|incorrect)/i.test(decision))return response(false,'B2_NEGATED_STRATEGY');
+  if(!(aStar||(heuristic&&heuristicOn&&opponentOff)))return response(false,'B2_STRATEGY_NOT_CONFIRMED');
+  if(!reason&&free.length===0)return response(false,'B2_REASON_REQUIRED');
   return response(true,'');
 };
 
