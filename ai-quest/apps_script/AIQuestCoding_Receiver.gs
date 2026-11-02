@@ -397,7 +397,8 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
   var sequence=function(expected,letters){
     var found=[],issues=[];
     lines.forEach(function(line){
-      var text=take(line).replace(/^(?:visited(?:\s+order)?|traversal(?:\s+order)?|bfs|dfs|predictions|predicted\s+labels|clusters|cluster\s+ids|labels|sequence|path|order)\s*[:=]\s*/i,'').trim();
+      if(/^path\s+from\b/i.test(line))return;
+      var text=take(line).replace(/^(?:visited(?:\s+(?:order|nodes?))?|traversal(?:\s+order)?|bfs|dfs|predictions|predicted\s+labels|clusters|cluster\s+ids|labels|sequence|path|order)\s*[:=]\s*/i,'').trim();
       if(!/^\s*\[/.test(text)&&!/->|→|,/.test(text))return;
       var clean=text.replace(/[\[\]\(\)'"]/g,'').trim();
       var tokens=clean.split(/\s*(?:,|->|→)\s*/).map(function(t){return t.trim();});
