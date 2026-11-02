@@ -794,7 +794,8 @@ AIQCODING.s4FirstPopPredictV1_ = function(prediction,reason) {
   var zero=/\bg\s*\(\s*A\s*\)\s*(?:=|:|เท่ากับ)\s*0(?:\.0+)?\b/i.test(t)||
     /(?:โหนด\s*)?\bA\b[^\r\n]{0,35}(?:cost|ต้นทุน|g)\s*(?:=|:|เท่ากับ)?\s*0(?:\.0+)?\b/i.test(t)||
     /(?:เริ่มต้น|เริ่มที่|initial|start)[^\r\n]{0,35}(?:cost|ต้นทุน|g)?\s*(?:=|:|เท่ากับ)?\s*0(?:\.0+)?\b/i.test(t);
-  if(!zero)return result(false,'START_COST_A_ZERO_NOT_EXPLAINED');
+  // The prompt already supplies initial Frontier item (0, 'A'); do not
+  // require students to repeat g(A)=0 in their explanation.
   if(!ucs||!cost||!minimum)return result(false,'UCS_LOWEST_PATH_COST_REASON_MISSING');
   return result(true,'');
 };
