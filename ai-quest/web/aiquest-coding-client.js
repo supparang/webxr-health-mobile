@@ -2,7 +2,7 @@
   'use strict';
 
   /* =========================================================
-   * CSAI2102 AI Quest Coding Client v3.2.8
+   * CSAI2102 AI Quest Coding Client v3.2.9
    * Compatibility guard for production Apps Script deployments
    * that do not yet route GET_LAB_CONFIG.
    *
@@ -15,26 +15,26 @@
   var ORIGINAL_FETCH = global.fetch ? global.fetch.bind(global) : null;
 
   var LAB_CONFIG_FALLBACK = Object.freeze({
-    S1:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']]},
-    S2:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']]},
-    S3:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']]},
-    B1:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',allowCombinedPredictReason:true,expected:'search_new_route',pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']]},
-    S4:{predictionValidation:'S4_FIRST_POP_PREDICT_V1',outputValidation:'S4_UCS_GOAL_COST_V1',expected:'D 6',pg:[['d'],['6']]},
-    S5:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',expected:'B 4',pg:[['b'],['4']]},
-    S6:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'S6_NUMERIC_RESULT_V1',expected:'3',pg:[['3']]},
-    B2:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',expected:'A*',pg:[['a*','astar','a star']]},
-    S7:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']]},
-    S8:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']]},
-    S9:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']]},
-    B3:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']]},
-    S10:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']]},
-    S11:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s11SupervisedOutputValidation:'S11_BASELINE_MODIFIED_V1',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']]},
-    S12:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']]},
-    B4:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']]},
-    S13:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']]},
-    S14:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',allowQTableUpdateEquivalent:true,expected:'0.55',pg:[['0.55']]},
-    S15:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']]},
-    B5:{predictionValidation:'AIQ_PREDICT_PARITY_V1',outputValidation:'STRUCTURED_OUTPUT_V2',b5StructuredPrivacyValidation:'B5_STRUCTURED_PRIVACY_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']]}
+    S1:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'High temperature alert',pg:[['rule-based automation','rule based automation','rule-based ai','rule based ai','ระบบอัตโนมัติแบบกฎ','ระบบตามกฎ','กฎตายตัว']]},
+    S2:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'clean',pg:[['model-based','model based','internal state','สถานะภายใน','ตัวแทนแบบใช้แบบจำลอง']]},
+    S3:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:"['A', 'B', 'C', 'D', 'E']",pg:[['bfs'],['dfs']]},
+    B1:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',allowCombinedPredictReason:true,expected:'search_new_route',pg:[['agent','ตัวแทน'],['search','bfs','การค้นหา']]},
+    S4:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'S4_UCS_GOAL_COST_V1',expected:'D 6',pg:[['d'],['6']]},
+    S5:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s5StarterPredictValidation:'S5_BRACKET_NUMERIC_V1',expected:'B 4',pg:[['b'],['4']]},
+    S6:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'S6_NUMERIC_RESULT_V1',expected:'3',pg:[['3']]},
+    B2:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',b2StrategyReasonValidation:'B2_STRATEGY_REASON_V1',expected:'A*',pg:[['a*','astar','a star']]},
+    S7:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'can_fly',pg:[['can_fly','can fly','บินได้']]},
+    S8:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.154',pg:[['0.154']]},
+    S9:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s9ScenarioBatchValidation:'S9_SCENARIO_BATCH_V1',expected:'recommend_checkup',pg:[['recommend_checkup','recommend checkup','ตรวจสุขภาพ','แนะนำตรวจ']]},
+    B3:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'high_risk_with_evidence',pg:[['high_risk_with_evidence','high risk','ความเสี่ยงสูง'],['evidence','หลักฐาน']]},
+    S10:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'8 2',pg:[['8'],['2']]},
+    S11:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',s11SupervisedOutputValidation:'S11_BASELINE_MODIFIED_V1',expected:'[0, 1, 1]',pg:[['[0, 1, 1]','0 1 1']]},
+    S12:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'[0, 0, 1, 1]',pg:[['[0, 0, 1, 1]','0 0 1 1']]},
+    B4:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'overfitting',pg:[['overfitting','overfit','เรียนเกิน','โอเวอร์ฟิต']]},
+    S13:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'0.1',pg:[['0.1']]},
+    S14:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',allowQTableUpdateEquivalent:true,expected:'0.55',pg:[['0.55']]},
+    S15:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',expected:'RAG retrieves evidence',pg:[['rag'],['retriev','evidence','หลักฐาน','ค้นคืน']]},
+    B5:{predictionValidation:'AIQ_REFLECTION_V1',outputValidation:'STRUCTURED_OUTPUT_V2',b5StructuredPrivacyValidation:'B5_STRUCTURED_PRIVACY_V2',expected:'review_with_evidence',pg:[['review_with_evidence','human review','human_review','ตรวจโดยมนุษย์','ทบทวนโดยมนุษย์'],['evidence','หลักฐาน']]}
   });
 
   function safeJson_(value){
@@ -61,7 +61,7 @@
       challengePolicy:'optional-bonus-20',
       compatibilityFallback:true,
       fallbackReason:String(reason || 'legacy-router'),
-      version:'20260901-AIQ-CODING-CLIENT-V3.2.8-CONFIG-FALLBACK'
+      version:'20261102-AIQ-CODING-CLIENT-V3.2.9-REFLECTION-FALLBACK'
     } : {
       ok:false,
       code:'LAB_NOT_AVAILABLE',
