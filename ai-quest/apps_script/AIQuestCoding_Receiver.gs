@@ -253,7 +253,7 @@ AIQCODING.b2StrategyReasonOutputV1_ = function(output) {
   if(invalid)return response(false,'B2_DUPLICATE_OR_EMPTY_FIELD');
   var all=[decision||'',reason||'',free.join(' ')].join(' ');
   var heuristic=/\bheuristic\b|ฮิวริสติก|ฮิวริสติค/i.test(all);
-  var opponentOff=/\\bopponent\\s*=\\s*false\\b|ไม่มีคู่แข่ง|ไม่ใช้คู่แข่ง|ไม่มีปัจจัย.{0,50}ฝ่ายตรงข้าม|ไม่พิจารณา.{0,50}ฝ่ายตรงข้าม/i.test(all);
+  var opponentOff=/\bopponent\s*=\s*false\b|ไม่มีคู่แข่ง|ไม่ใช้คู่แข่ง|ไม่มีปัจจัย.{0,50}ฝ่ายตรงข้าม|ไม่พิจารณา.{0,50}ฝ่ายตรงข้าม/i.test(all);
   var aStar=/\ba\s*\*|\bastar\b|a[\s_-]*star|เอสตาร์/i.test(all);
   var other=/(?:เลือกใช้|เลือก|ใช้|choose|select)\s+(?:BFS|DFS|UCS|Minimax)\b/i.test(all);
   if(other)return response(false,'B2_CONFLICTING_STRATEGY');
