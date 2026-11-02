@@ -17,7 +17,7 @@ function TEST_AIQ_CODING_RELEASE_GATE_ALL20_READONLY_V1(){
  expectedOrder.forEach(function(s){
   var rule=rules[s];if(!rule){errors.push({stage:s,check:'RULE_MISSING'});return;}
   counts.stages++;
-  if(!rule.predictQuestion||rule.predictionValidation!==(s==='S4'?'S4_FIRST_POP_PREDICT_V1':'AIQ_PREDICT_PARITY_V1')||
+  if(!rule.predictQuestion||rule.predictionValidation!=='AIQ_REFLECTION_V1'||
      !rule.expected||!rule.outputValidation)errors.push({stage:s,check:'RULE_CONTRACT_MISSING'});
   else counts.contract++;
   var prediction=s==='S4'?'A':rule.expected;
