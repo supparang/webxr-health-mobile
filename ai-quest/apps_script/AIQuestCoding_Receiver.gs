@@ -532,6 +532,7 @@ AIQCODING.structuredOutputEvidenceV2_ = function(stage,output) {
       if(/^-?\s*(?:matched\s+rule|facts\s+triggered|reason)\s*[:=]/i.test(line))return;
       // Explicit explanatory metadata is not a second result. Keep real
       // labeled decisions and contradictory output lines authoritative.
+      if(/^explanation\s+trace\s*[:：]\s*$/i.test(line))return;
       var note=/^(?:explanation|reason|rationale|คำอธิบาย|เหตุผล)\s*[:：]\s*(.*)$/i.exec(line);
       if(note){
         var detail=note[1].trim();
