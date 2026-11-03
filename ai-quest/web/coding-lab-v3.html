@@ -750,7 +750,9 @@ function structuredOutputEvidenceV2(stage,output) {
       // intermediate fly=True printed before Penguin conflict resolution.
       var finalFacts=lines.filter(function(line){return /^Facts\s+สรุปสุดท้ายหลังจากจัดการ\s+Conflict\s*:/i.test(line);});
       if(finalFacts.length){
-        var finalFly=finalFacts[finalFacts.length-1].match(/['"]?fly['"]?\s*:\s*(True|False|true|false)\b/);
+        var finalFly=finalFacts[finalFacts.length-1].match(
+  /(?:^|[,{])\s*['"]fly['"]\s*:\s*(True|False|true|false)\b/
+);
         if(!finalFly)return result(false,'S7_FINAL_FLY_VALUE_NOT_FOUND');
         return /^(?:False|false)$/.test(finalFly[1])?result(true):result(false,'S7_FINAL_FLY_VALUE_MISMATCH');
       }
