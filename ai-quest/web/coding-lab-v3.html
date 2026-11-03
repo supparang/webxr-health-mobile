@@ -703,11 +703,17 @@ function structuredOutputEvidenceV2(stage,output) {
     });
     outside.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(line){
       if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
+      // Supporting trace fields are not competing final decisions.
+      if(/^-?\s*(?:matched\s+rule|facts\s+triggered|reason)\s*[:=]/i.test(line))return;
       // Explicit explanatory metadata is not a second result. Keep real
       // labeled decisions and contradictory output lines authoritative.
+      if(/^explanation\s+trace\s*[:：]\s*$/i.test(line))return;
       var note=/^(?:explanation|reason|rationale|คำอธิบาย|เหตุผล)\s*[:：]\s*(.*)$/i.exec(line);
       if(note){
         var detail=note[1].trim();
+        // Completed Code prints an empty "Explanation Trace:" heading,
+        // followed by separately labeled evidence metadata.
+        if(!detail&&/^explanation\s+trace$/i.test(line.replace(/[:：]\s*$/,'')))return;
         var embeddedDecision=/(?:^|[\s;|])(?:recommendation|decision|action|result|output|answer|classification|diagnosis|strategy|choice|selected|final_decision)\s*[:=]/i.test(detail);
         if(!detail||embeddedDecision)bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
         return;
@@ -754,18 +760,24 @@ function structuredOutputEvidenceV2(stage,output) {
     case 'S9':{var batch=s9ScenarioBatchEvidenceV1(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
     case 'B3':return category(function(v){return /^(?:high[_\s-]*risk[_\s-]*with[_\s-]*evidence|high\s+risk\s+(?:and|with)\s+evidence|ความเสี่ยงสูงพร้อมหลักฐาน)$/i.test(v)?'expected':'';});
     case 'S10':{
-      var pairs=[],train=[],test=[];
+      var pairs=[],train=[],validation=[],test=[];
       lines.forEach(function(line){
         var text=take(line),m=text.match(/^(\d+)\s*(?:,|\s+)\s*(\d+)$/);
         if(m)pairs.push([Number(m[1]),Number(m[2])]);
-        var tr=line.match(/\btrain(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
-        var te=line.match(/\btest(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var tr=line.match(/\btrain(?:ing)?(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var va=line.match(/\bvalidation(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var te=line.match(/\btest(?:ing)?(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
         if(tr)train.push(Number(tr[1]));
+        if(va)validation.push(Number(va[1]));
         if(te)test.push(Number(te[1]));
       });
-      if(train.length||test.length){
+      if(train.length||validation.length||test.length){
         if(!train.length||!test.length)return result(false,'SPLIT_MISSING_COMPONENT');
-        if(train.some(function(x){return x!==8;})||test.some(function(x){return x!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
+        if(validation.length){
+          if(validation.some(function(x){return x!==2;})||train.some(function(x){return x!==6;})||test.some(function(x){return x!==2;}))
+            return result(false,'SPLIT_COUNT_MISMATCH');
+        }else if(train.some(function(x){return x!==8;})||test.some(function(x){return x!==2;}))
+          return result(false,'SPLIT_COUNT_MISMATCH');
       }
       if(pairs.some(function(p){return p[0]!==8||p[1]!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
       return (pairs.length||(train.length&&test.length))?result(true):result(false,'SPLIT_NOT_FOUND');
