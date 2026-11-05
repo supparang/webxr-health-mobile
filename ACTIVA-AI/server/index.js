@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
+import { createSecurityMonitor, routeTemplateForLog } from "./security-monitor.js";
 import { prisma } from "./db.js";
 import { registerGuestPublicRoutes, registerGuestAdminRoutes } from "./guest.js";
 import { classificationForNewActivity, EMPIRICAL_ATTENDANCE_FILTER, EMPIRICAL_LOCKED_CASE_FILTER } from "./research-scope.js";
@@ -25,6 +26,7 @@ const qrTtl = Number(process.env.QR_TOKEN_TTL_SECONDS || 45);
 const ruleVersion = process.env.RULE_VERSION || "ACTIVA-RULES-0.2.0";
 
 const allowedOrigins = configuredOrigins();
+const securityMonitor = createSecurityMonitor();
 
 app.disable("x-powered-by");
 app.use((req, res, next) => {
@@ -34,13 +36,17 @@ app.use((req, res, next) => {
   res.set("X-Request-Id", requestId);
   const startedAt = process.hrtime.bigint();
   res.on("finish", () => {
-    if (!req.path.startsWith("/api/")) return;
+    // Express may rewrite req.path within mounted authentication middleware.
+    // Inspect the original path only to classify API traffic; log route templates.
+    if (!String(req.originalUrl || req.path || "").startsWith("/api/")) return;
+    securityMonitor.recordHttp(req, res.statusCode);
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
     console.log(JSON.stringify({
       type: "http_access",
       requestId,
       method: req.method,
-      path: req.path,
+      // Never write raw paths that may contain user IDs or arbitrary values.
+      path: routeTemplateForLog(req),
       status: res.statusCode,
       durationMs: Math.round(durationMs * 10) / 10,
       deploymentTier: deploymentTier()
@@ -254,6 +260,9 @@ async function audit(req, action, entityType, entityId, metadata = {}) {
       metadata,
     },
   });
+  // The database AuditLog retains the authorized actor/entity; provider logs
+  // record only the action class and request ID, never identity/metadata.
+  securityMonitor.recordAudit(action, req);
 }
 
 const RELEASE_VERSION = "ACTIVA-AI-1.0.15";
@@ -909,6 +918,12 @@ app.post("/api/public/blind-review/submit", async (req, res, next) => {
 registerGuestPublicRoutes(app,{prisma,verifyEventToken,checkinWindowState,checkoutWindowState});
 
 app.use("/api", attachActor);
+// Process-local aggregate only: counts and thresholds, no user/IP/token IDs.
+// The permanent operational record remains in the existing database AuditLog.
+app.get("/api/operations/security-summary", requireRoles("ADMIN"), (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({ok:true,monitor:securityMonitor.snapshot()});
+});
 registerGuestAdminRoutes(app,{prisma,requireRoles,audit});
 
 app.get("/api/me", async (req, res) => {

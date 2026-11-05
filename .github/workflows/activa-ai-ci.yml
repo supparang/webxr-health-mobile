@@ -102,6 +102,8 @@ jobs:
           node --check server/deployment-config.js
           node --check server/evidence.js
           node --check server/qr.js
+          node --check server/security-monitor.js
+          node --check tests/security-monitor.mjs
           node --check prisma/seed.js
           node --check tests/smoke.mjs
           node --check tests/demo-release-guard.mjs
@@ -126,6 +128,9 @@ jobs:
           node --check server/source-revision.js
           node --check tests/source-revision.mjs
           node --check blind-review.js
+
+      - name: S2.3 security logging and monitoring regression
+        run: node tests/security-monitor.mjs
 
       - name: Authentication readiness guard
         run: |
