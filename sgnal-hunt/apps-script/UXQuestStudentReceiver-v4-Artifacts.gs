@@ -258,23 +258,80 @@ function UXQ_normalizeReasonRetry_(payload) {
   });
 }
 
+/* Staging schema-safe artifact JSON: Google Sheets cells are limited to
+ * 50,000 characters. NEVER store a sliced/incomplete JSON string or
+ * silently drop the ninth Weekly Reflection field. */
+function UXQ_fullArtifactJson_(value) {
+  const serialized = JSON.stringify(value);
+  if (serialized.length > 49000) throw new Error('artifact_json_too_large');
+  return UXQ_text_(serialized, 49000);
+}
+
 function UXQ_normalizeArtifact_(payload) {
   const now = new Date(); const base = UXQ_baseRow_(payload, now);
-  const fields = Array.isArray(payload.artifactFields) ? payload.artifactFields.slice(0, 8) : [];
+  const source = Array.isArray(payload.artifactFields) ? payload.artifactFields : [];
+  if (source.length > 25) throw new Error('too_many_artifact_fields');
+  const fields = source.filter(function(field){return field && typeof field === 'object';})
+    .map(function(field) {
+      return {
+        key:UXQ_plainText_(field.key, 100),
+        label:UXQ_plainText_(field.label || field.key, 180),
+        value:UXQ_plainText_(field.value, 4000),
+        required:UXQ_bool_(field.required),
+        format:UXQ_plainText_(field.format, 40)
+      };
+    }).filter(function(field){return Boolean(field.key);});
+  const explicitReflection = fields.find(function(field) {
+    return field.key.toLowerCase() === 'reflection' && field.value.length > 0;
+  });
   const problem = UXQ_plainText_(payload.problemSeen, 1500);
   const reason = UXQ_plainText_(payload.uxReason, 1500);
   const fix = UXQ_plainText_(payload.fixAndTest, 1500);
-  const reflection = UXQ_plainText_(payload.reflection || [problem, reason, fix].filter(Boolean).join(' | '), 3000);
+  // Never manufacture a Reflection from problem/reason/fix.
+  // Top-level reflection without a separate explicit field remains unverified.
+  const reflection = UXQ_plainText_(
+    explicitReflection ? explicitReflection.value : payload.reflection, 3000);
+  const reflectionSource = explicitReflection ? 'explicit_artifact_field'
+    : reflection ? 'top_level_unverified' : 'absent';
   const learned = UXQ_plainText_(payload.learnedPoint || reason, 1500);
+  const serializedFields = UXQ_fullArtifactJson_(fields);
+  const rawJson = UXQ_fullArtifactJson_({
+    app:'ux-quest', schema:UXQ_plainText_(payload.schema || 'uxq.artifact.v1', 80),
+    eventType:'artifact_submitted', eventId:UXQ_plainText_(payload.eventId, 160),
+    attemptId:UXQ_plainText_(payload.attemptId, 160),
+    occurredAt:UXQ_plainText_(payload.occurredAt, 80),
+    missionId:UXQ_plainText_(payload.missionId || payload.nodeId, 24),
+    missionTitle:UXQ_plainText_(payload.missionTitle, 180),
+    caseId:UXQ_plainText_(payload.caseId, 100),
+    artifactType:UXQ_plainText_(payload.artifactType, 120),
+    problemSeen:problem, uxReason:reason, fixAndTest:fix,
+    reflection:reflection, reflectionSource:reflectionSource,
+    learnedPoint:learned, artifactFields:fields
+  });
   return Object.assign(base, {
-    passed: UXQ_bool_(payload.passed), score: UXQ_num_(payload.score), stars: UXQ_clamp_(UXQ_num_(payload.stars), 0, 3), accuracy: UXQ_clamp_(UXQ_num_(payload.accuracy), 0, 100), correct: UXQ_num_(payload.correct), total: UXQ_num_(payload.total), hints: UXQ_num_(payload.hints), durationSec: UXQ_num_(payload.durationSec),
-    maxCombo: '', attemptNo: '', badge: 'postgame debrief', caseIds: UXQ_jsonString_(payload.caseId ? [payload.caseId] : [], 800), completedAt: UXQ_text_(payload.completedAt || payload.occurredAt, 80),
-    rawJson: UXQ_jsonString_({ app:'ux-quest', schema:UXQ_plainText_(payload.schema || 'uxq.artifact.v1', 80), eventType:'artifact_submitted', eventId:UXQ_plainText_(payload.eventId, 160), attemptId:UXQ_plainText_(payload.attemptId, 160), occurredAt:UXQ_plainText_(payload.occurredAt, 80), missionId:UXQ_plainText_(payload.missionId || payload.nodeId, 24), missionTitle:UXQ_plainText_(payload.missionTitle, 180), caseId:UXQ_plainText_(payload.caseId, 100), artifactType:UXQ_plainText_(payload.artifactType, 120), problemSeen:problem, uxReason:reason, fixAndTest:fix, reflection:reflection, learnedPoint:learned, artifactFields:fields }, 8000),
-    verifiedCorrect: '', verifiedTotal: '', verifiedAccuracy: '', guessRisk: '', rapidAttemptFlag: '', learningFocus: UXQ_text_('Artifact submitted', 240),
-    artifactSubmitted: true, artifactType: UXQ_text_(payload.artifactType || 'postgame_debrief_3min', 120), problemSeen: UXQ_text_(problem, 1500), uxReason: UXQ_text_(reason, 1500), fixAndTest: UXQ_text_(fix, 1500), reflection: UXQ_text_(reflection, 3000), learnedPoint: UXQ_text_(learned, 1500), artifactFields: UXQ_jsonString_(fields, 5000), artifactSubmittedAt: UXQ_text_(payload.occurredAt || new Date().toISOString(), 80)
+    passed: UXQ_bool_(payload.passed), score: UXQ_num_(payload.score),
+    stars: UXQ_clamp_(UXQ_num_(payload.stars), 0, 3),
+    accuracy: UXQ_clamp_(UXQ_num_(payload.accuracy), 0, 100),
+    correct: UXQ_num_(payload.correct), total: UXQ_num_(payload.total),
+    hints: UXQ_num_(payload.hints), durationSec: UXQ_num_(payload.durationSec),
+    maxCombo: '', attemptNo: '', badge: 'postgame debrief',
+    caseIds: UXQ_jsonString_(payload.caseId ? [payload.caseId] : [], 800),
+    completedAt: UXQ_text_(payload.completedAt || payload.occurredAt, 80),
+    rawJson:rawJson,
+    verifiedCorrect: '', verifiedTotal: '', verifiedAccuracy: '',
+    guessRisk: '', rapidAttemptFlag: '',
+    learningFocus:UXQ_text_('Artifact submitted', 240),
+    artifactSubmitted:true,
+    artifactType:UXQ_text_(payload.artifactType || 'postgame_debrief_3min', 120),
+    problemSeen:UXQ_text_(problem, 1500),
+    uxReason:UXQ_text_(reason, 1500),
+    fixAndTest:UXQ_text_(fix, 1500),
+    reflection:UXQ_text_(reflection, 3000),
+    learnedPoint:UXQ_text_(learned, 1500),
+    artifactFields:serializedFields,
+    artifactSubmittedAt:UXQ_text_(payload.occurredAt || new Date().toISOString(), 80)
   });
 }
-
 function UXQ_rowValues_(row, actualHeaders) {
   const canonicalByKey = {}; UXQ_ATTEMPTS_HEADERS.forEach(function(header) { canonicalByKey[UXQ_headerKey_(header)] = header; });
   return actualHeaders.map(function(actualHeader) { const canonical = canonicalByKey[UXQ_headerKey_(actualHeader)]; if (!canonical) return ''; const value = row[canonical]; return value === null || value === undefined ? '' : value; });
