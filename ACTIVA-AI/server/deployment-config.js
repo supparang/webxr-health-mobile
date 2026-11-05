@@ -61,5 +61,18 @@ export function deploymentConfigurationErrors(env = process.env) {
   if (env.QR_SIGNING_SECRET && env.QR_SIGNING_SECRET === env.RESEARCH_HASH_SALT) errors.push("SIGNING_SECRET_AND_RESEARCH_SALT_MUST_DIFFER");
   if (env.ACTIVA_PRODUCTION_GO_ENABLED && !["true", "false"].includes(env.ACTIVA_PRODUCTION_GO_ENABLED)) errors.push("ACTIVA_PRODUCTION_GO_ENABLED_INVALID");
   if (tier === "STAGING" && productionGoEnabled(env)) errors.push("STAGING_REQUIRES_PRODUCTION_GO_DISABLED");
+  // The limiter is enabled by default in Production. Reject an explicit
+  // downgrade or a silently invalid quota configuration.
+  const limiterSwitch = String(env.ACTIVA_RATE_LIMIT_ENABLED || "").trim().toLowerCase();
+  if (limiterSwitch && !["true", "false"].includes(limiterSwitch)) {
+    errors.push("ACTIVA_RATE_LIMIT_ENABLED_INVALID");
+  }
+  if (tier === "PRODUCTION" && limiterSwitch === "false") {
+    errors.push("PRODUCTION_RATE_LIMIT_MUST_BE_ENABLED");
+  }
+  for (const name of ["ALL_IP", "GUEST_IP", "GUEST_PASS", "REVIEWER_IP", "REVIEWER_PASS", "ACTOR", "ACTOR_WRITE"]) {
+    const key = "ACTIVA_RATE_LIMIT_" + name;
+    if (!validIntegerRange(env[key], 1, 100000)) errors.push(key + "_INVALID");
+  }
   return errors;
 }
