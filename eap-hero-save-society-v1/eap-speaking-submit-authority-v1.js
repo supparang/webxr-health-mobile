@@ -188,12 +188,32 @@
       await postByForm(payload);
       setButtonState(btn,'รอ EAP_Progress ยืนยัน…',true);
       const resume=await waitForAck(person,route);
+      /* A successful Speaking ACK must update the *same official runtime*
+         used by the Session Path lock and Student Lobby. Merely copying the
+         resume into localStorage leaves EAPAuthorityRuntime at stale S1. */
+      let authorityApplied=false;
+      try {
+        if (window.EAPAuthorityRuntime &&
+            typeof window.EAPAuthorityRuntime.acceptResume==='function') {
+          authorityApplied=window.EAPAuthorityRuntime.acceptResume(resume)===true;
+        }
+        if (!authorityApplied && window.EAPPlayerResume &&
+            typeof window.EAPPlayerResume.applyCloudResponse==='function') {
+          authorityApplied=window.EAPPlayerResume.applyCloudResponse(resume)===true;
+        }
+      } catch (applyError) {
+        console.warn('[EAP Speaking Authority] Official resume apply failed',applyError);
+      }
       try{
         const state=readJson('EAP_HERO_PROGRESS_V3');
-        state.serverResume=resume; state.cloudResumeStatus='verified';
-        state.currentRoute=resume.currentRoute||state.currentRoute;
-        state.currentCloudRoute=resume.currentRoute||state.currentCloudRoute;
-        localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(state));
+        /* Never overwrite an authority-applied snapshot with an unscoped copy. */
+        if(!authorityApplied){
+          state.serverResume=resume;
+          state.cloudResumeStatus='verified';
+          state.currentRoute=resume.currentRoute||state.currentRoute;
+          state.currentCloudRoute=resume.currentRoute||state.currentCloudRoute;
+        }
+        if(!authorityApplied) localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(state));
       }catch(_){ }
       try{window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:resume}));}catch(_){ }
       setButtonState(btn,'✓ Speaking บันทึกแล้ว',true);

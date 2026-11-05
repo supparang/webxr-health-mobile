@@ -5,7 +5,19 @@ const page = await browser.newPage();
 const pageErrors=[];
 page.on('pageerror', e => pageErrors.push(String(e)));
 await page.goto(`${base}?eapqa=1`, {waitUntil:'domcontentloaded', timeout:60000});
-await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
+try {
+  await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:20000});
+} catch (error) {
+  const diagnostic = await page.evaluate(() => ({
+    url:location.href,
+    readyState:document.readyState,
+    qaLoaded:!!window.EAP15ReleaseQA,
+    lockGuardLoaded:!!window.EAPRoadmapLockGuard,
+    lobbyIsolationLoaded:!!window.EAPLobbyRouteIsolation,
+    scriptSources:Array.from(document.scripts).map(s=>s.src).filter(Boolean).slice(-30)
+  }));
+  throw new Error('Browser QA boot prerequisites missing: '+JSON.stringify({diagnostic,pageErrors,cause:String(error)}));
+}
 let report = await page.evaluate(() => window.EAP15ReleaseQA.run());
 if (!report.pass) throw new Error(`Browser QA errors: ${JSON.stringify(report.errors.slice(0,10))}`);
 let diag = await page.evaluate(() => window.EAPRoadmapLockGuard.diagnostics());
