@@ -102,6 +102,27 @@ jobs:
           node --check server/deployment-config.js
           node --check server/evidence.js
           node --check server/qr.js
+          node --check server/security-monitor.js
+          node --check tests/security-monitor.mjs
+          node --check server/security-alert-delivery.js
+          node --check tests/security-alert-delivery.mjs
+          node --check server/frontend-security.js
+          node --check login-redirect.js
+          node --check tests/frontend-csp.mjs
+          node --check tests/frontend-xss-dependencies.mjs
+          node --check tests/discover-cdn-integrity.mjs
+          node --check tests/browser-sri.mjs
+          node --check tests/browser-security-ci.mjs
+          node --check scripts/verify-staging-security.mjs
+          node --check tests/staging-security-preflight.mjs
+          node --check tests/staging-dispatch-contract.mjs
+          node --check scripts/assess-production-security.mjs
+          node --check tests/security-release-decision.mjs
+          node --check tests/security-consolidation-gate.mjs
+          node --check server/rate-limit.js
+          node --check tests/rate-limit.mjs
+          node --check tests/security-object-scope.mjs
+          node --check tests/security-integration.mjs
           node --check prisma/seed.js
           node --check tests/smoke.mjs
           node --check tests/demo-release-guard.mjs
@@ -126,6 +147,57 @@ jobs:
           node --check server/source-revision.js
           node --check tests/source-revision.mjs
           node --check blind-review.js
+
+      - name: S2.3 security logging and monitoring regression
+        run: node tests/security-monitor.mjs
+
+      - name: S2.4 security alert GitHub delivery mock tests
+        run: node tests/security-alert-delivery.mjs
+
+      - name: S2.2 API rate limiting and S2.5 combined security tests
+        run: |
+          node tests/rate-limit.mjs
+          node tests/security-integration.mjs
+
+      - name: S2.6 frontend CSP and XSS regression
+        run: node tests/frontend-csp.mjs
+
+      - name: S2.7 XSS data context and dependency provenance regression
+        run: node tests/frontend-xss-dependencies.mjs
+
+      - name: S2.8 enforce QR browser SRI script inventory
+        run: node tests/browser-sri.mjs
+
+      - name: S2.8 verify exact live QR CDN integrity and CORS
+        run: node tests/discover-cdn-integrity.mjs
+
+      - name: S2.10 exact-approved Staging read-only security preflight (mock only)
+        run: node tests/staging-security-preflight.mjs
+
+      - name: S2.11 manual-only approved Staging workflow contract
+        run: node tests/staging-dispatch-contract.mjs
+
+      - name: S2.12 evidence-only security decision regression
+        run: node tests/security-release-decision.mjs
+
+      - name: S2.12 publish truthful HOLD from current evidence template
+        run: |
+          mkdir -p test-results
+          node scripts/assess-production-security.mjs --input security/s2.12-review-input.template.json > test-results/s2.12-software-security-decision.json
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import {readFileSync} from "node:fs";
+            const r=JSON.parse(readFileSync("test-results/s2.12-software-security-decision.json","utf8"));
+            assert.equal(r.decision,"HOLD");
+            assert.equal(r.productionGoApproved,false);
+            assert.equal(r.mergeApproved,false);
+            assert.equal(r.researchEthicsApproved,false);
+            assert(r.blockers.length>=13);
+            console.log("S2.12 verified evidence result: HOLD / Production GO false");
+          '
+
+      - name: S2.13 consolidated main-branch security integration invariant
+        run: node tests/security-consolidation-gate.mjs
 
       - name: Authentication readiness guard
         run: |
@@ -206,6 +278,9 @@ jobs:
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
 
+      - name: S2.1 authorization object-scope regression
+        run: node tests/security-object-scope.mjs
+
       - name: External blind reviewer end-to-end test
         run: node tests/blind-review.mjs
 
@@ -217,6 +292,26 @@ jobs:
 
       - name: Demo release guard regression test
         run: node tests/demo-release-guard.mjs
+
+      - name: S2.9 install pinned browser test driver (CI only)
+        run: |
+          command -v google-chrome
+          google-chrome --version
+          npm install --no-save --package-lock=false --ignore-scripts playwright-core@1.56.1
+
+      - name: S2.9 actual headless Chromium browser security verification
+        env:
+          ACTIVA_CHROME_BIN: /usr/bin/google-chrome
+        run: node tests/browser-security-ci.mjs
+
+      - name: S2.9 archive synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: activa-s2-9-browser-security-evidence
+          path: ACTIVA-AI/test-results/s2-9-browser-security.json
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Setup Python for ML pipeline
         uses: actions/setup-python@v5

@@ -1,0 +1,19 @@
+{
+  "verifiedFrom": "ACTIVA-AI GitHub Actions run 38598792975, 2026-10-14 UTC",
+  "assets": [
+    {
+      "id": "qrcodejs-1.0.0",
+      "url": "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+      "bytes": 19927,
+      "sha384": "sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU",
+      "sha256": "c541ef06327885a8415bca8df6071e14189b4855336def4f36db54bde8484f36"
+    },
+    {
+      "id": "html5-qrcode-2.3.8",
+      "url": "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js",
+      "bytes": 375364,
+      "sha384": "sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+",
+      "sha256": "660b12437b1d747e3e68b8be0685c08cb728140110ad213f167b14b66f8b1d8e"
+    }
+  ]
+}

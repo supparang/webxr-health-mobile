@@ -1,5 +1,6 @@
 // Configuration checks expose key names only, never environment values.
 import { validGoogleClientId, validGoogleDomain, validGoogleEmail } from "./google-config.js";
+import { securityAlertDeliveryErrors } from "./security-alert-delivery.js";
 export function productionGoEnabled(env = process.env) {
   return env.ACTIVA_PRODUCTION_GO_ENABLED === "true";
 }
@@ -61,5 +62,14 @@ export function deploymentConfigurationErrors(env = process.env) {
   if (env.QR_SIGNING_SECRET && env.QR_SIGNING_SECRET === env.RESEARCH_HASH_SALT) errors.push("SIGNING_SECRET_AND_RESEARCH_SALT_MUST_DIFFER");
   if (env.ACTIVA_PRODUCTION_GO_ENABLED && !["true", "false"].includes(env.ACTIVA_PRODUCTION_GO_ENABLED)) errors.push("ACTIVA_PRODUCTION_GO_ENABLED_INVALID");
   if (tier === "STAGING" && productionGoEnabled(env)) errors.push("STAGING_REQUIRES_PRODUCTION_GO_DISABLED");
+  // S2.2 Production rate protection cannot be disabled by configuration.
+  const limiterSwitch = String(env.ACTIVA_RATE_LIMIT_ENABLED || "").trim().toLowerCase();
+  if (limiterSwitch && !["true","false"].includes(limiterSwitch)) errors.push("ACTIVA_RATE_LIMIT_ENABLED_INVALID");
+  if (tier === "PRODUCTION" && limiterSwitch === "false") errors.push("PRODUCTION_RATE_LIMIT_MUST_BE_ENABLED");
+  for (const name of ["ALL_IP","GUEST_IP","GUEST_PASS","REVIEWER_IP","REVIEWER_PASS","ACTOR","ACTOR_WRITE"]) {
+    const key = "ACTIVA_RATE_LIMIT_" + name;
+    if (!validIntegerRange(env[key], 1, 100000)) errors.push(key + "_INVALID");
+  }
+  errors.push(...securityAlertDeliveryErrors(env));
   return errors;
 }

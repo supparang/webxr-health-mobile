@@ -363,18 +363,18 @@
     const open = shouldOpenNavGroup(group, storedState);
     const active = groupHasActive(group);
     const items = group.items.map(([key,label]) =>
-      '<button data-view="'+key+'" class="nav-item '+(activeView===key?"active":"")+'">'+label+'</button>'
+      '<button data-view="'+esc(key)+'" class="nav-item '+(activeView===key?"active":"")+'">'+esc(label)+'</button>'
     ).join("");
 
     const systemItems = group.key === "system"
       ? '<button id="logout" class="nav-item nav-logout">ออกจากระบบ</button>'
       : items;
 
-    return '<section class="nav-group '+(active?"has-active":"")+'" data-nav-group="'+group.key+'">'+
-      '<button type="button" class="nav-group-toggle" data-nav-toggle="'+group.key+'" aria-expanded="'+(open?"true":"false")+'">'+
+    return '<section class="nav-group '+(active?"has-active":"")+'" data-nav-group="'+esc(group.key)+'">'+
+      '<button type="button" class="nav-group-toggle" data-nav-toggle="'+esc(group.key)+'" aria-expanded="'+(open?"true":"false")+'">'+
         '<span>'+esc(group.label)+'</span><span class="nav-chevron" aria-hidden="true">⌄</span>'+
       '</button>'+
-      '<div class="nav-group-items" data-nav-items="'+group.key+'" '+(open?"":"hidden")+'>'+systemItems+'</div>'+
+      '<div class="nav-group-items" data-nav-items="'+esc(group.key)+'" '+(open?"":"hidden")+'>'+systemItems+'</div>'+
     '</section>';
   }
 
@@ -399,8 +399,8 @@
         '<div class="version">V1.0.15 • Google OIDC + Backend Connection Layer</div>'+
       '</aside>'+
       '<main class="main">'+
-        '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
-        '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+roleLabel(session.role)+'</span></div></div>'+
+        '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+esc(viewTitle())+'</h1></div>'+
+        '<div class="top-actions"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><span class="badge">'+esc(session.name)+' • '+esc(roleLabel(session.role))+'</span></div></div>'+
         '<div id="view"></div>'+
       '</main></div>';
   }
@@ -1211,10 +1211,10 @@
   }
 
   function field(label,id,placeholder,type,value) {
-    return '<div class="field"><label>'+esc(label)+'</label><input id="'+id+'" type="'+(type||"text")+'" placeholder="'+esc(placeholder||"")+'" value="'+esc(value||"")+'"></div>';
+    return '<div class="field"><label>'+esc(label)+'</label><input id="'+esc(id)+'" type="'+esc(type||"text")+'" placeholder="'+esc(placeholder||"")+'" value="'+esc(value||"")+'"></div>';
   }
   function check(id,label,on) {
-    return '<label class="check"><input type="checkbox" id="'+id+'" '+(on?"checked":"")+'> '+esc(label)+'</label>';
+    return '<label class="check"><input type="checkbox" id="'+esc(id)+'" '+(on?"checked":"")+'> '+esc(label)+'</label>';
   }
   const checked = (id) => document.getElementById(id).checked;
 
@@ -1245,7 +1245,7 @@
       ["ADMIN","ผู้ดูแลระบบ IT / Governance"]
     ];
     return roles.map(([value,label]) =>
-      '<option value="'+value+'" '+(value===selected?"selected":"")+'>'+label+'</option>'
+      '<option value="'+esc(value)+'" '+(value===selected?"selected":"")+'>'+esc(label)+'</option>'
     ).join("");
   }
 
@@ -1344,18 +1344,18 @@
       document.getElementById("userList").innerHTML=
         '<div class="table-wrap desktop-attendance"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>ตำแหน่ง</th><th>หน่วยงาน</th><th>บทบาทระบบ</th><th>สถานะ</th><th></th></tr></thead><tbody>'+
         visible.map(u=>'<tr><td>'+esc(u.employeeId)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.positionTitle||"—")+'</td><td>'+esc(u.department?.name||"—")+'</td><td>'+esc(roleLabel(u.role))+'</td><td>'+statusBadge(u.status==="ACTIVE"?"CONSISTENT":"INCOMPLETE")+' '+esc(userStatusLabel(u.status))+'</td><td>'+
-          '<button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button> '+
-          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button> '+
-          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+          '<button class="btn mini secondary editUser" data-id="'+esc(u.id)+'">แก้ไข</button> '+
+          '<button class="btn mini secondary permUser" data-id="'+esc(u.id)+'">สิทธิ์กิจกรรม</button> '+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+esc(u.id)+'" data-status="'+esc(u.status)+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
         '</td></tr>').join("")+'</tbody></table></div>'+
         '<div class="attendance-cards">'+visible.map(u=>
           '<article class="attendance-card"><div class="attendance-card-head"><div><b>'+esc(u.employeeId)+'</b><div>'+esc(u.name)+'</div></div>'+
           '<span class="status '+(u.status==="ACTIVE"?"s-ok":"s-warn")+'">'+esc(userStatusLabel(u.status))+'</span></div>'+
           '<div class="attendance-meta"><span><b>ตำแหน่ง</b>'+esc(u.positionTitle||"—")+'</span><span><b>หน่วยงาน</b>'+esc(u.department?.name||"—")+'</span><span><b>บทบาทระบบ</b>'+esc(roleLabel(u.role))+'</span></div>'+
           (u.email?'<div class="muted">'+esc(u.email)+'</div>':'')+
-          '<div class="actions"><button class="btn mini secondary editUser" data-id="'+u.id+'">แก้ไข</button>'+
-          '<button class="btn mini secondary permUser" data-id="'+u.id+'">สิทธิ์กิจกรรม</button>'+
-          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+u.id+'" data-status="'+u.status+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
+          '<div class="actions"><button class="btn mini secondary editUser" data-id="'+esc(u.id)+'">แก้ไข</button>'+
+          '<button class="btn mini secondary permUser" data-id="'+esc(u.id)+'">สิทธิ์กิจกรรม</button>'+
+          (u.employeeId!==session.employeeId?'<button class="btn mini '+(u.status==="ACTIVE"?"bad":"ok")+' toggleUser" data-id="'+esc(u.id)+'" data-status="'+esc(u.status)+'">'+(u.status==="ACTIVE"?"ปิดใช้งาน":"เปิดใช้งาน")+'</button>':'')+
           '</div></article>'
         ).join("")+'</div>';
 
@@ -1386,7 +1386,7 @@
           '<div class="panel permission-editor"><div class="section-head"><div><h2>สิทธิ์การกำหนดกิจกรรม</h2>'+
           '<p><b>'+esc(u.employeeId+" • "+u.name)+'</b></p></div><button class="btn mini secondary" id="closePerm">ปิด</button></div>'+
           '<div class="permission-grid">'+ACTIVITY_PERMISSION_DEFS.map(([key,label,desc])=>
-            '<label class="permission-option"><input type="checkbox" data-permission="'+key+'" '+(activeKeys.includes(key)?"checked":"")+'>'+
+            '<label class="permission-option"><input type="checkbox" data-permission="'+esc(key)+'" '+(activeKeys.includes(key)?"checked":"")+'>'+
             '<span><b>'+esc(label)+'</b><small>'+esc(desc)+'</small><code>'+esc(key)+'</code></span></label>'
           ).join("")+'</div>'+
           '<div class="form-grid" style="margin-top:14px">'+
@@ -2007,7 +2007,7 @@
         '<td>'+fmt(a.startAt)+'<br>ถึง '+fmt(a.endAt)+'<br><span class="muted">Check-in '+fmt(a.checkinOpenAt||new Date(new Date(a.startAt).getTime()-30*60000))+' → '+fmt(a.checkinCloseAt||new Date(new Date(a.startAt).getTime()+30*60000))+'</span></td>'+
         '<td>'+esc(a.location)+'</td>'+
         '<td>'+esc(primary)+'</td>'+
-        '<td>'+esc(participationModeLabel(a.participationMode))+(a.participationMode==="ROSTER"?' • '+count+' คน':'')+'</td>'+
+        '<td>'+esc(participationModeLabel(a.participationMode))+(a.participationMode==="ROSTER"?' • '+esc(count)+' คน':'')+'</td>'+
         '<td>'+esc(policyText(a.policy))+'</td><td>'+manage+'</td></tr>';
     };
     const cards=items.map(a=>{
@@ -2046,12 +2046,12 @@
     return '<div class="assignment-tools">'+
       '<div class="field"><label>ค้นหาเพื่อเลือกรายชื่อ</label><input id="'+searchId+'" class="assignment-search" placeholder="พิมพ์รหัสหรือชื่อ เช่น '+esc(exampleCode||"P001")+'"></div>'+
       '<div class="assignment-selection-bar"><span id="'+countId+'" class="status s-info">เลือก '+selected.size+' คน</span>'+
-      (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+className+'">ล้างที่เลือก</button>':'')+
+      (!disabled?'<button type="button" class="btn mini secondary clearAssignmentSelection" data-target="'+esc(className)+'">ล้างที่เลือก</button>':'')+
       '</div></div>'+
       '<div id="'+countId+'Names" class="assignment-selected-summary"><b>รายชื่อที่เลือกจริง:</b> '+esc(selectedText)+'</div>'+
       '<div id="'+countId+'Hidden" class="alert warn assignment-hidden-warning" style="display:none"></div>'+
-      '<div class="assignment-list" data-search-for="'+searchId+'">'+users.map(u=>
-      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+className+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
+      '<div class="assignment-list" data-search-for="'+esc(searchId)+'">'+users.map(u=>
+      '<label class="assignment-person" data-search="'+esc((u.employeeId+" "+u.name+" "+(u.department?.name||"")).toLowerCase())+'"><input type="checkbox" class="'+esc(className)+'" data-label="'+esc(u.employeeId+" • "+u.name)+'" value="'+esc(u.id)+'" '+(selected.has(u.id)?"checked":"")+' '+(disabled?"disabled":"")+'>'+
       '<span><b>'+esc(u.employeeId+" • "+u.name)+'</b><small>'+esc(u.department?.name||"ไม่ระบุหน่วยงาน")+'</small></span></label>'
     ).join("")+'</div>';
   }
@@ -2124,7 +2124,7 @@
 
       const bindAssignmentTools=(searchId,className,countId)=>{
         const input=document.getElementById(searchId);
-        const list=host.querySelector('.assignment-list[data-search-for="'+searchId+'"]');
+        const list=host.querySelector('.assignment-list[data-search-for="'+esc(searchId)+'"]');
         const count=document.getElementById(countId);
         const summary=document.getElementById(countId+"Names");
         const hiddenWarning=document.getElementById(countId+"Hidden");
@@ -2285,7 +2285,7 @@
     v.innerHTML =
       '<div class="panel"><h2>Dynamic Event QR</h2>'+
       '<div class="event-toolbar">'+
-        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label>เลือกกิจกรรม</label><select id="qrAct">'+activities.map(a => '<option value="'+esc(a.id)+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ประเภท QR</label><select id="qrPurpose"><option value="CHECKIN">QR สำหรับ Check-in</option><option value="CHECKOUT">QR สำหรับ Check-out</option></select></div>'+
       '</div>'+
       '<div id="qrWindowInfo"></div>'+
@@ -2587,8 +2587,8 @@
         '</div>'+
         '<div class="compact-reason"><b>เหตุผล/ข้อสังเกต:</b> '+esc(evidenceReasonText(reasons)||"ไม่มี")+'</div>'+
         (actionButtons?'<div class="actions compact-actions">'+
-          '<button class="btn mini secondary dashManageBtn" data-id="'+r.id+'">จัดการรายการ</button>'+
-          '<button class="btn mini primary dashEvalBtn" data-id="'+r.id+'" '+(!r.checkoutAt?'disabled title="รอ Check-out ก่อนประเมินหลักฐาน"':(r.staffVerification?"":"title=\"ยังไม่มีการยืนยันโดยเจ้าหน้าที่\""))+'>'+(!r.checkoutAt?'รอ Check-out':'ประเมินหลักฐาน')+'</button>'+
+          '<button class="btn mini secondary dashManageBtn" data-id="'+esc(r.id)+'">จัดการรายการ</button>'+
+          '<button class="btn mini primary dashEvalBtn" data-id="'+esc(r.id)+'" '+(!r.checkoutAt?'disabled title="รอ Check-out ก่อนประเมินหลักฐาน"':(r.staffVerification?"":"title=\"ยังไม่มีการยืนยันโดยเจ้าหน้าที่\""))+'>'+(!r.checkoutAt?'รอ Check-out':'ประเมินหลักฐาน')+'</button>'+
         '</div>':'')+
       '</div>'+
     '</details>';
@@ -2634,7 +2634,7 @@
     v.innerHTML =
       participantResponsePanel(rows)+
       '<div class="split"><div class="panel"><h2>Check-in</h2>'+
-      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+a.id+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>กิจกรรม</label><select id="ciAct">'+activities.map(a => '<option value="'+esc(a.id)+'">'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
       '<div class="field" style="margin-top:10px"><label>ผู้เข้าร่วม</label><select id="ciUser">'+participants.map(u => '<option value="'+esc(u.employeeId)+'">'+esc(u.employeeId+" • "+u.name)+'</option>').join("")+'</select>'+
       '<small class="muted">Dynamic QR สำหรับ Check-in ของตนเองเท่านั้น ไม่ว่าบัญชีจะเป็น Owner / Co-organizer / Reviewer / Participant</small></div>'+
       '<div id="ciLockMsg"></div>'+
@@ -2654,7 +2654,7 @@
       '<div class="panel" id="recordActionsPanel"><h2>Check-out / Reviewer Verification</h2>'+
       '<div class="field"><label>รายการเข้าร่วม</label><select id="coRecord">'+
         (rows.length
-          ? rows.map(r => '<option value="'+r.id+'">'+esc(recordOptionLabel(r))+'</option>').join("")
+          ? rows.map(r => '<option value="'+esc(r.id)+'">'+esc(recordOptionLabel(r))+'</option>').join("")
           : '<option value="">ยังไม่มีรายการ Check-in ใน Demo storage นี้</option>')+
       '</select></div>'+
       '<div class="actions"><button class="btn secondary mini" id="refreshAttendanceRows">↻ รีเฟรชรายการ Check-in</button></div>'+
@@ -2790,7 +2790,7 @@
           '<div class="event-stat"><b>'+summary.verified+'</b><span>รับรองแล้ว</span></div>'+
         '</div>'+
         '<div class="filter-chips">'+filters.map(([key,label,count])=>
-          '<button class="filter-chip '+(dashboardState.filter===key?'active':'')+'" data-filter="'+key+'">'+esc(label)+' <span>'+count+'</span></button>'
+          '<button class="filter-chip '+(dashboardState.filter===key?'active':'')+'" data-filter="'+esc(key)+'">'+esc(label)+' <span>'+esc(count)+'</span></button>'
         ).join("")+'</div>'+
         '<div class="result-meta">แสดง '+pageRows.length+' จาก '+filtered.length+' รายการ'+
           (dashboardState.filter==="NEEDS_REVIEW"?'<span class="exception-note"> • โหมด Exception-first</span>':'')+
@@ -3360,7 +3360,7 @@
         seedSyntheticQa.textContent="กำลังสร้างเคสทดสอบ…";
         try{
           const result=await api("/api/demo/qa-cases",{method:"POST"});
-          if(msg)msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบแล้ว</b><br>'+(result.idempotent?'ชุด Synthetic QA มีอยู่แล้ว ไม่สร้างซ้ำ':'สร้าง '+result.created+' เคสเรียบร้อย')+' • ไม่กระทบ Ground Truth ที่ Lock แล้ว</div>';
+          if(msg)msg.innerHTML='<div class="alert ok"><b>พร้อมทดสอบแล้ว</b><br>'+(result.idempotent?'ชุด Synthetic QA มีอยู่แล้ว ไม่สร้างซ้ำ':'สร้าง '+esc(result.created)+' เคสเรียบร้อย')+' • ไม่กระทบ Ground Truth ที่ Lock แล้ว</div>';
           sessionStorage.setItem(SELECTED_ACTIVITY_KEY,result.activityId);
           setTimeout(()=>renderEvidence(v),350);
         }catch(e){
@@ -3602,7 +3602,7 @@
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="VERIFIED").length+'</b><span>รับรองแล้ว</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="OVERRIDE_VERIFIED").length+'</b><span>กรณีพิเศษ</span></div>'+
         '<div class="event-stat"><b>'+scopedRows.filter(r=>reviewWorkflowStatus(r)==="REJECTED").length+'</b><span>ไม่รับรอง</span></div></div>'+
-        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+a.id+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
+        '<div class="event-toolbar"><div class="field"><label>กิจกรรม</label><select id="reviewActivity"><option value="ALL">ทุกกิจกรรม</option>'+activities.map(a=>'<option value="'+esc(a.id)+'" '+(state.activityId===a.id?'selected':'')+'>'+esc(activityChoiceLabel(a))+'</option>').join("")+'</select></div>'+
         '<div class="field"><label>ค้นหา</label><input id="reviewSearch" value="'+esc(state.search)+'" placeholder="รหัส / ชื่อ / กิจกรรม"></div></div>'+
         '<div class="filter-chips">'+[
           ["PENDING","รอดำเนินการ"],["WAIT_PARTICIPANT","รอข้อมูล"],["NOT_READY","รอประเมิน"],["HISTORY","ประวัติ"],["ALL","ทั้งหมด"]
@@ -3617,7 +3617,7 @@
             '<span class="compact-time">'+esc(r.activity?.title||"")+'</span><span class="compact-state"><span class="status '+(pendingStatus(status)?"s-bad":"s-info")+'">'+esc(reviewWorkflowLabel(status))+'</span>'+reviewAiBadge(prediction)+'</span></summary>'+
             '<div class="compact-detail"><div class="compact-evidence-grid"><span><b>เข้า</b>'+fmt(r.checkinAt)+'</span><span><b>ออก</b>'+fmt(r.checkoutAt)+'</span><span><b>Check-out QR</b>'+(r.checkoutQrValid?"✓":"✕")+'</span><span><b>Reviewer</b>'+(r.staffVerification?"✓":"✕")+'</span><span><b>ผลระบบ</b>'+statusBadge(evidenceStatusOf(r))+'</span><span><b>Final</b>'+statusBadge(finalStatusOf(r))+'</span><span><b>AI Priority</b>'+(prediction?Math.round(reviewAiRisk(prediction)*100)+'% • '+esc(prediction.predictedLabel):'—')+'</span></div>'+
             '<div class="compact-reason"><b>ข้อที่ต้องตรวจ:</b> '+esc(evidenceReasonText(blockers)||"ไม่มี")+'</div>'+
-            '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+r.id+'">'+(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(status)?"ดูประวัติการตัดสิน":"เปิดตรวจสอบ")+'</button></div></div></details>';
+            '<div class="actions"><button class="btn primary mini rvOpen" data-id="'+esc(r.id)+'">'+(["VERIFIED","OVERRIDE_VERIFIED","REJECTED"].includes(status)?"ดูประวัติการตัดสิน":"เปิดตรวจสอบ")+'</button></div></div></details>';
         }).join(""):'<div class="empty">'+esc(emptyReviewMessage)+'</div>')+'</div>'+
         '<div class="pagination"><button class="btn secondary mini" id="rvPrev" '+(state.page<=1?'disabled':'')+'>ก่อนหน้า</button><span>หน้า '+state.page+' / '+pages+'</span><button class="btn secondary mini" id="rvNext" '+(state.page>=pages?'disabled':'')+'>ถัดไป</button></div>';
 
@@ -3812,7 +3812,7 @@
       '<div class="panel"><h2>Ground Truth Workspace</h2>'+
       '<div class="hint"><b>Blinded independent labeling:</b> ผู้ประเมิน STAFF เห็นเฉพาะฉลากของตนเอง และ API ไม่ส่ง AI prediction หรือผล Rule Consistency มาที่หน้านี้</div>'+
       '<div class="hint"><b>Eligibility guard:</b> แสดงเฉพาะ Attendance ที่พร้อมติดป้ายแล้ว — Check-out เสร็จ หรือพ้น Check-out Window แล้ว และผู้ประเมินจะไม่เห็น Attendance ของตนเอง</div>'+
-      (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+r.id+'">'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):(r.userId||"CASE-"+r.id.slice(-8))))+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
+      (rows.length ? '<div class="field"><label>เลือกระเบียน</label><select id="gtRecord">'+rows.map(r => '<option value="'+esc(r.id)+'">'+esc((r.user?.employeeId||(r.guestParticipantId?"GUEST-"+r.guestParticipantId.slice(-8):(r.userId||"CASE-"+r.id.slice(-8))))+" • "+(r.activity?.title||""))+'</option>').join("")+'</select></div>'+
       '<div id="gtForm"></div>' : '<div class="empty">ยังไม่มีระเบียนสำหรับสร้าง Ground Truth</div>')+
       '</div>';
 
@@ -3928,7 +3928,7 @@
         '<p class="muted">ไม่แสดง Risk Probability, AI Recommendation หรือ Rule-Based Evidence Status ในพื้นที่นี้</p>'+
         '<h3>การติดป้ายโดยผู้ประเมิน</h3>'+
         '<div class="field"><label>Final Target</label><select id="gtTarget" '+(lockedCase?'disabled':'')+'><option value="NO_REVIEW_REQUIRED">NO_REVIEW_REQUIRED</option><option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option></select></div>'+
-        '<h3>Reason Codes (เลือกได้หลายข้อ)</h3><div class="policy">'+reasonCodes.map(code => '<label class="check"><input type="checkbox" class="gtReason" value="'+code+'" '+(lockedCase?'disabled':'')+'> '+code+'</label>').join("")+'</div>'+
+        '<h3>Reason Codes (เลือกได้หลายข้อ)</h3><div class="policy">'+reasonCodes.map(code => '<label class="check"><input type="checkbox" class="gtReason" value="'+esc(code)+'" '+(lockedCase?'disabled':'')+'> '+esc(code)+'</label>').join("")+'</div>'+
         '<div class="field" style="margin-top:12px"><label>หมายเหตุ</label><textarea id="gtNotes" '+(lockedCase?'disabled':'')+'></textarea></div>'+
         '<div class="actions"><button class="btn primary" id="gtSave" '+(lockedCase?'disabled':'')+'>บันทึก Independent Label</button></div><div id="gtMsg"></div>'+
         (lockedCase?'<div class="alert ok">Ground Truth นี้ถูก LOCK แล้ว ไม่สามารถแก้ฉลากหรือ adjudicate ซ้ำได้</div>':'')+
@@ -4284,9 +4284,9 @@
           .filter(k => tm[k] !== undefined && tm[k] !== null)
           .map(k => k+"="+Number(tm[k]).toFixed(3)).join(" • ");
         const actions = m.status==="EVALUATED"
-          ? '<button class="btn mini ok approveModel" data-id="'+m.id+'">Approve</button>'
+          ? '<button class="btn mini ok approveModel" data-id="'+esc(m.id)+'">Approve</button>'
           : m.status==="APPROVED"
-            ? '<button class="btn mini primary deployModel" data-id="'+m.id+'">Deploy</button>'
+            ? '<button class="btn mini primary deployModel" data-id="'+esc(m.id)+'">Deploy</button>'
             : '—';
         return '<tr><td><b>'+esc(m.version)+'</b></td><td>'+esc(m.modelFamily)+'</td><td>'+esc(m.dataProvenance)+'</td><td>'+statusBadge(m.status)+'</td><td>'+esc(metricText||"—")+'</td><td>'+esc(tests||"—")+'</td><td>'+actions+'</td></tr>';
       }).join("")+'</tbody></table></div>';
