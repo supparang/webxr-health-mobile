@@ -17,15 +17,12 @@ function assert(value, message) {
   if (!value) throw new Error(message);
 }
 
-assert(identity.includes('20260802-EAP-IDENTITY-V121-CANONICAL-ROSTER'), 'identity v121 marker missing');
-assert(identity.includes("'eap_word_roster'"), 'official roster must be eap_word_roster');
-assert(identity.includes("'eap_identity_map'"), 'alias map must be supported');
-assert(identity.includes("'profiles'"), 'legacy Hero fallback must remain available');
-assert(
-  identity.indexOf('eapIdentityRosterLookupV121_') < identity.indexOf('eapIdentityMapLookupV121_') &&
-  identity.indexOf('eapIdentityMapLookupV121_') < identity.indexOf('eapIdentityLegacyLookupV121_'),
-  'lookup order must be roster -> identity map -> legacy profiles'
-);
+assert(identity.includes('EAP Unified Identity Authority v123 FAST ROSTER') && identity.includes("var EAP_IDENTITY_V121 = '20260810-EAP-IDENTITY-V123-WORD-QUEST-SPREADSHEET-AUTHORITY'"), 'current roster-only identity v123 marker missing');
+assert(identity.includes("var EAP_IDENTITY_ROSTER_SHEET_V121 = 'eap_word_roster'"), 'official roster must be eap_word_roster');
+assert(identity.includes('function eapIdentityLookupV121_(params)'), 'compatible identity lookup entry point missing');
+assert(identity.includes('eapIdentityRosterIndexV122_(forceRefresh)'), 'identity lookup must use canonical roster index');
+assert(!identity.includes('function eapIdentityMapLookupV121_'), 'retired alias-map lookup must not return');
+assert(!identity.includes('function eapIdentityLegacyLookupV121_'), 'retired profiles fallback must not return');
 assert(router.includes("action === 'eap_identity_lookup'"), 'router missing unified action');
 assert(router.includes("action === 'eap_hero_profile_lookup'"), 'Hero legacy action must route through v121');
 assert(router.includes("action === 'eap_word_profile_lookup'"), 'Word legacy action must route through v121');
@@ -38,8 +35,8 @@ assert(!hero.includes("url.searchParams.set('action','eap_hero_profile_lookup')"
 
 console.log(JSON.stringify({
   ok: true,
-  contract: 'eap-identity-v121',
+  contract: 'eap-identity-v123-roster-only (v121-compatible action)',
   authority: 'eap_word_roster',
-  lookupOrder: ['eap_word_roster', 'eap_identity_map', 'profiles'],
+  lookupOrder: ['eap_word_roster'],
   clients: ['EAP Hero', 'EAP Word Quest legacy route']
 }, null, 2));

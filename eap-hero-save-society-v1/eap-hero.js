@@ -32025,11 +32025,15 @@
   function v84Snapshot(){
     const p=state.profile||{}, f=state.fun||{}, m=state.mastery||{};
     const portfolio=(Array.isArray(state.portfolio)?state.portfolio:[]).slice(-12).map(x=>({
-      id:String(x?.id||x?.evidenceId||''),sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
+      // Keep both IDs. The Storage Safety Guard later compacts portfolio
+      // records; dropping evidenceId here made a valid S1 attempt unverifiable
+      // after browser reload even when a fresh submission had been attempted.
+      id:String(x?.id||x?.evidenceId||''),evidenceId:String(x?.evidenceId||x?.id||''),
+      sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
       submittedAt:String(x?.submittedAt||x?.at||''),preview:String(x?.output||x?.evidenceText||'').slice(0,96)
     }));
     return {schema:'eap-v84',version:APP_VERSION,savedAt:new Date().toISOString(),view:String(state.view||'home').slice(0,24),currentSession:Number(state.currentSession||1)||1,
-      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),goal:String(p.goal||'').slice(0,120)},
+      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),section:String(p.section||'').slice(0,32),goal:String(p.goal||'').slice(0,120)},
       xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),sessionScores:compactSessionEvidence(state.sessionScores || {}),
       mastery:{Reading:Number(m.Reading||0)||0,Writing:Number(m.Writing||0)||0,Listening:Number(m.Listening||0)||0,Speaking:Number(m.Speaking||0)||0},
       fun:{coins:Number(f.coins||0)||0,daily:{lastDate:String(f.daily?.lastDate||'').slice(0,12),streak:Number(f.daily?.streak||0)||0}},
@@ -38445,10 +38449,34 @@
 
 
   function submitReadingGoalBuilderV84(id, answers){
-    const sid=Number(id||1), skill='Reading', score=100; state.profile=state.profile||{}; state.profile.goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
-    state.sessions=state.sessions||{}; state.sessions[sid]=Object.assign({},state.sessions[sid]||{}, {unlocked:true,cleared:true,bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),bestAccuracy:100,bestStars:3,attempts:Number(state.sessions[sid]?.attempts||0)+1});
-    state.portfolio=Array.isArray(state.portfolio)?state.portfolio:[]; state.portfolio.push({id:'EV-S1-'+Date.now(),sessionId:sid,session:sid,skill,score,submittedAt:new Date().toISOString(),output:state.profile.goal,evidenceText:state.profile.goal,prompt:'S1 Goal Builder'}); state.portfolio=state.portfolio.slice(-24);
-    state.mastery=state.mastery||{}; state.mastery.Reading=Math.max(Number(state.mastery.Reading||0),score); addXP(20); saveState(); safeToast('Academic Goal saved. Great start!'); showSkillResult(skill,score,sid); return false;
+    const sid=Number(id||1), skill='Reading', score=100;
+    state.profile=state.profile||{};
+    const goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
+    state.profile.goal=goal;
+    state.sessions=state.sessions||{};
+    state.sessions[sid]=Object.assign({},state.sessions[sid]||{},{
+      unlocked:true,cleared:true,
+      bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),
+      bestAccuracy:100,bestStars:3,
+      attempts:Number(state.sessions[sid]?.attempts||0)+1
+    });
+    // S1 previously pushed directly to state.portfolio, bypassing the ONLY
+    // submit_attempt call in addPortfolio(). Use the same fresh-evidence
+    // path as S2-S15. Do not replay old browser-only results on load.
+    const evidenceId='EV-S1-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
+    addPortfolio({
+      id:evidenceId,evidenceId:evidenceId,
+      routeId:'S1',sessionId:sid,session:sid,
+      skill:skill,score:score,passed:true,
+      taskId:'S1_GOAL_BUILDER',
+      evidenceType:'s1_reading_goal_builder',
+      submittedAt:new Date().toISOString(),
+      output:goal,evidenceText:goal,prompt:'S1 Goal Builder'
+    });
+    // addPortfolio handles the standard XP, local persistence and attempt sync.
+    safeToast('Academic Goal saved. Google Sheet confirmation pending.');
+    showSkillResult(skill,score,sid);
+    return false;
   }
 
   function submitReading(id){
@@ -39845,12 +39873,24 @@
         url.searchParams.set(key, payload[key]);
       });
 
-      fetch(
-        url.toString(),
-        {mode:'no-cors', cache:'no-store'}
-      ).catch(function(){});
+      // Dispatch fresh normal-session attempts through the trusted queue
+      // directly. Other modules may wrap window.fetch after v124; those
+      // wrappers must not silently bypass or defer a graded attempt.
+      const transport = window.EAPHeroTrustedTransportV124;
+      if(!isBoss && transport && transport.active &&
+        typeof transport.submitFreshAttempt === 'function'){
+        transport.submitFreshAttempt(url.toString()).catch(function(error){
+          console.warn('[EAP sheet sync] attempt remains unconfirmed', error);
+        });
+      }else{
+        // Compatibility fallback for legacy transports and Boss routes.
+        fetch(url.toString(),{mode:'no-cors',cache:'no-store'}).catch(function(error){
+          console.warn('[EAP sheet sync] compatibility transport error', error);
+        });
+      }
 
-      state.sheetSync.sent[attemptId] = new Date().toISOString();
+      // The transport persists and retries this attempt until the official
+      // EAP_Progress receipt matches its evidenceId. No unverified 'sent' flag.
       return true;
     }catch(err){
       console.warn('[EAP sheet sync]', err);

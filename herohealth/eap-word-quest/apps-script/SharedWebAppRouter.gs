@@ -25,6 +25,8 @@ function doGet(e) {
         service: 'shared-router-v153',
         progressAuthorityInstalled: typeof eapPlayerResumeV150_ === 'function' && typeof eapProgressUpsertV150_ === 'function',
         progressMirrorRequired: true,
+        attemptReceiverInstalled: typeof submitAttempt_ === 'function',
+        guardedAttemptReceiverInstalled: typeof eapHeroSubmitAttemptGuarded_ === 'function',
         progressSeedV152Installed: typeof eapProgressSeedTest50V152_ === 'function',
         progressSeedV151Installed: typeof eapProgressSeedTest50V151_ === 'function',
         playerResumeV146Installed: typeof eapPlayerResumeV146_ === 'function',
@@ -103,6 +105,33 @@ function doPost(e) {
   const action = String(payload.action || payload.type || payload.api || '').toLowerCase();
 
   try {
+    // Core-game attempts must be validated, stored idempotently and then
+    // mirrored to EAP_Progress. Never delegate to an optional legacy doPost.
+    if (action === 'submit_attempt') {
+      if (typeof eapHeroSubmitAttemptGuarded_ !== 'function') {
+        return eapRouterJson_({ok:false,action:action,error:'Guarded EAP Hero attempt receiver not installed'});
+      }
+      const attemptId = String(payload.attemptId || '').trim();
+      const evidenceId = String(payload.evidenceId || '').trim();
+      const studentId = String(payload.studentId || '').trim();
+      const score = Number(payload.score);
+      if (String(payload.submissionKind || '') !== 'fresh_evidence_v118' ||
+          !attemptId || evidenceId !== attemptId || !studentId ||
+          studentId.toLowerCase() === 'guest' ||
+          !Number.isFinite(score) || score < 0 || score > 100) {
+        return eapRouterJson_({ok:false,action:action,error:'Invalid trusted attempt identity, receipt key or score'});
+      }
+      const normalized = Object.assign({}, payload, {
+        attemptId:attemptId,evidenceId:attemptId,
+        score:score,passed:score >= 60,legacyCompletion:false,
+        authoritativePassed:false
+      });
+      delete normalized.bestScore;
+      delete normalized.latestScore;
+      const result = eapHeroSubmitAttemptGuarded_(normalized,'POST');
+      return eapRouterJson_(eapRouterRequireProgressV153_(normalized,result,'submit_attempt'));
+    }
+
     if (typeof eapSheetV132ShouldMirror_ === 'function' && eapSheetV132ShouldMirror_(action, payload)) {
       eapSheetV132MirrorSafe_(payload);
     }

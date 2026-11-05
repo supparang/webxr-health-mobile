@@ -6,7 +6,7 @@
   function check(id,pass,detail,severity){return{id:id,pass:!!pass,detail:String(detail==null?'':detail),severity:severity||'error'};}
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function run(){
-    var checks=[],pack=window.EAP_HERO_SESSION_CONTENT_PACK,bank=window.EAP_GOLD_AUTHORED_BANK,authority=window.EAPRoadmapLockGuard;
+    var checks=[],pack=window.EAP_HERO_SESSION_CONTENT_PACK,bank=window.EAP_GOLD_AUTHORED_BANK,authority=window.EAPAuthorityRuntime;
     checks.push(check('PACK_PRESENT',!!pack,pack&&pack.version||'missing'));
     checks.push(check('ROUTE_ORDER',!!pack&&JSON.stringify(pack.routeOrder)===JSON.stringify(ORDER),pack&&pack.routeOrder&&pack.routeOrder.join(' → ')));
     var normal=pack&&pack.routes?pack.routes.filter(function(r){return r.routeType==='normal_session';}):[];
@@ -42,13 +42,10 @@
     checks.push(check('AUTHORITY_PRESENT',!!authority,authority&&authority.version||'missing'));
     if(authority){
       var d=authority.diagnostics();
-      checks.push(check('AUTHORITY_MODE',d.authorityMode==='server-resume-only',d.authorityMode));
-      checks.push(check('NO_LOCAL_EVIDENCE_AUTHORITY',d.acceptsLocalEvidence===false,d.acceptsLocalEvidence));
-      checks.push(check('NO_COMPLETED_CACHE_AUTHORITY',d.acceptsCompletedSessionsCache===false,d.acceptsCompletedSessionsCache));
-      checks.push(check('SERVER_RESUME_ACCEPTOR',typeof authority.acceptResume==='function',typeof authority.acceptResume));
+      checks.push(check('AUTHORITY_RUNTIME_API',typeof authority.acceptResume==='function'&&typeof authority.currentRoute==='function'&&typeof authority.isVerified==='function','acceptResume/currentRoute/isVerified'));
+      checks.push(check('SERVER_RESUME_REQUIRED',!authority.isVerified()||!!authority.currentRoute(),'unverified runtime must not expose an official route'));
       checks.push(check('NO_RAW_RECORD_ROUTE_EVALUATOR',typeof authority.testEvaluate!=='function',typeof authority.testEvaluate));
-      checks.push(check('LOCK_GUARD_PRESENT',typeof authority.canOpen==='function'&&typeof authority.currentRouteId==='function','canOpen/currentRouteId'));
-      checks.push(check('LIVE_SHEET_CONNECTED',d.liveVerified===true,d.liveVerified?'records='+d.liveRecordCount:'waiting for fresh player_resume','warning'));
+      checks.push(check('LIVE_SHEET_CONNECTED',d.verified===true,d.verified?'records='+d.recordCount:'waiting for verified player_resume','warning'));
     }
     var failed=checks.filter(function(c){return !c.pass;}),errors=failed.filter(function(c){return c.severity==='error';}),warnings=failed.filter(function(c){return c.severity==='warning';});
     var report={version:VERSION,ranAt:new Date().toISOString(),pass:errors.length===0,total:checks.length,passed:checks.length-failed.length,errors:errors,warnings:warnings,checks:checks};

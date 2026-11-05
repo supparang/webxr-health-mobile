@@ -73,6 +73,7 @@
   }
   function saveResult(ctx){
     if(!ctx.isResult||!ctx.sessionId||!ctx.skill||ctx.score<=0)return false;
+    // A result page is not a server receipt. Never clear pendingSheetSync here.
     var key=ctx.sessionId+'|'+ctx.skill+'|'+ctx.score;
     if(key===lastResultKey)return false;
     var state=read(STATE_KEY,{}),p=profile(),now=new Date().toISOString();
@@ -80,7 +81,7 @@
       routeId:ctx.sessionId,sessionId:ctx.sessionId,session:Number(ctx.sessionId.replace(/\D/g,'')),
       skill:ctx.skill,score:ctx.score,latestScore:ctx.score,bestScore:ctx.score,
       passed:ctx.score>=PASS,updatedAt:now,latestAt:now,
-      output:ctx.skill+' evidence saved locally; pending Sheet sync',
+      output:ctx.skill+' result saved in browser only; awaiting verified Sheet receipt',
       localResult:true,pendingSheetSync:true,cloudVerified:false,serverVerified:false,
       evidenceId:'local_'+ctx.sessionId+'_'+ctx.skill.toLowerCase()+'_'+Date.now(),
       studentId:p.studentId,studentName:p.studentName,section:p.section
