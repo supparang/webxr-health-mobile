@@ -206,6 +206,9 @@ jobs:
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
 
+      - name: S2.1 object-level authorization security regression
+        run: node tests/security-object-scope.mjs
+
       - name: External blind reviewer end-to-end test
         run: node tests/blind-review.mjs
 
