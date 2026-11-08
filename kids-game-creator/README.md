@@ -1,7 +1,67 @@
-# Kids Game Creator AI
+# 🎮 Kids Game Creator — สร้างเกมด้วยภาษาไทย
 
-Phase 2.1: Thai-language rule-based game planner and validated JSON prototype. This is **not yet a generative AI integration or playable game engine**.
+โปรเจกต์เว็บแอปพลิเคชันเพื่อการศึกษาสำหรับเด็กและนักเรียนในการสร้างเกมด้วยคำอธิบายภาษาไทย (Rule-Based NLP) พร้อมระบบปรับแต่งตามช่วงวัย (ป.1–ม.6) และระบบเกมที่เล่นได้จริงบน Browser ทันที
 
-Run from repository root: `python -m http.server 5500`, then open `http://localhost:5500/kids-game-creator/`.
+## 📁 โครงสร้างโปรเจกต์
 
-No API key is required. Later phases will add a server-side AI planner and playable game engines.
+```
+kids-game-creator/
+├── index.html            # โครงสร้างหน้าเว็บและสไตล์ CSS ทั้งหมด
+├── server.js             # Local Web Server (Node.js HTTP)
+├── package.json          # กำหนดค่าโปรเจกต์และ scripts
+├── README.md             # เอกสารคู่มือ
+├── js/
+│   ├── app.js            # Main Controller, UI Step Flow, คลังเกมในเครื่อง, แชร์และส่งออกเกม
+│   ├── creation-presets.js # พรีเซ็ตตามช่วงวัย (ป.1–ม.6)
+│   ├── game-schema.js    # ตรวจสอบและ Validate Game JSON Schema
+│   ├── thai-game-planner.js # ตัวตีความภาษาไทยแบบกฎ (Rule-based NLP)
+│   ├── adventure-engine.js # Engine ผจญภัย (2D Platformer) รองรับ Power-ups & ฟิสิกส์
+│   ├── maze-engine.js    # Engine เขาวงกต (2D Grid) พร้อมรอยเท้า Breadcrumbs & อวตาร
+│   ├── dodge-engine.js   # Engine หลบสิ่งกีดขวาง พร้อมดาวโบนัส ⭐
+│   ├── quiz-engine.js    # Engine ตอบคำถามความรู้
+│   ├── quiz-bank.js      # ฐานข้อมูลคำถาม-คำตอบและเฉลย
+│   └── sound.js          # Web Audio API Synth เสียงประกอบในตัว
+└── tests/
+    ├── planner.test.mjs  # Unit tests สำหรับตัวตีความภาษาไทย
+    ├── age-matrix.test.mjs # Unit tests สำหรับตารางระดับชั้น 16 ชุด
+    └── browser-smoke.mjs # Browser End-to-End smoke test
+```
+
+## 🌟 ฟีเจอร์เด่นระดับก้าวหน้า (Advanced Features)
+
+1. **📚 คลังเกมที่บันทึกไว้ในเครื่อง (Local Game Library):**
+   * **บันทึกถาวรบนเครื่อง (Local Storage):** กดปุ่ม `⭐ บันทึกเกมนี้ลงเครื่อง` เพื่อเก็บไว้ในคลังเกมส่วนตัว แม้ปิดเบราว์เซอร์ก็ไม่หาย
+   * **นำเข้าเกมเพื่อนแล้วบันทึกทันที:** เมื่อนำเข้าไฟล์เกมเพื่อน (`.json`) หรือเปิดจากลิงก์แชร์ ระบบจะจัดเก็บลงคลังในเครื่องอัตโนมัติ พร้อมติดป้ายกำกับ `เกมของเพื่อน 👥`
+   * **เล่นซ้ำได้ในคลิกเดียว:** มีการ์ดเกมพร้อมปุ่ม `▶️ เล่น` และปุ่ม `🗑️ ลบ` จัดการได้อย่างสะดวก
+
+2. **ระบบสร้างเกมตามระดับชั้น (Grade-Adaptive Creator):**
+   * **ป.1–ป.3 (Visual Creator):** เลือกตัวละคร, ฉาก, ไอเทม และเป้าหมายด้วยภาพ มี 5 หัวใจและชนะง่าย
+   * **ป.4–ป.6 (Creative Designer):** แต่งพลังพิเศษฮีโร่ (วิ่งเร็ว ⚡ / กระโดดสูง 🦘), เลือกของสะสม (แครอท, ดาว, เหรียญ, แอปเปิ้ล, เพชร)
+   * **ม.1–ม.3 (Logic & Rule Lab):** ตั้งสมมติฐาน, จับเวลานับถอยหลัง, แสดงบล็อก **Pseudo-code Logic Flow** สดๆ
+   * **ม.4–ม.6 (Engine Architecture):** ปรับฟิสิกส์แรงโน้มถ่วง $g$, ความเร็วกระโดด, คำนวณ **Game Balancing Index**
+
+3. **ระบบแชร์และส่งออกเกม (Share & Export System):**
+   * **🔗 คัดลอกลิงก์แชร์เกม:** เข้ารหัสการตั้งค่าเกมลงใน URL Hash ส่งให้เพื่อนหรือคุณครูเปิดเล่นได้ทันที พร้อมกล่องพรีวิวและปุ่มทดลองเปิดแท็บใหม่
+   * **💾 บันทึกไฟล์เกม (.json):** ดาวน์โหลดโครงสร้างเกมเก็บไว้ในเครื่อง
+   * **📂 นำเข้าเกมเพื่อน:** อัปโหลดไฟล์ `.json` ของเพื่อนเพื่อเล่นหรือนำมา Remixed ดัดแปลงต่อ
+
+4. **ระบบเสียงและภาพประกอบ (Sound & Visual Polish):**
+   * เสียงประกอบ Web Audio Synth ในตัว (กระโดด, เก็บของ, ชน, ชนะ, แพ้)
+   * ปุ่มเปิด/ปิดเสียง `🔊 / 🔇`
+   * รอยเท้าเรืองแสง (Breadcrumbs) ในเขาวงกต
+   * พลุเฉลิมฉลอง (Confetti 🎉) เมื่อพิชิตชัยชนะ
+
+## 🚀 วิธีเปิดใช้งาน
+
+เปิดเซิร์ฟเวอร์ด้วย Node.js:
+```powershell
+node server.js 3000
+```
+แล้วเปิดเบราว์เซอร์ไปที่: **`http://localhost:3000/`**
+
+## 🧪 การรันชุดทดสอบ (Unit Tests)
+
+```powershell
+node --test tests/planner.test.mjs tests/age-matrix.test.mjs
+```
+*(ผ่านสมบูรณ์ 8/8 การทดสอบ)*
