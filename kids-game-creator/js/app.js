@@ -5,7 +5,7 @@ import { mountMaze } from "./maze-engine.js?v=3.4.0";
 import { mountQuiz } from "./quiz-engine.js?v=3.4.0";
 import { mountDodge } from "./dodge-engine.js?v=3.4.0";
 import { CREATION_LEVELS, GENRES, exampleFor } from "./creation-presets.js";
-import { sound } from "./sound.js?v=3.4.0";
+import { sound } from "./sound.js";
 
 const prompt = document.querySelector("#prompt");
 const age = document.querySelector("#ageLevel");
@@ -820,15 +820,42 @@ function restartCurrentGame() {
   active?.restart();
 }
 
-// Sound Toggle listener
+// Sound Toggle & Test listeners
 const soundToggle = document.querySelector("#soundToggle");
+const testSoundBtn = document.querySelector("#testSoundBtn");
+
 if (soundToggle) {
   soundToggle.addEventListener("click", () => {
     sound.enabled = !sound.enabled;
     soundToggle.textContent = sound.enabled ? "🔊 เสียง: เปิด" : "🔇 เสียง: ปิด";
     soundToggle.style.background = sound.enabled ? "#eef3fc" : "#f1f3f5";
     soundToggle.style.color = sound.enabled ? "#24476b" : "#718096";
-    if (sound.enabled) sound.playClick();
+    if (sound.enabled) {
+      sound.playTestSound();
+    }
+  });
+}
+
+if (testSoundBtn) {
+  testSoundBtn.addEventListener("click", () => {
+    sound.enabled = true;
+    if (soundToggle) {
+      soundToggle.textContent = "🔊 เสียง: เปิด";
+      soundToggle.style.background = "#eef3fc";
+      soundToggle.style.color = "#24476b";
+    }
+    sound.playTestSound();
+    const origText = testSoundBtn.textContent;
+    testSoundBtn.textContent = "🎶 กำลังส่งเสียง...";
+    testSoundBtn.style.background = "#dcfce7";
+    testSoundBtn.style.color = "#166534";
+    testSoundBtn.style.borderColor = "#86efac";
+    setTimeout(() => {
+      testSoundBtn.textContent = origText;
+      testSoundBtn.style.background = "#fef3c7";
+      testSoundBtn.style.color = "#92400e";
+      testSoundBtn.style.borderColor = "#fde68a";
+    }, 1200);
   });
 }
 
