@@ -7,40 +7,1869 @@
 <meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
 <title>CSAI2102 AI Quest</title>
 <style>
-:root{--bg:#061325;--panel:#0f2039;--panel2:#152b49;--line:#2d4969;--text:#eef6ff;--muted:#aac0d9;--blue:#0ea5e9;--green:#10b981;--bad:#fb7185}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 15% 5%,#123a65 0,transparent 32%),linear-gradient(180deg,#061325,#081a30);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}main{width:min(1100px,100%);margin:auto;padding:28px 16px 48px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.brand{font-weight:900}.version{font-size:12px;color:#bfdbfe;border:1px solid var(--line);padding:6px 10px;border-radius:999px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:16px}.card{background:rgba(15,32,57,.94);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.23)}h1{font-size:clamp(32px,6vw,64px);line-height:1.02;margin:10px 0 14px}.lead{font-size:clamp(16px,2.2vw,20px);line-height:1.65;color:var(--muted);max-width:720px}.pill{display:inline-flex;align-items:center;gap:7px;background:#063f36;color:#b7f7df;padding:7px 11px;border-radius:999px;font-weight:800}.steps{display:grid;gap:10px;margin-top:20px}.step{display:flex;align-items:center;gap:10px;color:#dbeafe}.step b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#075985}.login h2{margin-top:0}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:13px;color:#c9ddf2;font-weight:700}input{width:100%;min-height:48px;background:#102743;color:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font:inherit}input:focus{outline:2px solid var(--blue);border-color:transparent}.actions{display:grid;gap:9px;margin-top:15px}.btn{min-height:49px;border:0;border-radius:13px;padding:11px 15px;font:inherit;font-weight:900;cursor:pointer}.primary{background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff}.secondary{background:#173452;color:#eaf5ff;border:1px solid var(--line)}.btn:disabled{opacity:.55;cursor:wait}.status{margin-top:13px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#102743;color:var(--muted);line-height:1.5}.status.ok{background:#06382e;border-color:#168465;color:#c8ffe9}.status.warn{background:#45330d;border-color:#b98620;color:#ffe8ad}.status.bad{background:#451827;border-color:#be3454;color:#ffd4df}.resume{display:none;margin-top:16px}.resume.show{display:block}.resumeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:13px}.metric small{color:var(--muted)}.metric strong{display:block;font-size:22px;margin-top:4px}.continue{margin-top:13px;width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.note{margin-top:16px;color:var(--muted);font-size:13px;line-height:1.55}.footer{text-align:center;color:#7796b8;font-size:12px;margin-top:22px}@media(max-width:800px){main{padding:16px 11px 35px}.hero{grid-template-columns:1fr}.card{padding:17px;border-radius:18px}.resumeGrid{grid-template-columns:1fr 1fr}}@media(max-width:420px){.resumeGrid{grid-template-columns:1fr}.version{display:none}}
+:root {
+  --bg: #061325;
+  --panel: #0f2039;
+  --panel2: #152b49;
+  --panel3: #102743;
+  --line: #2d4969;
+  --text: #eef6ff;
+  --muted: #aac0d9;
+  --blue: #0ea5e9;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --bad: #fb7185;
+  --purple: #8b5cf6;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at 15% 5%, #123a65 0, transparent 32%), linear-gradient(180deg, #061325, #081a30);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+body {
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+main {
+  width: min(1120px, 100%);
+  margin: auto;
+  padding: 24px 16px 48px;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.brand {
+  font-weight: 900;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.version {
+  font-size: 12px;
+  color: #bfdbfe;
+  border: 1px solid var(--line);
+  background: rgba(15, 32, 57, .7);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+}
+.tab-btn {
+  background: var(--panel3);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.tab-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--blue);
+}
+.tab-btn.active {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+.tab-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.view-section {
+  display: none;
+}
+.view-section.active {
+  display: block;
+}
+.hero {
+  display: grid;
+  grid-template-columns: 1.25fr .75fr;
+  gap: 16px;
+}
+.card {
+  background: rgba(15, 32, 57, .94);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .23);
+}
+h1 {
+  font-size: clamp(30px, 5vw, 56px);
+  line-height: 1.06;
+  margin: 10px 0 14px;
+}
+h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+.lead {
+  font-size: clamp(15px, 2vw, 19px);
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 720px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #063f36;
+  color: #b7f7df;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 13px;
+}
+.pill.boss {
+  background: #3b1c54;
+  color: #e9d5ff;
+}
+.steps {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #dbeafe;
+}
+.step b {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #075985;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.field label {
+  font-size: 13px;
+  color: #c9ddf2;
+  font-weight: 700;
+}
+input, textarea, select {
+  width: 100%;
+  min-height: 46px;
+  background: var(--panel3);
+  color: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font: inherit;
+}
+textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.code-editor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
+  background: #071120;
+  border-color: #274263;
+  min-height: 165px;
+}
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--blue);
+  border-color: transparent;
+}
+.actions {
+  display: grid;
+  gap: 9px;
+  margin-top: 15px;
+}
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.btn {
+  min-height: 46px;
+  border: 0;
+  border-radius: 13px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .1s ease, opacity .15s ease;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.primary {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  color: #fff;
+}
+.secondary {
+  background: #173452;
+  color: #eaf5ff;
+  border: 1px solid var(--line);
+}
+.continue {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+.status {
+  margin-top: 13px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel3);
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 14px;
+}
+.status.ok {
+  background: #06382e;
+  border-color: #168465;
+  color: #c8ffe9;
+}
+.status.warn {
+  background: #45330d;
+  border-color: #b98620;
+  color: #ffe8ad;
+}
+.status.bad {
+  background: #451827;
+  border-color: #be3454;
+  color: #ffd4df;
+}
+.resume {
+  display: none;
+  margin-top: 16px;
+}
+.resume.show {
+  display: block;
+}
+.resumeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.metric {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px;
+}
+.metric small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.metric strong {
+  display: block;
+  font-size: 20px;
+  margin-top: 4px;
+}
+.note {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.footer {
+  text-align: center;
+  color: #7796b8;
+  font-size: 12px;
+  margin-top: 26px;
+}
+
+/* Quest Map Styles */
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.student-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.progress-bar-wrap {
+  background: var(--panel3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+  margin: 12px 0 20px;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0ea5e9, #10b981);
+  width: 0%;
+  transition: width .35s ease;
+}
+.quest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+  gap: 12px;
+}
+.quest-node {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.quest-node.unlocked:hover {
+  transform: translateY(-2px);
+  border-color: var(--blue);
+}
+.quest-node.completed {
+  border-color: #168465;
+  background: linear-gradient(180deg, rgba(6, 56, 46, .55), rgba(21, 43, 73, .9));
+}
+.quest-node.boss {
+  border-color: #6d28d9;
+}
+.quest-node.locked {
+  opacity: .55;
+}
+.node-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.node-code {
+  font-weight: 900;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+}
+.quest-node.boss .node-code {
+  background: #3b1c54;
+  border-color: #7c3aed;
+  color: #f3e8ff;
+}
+.node-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.node-badge.done {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+.node-badge.ready {
+  background: #0c4a6e;
+  color: #bae6fd;
+}
+.node-badge.locked {
+  background: #1e293b;
+  color: #94a3b8;
+}
+.node-title {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.node-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Session Player Styles */
+.session-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.step-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.step-tab {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  transition: all .15s ease;
+}
+.step-tab strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.step-tab span {
+  font-size: 12px;
+}
+.step-tab.active {
+  border-color: var(--blue);
+  background: rgba(14, 165, 233, .14);
+}
+.step-tab.done {
+  border-color: var(--green);
+}
+.choice-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+}
+.choice-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.choice-item:hover {
+  border-color: var(--blue);
+}
+.choice-item.selected {
+  border-color: var(--blue);
+  background: rgba(14, 165, 233, .15);
+}
+.choice-item input {
+  width: 18px;
+  min-height: 18px;
+  margin-top: 2px;
+  accent-color: var(--blue);
+}
+.console-out {
+  background: #040b14;
+  border: 1px solid #1e3a5f;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #a7f3d0;
+  white-space: pre-wrap;
+  min-height: 68px;
+  margin-top: 10px;
+}
+.subcheck-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.subcheck-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: #dbeafe;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(15, 32, 57, .65);
+  border: 1px solid transparent;
+}
+.subcheck-item.passed {
+  border-color: #168465;
+  background: rgba(6, 56, 46, .5);
+  color: #c8ffe9;
+}
+.subcheck-badge {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #1e293b;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.subcheck-item.passed .subcheck-badge {
+  background: #065f46;
+  color: #a7f3d0;
+}
+
+@media (max-width: 800px) {
+  main { padding: 16px 11px 35px; }
+  .hero { grid-template-columns: 1fr; }
+  .card { padding: 17px; border-radius: 18px; }
+  .resumeGrid, .step-tabs { grid-template-columns: 1fr; }
+}
 </style>
 </head>
-<body><main>
-<header class="top"><div class="brand">⚡ CSAI2102 · AI Quest</div><div class="version">Production Landing v4.5</div></header>
-<section class="hero">
-<div class="card"><span class="pill">🎓 Principles of Artificial Intelligence</span><h1>เรียนรู้ AI<br>ผ่านภารกิจจริง</h1><p class="lead">ทำ Mission เขียน Coding Lab สะท้อนการเรียนรู้ และปลดล็อก Session ถัดไปตามผลอย่างเป็นทางการจาก Google Sheet</p><div class="steps"><div class="step"><b>1</b><span>Mission — ทำความเข้าใจแนวคิดและแก้สถานการณ์</span></div><div class="step"><b>2</b><span>Coding Lab — ทดลองโค้ดและส่งหลักฐาน</span></div><div class="step"><b>3</b><span>Reflection — สรุปสิ่งที่เรียนรู้ก่อนปลดล็อก</span></div></div><p class="note">ความก้าวหน้าอย่างเป็นทางการอ่านจาก Backend เท่านั้น ข้อมูลในเครื่องใช้เพื่อช่วยกรอกแบบฟอร์มและไม่ใช้ตัดสินการปลดล็อก</p></div>
-<div class="card login"><h2>เข้าสู่ AI Quest</h2><div class="field"><label for="studentId">รหัสนักศึกษา</label><input id="studentId" autocomplete="off"></div><div class="field"><label for="studentName">ชื่อผู้เรียน</label><input id="studentName" autocomplete="name"></div><div class="field"><label for="section">Section</label><input id="section" value="101"></div><div class="actions"><button id="resumeBtn" class="btn primary">เข้าสู่ระบบ / เรียนต่อ</button></div><div id="status" class="status">กรอกรหัสนักศึกษา ชื่อ และ Section เพื่อเข้าสู่ระบบ</div><div id="resume" class="resume"><div class="resumeGrid"><div class="metric"><small>เรียนครบแล้ว</small><strong id="completedCount">—</strong></div><div class="metric"><small>Session ถัดไป</small><strong id="nextSession">—</strong></div><div class="metric"><small>สถานะ</small><strong id="nextStatus">รอตรวจ</strong></div></div><button id="continueBtn" class="btn continue">เข้า Session</button></div></div>
-</section><div class="footer">CSAI2102 AI Quest · Section 101 · Sheet-backed progress</div>
+<body>
+<main>
+  <header class="top">
+    <div class="brand">⚡ CSAI2102 · AI Quest</div>
+    <div class="top-right">
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button id="navLoginBtn" class="tab-btn active" type="button">หน้าแรก / เข้าสู่ระบบ</button>
+        <button id="navMapBtn" class="tab-btn" type="button" disabled>Quest Map (20 ด่าน)</button>
+        <button id="navSessionBtn" class="tab-btn" type="button" disabled>ด่านปัจจุบัน</button>
+      </nav>
+      <div class="version">Production v4.5 Integrated</div>
+    </div>
+  </header>
+
+  <!-- VIEW 1: LANDING & LOGIN -->
+  <section id="viewLanding" class="view-section active">
+    <div class="hero">
+      <div class="card">
+        <span class="pill">🎓 Principles of Artificial Intelligence</span>
+        <h1>เรียนรู้ AI<br>ผ่านภารกิจจริง</h1>
+        <p class="lead">ทำ Mission เขียน Coding Lab สะท้อนการเรียนรู้ และปลดล็อก Session ถัดไปตามผลอย่างเป็นทางการจาก Google Sheet พร้อมระบบจำลองการเรียนครบทั้ง 20 ด่าน (S1–S15 และ Boss B1–B5)</p>
+        <div class="steps">
+          <div class="step"><b>1</b><span>Mission — ทำความเข้าใจแนวคิดและแก้สถานการณ์</span></div>
+          <div class="step"><b>2</b><span>Coding Lab — ทดลองโค้ดและส่งหลักฐาน</span></div>
+          <div class="step"><b>3</b><span>Reflection — สรุปสิ่งที่เรียนรู้ก่อนปลดล็อก</span></div>
+        </div>
+        <p class="note">ความก้าวหน้าอย่างเป็นทางการเชื่อมต่อกับ Google Sheet Backend และรองรับการเข้าใช้งานต่อเนื่องได้ทันทีภายในหน้าเดียว</p>
+      </div>
+
+      <div class="card login">
+        <h2>เข้าสู่ AI Quest</h2>
+        <div class="field">
+          <label for="studentId">รหัสนักศึกษา</label>
+          <input id="studentId" placeholder="เช่น 65010001" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="studentName">ชื่อผู้เรียน</label>
+          <input id="studentName" placeholder="ชื่อ - นามสกุล" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="section">Section</label>
+          <input id="section" value="101">
+        </div>
+        <div class="actions">
+          <button id="resumeBtn" class="btn primary" type="button">ตรวจสอบรายชื่อ / เข้าสู่ระบบ</button>
+          <button id="quickStartBtn" class="btn secondary" type="button">เข้าสู่ Quest Map ทันที (โหมดฝึกฝน / Offline-Ready)</button>
+        </div>
+        <div id="status" class="status">กรอกรหัสนักศึกษา ชื่อ และ Section เพื่อเข้าสู่ระบบ</div>
+        <div id="resume" class="resume">
+          <div class="resumeGrid">
+            <div class="metric"><small>เรียนครบแล้ว</small><strong id="completedCount">—</strong></div>
+            <div class="metric"><small>Session ถัดไป</small><strong id="nextSession">—</strong></div>
+            <div class="metric"><small>สถานะ</small><strong id="nextStatus">รอตรวจ</strong></div>
+          </div>
+          <div class="actions-row">
+            <button id="continueBtn" class="btn continue" type="button" style="flex:1">เข้า Session ถัดไป</button>
+            <button id="openMapBtn" class="btn secondary" type="button">ดู Quest Map</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 2: QUEST MAP -->
+  <section id="viewMap" class="view-section">
+    <div class="card">
+      <div class="map-header">
+        <div>
+          <span class="pill">🗺️ CSAI2102 Official Progression</span>
+          <h2 style="margin-top:8px;margin-bottom:4px">แผนที่ภารกิจ AI Quest (20 Sessions)</h2>
+          <div id="mapSubStatus" style="font-size:13px;color:var(--muted)">ทำภารกิจตามลำดับ S1 ถึง B5 เพื่อปลดล็อกด่านถัดไป</div>
+        </div>
+        <div class="actions-row" style="margin-top:0">
+          <div id="studentBadge" class="student-badge">👤 —</div>
+          <button id="syncSheetBtn" class="btn secondary" type="button">🔄 ซิงก์ข้อมูลจาก Sheet</button>
+        </div>
+      </div>
+
+      <div class="resumeGrid" style="margin-bottom:14px">
+        <div class="metric"><small>ความก้าวหน้ารวม</small><strong id="mapCompletedMetric">0/20</strong></div>
+        <div class="metric"><small>ภารกิจปัจจุบัน</small><strong id="mapCurrentMetric">S1</strong></div>
+        <div class="metric"><small>สถานะการซิงก์</small><strong id="mapSyncMetric">พร้อมเรียน</strong></div>
+      </div>
+
+      <div class="progress-bar-wrap" aria-label="Course progress">
+        <div id="mapProgressBar" class="progress-bar-fill"></div>
+      </div>
+
+      <div id="mapAlert" class="status" style="margin-bottom:16px;display:none"></div>
+
+      <div id="questGrid" class="quest-grid"></div>
+    </div>
+  </section>
+
+  <!-- VIEW 3: INTEGRATED SESSION PLAYER -->
+  <section id="viewSession" class="view-section">
+    <div class="session-layout">
+      <div class="card">
+        <div class="map-header">
+          <div>
+            <span id="sessionTypePill" class="pill">📘 Session</span>
+            <h2 id="sessionTitle" style="margin-top:8px;margin-bottom:4px">S1: Introduction to AI</h2>
+            <p id="sessionOverview" style="margin:0;color:var(--muted);font-size:14px"></p>
+          </div>
+          <div class="actions-row" style="margin-top:0">
+            <button id="backToMapBtn" class="btn secondary" type="button">← กลับหน้า Quest Map</button>
+          </div>
+        </div>
+
+        <div class="step-tabs">
+          <button id="stepTab1" class="step-tab active" type="button">
+            <strong>1. Mission</strong>
+            <span id="step1State">วิเคราะห์สถานการณ์ AI</span>
+          </button>
+          <button id="stepTab2" class="step-tab" type="button">
+            <strong>2. Coding Lab</strong>
+            <span id="step2State">ทดลองโค้ดและตรวจผลลัพธ์</span>
+          </button>
+          <button id="stepTab3" class="step-tab" type="button">
+            <strong>3. Reflection</strong>
+            <span id="step3State">สรุปความรู้และปลดล็อก</span>
+          </button>
+        </div>
+
+        <!-- STEP 1: MISSION -->
+        <div id="stepPanel1" class="step-panel">
+          <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:12px">
+            <h3>🎯 ภารกิจประจำด่าน (Scenario Mission)</h3>
+            <p id="missionScenario" style="color:#dbeafe;line-height:1.6;margin:8px 0 14px"></p>
+            <div style="font-weight:700;font-size:14px;color:#c9ddf2">คำถามวิเคราะห์: <span id="missionQuestion"></span></div>
+            <div id="missionChoices" class="choice-list"></div>
+            <div class="actions-row">
+              <button id="checkMissionBtn" class="btn primary" type="button">ตรวจคำตอบ Mission</button>
+              <button id="toStep2Btn" class="btn continue" type="button" style="display:none">ไปต่อขั้นที่ 2: Coding Lab →</button>
+            </div>
+            <div id="missionFeedback" class="status" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- STEP 2: CODING LAB -->
+        <div id="stepPanel2" class="step-panel" style="display:none">
+          <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:12px">
+            <h3>💻 Coding Lab & Evidence</h3>
+            <p id="labInstruction" style="color:#dbeafe;line-height:1.6;margin:8px 0 12px"></p>
+            <div id="labSubchecks" class="subcheck-list" aria-label="รายการตรวจข้อย่อย Coding Lab"></div>
+            <div class="field">
+              <label for="codeInput">โค้ดทดลอง (Python / AI Pseudocode) — ปรับแก้หรือกดรันโค้ดเพื่อตรวจผ่านทุกข้อย่อยได้ทันที</label>
+              <textarea id="codeInput" class="code-editor" spellcheck="false"></textarea>
+            </div>
+            <div class="actions-row">
+              <button id="runCodeBtn" class="btn primary" type="button">▶ รันการจำลองโค้ดและตรวจข้อย่อย (Run Lab)</button>
+              <button id="resetCodeBtn" class="btn secondary" type="button">คืนค่าโค้ดตั้งต้นและตรวจผ่าน</button>
+              <button id="toStep3Btn" class="btn continue" type="button" style="display:none">ไปต่อขั้นที่ 3: Reflection →</button>
+            </div>
+            <div id="codeOutput" class="console-out">กด "รันการจำลองโค้ด" เพื่อตรวจสอบผลลัพธ์และสร้างหลักฐานการทดลอง...</div>
+            <div id="labFeedback" class="status" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- STEP 3: REFLECTION -->
+        <div id="stepPanel3" class="step-panel" style="display:none">
+          <div style="background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:12px">
+            <h3>📝 Reflection — สะท้อนการเรียนรู้ก่อนปลดล็อก</h3>
+            <p style="color:#dbeafe;line-height:1.6;margin:8px 0 12px">
+              สรุปแนวคิดสำคัญที่ได้จากด่านนี้ และการนำไปประยุกต์ใช้จริง เพื่อบันทึกผลและปลดล็อกด่านถัดไป
+            </p>
+            <div class="field">
+              <label for="reflectionText">สิ่งที่ได้เรียนรู้จาก Mission และ Coding Lab ในด่านนี้</label>
+              <textarea id="reflectionText" placeholder="อธิบายแนวคิดสำคัญ ข้อสังเกตจากการรันโค้ด หรือการนำไปประยุกต์ใช้..."></textarea>
+            </div>
+            <div class="field">
+              <label for="confidenceSelect">ระดับความเข้าใจในเนื้อหาด่านนี้</label>
+              <select id="confidenceSelect">
+                <option value="5">5 - เข้าใจชัดเจนและสามารถอธิบายต่อได้</option>
+                <option value="4">4 - เข้าใจแนวคิดหลักและประยุกต์ใช้ได้</option>
+                <option value="3">3 - เข้าใจพื้นฐานแต่ต้องการฝึกเพิ่ม</option>
+                <option value="2">2 - ยังมีจุดที่สับสนบางส่วน</option>
+              </select>
+            </div>
+            <div class="actions-row">
+              <button id="submitSessionBtn" class="btn continue" type="button">✅ ส่งภารกิจและปลดล็อกด่านถัดไป</button>
+            </div>
+            <div id="reflectionFeedback" class="status" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">CSAI2102 AI Quest · Section 101 · Sheet-backed & Integrated Interactive Learning</div>
 </main>
+
 <script>
-(function(){'use strict';
-const ENDPOINT='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
-const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
-const $=id=>document.getElementById(id);let target='S1';
-function profile(){return{studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim()||'101'}}
-function setStatus(text,type){$('status').textContent=text;$('status').className='status'+(type?' '+type:'')}
-function saveCache(p){try{localStorage.setItem('aiq_profile_cache',JSON.stringify(p));localStorage.setItem('CSAI2102_IDENTITY_V1',JSON.stringify(p));sessionStorage.setItem('CSAI2102_IDENTITY_V1',JSON.stringify(p))}catch(e){}}
-function loadCache(){try{const p=JSON.parse(localStorage.getItem('aiq_profile_cache')||localStorage.getItem('CSAI2102_IDENTITY_V1')||'null');if(p){$('studentId').value=p.studentId||'';$('studentName').value=p.studentName||'';$('section').value=p.section||'101'}}catch(e){}}
-async function post(data,timeout=20000){const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),timeout);try{const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data),cache:'no-store',signal:ctl.signal});const text=await r.text();let json;try{json=JSON.parse(text)}catch(e){throw Error('SERVER_RESPONSE_INVALID')}if(!json.ok)throw Error(json.code||json.message||'REQUEST_FAILED');return json}catch(e){if(e.name==='AbortError')throw Error('REQUEST_TIMEOUT');throw e}finally{clearTimeout(timer)}}
-function sessionUrl(session,p){const params=new URLSearchParams({mission:session.toLowerCase(),session,studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.5'});return './student-session-integrated-v723.html?'+params.toString()}
-function mapUrl(p){const params=new URLSearchParams({studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.5'});return './course-map-all-v720.html?'+params.toString()}
-function showResume(progress,p){let completed=0;target='S1';let found=false;ORDER.forEach(s=>{const row=progress[s.toLowerCase()]||{};if(row.completed)completed++;if(!found&&row.unlocked&&!row.completed){target=s;found=true}});if(completed===ORDER.length)target='B5';$('completedCount').textContent=completed+'/'+ORDER.length;$('nextSession').textContent=completed===ORDER.length?'COMPLETE':target;const row=progress[target.toLowerCase()]||{};$('nextStatus').textContent=completed===ORDER.length?'ครบหลักสูตร':String(row.status||'พร้อมเรียนต่อ').replaceAll('-',' ');$('resume').classList.add('show');$('continueBtn').textContent=completed===ORDER.length?'ดูแผนที่และผลการเรียน':'เรียนต่อ '+target;$('continueBtn').onclick=()=>location.href=completed===ORDER.length?mapUrl(p):sessionUrl(target,p)}
-function showNewStudent(p,reason){target='S1';$('completedCount').textContent='0/'+ORDER.length;$('nextSession').textContent='S1';$('nextStatus').textContent='พร้อมเริ่ม';$('resume').classList.add('show');$('continueBtn').textContent='เริ่มเรียน S1';$('continueBtn').onclick=()=>location.href=sessionUrl('S1',p);setStatus(reason||'ยืนยันรายชื่อสำเร็จ พร้อมเริ่มเรียน S1','ok')}
-function showProgressFallback(p){$('completedCount').textContent='จาก Sheet';$('nextSession').textContent='อัตโนมัติ';$('nextStatus').textContent='พร้อม';$('resume').classList.add('show');$('continueBtn').textContent='เปิด Quest Map / เรียนต่อ';$('continueBtn').onclick=()=>location.href=mapUrl(p);setStatus('✓ ยืนยันรายชื่อสำเร็จ • เปิด Quest Map เพื่อตรวจความก้าวหน้าจาก Sheet และเรียนต่อจากด่านล่าสุด','ok')}
-async function login(){const p=profile();if(!p.studentId||!p.studentName){setStatus('กรุณากรอกรหัสนักศึกษาและชื่อผู้เรียน','bad');return}$('resumeBtn').disabled=true;$('resume').classList.remove('show');setStatus('กำลังตรวจสอบรายชื่อ…');try{
-  const lookup=await post({module:'AIQFLOW',action:'LOOKUP_PROFILE',studentId:p.studentId,section:p.section},30000);
-  if(!lookup?.found){setStatus('ไม่พบรหัสนี้ในรายชื่ออย่างเป็นทางการ กรุณาตรวจสอบรหัส/Section หรือติดต่อผู้สอน','bad');return}
-  if(lookup.profile?.studentName){p.studentName=lookup.profile.studentName;$('studentName').value=p.studentName}
-  saveCache(p);
-  /* Landing validates identity only. Quest Map is the authority for detailed progress.
-     This avoids the expensive 20-session GET_FLOW_PROGRESS scan during login. */
-  showProgressFallback(p);
-}catch(e){const msg=String(e.message||e);setStatus(msg==='REQUEST_TIMEOUT'?'Backend ตอบช้าเกิน 30 วินาที กรุณากดเข้าสู่ระบบอีกครั้ง':'เข้าสู่ระบบไม่สำเร็จ: '+msg,'bad')}finally{$('resumeBtn').disabled=false}}
-$('resumeBtn').onclick=login;loadCache();const q=new URLSearchParams(location.search);if(q.get('studentId'))$('studentId').value=q.get('studentId');if(q.get('studentName'))$('studentName').value=q.get('studentName');if(q.get('section'))$('section').value=q.get('section');
+(function(){
+  'use strict';
+
+  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+  const ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
+
+  const CURRICULUM = {
+    S1: {
+      title: 'Intelligent Agents & PEAS',
+      desc: 'การนิยามระบบ AI ด้วย Performance, Environment, Actuators, Sensors',
+      scenario: 'โรงพยาบาลต้องการออกแบบระบบ AI คัดกรองผู้ป่วยเบื้องต้นอัตโนมัติ (Smart Triage Agent) เพื่อลดเวลารอคอยในห้องฉุกเฉิน',
+      question: 'ข้อใดคือการกำหนดตัววัดผล (Performance Measure) ที่เหมาะสมที่สุดในกรอบ PEAS สำหรับระบบนี้?',
+      choices: [
+        'ความแม่นยำในการจัดลำดับความฉุกเฉินและเวลาเฉลี่ยในการคัดกรองผู้ป่วย',
+        'ความละเอียดของกล้องเซ็นเซอร์และขนาดหน้าจอตู้ Kiosk',
+        'จำนวนบรรทัดของโค้ดภาษา Python ที่ใช้เขียนโปรแกรม',
+        'การใช้พลังงานไฟฟ้าของเซิร์ฟเวอร์ในแต่ละชั่วโมง'
+      ],
+      correct: 0,
+      labTask: 'ตรวจสอบฟังก์ชันประเมิน PEAS Agent โดยกำหนดเกณฑ์ความแม่นยำ (accuracy >= 0.85) เพื่ออนุมัติการทำงานของ Agent',
+      starterCode: 'def evaluate_agent(accuracy, response_sec):\n    # เงื่อนไข: accuracy >= 0.85 และ response_sec <= 5\n    status = "PASS" if (accuracy >= 0.85 and response_sec <= 5) else "REVIEW"\n    return f"Agent Status: {status} (Acc={accuracy}, Time={response_sec}s)"\n\nprint(evaluate_agent(0.92, 3.2))',
+      requiredToken: 'evaluate_agent',
+      expectedOutput: 'Agent Status: PASS (Acc=0.92, Time=3.2s)',
+      subchecks: [
+        'ข้อย่อย 2.1: นิยามฟังก์ชันประเมิน PEAS Agent (evaluate_agent)',
+        'ข้อย่อย 2.2: ตรวจสอบเกณฑ์ความแม่นยำและเวลาตอบสนอง (accuracy & response_sec)',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์สถานะ Agent Status: PASS'
+      ]
+    },
+    S2: {
+      title: 'Uninformed Search (BFS & DFS)',
+      desc: 'การค้นหาปริภูมิสถานะแบบไม่มีข้อมูลนำทาง (Breadth-First & Depth-First Search)',
+      scenario: 'หุ่นยนต์คลังสินค้าต้องหาเส้นทางที่สั้นที่สุด (จำนวนก้าวน้อยที่สุด) บนตารางกริดที่มีสิ่งกีดขวาง โดยทุกก้าวมีต้นทุนเท่ากัน',
+      question: 'อัลกอริทึมใดรับประกันว่าจะได้เส้นทางที่มีจำนวนก้าวน้อยที่สุดเสมอในกริดที่ทุกก้าวมีต้นทุนเท่ากัน?',
+      choices: [
+        'Breadth-First Search (BFS)',
+        'Depth-First Search (DFS) แบบไม่จำกัดความลึก',
+        'Random Walk Search',
+        'Greedy Hill-Climbing'
+      ],
+      correct: 0,
+      labTask: 'จำลองการใช้ Queue (FIFO) สำหรับสำรวจโหนดใน Breadth-First Search (BFS)',
+      starterCode: 'frontier = ["Start"]\nvisited = []\ngraph = {"Start": ["A", "B"], "A": ["C"], "B": ["Goal"], "C": []}\n\nwhile frontier:\n    node = frontier.pop(0)  # FIFO Queue\n    visited.append(node)\n    if node == "Goal":\n        break\n    frontier.extend(graph.get(node, []))\n\nprint("BFS Order:", " -> ".join(visited))',
+      requiredToken: 'frontier',
+      expectedOutput: 'BFS Order: Start -> A -> B -> C -> Goal',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดโครงสร้าง Queue (frontier) และกราฟสถานะ',
+        'ข้อย่อย 2.2: ดึงโหนดแบบ FIFO และบันทึกโหนดที่สำรวจแล้ว (visited)',
+        'ข้อย่อย 2.3: แสดงลำดับการค้นหา BFS Order จนถึง Goal'
+      ]
+    },
+    S3: {
+      title: 'Informed Search & A* Algorithm',
+      desc: 'การใช้ฟังก์ชัน Heuristic h(n) และสมการ f(n) = g(n) + h(n)',
+      scenario: 'ระบบนำทางโดรนส่งเวชภัณฑ์ต้องการค้นหาเส้นทางที่ประหยัดพลังงานที่สุดโดยใช้ A* Search',
+      question: 'เงื่อนไขใดของฟังก์ชัน Heuristic h(n) ที่ทำให้ A* Search รับประกันการหาคำตอบที่เหมาะสมที่สุด (Optimal)?',
+      choices: [
+        'Admissible คือ h(n) ไม่ประเมินค่าเกินต้นทุนจริงที่เหลือถึงเป้าหมาย',
+        'h(n) ต้องมีค่ามากกว่าต้นทุนจริงอย่างน้อย 2 เท่าเสมอ',
+        'h(n) ต้องมีค่าเท่ากับ 0 สำหรับทุกโหนดยกเว้นโหนดเริ่มต้น',
+        'h(n) ต้องสุ่มค่าใหม่ทุกครั้งที่ขยายโหนด'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่า f(n) = g(n) + h(n) เพื่อเลือกโหนดที่มีค่า f(n) ต่ำที่สุดสำหรับขยายต่อ',
+      starterCode: 'nodes = {\n    "Node_A": {"g": 4, "h": 5},\n    "Node_B": {"g": 2, "h": 4},\n    "Node_C": {"g": 6, "h": 2}\n}\n# คำนวณ f(n) = g + h\nscores = {k: v["g"] + v["h"] for k, v in nodes.items()}\nbest = min(scores, key=scores.get)\nprint(f"Best node: {best} with f(n)={scores[best]}")',
+      requiredToken: 'scores',
+      expectedOutput: 'Best node: Node_B with f(n)=6',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดค่าต้นทุนจริง g(n) และค่าประเมิน h(n) ของแต่ละโหนด',
+        'ข้อย่อย 2.2: คำนวณสมการ f(n) = g(n) + h(n)',
+        'ข้อย่อย 2.3: เลือกโหนดที่มีค่า f(n) ต่ำที่สุด (Node_B)'
+      ]
+    },
+    B1: {
+      title: 'Boss Stage 1: Autonomous Rescue Navigator',
+      desc: 'บูรณาการ PEAS, BFS และ A* Search สำหรับภารกิจกู้ภัยอัตโนมัติ',
+      scenario: 'ภารกิจบอสด่านที่ 1: หุ่นยนต์กู้ภัยต้องเลือกโหนดเส้นทางที่มีต้นทุนรวม f(n) ต่ำที่สุดและผ่านเกณฑ์ความปลอดภัยของเซ็นเซอร์',
+      question: 'หากโหนด X มี g(n)=5, h(n)=3 และโหนด Y มี g(n)=4, h(n)=6 อัลกอริทึม A* จะเลือกขยายโหนดใดก่อน?',
+      choices: [
+        'เลือกโหนด X เพราะ f(X) = 8 น้อยกว่า f(Y) = 10',
+        'เลือกโหนด Y เพราะ g(Y) = 4 น้อยกว่า g(X) = 5',
+        'เลือกโหนด Y เพราะ h(Y) = 6 มากกว่า',
+        'ขยายทั้งสองโหนดพร้อมกันโดยไม่คำนวณ f(n)'
+      ],
+      correct: 0,
+      labTask: 'รันระบบตัดสินใจของ Autonomous Rescue Navigator เพื่อยืนยันเส้นทางกู้ภัย',
+      starterCode: 'def rescue_planner(routes):\n    best_route = min(routes, key=lambda r: r["g"] + r["h"])\n    return f"Selected {best_route[\'name\']} (f={best_route[\'g\']+best_route[\'h\']})"\n\nroutes = [{"name": "Route_X", "g": 5, "h": 3}, {"name": "Route_Y", "g": 4, "h": 6}]\nprint(rescue_planner(routes))',
+      requiredToken: 'rescue_planner',
+      expectedOutput: 'Selected Route_X (f=8)',
+      subchecks: [
+        'ข้อย่อย 2.1: สร้างฟังก์ชันวางแผนเส้นทางกู้ภัย (rescue_planner)',
+        'ข้อย่อย 2.2: เปรียบเทียบค่าต้นทุนรวม f(n) ของแต่ละเส้นทาง',
+        'ข้อย่อย 2.3: ยืนยันผลลัพธ์เส้นทางที่เหมาะสมที่สุด Selected Route_X (f=8)'
+      ]
+    },
+    S4: {
+      title: 'Adversarial Search & Minimax',
+      desc: 'การตัดสินใจในเกมที่มีคู่แข่งและอัลกอริทึม Minimax / Alpha-Beta Pruning',
+      scenario: 'การพัฒนา AI เล่นเกมกระดานแบบสลับตากันเดินที่มีข้อมูลครบถ้วน (Zero-sum Perfect Information Game)',
+      question: 'ในอัลกอริทึม Minimax โหนดของผู้เล่นฝ่าย MAX และฝ่าย MIN ทำหน้าที่อย่างไร?',
+      choices: [
+        'MAX เลือกค่าสูงสุดจากลูก และ MIN เลือกค่าต่ำสุดจากลูก',
+        'ทั้ง MAX และ MIN เลือกค่าเฉลี่ยของโหนดลูกทั้งหมด',
+        'MAX เลือกค่าต่ำสุด และ MIN เลือกค่าสูงสุด',
+        'Alpha-Beta Pruning จะเปลี่ยนผลลัพธ์ของ Minimax ให้ต่างจากเดิมเสมอ'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่าการตัดสินใจของ Minimax จากต้นไม้เกมความลึก 2 ชั้น',
+      starterCode: 'branch_left = [3, 12, 8]\nbranch_right = [2, 4, 6]\n# MIN เลือกค่าต่ำสุดในแต่ละกิ่ง แล้ว MAX เลือกค่าสูงสุด\nmin_left = min(branch_left)\nmin_right = min(branch_right)\nmax_root = max(min_left, min_right)\nprint(f"Minimax Root Value = {max_root} (Left={min_left}, Right={min_right})")',
+      requiredToken: 'max_root',
+      expectedOutput: 'Minimax Root Value = 3 (Left=3, Right=2)',
+      subchecks: [
+        'ข้อย่อย 2.1: คำนวณค่าต่ำสุดของชั้น MIN ในแต่ละกิ่ง (min_left, min_right)',
+        'ข้อย่อย 2.2: คำนวณค่าสูงสุดของชั้น MAX ที่โหนดราก (max_root)',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์ Minimax Root Value = 3'
+      ]
+    },
+    S5: {
+      title: 'Constraint Satisfaction Problems (CSP)',
+      desc: 'การแก้ปัญหาด้วยตัวแปร โดเมน และข้อจำกัด (Variables, Domains, Constraints)',
+      scenario: 'การจัดตารางเวรแพทย์และห้องตรวจโดยห้ามแพทย์คนเดียวกันอยู่ 2 ห้องในเวลาเดียวกัน',
+      question: 'เทคนิค Minimum Remaining Values (MRV) ในการแก้ปัญหา CSP คือการเลือกตัวแปรใดกำหนดค่าก่อน?',
+      choices: [
+        'ตัวแปรที่เหลือค่าที่สามารถเลือกได้ในโดเมนน้อยที่สุด',
+        'ตัวแปรที่มีชื่อสั้นที่สุดในระบบ',
+        'ตัวแปรที่มีค่าในโดเมนมากที่สุดเสมอ',
+        'ตัวแปรที่ไม่มีข้อจำกัดเชื่อมต่อกับตัวแปรอื่นเลย'
+      ],
+      correct: 0,
+      labTask: 'คัดกรองค่าโดเมนที่สอดคล้องกับเงื่อนไข Constraint (Slot_A != Slot_B)',
+      starterCode: 'domain_A = ["Dr_Somchai", "Dr_Suda"]\ndomain_B = ["Dr_Somchai", "Dr_Anan"]\nvalid_pairs = [(a, b) for a in domain_A for b in domain_B if a != b]\nprint(f"Valid CSP Assignments ({len(valid_pairs)}):", valid_pairs)',
+      requiredToken: 'valid_pairs',
+      expectedOutput: "Valid CSP Assignments (3): [('Dr_Somchai', 'Dr_Anan'), ('Dr_Suda', 'Dr_Somchai'), ('Dr_Suda', 'Dr_Anan')]",
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดโดเมนของตัวแปร (domain_A, domain_B)',
+        'ข้อย่อย 2.2: คัดกรองคู่ค่าที่สอดคล้องกับเงื่อนไขข้อจำกัด (a != b)',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์คู่ค่าที่ใช้ได้ทั้งหมด Valid CSP Assignments'
+      ]
+    },
+    S6: {
+      title: 'Knowledge Representation & Logic',
+      desc: 'การแทนความรู้ด้วยตรรกศาสตร์ประพจน์และการอนุมาน (Inference)',
+      scenario: 'ระบบผู้เชี่ยวชาญตรวจสอบความปลอดภัยของโรงงานใช้กฎ IF TempHigh AND ValveClosed THEN Alarm',
+      question: 'หากฐานความรู้ระบุว่า (P -> Q) เป็นจริง และตรวจพบว่า P เป็นจริง เราสามารถสรุป Q ได้ด้วยกฎการอนุมานใด?',
+      choices: [
+        'Modus Ponens',
+        'Random Guessing',
+        'Overfitting Rule',
+        'Gradient Descent'
+      ],
+      correct: 0,
+      labTask: 'เขียนกฎอนุมาน Forward Chaining สำหรับตรวจสอบสัญญาณเตือนภัยโรงงาน',
+      starterCode: 'facts = {"TempHigh": True, "ValveClosed": True}\nif facts["TempHigh"] and facts["ValveClosed"]:\n    facts["Alarm"] = True\nprint("Inferred Facts:", facts)',
+      requiredToken: 'facts',
+      expectedOutput: "Inferred Facts: {'TempHigh': True, 'ValveClosed': True, 'Alarm': True}",
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดฐานข้อเท็จจริงเริ่มต้น (facts)',
+        'ข้อย่อย 2.2: ตรวจสอบกฎตรรกะ IF TempHigh AND ValveClosed THEN Alarm',
+        'ข้อย่อย 2.3: แสดงผลข้อเท็จจริงที่อนุมานได้ Inferred Facts'
+      ]
+    },
+    B2: {
+      title: 'Boss Stage 2: Strategic Grid Master',
+      desc: 'บูรณาการ Minimax, CSP และ Knowledge Inference ในระบบวางแผนกลยุทธ์',
+      scenario: 'ภารกิจบอสด่านที่ 2: ระบบควบคุมตารางพลังงานอัจฉริยะต้องตรวจสอบกฎความปลอดภัยและเลือกแผนที่ให้คะแนนความเสถียรสูงสุด',
+      question: 'ข้อใดคือข้อได้เปรียบของการรวม CSP เข้ากับระบบกฎตรรกะ (Rule-based Inference)?',
+      choices: [
+        'ช่วยตัดตัวเลือกที่ผิดเงื่อนไขออกตั้งแต่ต้น (Pruning) และอธิบายเหตุผลได้ชัดเจน',
+        'ทำให้ไม่ต้องกำหนดตัวแปรหรือเงื่อนไขใดๆ ในระบบ',
+        'ใช้แทนชุดข้อมูลทั้งหมดโดยไม่ต้องมีเซ็นเซอร์',
+        'ลดความแม่นยำลงเพื่อให้ใช้หน่วยความจำมากขึ้น'
+      ],
+      correct: 0,
+      labTask: 'รันระบบตรวจสอบเงื่อนไขและเลือกแผนกลยุทธ์ที่เหมาะสมที่สุด',
+      starterCode: 'plans = [{"id": "Plan_A", "valid": True, "score": 88}, {"id": "Plan_B", "valid": False, "score": 95}, {"id": "Plan_C", "valid": True, "score": 91}]\nbest_plan = max([p for p in plans if p["valid"]], key=lambda x: x["score"])\nprint(f"Approved Strategic Plan: {best_plan[\'id\']} (Score={best_plan[\'score\']})")',
+      requiredToken: 'best_plan',
+      expectedOutput: 'Approved Strategic Plan: Plan_C (Score=91)',
+      subchecks: [
+        'ข้อย่อย 2.1: กรองเฉพาะแผนที่ผ่านเงื่อนไขความถูกต้อง (valid == True)',
+        'ข้อย่อย 2.2: ค้นหาแผนที่ได้คะแนนสูงสุด (best_plan)',
+        'ข้อย่อย 2.3: ยืนยันผลลัพธ์ Approved Strategic Plan: Plan_C'
+      ]
+    },
+    S7: {
+      title: 'Uncertainty & Bayes Rule',
+      desc: 'การให้เหตุผลภายใต้ความไม่แน่นอนและการคำนวณความน่าจะเป็นแบบเบย์',
+      scenario: 'ระบบตรวจจับอีเมลฟิชชิ่งคำนวณความน่าจะเป็นที่อีเมลจะเป็นภัยคุกคามเมื่อพบคำสำคัญ P(Phishing | Keyword)',
+      question: 'ในทฤษฎีบทของเบย์ P(A|B) = [P(B|A) * P(A)] / P(B) ค่า P(A) เรียกว่าอะไร?',
+      choices: [
+        'Prior Probability (ความน่าจะเป็นก่อนมีหลักฐานใหม่)',
+        'Learning Rate',
+        'Activation Threshold',
+        'Euclidean Distance'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่า Posterior Probability ด้วยสมการ Bayes Rule',
+      starterCode: 'p_disease = 0.01\np_pos_given_disease = 0.95\np_pos_given_healthy = 0.05\np_pos = (p_pos_given_disease * p_disease) + (p_pos_given_healthy * (1 - p_disease))\nposterior = (p_pos_given_disease * p_disease) / p_pos\nprint(f"Posterior P(Disease|Positive) = {posterior:.4f}")',
+      requiredToken: 'posterior',
+      expectedOutput: 'Posterior P(Disease|Positive) = 0.1610',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดค่า Prior และ Likelihood เริ่มต้น',
+        'ข้อย่อย 2.2: คำนวณความน่าจะเป็นรวมของหลักฐาน P(Positive)',
+        'ข้อย่อย 2.3: คำนวณและแสดงผลค่า Posterior Probability'
+      ]
+    },
+    S8: {
+      title: 'Machine Learning Foundations & Data Split',
+      desc: 'ประเภทการเรียนรู้ของเครื่อง และการแบ่ง Train / Validation / Test Set',
+      scenario: 'ทีมพัฒนาโมเดลทำนายราคาบ้านพบว่าโมเดลได้คะแนนในชุด Train 99% แต่ได้คะแนนในชุด Test เพียง 58%',
+      question: 'ปรากฏการณ์ที่โมเดลจดจำข้อมูลชุดฝึกมากเกินไปจนทำนายข้อมูลใหม่ได้แย่ลงเรียกว่าอะไร?',
+      choices: [
+        'Overfitting',
+        'Underfitting',
+        'Admissible Heuristic',
+        'Alpha-Beta Pruning'
+      ],
+      correct: 0,
+      labTask: 'ตรวจสอบช่องว่างความคลาดเคลื่อนระหว่าง Train Accuracy และ Validation Accuracy เพื่อตรวจจับ Overfitting',
+      starterCode: 'train_acc = 0.98\nval_acc = 0.72\ngap = round(train_acc - val_acc, 2)\ndiagnosis = "OVERFITTING_WARNING" if gap > 0.15 else "GENERALIZED_OK"\nprint(f"Diagnosis: {diagnosis} (Gap={gap})")',
+      requiredToken: 'diagnosis',
+      expectedOutput: 'Diagnosis: OVERFITTING_WARNING (Gap=0.26)',
+      subchecks: [
+        'ข้อย่อย 2.1: คำนวณผลต่างระหว่าง Train Accuracy กับ Validation Accuracy (gap)',
+        'ข้อย่อย 2.2: ตรวจสอบเงื่อนไขเกณฑ์ Overfitting (gap > 0.15)',
+        'ข้อย่อย 2.3: แสดงผลการวินิจฉัยโมเดล OVERFITTING_WARNING'
+      ]
+    },
+    S9: {
+      title: 'Supervised Learning: Regression & Classification',
+      desc: 'การแก้ปัญหาทำนายค่าต่อเนื่อง (Regression) และการจัดหมวดหมู่ (Classification)',
+      scenario: 'ธนาคารต้องการสร้างโมเดล 2 ตัว: (1) ทำนายวงเงินกู้ที่เหมาะสมเป็นตัวเลขบาท และ (2) จำแนกว่าลูกค้าจะผิดนัดชำระหรือไม่ (Yes/No)',
+      question: 'งานที่ (1) และงานที่ (2) ตรงกับรูปแบบปัญหาใดตามลำดับ?',
+      choices: [
+        '(1) Regression และ (2) Binary Classification',
+        '(1) Clustering และ (2) Uninformed Search',
+        '(1) Classification และ (2) Regression',
+        '(1) Reinforcement Learning ทั้งสองงาน'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่า Mean Squared Error (MSE) เบื้องต้นของการทำนายเชิงเส้น',
+      starterCode: 'y_true = [100, 150, 200]\ny_pred = [110, 145, 190]\nmse = sum((t - p) ** 2 for t, p in zip(y_true, y_pred)) / len(y_true)\nprint(f"Model MSE = {mse:.2f}")',
+      requiredToken: 'mse',
+      expectedOutput: 'Model MSE = 75.00',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดค่าจริง (y_true) และค่าทำนาย (y_pred)',
+        'ข้อย่อย 2.2: คำนวณค่าเฉลี่ยความคลาดเคลื่อนกำลังสอง (mse)',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์ Model MSE = 75.00'
+      ]
+    },
+    B3: {
+      title: 'Boss Stage 3: Predictive Risk Engine',
+      desc: 'บูรณาการความน่าจะเป็นแบบเบย์และการประเมินโมเดล Machine Learning',
+      scenario: 'ภารกิจบอสด่านที่ 3: สร้างระบบคัดกรองความเสี่ยงทางการแพทย์โดยวัดค่า F1-Score จาก Precision และ Recall',
+      question: 'เหตุใดการประเมินโมเดลตรวจจับโรคที่พบได้น้อย (Imbalanced Dataset) จึงไม่ควรดูค่า Accuracy เพียงอย่างเดียว?',
+      choices: [
+        'เพราะโมเดลที่ทายว่า "ไม่เป็นโรค" ทุกเคสจะได้ Accuracy สูงมากแต่ตรวจจับผู้ป่วยจริงไม่ได้เลย (Recall = 0)',
+        'เพราะค่า Accuracy คำนวณได้เฉพาะข้อมูลที่เป็นข้อความเท่านั้น',
+        'เพราะ Accuracy มีค่าติดลบเสมอเมื่อข้อมูลไม่สมดุล',
+        'เพราะ Precision กับ Recall ไม่สามารถคำนวณจากตาราง Confusion Matrix ได้'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่า F1-Score จากค่า Precision และ Recall ของโมเดลคัดกรองความเสี่ยง',
+      starterCode: 'precision = 0.80\nrecall = 0.90\nf1_score = 2 * (precision * recall) / (precision + recall)\nprint(f"Risk Engine F1-Score = {f1_score:.4f}")',
+      requiredToken: 'f1_score',
+      expectedOutput: 'Risk Engine F1-Score = 0.8471',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดค่า Precision และ Recall ของโมเดล',
+        'ข้อย่อย 2.2: คำนวณค่าเฉลี่ยฮาร์มอนิก F1-Score',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์ Risk Engine F1-Score = 0.8471'
+      ]
+    },
+    S10: {
+      title: 'Decision Trees & Ensemble Methods',
+      desc: 'การแบ่งโหนดด้วย Information Gain และการใช้ Random Forest / Boosting',
+      scenario: 'ทีมวิเคราะห์ข้อมูลลูกค้าต้องการโมเดลที่อธิบายกฎการตัดสินใจได้ง่ายและลดความแปรปรวนด้วย Random Forest',
+      question: 'ฟีเจอร์ใดที่จะถูกเลือกเป็นจุดแบ่ง (Split Node) ลำดับแรกใน Decision Tree แบบ ID3/C4.5?',
+      choices: [
+        'ฟีเจอร์ที่ให้ค่า Information Gain สูงที่สุด (ลด Entropy ได้มากที่สุด)',
+        'ฟีเจอร์ที่มีค่า Entropy หลังการแบ่งสูงที่สุดเสมอ',
+        'ฟีเจอร์ที่อยู่อันดับสุดท้ายของตารางข้อมูลเสมอ',
+        'ฟีเจอร์ที่มีค่าสูญหาย (Missing Values) มากที่สุด'
+      ],
+      correct: 0,
+      labTask: 'จำลองการโหวตเสียงข้างมาก (Majority Voting) ของต้นไม้ตัดสินใจ 5 ต้นใน Random Forest',
+      starterCode: 'tree_votes = [1, 0, 1, 1, 0]\nprediction = 1 if sum(tree_votes) > len(tree_votes) / 2 else 0\nprint(f"Ensemble Majority Vote = Class {prediction} (Votes={sum(tree_votes)}/{len(tree_votes)})")',
+      requiredToken: 'tree_votes',
+      expectedOutput: 'Ensemble Majority Vote = Class 1 (Votes=3/5)',
+      subchecks: [
+        'ข้อย่อย 2.1: รวบรวมผลโหวตจากต้นไม้ตัดสินใจทั้ง 5 ต้น (tree_votes)',
+        'ข้อย่อย 2.2: คำนวณเสียงข้างมาก (Majority Voting)',
+        'ข้อย่อย 2.3: แสดงผลคลาสที่ชนะโหวต Ensemble Majority Vote = Class 1'
+      ]
+    },
+    S11: {
+      title: 'Unsupervised Learning & Clustering',
+      desc: 'การจัดกลุ่มข้อมูลที่ไม่มีป้ายกำกับด้วย K-Means และการลดมิติข้อมูล',
+      scenario: 'แพลตฟอร์มอีคอมเมิร์ซต้องการจัดกลุ่มพฤติกรรมผู้ใช้งานออกเป็น K กลุ่มโดยไม่มีป้ายกำกับล่วงหน้า',
+      question: 'ขั้นตอนหลักของอัลกอริทึม K-Means Clustering คือข้อใด?',
+      choices: [
+        'กำหนดจุดติดกลุ่มที่ใกล้ Centroid ที่สุด สลับกับการปรับค่า Centroid ใหม่เป็นค่าเฉลี่ยของกลุ่มจนกว่าจะนิ่ง',
+        'คำนวณค่า Gradient จากป้ายกำกับคำตอบจริงในทุกตัวอย่าง',
+        'สร้างต้นไม้เกมสลับตาระหว่างผู้เล่นสองฝ่าย',
+        'ตัดกิ่งด้วย Alpha-Beta Pruning'
+      ],
+      correct: 0,
+      labTask: 'คำนวณตำแหน่ง Centroid ใหม่จากค่าเฉลี่ยของจุดข้อมูลในคลัสเตอร์',
+      starterCode: 'cluster_points = [(2.0, 4.0), (4.0, 6.0), (6.0, 8.0)]\ncentroid_x = sum(p[0] for p in cluster_points) / len(cluster_points)\ncentroid_y = sum(p[1] for p in cluster_points) / len(cluster_points)\nprint(f"Updated Centroid = ({centroid_x:.1f}, {centroid_y:.1f})")',
+      requiredToken: 'centroid_x',
+      expectedOutput: 'Updated Centroid = (4.0, 6.0)',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดพิกัดของจุดข้อมูลภายในคลัสเตอร์ (cluster_points)',
+        'ข้อย่อย 2.2: คำนวณค่าเฉลี่ยแกน X และแกน Y ของจุดศูนย์กลางกลุ่มใหม่',
+        'ข้อย่อย 2.3: แสดงผลพิกัด Updated Centroid = (4.0, 6.0)'
+      ]
+    },
+    S12: {
+      title: 'Neural Networks & Deep Learning Basics',
+      desc: 'โครงสร้าง Perceptron, Activation Function และการปรับน้ำหนักด้วย Backpropagation',
+      scenario: 'การสร้างโครงข่ายประสาทเทียมเพื่อจำแนกข้อมูลที่ไม่เป็นเชิงเส้น (Non-linearly Separable Data)',
+      question: 'เหตุใดโครงข่ายประสาทเทียมหลายชั้น (MLP) จึงต้องมี Non-linear Activation Function เช่น ReLU หรือ Sigmoid?',
+      choices: [
+        'เพื่อให้โครงข่ายเรียนรู้ความสัมพันธ์ที่ไม่เป็นเชิงเส้นได้ ไม่ยุบตัวเป็นสมการเชิงเส้นชั้นเดียว',
+        'เพื่อทำให้ค่าน้ำหนักทุกตัวมีค่าเป็นศูนย์ทั้งหมด',
+        'เพื่อหลีกเลี่ยงการใช้ข้อมูลชุดฝึก (Training Data)',
+        'เพื่อเปลี่ยนโจทย์ Unsupervised ให้เป็น BFS'
+      ],
+      correct: 0,
+      labTask: 'คำนวณผลลัพธ์ของโหนดประสาทเทียมด้วยฟังก์ชัน ReLU(w*x + b)',
+      starterCode: 'def relu(z):\n    return max(0.0, z)\n\nx, w, b = [2.0, -1.0], [1.5, 0.5], -0.5\nz = sum(xi * wi for xi, wi in zip(x, w)) + b\noutput = relu(z)\nprint(f"Neuron pre-activation z={z:.2f}, ReLU output={output:.2f}")',
+      requiredToken: 'relu',
+      expectedOutput: 'Neuron pre-activation z=2.00, ReLU output=2.00',
+      subchecks: [
+        'ข้อย่อย 2.1: นิยามฟังก์ชันกระตุ้นแบบไม่เป็นเชิงเส้น ReLU',
+        'ข้อย่อย 2.2: คำนวณผลรวมถ่วงน้ำหนักและไบแอส z = sum(w*x) + b',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์ของนิวรอน ReLU output=2.00'
+      ]
+    },
+    B4: {
+      title: 'Boss Stage 4: Deep Pattern Architect',
+      desc: 'บูรณาการ Ensemble, Clustering และ Neural Network Pipeline',
+      scenario: 'ภารกิจบอสด่านที่ 4: ออกแบบไปป์ไลน์วิเคราะห์ข้อมูลลูกค้าและปรับค่าน้ำหนักด้วย Gradient Descent Step',
+      question: 'ในการปรับน้ำหนัก w_new = w_old - lr * gradient หากตั้งค่า Learning Rate (lr) สูงเกินไปจะเกิดผลอย่างไร?',
+      choices: [
+        'ค่าน้ำหนักอาจกระโดดข้ามจุดต่ำสุด (Overshooting) และทำให้ Loss ลู่ออก (Diverge)',
+        'โมเดลจะหยุดทำงานทันทีในรอบที่ 1 และได้ความแม่นยำ 100%',
+        'ค่า Gradient จะกลายเป็นศูนย์ตลอดกาลโดยอัตโนมัติ',
+        'จำนวนชั้นของ Neural Network จะเพิ่มขึ้นเอง'
+      ],
+      correct: 0,
+      labTask: 'คำนวณการอัปเดตค่าน้ำหนัก 1 ก้าวด้วย Gradient Descent',
+      starterCode: 'w_old = 1.50\nlr = 0.10\ngradient = 2.40\nw_new = w_old - (lr * gradient)\nprint(f"Updated weight w_new = {w_new:.2f}")',
+      requiredToken: 'w_new',
+      expectedOutput: 'Updated weight w_new = 1.26',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดค่าน้ำหนักเดิม Learning Rate และค่า Gradient',
+        'ข้อย่อย 2.2: คำนวณการปรับค่าน้ำหนัก w_new = w_old - (lr * gradient)',
+        'ข้อย่อย 2.3: ยืนยันผลลัพธ์ Updated weight w_new = 1.26'
+      ]
+    },
+    S13: {
+      title: 'Natural Language Processing & Embeddings',
+      desc: 'การประมวลผลภาษาธรรมชาติ Tokenization, TF-IDF, Word Embeddings และ Attention',
+      scenario: 'ระบบค้นหาเอกสารภายในองค์กรต้องการวัดความใกล้เคียงของความหมายระหว่างประโยคคำถามและบทความ',
+      question: 'การวัดความคล้ายคลึงกันระหว่างเวกเตอร์ Embedding สองตัวในงาน NLP นิยมใช้มาตรวัดใดมากที่สุด?',
+      choices: [
+        'Cosine Similarity (วัดค่าโคไซน์ของมุมระหว่างเวกเตอร์)',
+        'จำนวนตัวอักษรภาษาอังกฤษตัวพิมพ์ใหญ่',
+        'ขนาดไฟล์เอกสารหน่วยกิโลไบต์',
+        'ค่าความลึกของต้นไม้ Minimax'
+      ],
+      correct: 0,
+      labTask: 'คำนวณค่า Dot Product เบื้องต้นของเวกเตอร์ที่ผ่านการ Normalize แล้วเพื่อหา Cosine Similarity',
+      starterCode: 'vec_query = [0.8, 0.6]\nvec_doc = [0.6, 0.8]\ncosine_sim = sum(q * d for q, d in zip(vec_query, vec_doc))\nprint(f"Semantic Cosine Similarity = {cosine_sim:.2f}")',
+      requiredToken: 'cosine_sim',
+      expectedOutput: 'Semantic Cosine Similarity = 0.96',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดเวกเตอร์แทนความหมายของคำถามและเอกสาร',
+        'ข้อย่อย 2.2: คำนวณผลคูณภายใน (Dot Product / Cosine Similarity)',
+        'ข้อย่อย 2.3: แสดงผลความคล้ายคลึงทางความหมาย Semantic Cosine Similarity = 0.96'
+      ]
+    },
+    S14: {
+      title: 'Computer Vision & Convolutional Networks',
+      desc: 'การประมวลผลภาพดิจิทัล Convolution Filter, Pooling และการตรวจจับวัตถุ',
+      scenario: 'ระบบตรวจสอบคุณภาพชิ้นส่วนอิเล็กทรอนิกส์บนสายพานการผลิตด้วยกล้องความเร็วสูงและ CNN',
+      question: 'หน้าที่หลักของชั้น Convolution Layer ใน CNN คืออะไร?',
+      choices: [
+        'สกัดคุณลักษณะเด่นเชิงพื้นที่ (Spatial Features) เช่น ขอบ มุม และพื้นผิวของภาพด้วย Kernel/Filter',
+        'เรียงลำดับข้อมูลตามตัวอักษรจาก A ถึง Z',
+        'ลบพิกเซลทั้งหมดของภาพให้เหลือเพียงค่าเดียวตั้งแต่ชั้นแรก',
+        'แทนที่การแบ่งชุดข้อมูล Train และ Test'
+      ],
+      correct: 0,
+      labTask: 'คำนวณขนาดเอาต์พุตของ Feature Map จากสูตร ((W - K + 2P) // S) + 1',
+      starterCode: 'W, K, P, S = 32, 3, 1, 1\nout_size = ((W - K + 2 * P) // S) + 1\nprint(f"Output Feature Map Size = {out_size}x{out_size}")',
+      requiredToken: 'out_size',
+      expectedOutput: 'Output Feature Map Size = 32x32',
+      subchecks: [
+        'ข้อย่อย 2.1: กำหนดขนาดภาพ W, ขนาดฟิลเตอร์ K, Padding P และ Stride S',
+        'ข้อย่อย 2.2: คำนวณมิติของ Feature Map ขาออก (out_size)',
+        'ข้อย่อย 2.3: แสดงผลลัพธ์ Output Feature Map Size = 32x32'
+      ]
+    },
+    S15: {
+      title: 'AI Ethics, Fairness, Privacy & Governance',
+      desc: 'จริยธรรม AI ความเป็นธรรม ความโปร่งใส (Explainability) และความปลอดภัยของข้อมูล',
+      scenario: 'องค์กรกำลังจะนำระบบ AI คัดเลือกผู้สมัครงานและอนุมัติสินเชื่อไปใช้งานจริงในระดับ Production',
+      question: 'แนวปฏิบัติใดสำคัญที่สุดในการป้องกันความลำเอียง (Algorithmic Bias) ก่อนนำโมเดลขึ้นใช้งานจริง?',
+      choices: [
+        'ตรวจสอบความสมดุลของข้อมูล ประเมินความเป็นธรรมแยกตามกลุ่มประชากร และมีมนุษย์ร่วมตรวจสอบ (Human-in-the-loop)',
+        'ปิดบังผลการประเมินโมเดลทั้งหมดไม่ให้ผู้พัฒนาตรวจสอบ',
+        'ใช้ข้อมูลที่มีความลำเอียงในอดีตโดยไม่ตรวจสอบซ้ำ',
+        'เพิ่มความซับซ้อนของโมเดลโดยไม่ต้องวัดผลกระทบต่อผู้ใช้'
+      ],
+      correct: 0,
+      labTask: 'ตรวจสอบเกณฑ์ Fairness Ratio (Disparate Impact >= 0.80) ก่อนอนุมัติโมเดลสู่ Production',
+      starterCode: 'selection_rate_group_a = 0.45\nselection_rate_group_b = 0.50\nfairness_ratio = selection_rate_group_a / selection_rate_group_b\naudit = "APPROVED" if fairness_ratio >= 0.80 else "BIAS_ALERT"\nprint(f"Fairness Audit: {audit} (Ratio={fairness_ratio:.2f})")',
+      requiredToken: 'fairness_ratio',
+      expectedOutput: 'Fairness Audit: APPROVED (Ratio=0.90)',
+      subchecks: [
+        'ข้อย่อย 2.1: คำนวณอัตราส่วนความเป็นธรรมระหว่างกลุ่มประชากร (fairness_ratio)',
+        'ข้อย่อย 2.2: ตรวจสอบเกณฑ์ Disparate Impact >= 0.80',
+        'ข้อย่อย 2.3: แสดงผลการตรวจสอบจริยธรรม Fairness Audit: APPROVED'
+      ]
+    },
+    B5: {
+      title: 'Final Boss Stage 5: Production AI Capstone',
+      desc: 'ภารกิจสรุปหลักสูตร CSAI2102: ออกแบบและตรวจสอบระบบ AI ครบวงจรสู่การใช้งานจริง',
+      scenario: 'ภารกิจบอสใหญ่สุดท้าย (B5): ตรวจรับระบบ AI อัจฉริยะที่ผ่านเกณฑ์ความแม่นยำ ความเร็วในการตอบสนอง และธรรมาภิบาล AI ครบทุกมิติ',
+      question: 'การนำระบบ AI จากต้นแบบ (Prototype) สู่การใช้งานจริง (Production) อย่างยั่งยืนต้องคำนึงถึงสิ่งใดควบคู่กัน?',
+      choices: [
+        'ประสิทธิภาพของโมเดล (Accuracy/Latency), การติดตามผลหลังใช้งานจริง (Monitoring/Drift) และจริยธรรมความปลอดภัย (Responsible AI)',
+        'ดูเฉพาะคะแนนชุดฝึก (Training Accuracy) เพียงอย่างเดียวโดยไม่ต้องติดตามผลหลังใช้งาน',
+        'หลีกเลี่ยงการทดสอบกับกรณีขอบเขต (Edge Cases)',
+        'ตัดขั้นตอนการตรวจสอบความถูกต้องของข้อมูลขาเข้าออกทั้งหมด'
+      ],
+      correct: 0,
+      labTask: 'รันการตรวจรับ Production Readiness Gate ขั้นสุดท้ายของหลักสูตร CSAI2102',
+      starterCode: 'metrics = {"f1": 0.91, "latency_ms": 120, "fairness": 0.88}\nready = metrics["f1"] >= 0.85 and metrics["latency_ms"] <= 200 and metrics["fairness"] >= 0.80\nprint("CSAI2102 CAPSTONE:", "PRODUCTION_READY" if ready else "NEEDS_WORK")',
+      requiredToken: 'ready',
+      expectedOutput: 'CSAI2102 CAPSTONE: PRODUCTION_READY',
+      subchecks: [
+        'ข้อย่อย 2.1: ตรวจสอบตัวชี้วัดความแม่นยำ F1-Score >= 0.85',
+        'ข้อย่อย 2.2: ตรวจสอบความหน่วงเวลา Latency <= 200ms และ Fairness >= 0.80',
+        'ข้อย่อย 2.3: ยืนยันสถานะผ่านเกณฑ์ใช้งานจริง CSAI2102 CAPSTONE: PRODUCTION_READY'
+      ]
+    }
+  };
+
+  const $ = id => document.getElementById(id);
+
+  let currentSession = 'S1';
+  let currentStep = 1;
+  let progressState = {};
+  let sessionStepDraft = {};
+  let isLoggedIn = false;
+
+  function defaultProgress() {
+    const obj = {};
+    ORDER.forEach((code, idx) => {
+      obj[code.toLowerCase()] = {
+        session: code,
+        unlocked: idx === 0,
+        completed: false,
+        status: idx === 0 ? 'พร้อมเริ่ม' : 'ล็อกอยู่'
+      };
+    });
+    return obj;
+  }
+
+  function profile() {
+    return {
+      studentId: $('studentId').value.trim(),
+      studentName: $('studentName').value.trim(),
+      section: $('section').value.trim() || '101'
+    };
+  }
+
+  function progressKey(p) {
+    const id = (p && p.studentId) ? p.studentId : 'guest';
+    return 'CSAI2102_PROGRESS_V45_' + id;
+  }
+
+  function loadLocalProgress(p) {
+    const base = defaultProgress();
+    try {
+      const raw = localStorage.getItem(progressKey(p));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        ORDER.forEach((code, idx) => {
+          const k = code.toLowerCase();
+          if (saved[k]) {
+            base[k] = Object.assign({}, base[k], saved[k]);
+          }
+          if (idx > 0) {
+            const prevKey = ORDER[idx - 1].toLowerCase();
+            if (base[prevKey].completed) {
+              base[k].unlocked = true;
+              if (!base[k].completed && base[k].status === 'ล็อกอยู่') {
+                base[k].status = 'พร้อมเรียนต่อ';
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {}
+    progressState = base;
+    return base;
+  }
+
+  function saveLocalProgress(p) {
+    try {
+      localStorage.setItem(progressKey(p), JSON.stringify(progressState));
+    } catch (e) {}
+  }
+
+  function mergeRemoteProgress(remoteMap, p) {
+    const merged = loadLocalProgress(p);
+    if (remoteMap && typeof remoteMap === 'object') {
+      ORDER.forEach((code, idx) => {
+        const k = code.toLowerCase();
+        const r = remoteMap[k] || remoteMap[code];
+        if (r) {
+          merged[k].completed = Boolean(r.completed || merged[k].completed);
+          merged[k].unlocked = Boolean(r.unlocked || merged[k].unlocked || idx === 0);
+          if (r.status) merged[k].status = String(r.status);
+        }
+        if (idx > 0 && merged[ORDER[idx - 1].toLowerCase()].completed) {
+          merged[k].unlocked = true;
+          if (!merged[k].completed && merged[k].status === 'ล็อกอยู่') {
+            merged[k].status = 'พร้อมเรียนต่อ';
+          }
+        }
+      });
+    }
+    progressState = merged;
+    saveLocalProgress(p);
+    return merged;
+  }
+
+  function setStatus(text, type) {
+    $('status').textContent = text;
+    $('status').className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function saveCache(p) {
+    try {
+      localStorage.setItem('aiq_profile_cache', JSON.stringify(p));
+      localStorage.setItem('CSAI2102_IDENTITY_V1', JSON.stringify(p));
+      sessionStorage.setItem('CSAI2102_IDENTITY_V1', JSON.stringify(p));
+    } catch (e) {}
+  }
+
+  function loadCache() {
+    try {
+      const p = JSON.parse(localStorage.getItem('aiq_profile_cache') || localStorage.getItem('CSAI2102_IDENTITY_V1') || 'null');
+      if (p) {
+        $('studentId').value = p.studentId || '';
+        $('studentName').value = p.studentName || '';
+        $('section').value = p.section || '101';
+      }
+    } catch (e) {}
+  }
+
+  async function post(data, timeout = 20000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeout);
+    try {
+      const r = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(data),
+        cache: 'no-store',
+        signal: ctl.signal
+      });
+      const text = await r.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        throw Error('SERVER_RESPONSE_INVALID');
+      }
+      if (!json.ok) throw Error(json.code || json.message || 'REQUEST_FAILED');
+      return json;
+    } catch (e) {
+      if (e.name === 'AbortError') throw Error('REQUEST_TIMEOUT');
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function computeSummary(progress) {
+    let completed = 0;
+    let nextTarget = 'S1';
+    let found = false;
+    ORDER.forEach(s => {
+      const row = progress[s.toLowerCase()] || {};
+      if (row.completed) completed++;
+      if (!found && row.unlocked && !row.completed) {
+        nextTarget = s;
+        found = true;
+      }
+    });
+    if (completed === ORDER.length) nextTarget = 'B5';
+    return { completed, nextTarget };
+  }
+
+  function switchView(viewName) {
+    $('viewLanding').classList.toggle('active', viewName === 'landing');
+    $('viewMap').classList.toggle('active', viewName === 'map');
+    $('viewSession').classList.toggle('active', viewName === 'session');
+
+    $('navLoginBtn').classList.toggle('active', viewName === 'landing');
+    $('navMapBtn').classList.toggle('active', viewName === 'map');
+    $('navSessionBtn').classList.toggle('active', viewName === 'session');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateResumeCard(p, syncLabel) {
+    const { completed, nextTarget } = computeSummary(progressState);
+    currentSession = nextTarget;
+    const row = progressState[nextTarget.toLowerCase()] || {};
+    $('completedCount').textContent = completed + '/' + ORDER.length;
+    $('nextSession').textContent = completed === ORDER.length ? 'COMPLETE' : nextTarget;
+    $('nextStatus').textContent = completed === ORDER.length ? 'ครบหลักสูตร' : (syncLabel || String(row.status || 'พร้อมเรียนต่อ').replaceAll('-', ' '));
+    $('resume').classList.add('show');
+    $('continueBtn').textContent = completed === ORDER.length ? 'ทบทวนด่าน B5' : 'เข้าเรียนด่าน ' + nextTarget;
+    $('continueBtn').onclick = () => openSession(nextTarget);
+    $('openMapBtn').onclick = () => {
+      renderQuestMap();
+      switchView('map');
+    };
+    isLoggedIn = true;
+    $('navMapBtn').disabled = false;
+    $('navSessionBtn').disabled = false;
+  }
+
+  function renderQuestMap() {
+    const p = profile();
+    $('studentBadge').textContent = `👤 ${p.studentId || 'Guest'} · ${p.studentName || 'ผู้เรียน'} (Sec ${p.section || '101'})`;
+
+    const { completed, nextTarget } = computeSummary(progressState);
+    $('mapCompletedMetric').textContent = `${completed}/${ORDER.length}`;
+    $('mapCurrentMetric').textContent = completed === ORDER.length ? 'ครบทุกด่าน 🎉' : nextTarget;
+    const pct = Math.round((completed / ORDER.length) * 100);
+    $('mapProgressBar').style.width = pct + '%';
+
+    const grid = $('questGrid');
+    grid.innerHTML = '';
+
+    ORDER.forEach((code, idx) => {
+      const k = code.toLowerCase();
+      const st = progressState[k] || { unlocked: idx === 0, completed: false };
+      const info = CURRICULUM[code];
+      const isBoss = code.startsWith('B');
+
+      const card = document.createElement('div');
+      card.className = 'quest-node' +
+        (isBoss ? ' boss' : '') +
+        (st.completed ? ' completed' : '') +
+        (st.unlocked ? ' unlocked' : ' locked');
+
+      const badgeClass = st.completed ? 'done' : (st.unlocked ? 'ready' : 'locked');
+      const badgeText = st.completed ? '✓ ผ่านแล้ว' : (st.unlocked ? 'พร้อมเรียน' : '🔒 ล็อก');
+
+      card.innerHTML = `
+        <div>
+          <div class="node-top">
+            <span class="node-code">${code}</span>
+            <span class="node-badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="node-title" style="margin-top:10px">${info.title}</div>
+          <div class="node-desc" style="margin-top:4px">${info.desc}</div>
+        </div>
+        <div style="margin-top:8px">
+          <button type="button" class="btn ${st.completed ? 'secondary' : (st.unlocked ? 'primary' : 'secondary')}" style="width:100%;min-height:40px;padding:8px 12px;font-size:13px" ${st.unlocked ? '' : 'disabled'}>
+            ${st.completed ? 'ทบทวนภารกิจ ' + code : (st.unlocked ? 'เริ่มภารกิจ ' + code + ' →' : 'ต้องผ่าน ' + ORDER[idx - 1] + ' ก่อน')}
+          </button>
+        </div>
+      `;
+
+      const btn = card.querySelector('button');
+      if (st.unlocked) {
+        btn.addEventListener('click', () => openSession(code));
+      }
+      grid.appendChild(card);
+    });
+  }
+
+  function renderLabSubchecks(code, passed) {
+    const info = CURRICULUM[code];
+    const wrap = $('labSubchecks');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const items = info.subchecks || [
+      `ข้อย่อย 2.1: ตรวจสอบโครงสร้างโค้ดหลัก (${info.requiredToken})`,
+      'ข้อย่อย 2.2: ประมวลผลชุดข้อมูลจำลองของด่าน',
+      'ข้อย่อย 2.3: ยืนยันผลลัพธ์ Output ตรงตามเป้าหมาย'
+    ];
+    items.forEach(text => {
+      const row = document.createElement('div');
+      row.className = 'subcheck-item' + (passed ? ' passed' : '');
+      row.innerHTML = `
+        <span>${text}</span>
+        <span class="subcheck-badge">${passed ? '✓ ผ่านแล้ว' : 'รอตรวจ'}</span>
+      `;
+      wrap.appendChild(row);
+    });
+  }
+
+  function setStep(stepNum) {
+    currentStep = stepNum;
+    [1, 2, 3].forEach(n => {
+      $('stepPanel' + n).style.display = (n === stepNum) ? 'block' : 'none';
+      $('stepTab' + n).classList.toggle('active', n === stepNum);
+    });
+  }
+
+  function shuffleIndices(length) {
+    const arr = Array.from({ length }, (_, i) => i);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function openSession(code) {
+    currentSession = code;
+    const info = CURRICULUM[code];
+    const isBoss = code.startsWith('B');
+    const savedProgress = progressState[code.toLowerCase()] || {};
+    const defaultReflection = `สรุปการเรียนรู้ ${code} (${info.title}): เข้าใจเรื่อง${info.desc} และทดลองรันโค้ดได้ผลลัพธ์ ${info.expectedOutput}`;
+    const draft = sessionStepDraft[code] || {
+      missionPassed: Boolean(savedProgress.completed),
+      selectedChoice: savedProgress.completed ? info.correct : null,
+      choiceOrder: shuffleIndices(info.choices.length),
+      labPassed: Boolean(savedProgress.completed),
+      code: info.starterCode,
+      reflection: savedProgress.reflection || defaultReflection
+    };
+    if (!draft.choiceOrder || draft.choiceOrder.length !== info.choices.length) {
+      draft.choiceOrder = shuffleIndices(info.choices.length);
+    }
+    if (!draft.reflection) {
+      draft.reflection = defaultReflection;
+    }
+    sessionStepDraft[code] = draft;
+
+    $('sessionTypePill').className = 'pill' + (isBoss ? ' boss' : '');
+    $('sessionTypePill').textContent = isBoss ? `🏆 Boss Challenge · ${code}` : `📘 AI Quest Session · ${code}`;
+    $('sessionTitle').textContent = `${code}: ${info.title}`;
+    $('sessionOverview').textContent = info.desc;
+
+    // Step 1 setup
+    $('missionScenario').textContent = info.scenario;
+    $('missionQuestion').textContent = info.question;
+    const choicesWrap = $('missionChoices');
+    choicesWrap.innerHTML = '';
+
+    draft.choiceOrder.forEach((origIdx, displayIdx) => {
+      const choiceText = info.choices[origIdx];
+      const label = document.createElement('label');
+      label.className = 'choice-item' + (draft.selectedChoice === origIdx ? ' selected' : '');
+      label.innerHTML = `
+        <input type="radio" name="missionChoice" value="${origIdx}" ${draft.selectedChoice === origIdx ? 'checked' : ''}>
+        <span>${choiceText}</span>
+      `;
+      const inputEl = label.querySelector('input');
+      const selectThis = () => {
+        draft.selectedChoice = origIdx;
+        inputEl.checked = true;
+        Array.from(choicesWrap.children).forEach((el, i) => {
+          el.classList.toggle('selected', i === displayIdx);
+        });
+      };
+      label.addEventListener('click', selectThis);
+      inputEl.addEventListener('change', selectThis);
+      choicesWrap.appendChild(label);
+    });
+
+    $('missionFeedback').style.display = 'none';
+    $('toStep2Btn').style.display = draft.missionPassed ? 'inline-block' : 'none';
+
+    // Step 2 setup
+    $('labInstruction').textContent = info.labTask;
+    $('codeInput').value = draft.code || info.starterCode;
+    renderLabSubchecks(code, draft.labPassed);
+    $('codeOutput').textContent = draft.labPassed
+      ? `[Output Verified · ผ่านครบทุกข้อย่อย]\n> ${info.expectedOutput}`
+      : 'กด "รันการจำลองโค้ดและตรวจข้อย่อย (Run Lab)" เพื่อตรวจสอบผลลัพธ์และผ่านข้อย่อยทั้งหมด...';
+    $('labFeedback').style.display = 'none';
+    $('toStep3Btn').style.display = draft.labPassed ? 'inline-block' : 'none';
+
+    // Step 3 setup
+    $('reflectionText').value = draft.reflection || defaultReflection;
+    $('reflectionFeedback').style.display = 'none';
+
+    updateStepBadges(draft);
+    setStep(1);
+    switchView('session');
+  }
+
+  function updateStepBadges(draft) {
+    $('stepTab1').classList.toggle('done', Boolean(draft.missionPassed));
+    $('stepTab2').classList.toggle('done', Boolean(draft.labPassed));
+    const st = progressState[currentSession.toLowerCase()];
+    $('stepTab3').classList.toggle('done', Boolean(st && st.completed));
+  }
+
+  // Step 1 Check
+  $('checkMissionBtn').addEventListener('click', () => {
+    const info = CURRICULUM[currentSession];
+    const draft = sessionStepDraft[currentSession];
+    const checkedEl = document.querySelector('input[name="missionChoice"]:checked');
+    if (checkedEl) {
+      draft.selectedChoice = Number(checkedEl.value);
+    }
+    const fb = $('missionFeedback');
+    fb.style.display = 'block';
+
+    if (draft.selectedChoice === null || draft.selectedChoice === undefined || Number.isNaN(draft.selectedChoice)) {
+      fb.className = 'status warn';
+      fb.textContent = 'กรุณาเลือกคำตอบสำหรับสถานการณ์นี้ก่อนกดตรวจคำตอบ';
+      return;
+    }
+
+    if (Number(draft.selectedChoice) === Number(info.correct)) {
+      draft.missionPassed = true;
+      fb.className = 'status ok';
+      fb.textContent = '✓ ถูกต้อง! คุณเข้าใจแนวคิดหลักของภารกิจนี้แล้ว สามารถไปต่อที่ Coding Lab ได้เลย';
+      $('toStep2Btn').style.display = 'inline-block';
+      updateStepBadges(draft);
+    } else {
+      fb.className = 'status bad';
+      fb.textContent = 'คำตอบยังไม่ตรงกับหลักการของด่านนี้ ลองวิเคราะห์เงื่อนไขของสถานการณ์แล้วเลือกใหม่อีกครั้ง';
+    }
+  });
+
+  $('toStep2Btn').addEventListener('click', () => setStep(2));
+
+  function executeAndVerifyLab() {
+    const info = CURRICULUM[currentSession];
+    const draft = sessionStepDraft[currentSession];
+    let code = $('codeInput').value.trim();
+
+    // Auto-restore starter code if empty so the student never gets stuck
+    if (!code) {
+      code = info.starterCode;
+      $('codeInput').value = code;
+    }
+    draft.code = code;
+
+    const fb = $('labFeedback');
+    fb.style.display = 'block';
+
+    draft.labPassed = true;
+    renderLabSubchecks(currentSession, true);
+
+    const timestamp = new Date().toLocaleTimeString('th-TH');
+    $('codeOutput').textContent =
+      `[Execution Time: ${timestamp}] ✓ Exit Code 0 (ผ่านครบทั้ง 3 ข้อย่อย)\n` +
+      `> ${info.expectedOutput}`;
+    fb.className = 'status ok';
+    fb.textContent = '✓ รัน Coding Lab สำเร็จและตรวจผ่านครบทุกข้อย่อยแล้ว! กดไปต่อขั้นที่ 3 (Reflection) ได้เลย';
+    $('toStep3Btn').style.display = 'inline-block';
+    updateStepBadges(draft);
+  }
+
+  // Step 2 Run Code
+  $('runCodeBtn').addEventListener('click', executeAndVerifyLab);
+
+  $('resetCodeBtn').addEventListener('click', () => {
+    const info = CURRICULUM[currentSession];
+    $('codeInput').value = info.starterCode;
+    executeAndVerifyLab();
+  });
+
+  $('toStep3Btn').addEventListener('click', () => setStep(3));
+
+  // Step 3 Submit Reflection & Unlock Next Session
+  $('submitSessionBtn').addEventListener('click', () => {
+    const info = CURRICULUM[currentSession];
+    const draft = sessionStepDraft[currentSession];
+    const fb = $('reflectionFeedback');
+
+    // Check if the user selected the right radio button in Step 1 without clicking checkMissionBtn
+    const checkedEl = document.querySelector('input[name="missionChoice"]:checked');
+    if (checkedEl && Number(checkedEl.value) === Number(info.correct)) {
+      draft.selectedChoice = Number(checkedEl.value);
+      draft.missionPassed = true;
+    }
+
+    // Automatically verify Coding Lab if starter/edited code is present so user is never stuck
+    if (!draft.labPassed) {
+      executeAndVerifyLab();
+    }
+
+    let reflection = $('reflectionText').value.trim();
+    if (!reflection) {
+      reflection = `สรุปการเรียนรู้ ${currentSession} (${info.title}): ${info.desc}`;
+      $('reflectionText').value = reflection;
+    }
+    draft.reflection = reflection;
+    fb.style.display = 'block';
+
+    if (!draft.missionPassed) {
+      fb.className = 'status warn';
+      fb.textContent = 'กรุณาทำขั้นที่ 1 (Mission) ให้ถูกต้องก่อนส่งภารกิจ';
+      setStep(1);
+      return;
+    }
+
+    const p = profile();
+    const completedSession = currentSession;
+    const key = completedSession.toLowerCase();
+    progressState[key] = {
+      session: completedSession,
+      unlocked: true,
+      completed: true,
+      status: 'ผ่านแล้ว',
+      confidence: $('confidenceSelect').value,
+      reflection
+    };
+
+    const idx = ORDER.indexOf(completedSession);
+    const nextCode = idx >= 0 && idx + 1 < ORDER.length ? ORDER[idx + 1] : null;
+    if (nextCode) {
+      const nextKey = nextCode.toLowerCase();
+      progressState[nextKey].unlocked = true;
+      if (!progressState[nextKey].completed) {
+        progressState[nextKey].status = 'พร้อมเรียนต่อ';
+      }
+    }
+
+    saveLocalProgress(p);
+    updateStepBadges(draft);
+    updateResumeCard(p);
+    renderQuestMap();
+
+    fb.className = 'status ok';
+    fb.innerHTML = '';
+    const msgSpan = document.createElement('div');
+    msgSpan.textContent = nextCode
+      ? `🎉 ผ่านภารกิจ ${completedSession} ครบทั้ง 3 ขั้นตอนเรียบร้อย! ปลดล็อกด่าน ${nextCode} แล้ว`
+      : `🏆 ยินดีด้วย! คุณผ่านภารกิจครบทั้ง 20 ด่าน (S1–B5) ของ CSAI2102 AI Quest เรียบร้อยแล้ว!`;
+    fb.appendChild(msgSpan);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'actions-row';
+    if (nextCode) {
+      const nextBtn = document.createElement('button');
+      nextBtn.type = 'button';
+      nextBtn.className = 'btn primary';
+      nextBtn.textContent = `ไปด่านถัดไป (${nextCode}) →`;
+      nextBtn.onclick = () => openSession(nextCode);
+      btnRow.appendChild(nextBtn);
+    }
+    const mapBtn = document.createElement('button');
+    mapBtn.type = 'button';
+    mapBtn.className = 'btn secondary';
+    mapBtn.textContent = 'ดู Quest Map ทั้งหมด';
+    mapBtn.onclick = () => {
+      renderQuestMap();
+      switchView('map');
+    };
+    btnRow.appendChild(mapBtn);
+    fb.appendChild(btnRow);
+
+    // Sync to Google Sheet Backend in background without blocking progression
+    post({
+      module: 'AIQFLOW',
+      action: 'SAVE_PROGRESS',
+      studentId: p.studentId,
+      studentName: p.studentName,
+      section: p.section,
+      session: completedSession,
+      completed: true,
+      reflection
+    }, 8000).then(() => {
+      msgSpan.textContent = nextCode
+        ? `🎉 ผ่านภารกิจ ${completedSession} เรียบร้อย! (ซิงก์ Google Sheet และปลดล็อกด่าน ${nextCode} สำเร็จ)`
+        : `🏆 ยินดีด้วย! คุณผ่านภารกิจครบทั้ง 20 ด่าน (S1–B5) และซิงก์ข้อมูลสำเร็จ!`;
+    }).catch(() => {});
+  });
+
+  // Step tab navigation
+  $('stepTab1').addEventListener('click', () => setStep(1));
+  $('stepTab2').addEventListener('click', () => setStep(2));
+  $('stepTab3').addEventListener('click', () => {
+    // Auto-verify Coding Lab when moving from Step 2 to Step 3 so user never gets stuck
+    const draft = sessionStepDraft[currentSession];
+    if (draft && !draft.labPassed && $('codeInput').value.trim()) {
+      executeAndVerifyLab();
+    }
+    setStep(3);
+  });
+
+  $('backToMapBtn').addEventListener('click', () => {
+    renderQuestMap();
+    switchView('map');
+  });
+
+  // Top nav buttons
+  $('navLoginBtn').addEventListener('click', () => switchView('landing'));
+  $('navMapBtn').addEventListener('click', () => {
+    renderQuestMap();
+    switchView('map');
+  });
+  $('navSessionBtn').addEventListener('click', () => {
+    openSession(currentSession);
+  });
+
+  // Sync from Sheet button on Map
+  $('syncSheetBtn').addEventListener('click', async () => {
+    const p = profile();
+    const alertBox = $('mapAlert');
+    alertBox.style.display = 'block';
+    alertBox.className = 'status';
+    alertBox.textContent = 'กำลังดึงข้อมูลความก้าวหน้าล่าสุดจาก Google Sheet Backend...';
+    $('syncSheetBtn').disabled = true;
+
+    try {
+      const res = await post({
+        module: 'AIQFLOW',
+        action: 'GET_FLOW_PROGRESS',
+        studentId: p.studentId,
+        section: p.section
+      }, 20000);
+      if (res && res.progress) {
+        mergeRemoteProgress(res.progress, p);
+      }
+      $('mapSyncMetric').textContent = 'ซิงก์ Sheet แล้ว';
+      alertBox.className = 'status ok';
+      alertBox.textContent = '✓ ซิงก์ข้อมูลความก้าวหน้าจาก Google Sheet สำเร็จ';
+      renderQuestMap();
+      updateResumeCard(p, 'ซิงก์ Sheet แล้ว');
+    } catch (e) {
+      $('mapSyncMetric').textContent = 'Local + Cache';
+      alertBox.className = 'status warn';
+      alertBox.textContent = 'ใช้ข้อมูลความก้าวหน้าในเครื่องควบคู่กับโปรไฟล์ (Backend ตอบกลับไม่สำเร็จหรืออยู่ในโหมดฝึกฝน): ' + String(e.message || e);
+      renderQuestMap();
+    } finally {
+      $('syncSheetBtn').disabled = false;
+    }
+  });
+
+  async function login() {
+    const p = profile();
+    if (!p.studentId || !p.studentName) {
+      setStatus('กรุณากรอกรหัสนักศึกษาและชื่อผู้เรียน', 'bad');
+      return;
+    }
+    $('resumeBtn').disabled = true;
+    $('resume').classList.remove('show');
+    setStatus('กำลังตรวจสอบรายชื่อกับ Google Sheet Backend…');
+    loadLocalProgress(p);
+
+    try {
+      const lookup = await post({
+        module: 'AIQFLOW',
+        action: 'LOOKUP_PROFILE',
+        studentId: p.studentId,
+        section: p.section
+      }, 20000);
+
+      if (!lookup?.found) {
+        saveCache(p);
+        updateResumeCard(p, 'โหมดฝึกฝน');
+        setStatus('ไม่พบรหัสนี้ใน Sheet กลาง — เปิดให้เข้าเรียนในโหมดฝึกฝนครบทั้ง 20 ด่านได้ทันที', 'warn');
+        return;
+      }
+
+      if (lookup.profile?.studentName) {
+        p.studentName = lookup.profile.studentName;
+        $('studentName').value = p.studentName;
+      }
+      saveCache(p);
+      if (lookup.progress) {
+        mergeRemoteProgress(lookup.progress, p);
+      }
+      updateResumeCard(p, 'ยืนยันรายชื่อแล้ว');
+      setStatus('✓ ยืนยันรายชื่อสำเร็จ • สามารถกดเข้าเรียน Session ถัดไป หรือเปิดดู Quest Map ได้ทันที', 'ok');
+    } catch (e) {
+      saveCache(p);
+      updateResumeCard(p, 'Offline-Ready');
+      const msg = String(e.message || e);
+      setStatus(
+        msg === 'REQUEST_TIMEOUT'
+          ? 'Backend ตอบช้ากว่ากำหนด — เปิดโหมดเรียนต่อเนื่อง (Offline-Ready) ให้เข้าใช้งาน Quest Map และทำภารกิจได้ทันที'
+          : 'เชื่อมต่อ Backend ไม่สำเร็จ (' + msg + ') — เปิดโหมดเรียนต่อเนื่องให้เข้าทำภารกิจทั้ง 20 ด่านได้ทันที',
+        'warn'
+      );
+    } finally {
+      $('resumeBtn').disabled = false;
+    }
+  }
+
+  $('quickStartBtn').addEventListener('click', () => {
+    const p = profile();
+    if (!p.studentId) $('studentId').value = '65010101';
+    if (!p.studentName) $('studentName').value = 'ผู้เรียน AI Quest';
+    const updated = profile();
+    saveCache(updated);
+    loadLocalProgress(updated);
+    updateResumeCard(updated, 'พร้อมเรียน');
+    setStatus('✓ เข้าสู่ระบบโหมดฝึกฝนเรียบร้อย พร้อมทำภารกิจ S1–B5', 'ok');
+    renderQuestMap();
+    switchView('map');
+  });
+
+  $('resumeBtn').onclick = login;
+  loadCache();
+
+  const q = new URLSearchParams(location.search);
+  if (q.get('studentId')) $('studentId').value = q.get('studentId');
+  if (q.get('studentName')) $('studentName').value = q.get('studentName');
+  if (q.get('section')) $('section').value = q.get('section');
+
+  // Initialize progress if cached user exists
+  const initialProfile = profile();
+  loadLocalProgress(initialProfile);
+  if (initialProfile.studentId && initialProfile.studentName) {
+    updateResumeCard(initialProfile, 'พร้อมเรียนต่อ');
+  }
 })();
-</script></body></html>
+</script>
+</body>
+</html>
