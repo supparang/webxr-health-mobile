@@ -660,9 +660,16 @@ export function mountMaze(canvas, game, onStatus = () => {}) {
   }
 
   const mapping = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down" };
+  // ไม่แย่งแป้นพิมพ์: ถ้ากำลังพิมพ์ในช่องข้อความ (หรือกด Ctrl/Cmd/Alt) ให้ปล่อยตามปกติ
+  // หมายเหตุ: e.code คือ "ตำแหน่งปุ่มจริง" — บนคีย์บอร์ดไทย KeyW/A/S/D = ไ ฟ ห ก
+  const isTypingContext = e => {
+    const t = e.target;
+    return e.ctrlKey || e.metaKey || e.altKey ||
+      (!!t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT"));
+  };
   function down(e) {
     const k = mapping[e.code];
-    if (k) {
+    if (k && !isTypingContext(e)) {
       e.preventDefault();
       if (!e.repeat) move(k);
       keys.add(k);
@@ -671,8 +678,8 @@ export function mountMaze(canvas, game, onStatus = () => {}) {
   function up(e) {
     const k = mapping[e.code];
     if (k) {
-      e.preventDefault();
       keys.delete(k);
+      if (!isTypingContext(e)) e.preventDefault();
     }
   }
 
