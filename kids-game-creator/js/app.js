@@ -1,9 +1,9 @@
 import { createGameFromThai } from "./thai-game-planner.js?v=3.4.0";
 import { validateGame } from "./game-schema.js?v=3.4.0";
-import { mountAdventure } from "./adventure-engine.js?v=3.4.0";
-import { mountMaze } from "./maze-engine.js?v=3.4.0";
+import { mountAdventure } from "./adventure-engine.js?v=3.6.1";
+import { mountMaze } from "./maze-engine.js?v=3.6.1";
 import { mountQuiz } from "./quiz-engine.js?v=3.4.0";
-import { mountDodge } from "./dodge-engine.js?v=3.4.0";
+import { mountDodge } from "./dodge-engine.js?v=3.6.1";
 import { CREATION_LEVELS, GENRES, exampleFor } from "./creation-presets.js";
 import { sound } from "./sound.js";
 
@@ -888,6 +888,7 @@ for (const button of document.querySelectorAll("[data-control]")) {
 const copyShareBtn = document.querySelector("#copyShareLink");
 const exportBtn = document.querySelector("#exportGameJson");
 const importInp = document.querySelector("#importGameJson");
+const MAX_IMPORT_BYTES = 512 * 1024; // ไฟล์เกมปกติเล็กกว่านี้มาก — กันไฟล์ขนาดใหญ่ผิดปกติ
 const shareStatus = document.querySelector("#shareStatus");
 
 const shareLinkContainer = document.querySelector("#shareLinkContainer");
@@ -991,13 +992,18 @@ if (importInp) {
   importInp.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) {
+      if (shareStatus) shareStatus.textContent = "❌ ไฟล์ใหญ่เกินไป ไม่ใช่ไฟล์เกมจากระบบนี้";
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const game = JSON.parse(evt.target?.result);
-        launchValidatedGame(game);
+        // ผ่าน validateGame ก่อนเสมอ แล้วใช้เฉพาะ "ผลลัพธ์ที่ผ่านการตรวจ" (ห้ามใช้ออบเจ็กต์ดิบจากไฟล์)
+        const game = launchValidatedGame(JSON.parse(evt.target?.result));
         saveGameToLibrary(game, "เกมของเพื่อน 👥");
-        if (shareStatus) shareStatus.textContent = `📂 นำเข้าและบันทึกเกม "${game.title || game.type}" ลงเครื่องเรียบร้อยแล้ว!`;
+        if (shareStatus) shareStatus.textContent = `📂 นำเข้าและบันทึกเกม "${game.title}" ลงเครื่องเรียบร้อยแล้ว!`;
         document.querySelector("#gameArea")?.scrollIntoView({ behavior: "smooth" });
       } catch (err) {
         if (shareStatus) shareStatus.textContent = "❌ ไฟล์เกมไม่ถูกต้อง";
@@ -1013,29 +1019,64 @@ const SAVED_GAMES_KEY = "kids_game_library_v1";
 const saveCurrentGameBtn = document.querySelector("#saveCurrentGameBtn");
 const savedGamesList = document.querySelector("#savedGamesList");
 
+// ด่านเดียวสำหรับข้อมูลเกมจากภายนอก (ไฟล์นำเข้า / ลิงก์ #game= / localStorage)
+// คืนเฉพาะผลลัพธ์ที่ validateGame ล้างและจำกัดค่าแล้ว — ห้ามใช้ออบเจ็กต์ดิบต่อ
+function parseExternalGame(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw Error("ข้อมูลเกมไม่ถูกต้อง");
+  return validateGame({ ageLevel: age.value, ...raw });
+}
+
+// สร้างรายการคลังใหม่จาก fullData ที่ตรวจแล้ว (ไม่เชื่อฟิลด์สรุปที่เก็บไว้ใน localStorage)
+function sanitizeSavedItem(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  try {
+    const game = parseExternalGame(entry.fullData);
+    const text = (v, max, fallback) => (typeof v === "string" ? v.slice(0, max) : fallback);
+    return {
+      id: String(entry.id ?? ""),
+      title: game.title,
+      type: game.type,
+      ageLevel: game.ageLevel,
+      theme: game.theme,
+      character: game.player.name,
+      targetScore: game.rules.targetScore,
+      lives: game.player.lives,
+      levels: game.rules.levels,
+      source: text(entry.source, 40, "ฉันสร้างเอง"),
+      savedAt: text(entry.savedAt, 20, ""),
+      fullData: game
+    };
+  } catch {
+    return null; // ข้อมูลเสียหาย/ถูกดัดแปลง — ข้ามไป
+  }
+}
+
 function getSavedGames() {
   if (typeof window === "undefined" || !window.localStorage) return [];
   try {
-    return JSON.parse(localStorage.getItem(SAVED_GAMES_KEY) || "[]");
+    const stored = JSON.parse(localStorage.getItem(SAVED_GAMES_KEY) || "[]");
+    if (!Array.isArray(stored)) return [];
+    return stored.slice(0, 20).map(sanitizeSavedItem).filter(Boolean);
   } catch {
     return [];
   }
 }
 
-function saveGameToLibrary(game, source = "ฉันสร้างเอง") {
-  if (!game || !game.type) return;
+function saveGameToLibrary(rawGame, source = "ฉันสร้างเอง") {
+  let game;
+  try { game = parseExternalGame(rawGame); } catch { return; } // ไม่บันทึกข้อมูลที่ไม่ผ่านการตรวจ
   const list = getSavedGames();
   const id = Date.now().toString();
   const item = {
     id,
-    title: game.title || `เกม${game.type}`,
+    title: game.title,
     type: game.type,
-    ageLevel: game.ageLevel || age.value,
-    theme: game.theme || "forest",
-    character: game.player?.name || "กระต่าย",
-    targetScore: game.rules?.targetScore || 10,
-    lives: game.player?.lives || 3,
-    levels: game.rules?.levels || 1,
+    ageLevel: game.ageLevel,
+    theme: game.theme,
+    character: game.player.name,
+    targetScore: game.rules.targetScore,
+    lives: game.player.lives,
+    levels: game.rules.levels,
     source,
     savedAt: new Date().toLocaleDateString("th-TH"),
     fullData: game
@@ -1105,12 +1146,20 @@ function renderSavedGamesList() {
     meta.style.fontSize = "12px";
     meta.style.color = "#555";
     meta.style.lineHeight = "1.4";
-    meta.innerHTML = `
-      <span>ระดับ ${item.ageLevel?.toUpperCase() || "P4"} | 🎯 ${item.targetScore} แต้ม</span><br>
-      <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:${item.source.includes("เพื่อน") ? "#e8f4fd;color:#1b6ec2" : "#e6f4ea;color:#137333"};margin-top:4px">
-        ${item.source} (${item.savedAt})
-      </span>
-    `;
+    // ใช้ textContent เท่านั้น — ห้ามใส่ข้อมูลจากไฟล์/ลิงก์/localStorage ลง innerHTML
+    const levelLine = document.createElement("span");
+    levelLine.textContent = `ระดับ ${String(item.ageLevel).toUpperCase()} | 🎯 ${item.targetScore} แต้ม`;
+    const sourceChip = document.createElement("span");
+    const fromFriend = item.source.includes("เพื่อน");
+    sourceChip.style.display = "inline-block";
+    sourceChip.style.padding = "1px 6px";
+    sourceChip.style.borderRadius = "4px";
+    sourceChip.style.fontSize = "11px";
+    sourceChip.style.background = fromFriend ? "#e8f4fd" : "#e6f4ea";
+    sourceChip.style.color = fromFriend ? "#1b6ec2" : "#137333";
+    sourceChip.style.marginTop = "4px";
+    sourceChip.textContent = `${item.source} (${item.savedAt})`;
+    meta.append(levelLine, document.createElement("br"), sourceChip);
     top.append(meta);
     card.append(top);
 
@@ -1146,9 +1195,13 @@ function renderSavedGamesList() {
     playBtn.style.whiteSpace = "nowrap";
     playBtn.addEventListener("click", () => {
       sound.playClick();
-      launchValidatedGame(item.fullData);
-      if (shareStatus) shareStatus.textContent = `▶️ กำลังเล่นเกม "${item.title}" จากคลังในเครื่อง`;
-      document.querySelector("#gameArea")?.scrollIntoView({ behavior: "smooth" });
+      try {
+        launchValidatedGame(item.fullData);
+        if (shareStatus) shareStatus.textContent = `▶️ กำลังเล่นเกม "${item.title}" จากคลังในเครื่อง`;
+        document.querySelector("#gameArea")?.scrollIntoView({ behavior: "smooth" });
+      } catch {
+        if (shareStatus) shareStatus.textContent = "❌ เปิดเกมนี้ไม่ได้ ข้อมูลเกมไม่ถูกต้อง";
+      }
     });
     btnRow.append(playBtn);
 
@@ -1200,8 +1253,8 @@ if (saveCurrentGameBtn) {
 // Initial render of saved games library
 renderSavedGamesList();
 
-function launchValidatedGame(game) {
-  if (!game || !game.type) return;
+function launchValidatedGame(raw) {
+  const game = parseExternalGame(raw); // throw ถ้าไม่ถูกต้อง — ก่อนแตะ UI/สถานะใดๆ
   if (game.ageLevel && age.value !== game.ageLevel) {
     age.value = game.ageLevel;
     refreshAge();
@@ -1223,6 +1276,7 @@ function launchValidatedGame(game) {
 
   updatePrompt();
   mountGameInstance(game);
+  return game;
 }
 
 function loadGameData(game) {
@@ -1237,10 +1291,17 @@ if (typeof window !== "undefined") {
       const raw = decodeURIComponent(hash.slice(6));
       const game = JSON.parse(raw);
       setTimeout(() => {
-        launchValidatedGame(game);
-        saveGameToLibrary(game, "ลิงก์จากเพื่อน 👥");
-        if (shareStatus) shareStatus.textContent = "🎮 กำลังเล่นเกมที่เพื่อนแชร์มาให้ และบันทึกไว้ในคลังเครื่องแล้ว!";
+        try {
+          // เปิดเล่นให้เลย แต่ "ไม่บันทึกอัตโนมัติ" ให้ผู้ใช้กด ⭐ เอง
+          // (กันลิงก์แปลกหน้าเขียนทับคลังเกมของเด็กโดยเงียบๆ)
+          const valid = launchValidatedGame(game);
+          if (shareStatus) shareStatus.textContent = `🎮 กำลังเล่นเกม "${valid.title}" ที่เพื่อนแชร์มาให้ — กด ⭐ บันทึกเกมนี้ลงเครื่อง ถ้าอยากเก็บไว้`;
+        } catch {
+          if (shareStatus) shareStatus.textContent = "❌ ลิงก์เกมไม่ถูกต้องหรือเสียหาย";
+        }
       }, 100);
-    } catch {}
+    } catch {
+      if (shareStatus) shareStatus.textContent = "❌ ลิงก์เกมไม่ถูกต้องหรือเสียหาย";
+    }
   }
 }
