@@ -288,16 +288,16 @@ function updateBalanceDisplay() {
   if (!balanceIndexEl) return;
   const idx = calculateBalanceIndex();
   let rating = "⚖️ สมดุลกำลังดี (Balanced)";
-  let color = "#27ae60";
+  let color = "#1e7d46";
   if (idx < 1.8) {
     rating = "😊 ง่าย เหมาะกับผู้เริ่มต้น (Casual)";
-    color = "#2980b9";
+    color = "#1f6aa5";
   } else if (idx > 5.0) {
     rating = "🔥 ยากมาก เสี่ยงไม่ผ่าน (Hardcore / Unbalanced)";
     color = "#c0392b";
   } else if (idx > 3.5) {
     rating = "⚡ ท้าทายสูง (Challenging)";
-    color = "#d35400";
+    color = "#b34700";
   }
   balanceIndexEl.innerHTML = `
     <strong>ดัชนีความสมดุลเกม: <span style="color:${color};font-size:18px">${idx}</span></strong>
@@ -688,6 +688,7 @@ if (runFreeformJsonBtn && freeformJsonInput) {
 document.querySelector("#generate").addEventListener("click", () => {
   try {
     sound.playClick();
+    hideFriendBar();
     const game = createGameFromThai(prompt.value, age.value);
 
     if (!freeformMode) {
@@ -761,6 +762,7 @@ document.querySelector("#generate").addEventListener("click", () => {
       freeformJsonInput.value = JSON.stringify(game, null, 2);
     }
     mountGameInstance(game);
+    revealGame();
   } catch (e) {
     out.textContent = "";
     status.textContent = e.message;
@@ -829,7 +831,7 @@ if (soundToggle) {
     sound.enabled = !sound.enabled;
     soundToggle.textContent = sound.enabled ? "🔊 เสียง: เปิด" : "🔇 เสียง: ปิด";
     soundToggle.style.background = sound.enabled ? "#eef3fc" : "#f1f3f5";
-    soundToggle.style.color = sound.enabled ? "#24476b" : "#718096";
+    soundToggle.style.color = sound.enabled ? "#24476b" : "#5a6678";
     if (sound.enabled) {
       sound.playTestSound();
     }
@@ -1064,7 +1066,7 @@ function getSavedGames() {
 
 function saveGameToLibrary(rawGame, source = "ฉันสร้างเอง") {
   let game;
-  try { game = parseExternalGame(rawGame); } catch { return; } // ไม่บันทึกข้อมูลที่ไม่ผ่านการตรวจ
+  try { game = parseExternalGame(rawGame); } catch { return false; } // ไม่บันทึกข้อมูลที่ไม่ผ่านการตรวจ
   const list = getSavedGames();
   const id = Date.now().toString();
   const item = {
@@ -1090,10 +1092,14 @@ function saveGameToLibrary(rawGame, source = "ฉันสร้างเอง"
   }
 
   const trimmed = list.slice(0, 20);
+  let saved = true;
   try {
     localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(trimmed));
-  } catch {}
+  } catch {
+    saved = false; // โหมดส่วนตัว / ที่เก็บเต็ม — ต้องบอกผู้ใช้ตามจริง
+  }
   renderSavedGamesList();
+  return saved;
 }
 
 function deleteSavedGame(id) {
@@ -1112,7 +1118,7 @@ function renderSavedGamesList() {
   if (list.length === 0) {
     const emptyP = document.createElement("p");
     emptyP.style.gridColumn = "1 / -1";
-    emptyP.style.color = "#8c9ba5";
+    emptyP.style.color = "#5c6b84";
     emptyP.style.fontSize = "13px";
     emptyP.style.margin = "8px 0";
     emptyP.textContent = "ยังไม่มีเกมที่บันทึกไว้ในเครื่อง — ลองกด '⭐ บันทึกเกมนี้ลงเครื่อง' หรือกด '📂 นำเข้าเกมเพื่อน' ได้เลย!";
@@ -1218,7 +1224,7 @@ function renderSavedGamesList() {
     delBtn.style.padding = "0";
     delBtn.style.fontSize = "15px";
     delBtn.style.background = "#fee2e2";
-    delBtn.style.color = "#dc2626";
+    delBtn.style.color = "#b91c1c";
     delBtn.style.margin = "0";
     delBtn.style.borderRadius = "8px";
     delBtn.style.border = "1px solid #fca5a5";
@@ -1245,16 +1251,63 @@ if (saveCurrentGameBtn) {
       if (shareStatus) shareStatus.textContent = "กรุณากด 'สร้างและเล่นเกม' ก่อนบันทึกครับ";
       return;
     }
-    saveGameToLibrary(data, "ฉันสร้างเอง 🎨");
-    if (shareStatus) shareStatus.textContent = `⭐ บันทึกเกม "${data.title || data.type}" ลงในคลังเกมของเครื่องเรียบร้อยแล้ว!`;
+    const ok = saveGameToLibrary(data, "ฉันสร้างเอง 🎨");
+    if (shareStatus) shareStatus.textContent = ok
+      ? `⭐ บันทึกเกม "${data.title || data.type}" ลงในคลังเกมของเครื่องเรียบร้อยแล้ว!`
+      : "❌ บันทึกไม่สำเร็จ เบราว์เซอร์อาจปิดการเก็บข้อมูล (เช่นโหมดส่วนตัว) หรือที่เก็บเต็ม";
   });
 }
 
 // Initial render of saved games library
 renderSavedGamesList();
 
+// เลื่อนพื้นที่เกมเข้าจอ — เดิมหลังกดสร้างเกม/เปิดลิงก์เพื่อน หน้าไม่เลื่อน เกมจึงโผล่ครึ่งเดียวหรืออยู่ใต้จอไปหลายหน้า
+function revealGame() {
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  gameArea.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+}
+
+// เกมจากลิงก์เพื่อน: เปิดเล่นได้ทันที แต่ให้ผู้ใช้ตัดสินใจเก็บเอง ผ่านแถบเหนือตัวเกม
+const friendBar = document.querySelector("#friendGameBar");
+const friendText = document.querySelector("#friendGameText");
+const saveFriendBtn = document.querySelector("#saveFriendGameBtn");
+const dismissFriendBtn = document.querySelector("#dismissFriendGameBtn");
+let pendingFriendGame = null; // เกมที่ผ่าน validateGame แล้ว และยังไม่ได้ตัดสินใจ
+
+function showFriendBar(game) {
+  if (!friendBar || !friendText) return;
+  pendingFriendGame = game;
+  friendText.textContent = `🎮 เกมจากเพื่อน: "${game.title}"`;
+  if (saveFriendBtn) saveFriendBtn.hidden = false;
+  if (dismissFriendBtn) dismissFriendBtn.hidden = false;
+  friendBar.hidden = false;
+}
+
+function hideFriendBar() {
+  pendingFriendGame = null;
+  if (friendBar) friendBar.hidden = true;
+}
+
+saveFriendBtn?.addEventListener("click", () => {
+  if (!pendingFriendGame) return;
+  sound.playClick();
+  const game = pendingFriendGame;
+  const ok = saveGameToLibrary(game, "ลิงก์จากเพื่อน 👥");
+  pendingFriendGame = null;
+  friendText.textContent = ok
+    ? `✔ บันทึกเกม "${game.title}" ลงเครื่องแล้ว`
+    : "❌ บันทึกไม่สำเร็จ เบราว์เซอร์อาจปิดการเก็บข้อมูล (เช่นโหมดส่วนตัว) หรือที่เก็บเต็ม";
+  saveFriendBtn.hidden = true;
+  if (dismissFriendBtn) dismissFriendBtn.hidden = true;
+});
+dismissFriendBtn?.addEventListener("click", () => {
+  sound.playClick();
+  hideFriendBar();
+});
+
 function launchValidatedGame(raw) {
   const game = parseExternalGame(raw); // throw ถ้าไม่ถูกต้อง — ก่อนแตะ UI/สถานะใดๆ
+  hideFriendBar(); // เริ่มเกมใหม่ทุกครั้ง: ล้างแถบของเกมก่อนหน้า (ลิงก์เพื่อนจะเปิดแถบใหม่เองหลังเรียกฟังก์ชันนี้)
   if (game.ageLevel && age.value !== game.ageLevel) {
     age.value = game.ageLevel;
     refreshAge();
@@ -1295,7 +1348,9 @@ if (typeof window !== "undefined") {
           // เปิดเล่นให้เลย แต่ "ไม่บันทึกอัตโนมัติ" ให้ผู้ใช้กด ⭐ เอง
           // (กันลิงก์แปลกหน้าเขียนทับคลังเกมของเด็กโดยเงียบๆ)
           const valid = launchValidatedGame(game);
-          if (shareStatus) shareStatus.textContent = `🎮 กำลังเล่นเกม "${valid.title}" ที่เพื่อนแชร์มาให้ — กด ⭐ บันทึกเกมนี้ลงเครื่อง ถ้าอยากเก็บไว้`;
+          showFriendBar(valid);
+          revealGame();
+          if (shareStatus) shareStatus.textContent = `🎮 กำลังเล่นเกม "${valid.title}" ที่เพื่อนแชร์มาให้`;
         } catch {
           if (shareStatus) shareStatus.textContent = "❌ ลิงก์เกมไม่ถูกต้องหรือเสียหาย";
         }
