@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSAI 4603: 15-Week Boss Rush</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #38bdf8;
+      --boss: #f43f5e;
+      --success: #22c55e;
+      --text: #f8fafc;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      background: var(--card);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    h1, h2 { text-align: center; margin-top: 0; color: var(--accent); }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #090d16;
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .grid-weeks {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .week-card {
+      background: #334155;
+      border: 2px solid #475569;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .week-card.unlocked {
+      border-color: var(--accent);
+      background: #1e3a5f;
+    }
+    .week-card.cleared {
+      border-color: var(--success);
+      background: #143529;
+    }
+    .week-card.locked {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .week-card:hover:not(.locked) {
+      transform: translateY(-4px);
+    }
+    /* หน้าจอต่อสู้กับ Boss */
+    #battle-screen { display: none; }
+    canvas {
+      width: 100%;
+      max-height: 220px;
+      background: #090d16;
+      border-radius: 12px;
+      border: 2px solid #334155;
+      display: block;
+      margin-bottom: 16px;
+    }
+    .question-box {
+      background: #0f172a;
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .choices-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button {
+      background: var(--accent);
+      color: #090d16;
+      font-weight: bold;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.choice-btn {
+      background: #334155;
+      color: var(--text);
+      text-align: left;
+      border: 1px solid #475569;
+    }
+    button.choice-btn:hover { border-color: var(--accent); background: #1e293b; }
+    input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>⚔️ CSAI 4603: 15-Week Boss Quest</h1>
+
+  <!-- แถบข้อมูลผู้เล่น -->
+  <div class="top-bar">
+    <div>
+      👤 ผู้เล่น: <input type="text" id="player-name" value="Student_01" style="width:130px;">
+      <button onclick="loadProgressFromCloud()">โหลดเซฟ</button>
+    </div>
+    <div>🔓 ด่านที่เปิดถึง: <strong>Week <span id="ui-week">1</span>/15</strong></div>
+    <div>⭐ คะแนนรวม: <strong><span id="ui-score">0</span></strong></div>
+  </div>
+
+  <!-- หน้าจอแผนที่ 15 สัปดาห์ -->
+  <div id="map-screen">
+    <p style="text-align:center; margin-top:0;">ต้องปราบ <strong>Boss ประจำสัปดาห์</strong> ให้ชนะก่อน จึงจะปลดล็อกสัปดาห์ถัดไปได้!</p>
+    <div class="grid-weeks" id="weeks-grid"></div>
+  </div>
+
+  <!-- หน้าจอต่อสู้กับ Boss -->
+  <div id="battle-screen">
+    <h2 id="battle-title">Week 1 Boss</h2>
+    <canvas id="battleCanvas" width="800" height="220"></canvas>
+    
+    <div class="question-box">
+      <div id="question-text" style="font-size:18px; margin-bottom:14px; font-weight:bold;">คำถาม...</div>
+      <div class="choices-grid" id="choices-box"></div>
+    </div>
+    <button onclick="backToMap()" style="background:#64748b; color:white;">⬅ กลับหน้าแผนที่</button>
+  </div>
+</div>
+
+<script>
+// =========================================================
+// 1. ตั้งค่า URL ของ Google Apps Script Web App ที่นี่
+// =========================================================
+const WEB_APP_URL = "ใส่_URL_ของ_GOOGLE_APPS_SCRIPT_WEB_APP_ที่นี่";
+const SESSION_TOKEN = Math.random().toString(36).substring(2, 12);
+
+// =========================================================
+// 2. ข้อมูลเนื้อหา CSAI 4603 ทั้ง 15 สัปดาห์ + ข้อมูล Boss
+// (สามารถปรับเปลี่ยนข้อความโจทย์ให้ตรงกับ Syllabus จริงได้ทันที)
+// =========================================================
+const WEEKS_DATA = [
+  { week: 1, title: "Intro & Fundamentals", boss: "Slime of Syntax", q: "ข้อใดคือเป้าหมายหลักของการศึกษาในสัปดาห์ที่ 1 (Introduction to CSAI 4603)?", choices: ["เข้าใจโครงสร้างสถาปัตยกรรมและแนวคิดพื้นฐานของระบบ", "การลบฐานข้อมูลทั้งหมด", "การประกอบฮาร์ดแวร์ด้วยมือ", "การปิดระบบเครือข่าย"], ans: 0 },
+  { week: 2, title: "Data Representation & Preprocessing", boss: "Golem of Raw Data", q: "ทำไมจึงต้องทำ Data Preprocessing ก่อนนำข้อมูลเข้าสู่โมเดลหรือระบบประมวลผล?", choices: ["เพื่อเพิ่มขนาดไฟล์ให้ใหญ่ขึ้น", "เพื่อลด Noise จัดการค่าว่าง และปรับสเกลข้อมูลให้เหมาะสม", "เพื่อให้โค้ดคอมไพล์ช้าลง", "เพื่อซ่อนข้อมูลจากผู้ดูแลระบบ"], ans: 1 },
+  { week: 3, title: "Core Algorithms & Search", boss: "Phantom of Complexity", q: "อัลกอริทึมการค้นหาแบบใดที่ใช้ฟังก์ชัน Heuristic ในการประเมินเส้นทางที่สั้นที่สุด?", choices: ["Breadth-First Search (BFS)", "Depth-First Search (DFS)", "A* (A-Star) Search", "Linear Search"], ans: 2 },
+  { week: 4, title: "Supervised Learning Concepts", boss: "Drake of Regression", q: "ปัญหาแบบ Classification ต่างจาก Regression อย่างไร?", choices: ["Classification ทำนายค่าเป็นหมวดหมู่ ส่วน Regression ทำนายค่าต่อเนื่อง", "เหมือนกันทุกประการ", "Regression ใช้เฉพาะข้อมูลภาพเท่านั้น", "Classification ไม่ต้องใช้ข้อมูลสอน"], ans: 0 },
+  { week: 5, title: "Model Evaluation & Overfitting", boss: "Hydra of Overfitting", q: "อาการที่โมเดลทำนายข้อมูลชุด Train ได้แม่นยำมาก แต่ทำนายชุด Test ได้แย่ เรียกว่าอะไร?", choices: ["Underfitting", "Overfitting", "Regularization", "Normalization"], ans: 1 },
+  { week: 6, title: "Unsupervised & Clustering", boss: "Centroid Titan", q: "อัลกอริทึมใดนิยมใช้ในการจัดกลุ่มข้อมูล (Clustering) โดยไม่มีป้ายกำกับ (Unlabeled Data)?", choices: ["K-Means Clustering", "Linear Regression", "Logistic Regression", "Naive Bayes"], ans: 0 },
+  { week: 7, title: "Neural Networks Basics", boss: "Perceptron Knight", q: "หน้าที่หลักของ Activation Function (เช่น ReLU, Sigmoid) ใน Neural Network คืออะไร?", choices: ["ลบเลเยอร์ที่ไม่จำเป็นออก", "เพิ่มความไม่เป็นเชิงเส้น (Non-linearity) ให้โมเดลเรียนรู้รูปแบบซับซ้อนได้", "ลดความเร็วของ GPU", "แปลงข้อความเป็นเสียง"], ans: 1 },
+  { week: 8, title: "Midterm Comprehensive Boss", boss: "Archmage of Midterm", q: "ในการปรับค่า Weight ของโครงข่ายประสาทเทียม กระบวนการใดใช้คำนวณย้อนกลับเพื่อลดค่า Loss?", choices: ["Forward Propagation", "Backpropagation ร่วมกับ Gradient Descent", "Data Shuffling", "Random Guessing"], ans: 1 },
+  { week: 9, title: "Deep Learning & CNNs", boss: "Convolutional Colossus", q: "เลเยอร์ใดใน CNN ที่ทำหน้าที่สกัดคุณลักษณะเด่น (Feature Extraction) จากข้อมูลภาพ?", choices: ["Convolutional Layer", "Dropout Layer", "Flatten Layer", "Output Layer"], ans: 0 },
+  { week: 10, title: "Sequence Models & NLP", boss: "Transformer Leviathan", q: "กลไกสำคัญใดที่ทำให้สถาปัตยกรรม Transformer ประมวลผลความสัมพันธ์ของคำในประโยคได้ดีเยี่ยม?", choices: ["Self-Attention Mechanism", "Max Pooling", "Bubble Sort", "FIFO Queue"], ans: 0 },
+  { week: 11, title: "AI Agents & Reinforcement Learning", boss: "Q-Learning Behemoth", q: "ใน Reinforcement Learning ตัวเอเจนต์ (Agent) เรียนรู้การตัดสินใจจากสิ่งใด?", choices: ["Reward และ Penalty จากสภาพแวดล้อม (Environment)", "ตาราง SQL เท่านั้น", "การสุ่มค่าคงที่", "ไฟล์ CSS"], ans: 0 },
+  { week: 12, title: "System Integration & APIs", boss: "API Gatekeeper", q: "การส่งข้อมูลระหว่าง Frontend และ Backend มาตรฐานใดนิยมใช้แลกเปลี่ยนข้อมูลมากที่สุดในเว็บสมัยใหม่?", choices: ["JSON ผ่าน HTTP/HTTPS (RESTful API)", "Floppy Disk", "FTP Text Plain", "BIOS Interrupt"], ans: 0 },
+  { week: 13, title: "Optimization & Deployment", boss: "Dockerized Dragon", q: "ข้อใดคือประโยชน์ของการทำ Model Quantization หรือ Pruning ก่อนนำไปใช้งานจริง (Deployment)?", choices: ["ลดขนาดโมเดลและเพิ่มความเร็วในการอนุมาน (Inference)", "ทำให้โมเดลใช้แรมมากขึ้น 10 เท่า", "ลบความแม่นยำให้เหลือศูนย์", "เปลี่ยนภาษาโปรแกรมอัตโนมัติ"], ans: 0 },
+  { week: 14, title: "AI Ethics, Security & Governance", boss: "Sentinel of Bias", q: "ข้อใดคือแนวทางปฏิบัติที่สำคัญของ Responsible AI?", choices: ["ความโปร่งใส ความเป็นธรรม (ลด Bias) และการคุ้มครองข้อมูลส่วนบุคคล", "การเก็บข้อมูลผู้ใช้โดยไม่ขออนุญาต", "การปิดบังผลการทดสอบระบบ", "การปล่อยให้โมเดลตัดสินใจโดยไม่มีการตรวจสอบ"], ans: 0 },
+  { week: 15, title: "Final Capstone Boss", boss: "Grand Overlord of CSAI 4603", q: "หัวใจสำคัญของการพัฒนาโปรเจกต์ด้าน CSAI ให้ประสบความสำเร็จตั้งแต่ต้นจนจบคือข้อใด?", choices: ["การเข้าใจปัญหา ออกแบบระบบ ประเมินผล และปรับปรุงอย่างเป็นระบบ", "การเขียนโค้ดให้ยาวที่สุดโดยไม่คอมเมนต์", "การใช้โมเดลที่ใหญ่ที่สุดเสมอโดยไม่ดูทรัพยากร", "การข้ามขั้นตอนการทดสอบระบบ"], ans: 0 }
+];
+
+// สถานะของผู้เล่น
+let playerState = {
+  unlockedWeek: 1,
+  totalScore: 0
+};
+
+// สถานะการต่อสู้ปัจจุบัน
+let currentBattle = {
+  weekObj: null,
+  bossHP: 100,
+  bossMaxHP: 100,
+  playerHP: 100,
+  animFrame: 0
+};
+
+// =========================================================
+// 3. ระบบแสดงแผนที่ 15 สัปดาห์ และตรวจสอบการปลดล็อกด่าน
+// =========================================================
+function renderMap() {
+  document.getElementById("ui-week").innerText = Math.min(playerState.unlockedWeek, 15);
+  document.getElementById("ui-score").innerText = playerState.totalScore;
+  
+  const grid = document.getElementById("weeks-grid");
+  grid.innerHTML = "";
+
+  WEEKS_DATA.forEach(item => {
+    const isUnlocked = item.week <= playerState.unlockedWeek;
+    const isCleared = item.week < playerState.unlockedWeek;
+    
+    const card = document.createElement("div");
+    card.className = `week-card ${isCleared ? "cleared" : (isUnlocked ? "unlocked" : "locked")}`;
+    
+    let statusBadge = "🔒 ล็อกอยู่";
+    if (isCleared) statusBadge = "✅ ปราบ Boss แล้ว";
+    else if (isUnlocked) statusBadge = "⚔️ ท้าสู้ Boss!";
+
+    card.innerHTML = `
+      <div style="font-size:13px; color:#94a3b8;">WEEK ${item.week}</div>
+      <div style="font-weight:bold; margin:6px 0; font-size:15px;">${item.title}</div>
+      <div style="font-size:12px; color:#fda4af; margin-bottom:8px;">👾 ${item.boss}</div>
+      <div style="font-size:12px; font-weight:bold;">${statusBadge}</div>
+    `;
+
+    if (isUnlocked) {
+      card.onclick = () => startBossBattle(item);
+    }
+    grid.appendChild(card);
+  });
+}
+
+// =========================================================
+// 4. ระบบ Boss Battle และ HTML5 Canvas Game Loop
+// =========================================================
+const canvas = document.getElementById("battleCanvas");
+const ctx = canvas.getContext("2d");
+let animationId = null;
+
+function startBossBattle(weekObj) {
+  currentBattle.weekObj = weekObj;
+  currentBattle.bossMaxHP = 100 + (weekObj.week * 10);
+  currentBattle.bossHP = currentBattle.bossMaxHP;
+  currentBattle.playerHP = 100;
+
+  document.getElementById("map-screen").style.display = "none";
+  document.getElementById("battle-screen").style.display = "block";
+  document.getElementById("battle-title").innerText = `Week ${weekObj.week}: ปะทะ ${weekObj.boss}`;
+
+  loadQuestion();
+  if (!animationId) gameLoop();
+}
+
+function gameLoop() {
+  currentBattle.animFrame++;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // วาดฝั่งผู้เล่น (ซ้าย)
+  ctx.fillStyle = "#38bdf8";
+  ctx.fillRect(80, 110, 60, 60);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText(`ผู้เล่น HP: ${currentBattle.playerHP}/100`, 60, 95);
+
+  // วาดฝั่ง Boss ประจำสัปดาห์ (ขวา) พร้อมแอนิเมชันขยับขึ้นลง
+  const bounce = Math.sin(currentBattle.animFrame * 0.08) * 8;
+  ctx.fillStyle = "#f43f5e";
+  ctx.fillRect(620, 90 + bounce, 90, 80);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`${currentBattle.weekObj.boss} (HP: ${currentBattle.bossHP}/${currentBattle.bossMaxHP})`, 530, 75);
+
+  animationId = requestAnimationFrame(gameLoop);
+}
+
+function loadQuestion() {
+  const w = currentBattle.weekObj;
+  document.getElementById("question-text").innerText = `[คำถามปราบ Boss] ${w.q}`;
+  const box = document.getElementById("choices-box");
+  box.innerHTML = "";
+
+  w.choices.forEach((choiceText, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.innerText = `${idx + 1}. ${choiceText}`;
+    btn.onclick = () => checkAnswer(idx);
+    box.appendChild(btn);
+  });
+}
+
+function checkAnswer(selectedIndex) {
+  const w = currentBattle.weekObj;
+  if (selectedIndex === w.ans) {
+    // โจมตี Boss สำเร็จ
+    currentBattle.bossHP = 0;
+    const earnedScore = w.week * 100;
+    playerState.totalScore += earnedScore;
+
+    // ปลดล็อกสัปดาห์ถัดไป หากเพิ่งผ่านด่านปัจจุบันเป็นครั้งแรก
+    if (w.week === playerState.unlockedWeek && playerState.unlockedWeek <= 15) {
+      playerState.unlockedWeek++;
+    }
+
+     saveProgressAndSaveCloud();
+    alert(`🎉 ชนะ ${w.boss} สำเร็จ! ได้รับ +${earnedScore} คะแนน และปลดล็อกด่านถัดไป!`);
+    backToMap();
+  } else {
+    // ตอบผิด โดน Boss โจมตีสวนกลับ
+    currentBattle.playerHP -= 50;
+    if (currentBattle.playerHP <= 0) {
+      alert("💥 พลังชีวิตหมด! ทบทวนบทเรียนสัปดาห์นี้แล้วลองท้าสู้ Boss ใหม่อีกครั้งนะครับ");
+      backToMap();
+    } else {
+      alert("❌ ตอบผิด! Boss โจมตีคุณเสีย 50 HP ลองเลือกคำตอบใหม่อีกครั้ง!");
+    }
+  }
+}
+
+function backToMap() {
+  if (animationId) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+  document.getElementById("battle-screen").style.display = "none";
+  document.getElementById("map-screen").style.display = "block";
+  renderMap();
+}
+
+// =========================================================
+// 5. การเชื่อมต่อ Google Apps Script (Asynchronous Fetch)
+// =========================================================
+async function saveProgressAndSaveCloud() {
+  // เซฟลง LocalStorage สำรองไว้ทันที
+  localStorage.setItem("csai4603_save", JSON.stringify(playerState));
+  renderMap();
+
+  if (!WEB_APP_URL.startsWith("http")) return;
+
+  const playerName = document.getElementById("player-name").value || "Student_01";
+  const payload = {
+    playerName: playerName,
+    unlockedWeek: playerState.unlockedWeek,
+    totalScore: playerState.totalScore,
+    sessionToken: SESSION_TOKEN
+  };
+
+  try {
+    await fetch(WEB_APP_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    console.log("บันทึกข้อมูลขึ้น Google Sheets สำเร็จ");
+  } catch (err) {
+    console.error("ไม่สามารถส่งข้อมูลไป Google Sheets ได้:", err);
+  }
+}
+
+async function loadProgressFromCloud() {
+  const playerName = document.getElementById("player-name").value.trim();
+  if (!WEB_APP_URL.startsWith("http")) {
+    alert("กรุณาใส่ WEB_APP_URL ของ Google Apps Script ในโค้ดก่อนใช้งาน Cloud Load ครับ (ตอนนี้ใช้ระบบเซฟในเครื่องแทน)");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${WEB_APP_URL}?action=loadPlayer&playerName=${encodeURIComponent(playerName)}`);
+    const data = await res.json();
+    if (data.status === "success" || data.status === "new_player") {
+      playerState.unlockedWeek = data.unlockedWeek;
+      playerState.totalScore = data.totalScore;
+      renderMap();
+      alert(`โหลดข้อมูลของ ${playerName} สำเร็จ! (เปิดถึง Week ${playerState.unlockedWeek})`);
+    }
+  } catch (err) {
+    console.error("โหลดข้อมูลไม่สำเร็จ:", err);
+  }
+}
+
+// โหลดเซฟเริ่มต้นเมื่อเปิดหน้าเว็บ
+const localData = localStorage.getItem("csai4603_save");
+if (localData) {
+  playerState = JSON.parse(localData);
+}
+renderMap();
+</script>
+</body>
+</html>
