@@ -1,567 +1,1867 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSAI 4603: 15-Week Quest & 4 Module Bosses (10 Qs + Lab + Reflection)</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSAI 4603: 15-Week Quest, 4 Module Bosses &amp; Auto-Rubric Grader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&amp;family=IBM+Plex+Mono:wght@400;600;700&amp;family=Sarabun:wght@400;600;700&amp;display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f172a;
-      --panel: #1e293b;
-      --card: #334155;
-      --accent: #38bdf8;
-      --boss: #f43f5e;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --text: #f8fafc;
+      --bg: #F5F5F5;
+      --surface: #FAFAFA;
+      --surface-alt: #F1F3F4;
+      --border: #D4D8DD;
+      --ink: #1A1D21;
+      --muted: #525B65;
+      --brand: #0563C1;
+      --brand-hover: #044E99;
+      --brand-ink: #FFFFFF;
+      --boss: #C92A2A;
+      --boss-bg: #FFF5F5;
+      --boss-border: #FFA8A8;
+      --success: #1E7E34;
+      --success-bg: #EBFBEE;
+      --warning: #B45309;
+      --warning-bg: #FFFBEB;
+      --radius: 12px;
+      --shadow: 0 2px 6px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font-heading: "Courier Prime", "Courier", monospace, "Sarabun", sans-serif;
+      --font-body: "Consolas", "IBM Plex Mono", monospace, "Sarabun", sans-serif;
     }
+
     * { box-sizing: border-box; }
     body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: var(--bg);
-      color: var(--text);
       margin: 0;
-      padding: 20px;
+      font-family: var(--font-body);
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
     }
-    .container {
-      max-width: 1100px;
+    h1, h2, h3, h4 {
+      font-family: var(--font-heading);
+      margin-top: 0;
+    }
+    .app-shell {
+      max-width: 1220px;
       margin: 0 auto;
-      background: var(--panel);
-      padding: 24px;
-      border-radius: 16px;
-      border: 1px solid #475569;
+      padding: var(--space-4) var(--space-6) var(--space-8);
     }
-    h1 { margin: 0 0 6px 0; color: var(--accent); text-align: center; }
-    .subtitle { text-align: center; color: #94a3b8; font-size: 14px; margin-bottom: 18px; }
-    .top-bar {
+
+    /* Header */
+    .app-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+      box-shadow: var(--shadow);
+    }
+    .header-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--border);
+    }
+    .course-badge {
+      display: inline-block;
+      background: var(--surface-alt);
+      color: var(--brand);
+      border: 1px solid var(--brand);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: var(--space-2);
+    }
+    .app-title {
+      font-size: 25px;
+      color: var(--brand);
+      margin: 0 0 4px 0;
+    }
+    .app-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    /* Buttons & Inputs */
+    .btn {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 15px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .btn-primary { background: var(--brand); color: var(--brand-ink); }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+    .btn-secondary { background: var(--surface-alt); color: var(--ink); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: #E3E6EA; }
+    .btn-boss { background: var(--boss); color: #FFFFFF; }
+    .btn-boss:hover:not(:disabled) { background: #A61E1E; }
+    .btn-success { background: var(--success); color: #FFFFFF; }
+    .btn-success:hover:not(:disabled) { background: #166127; }
+    .btn-tab.active {
+      background: var(--brand);
+      color: var(--brand-ink);
+      border-color: var(--brand);
+    }
+
+    .input-field, .textarea-field {
+      font-family: var(--font-body);
+      font-size: 14px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--ink);
+    }
+    .textarea-field {
+      width: 100%;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .input-field:focus, .textarea-field:focus {
+      outline: 2px solid var(--brand);
+      border-color: var(--brand);
+    }
+
+    /* Player Bar */
+    .player-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-4);
+      background: var(--surface-alt);
+      padding: var(--space-3) var(--space-4);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .player-input-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .stats-group {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .stat-pill strong { color: var(--brand); }
+
+    .status-banner {
+      display: none;
+      padding: var(--space-3) var(--space-4);
+      border-radius: 8px;
+      margin-bottom: var(--space-4);
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid var(--brand);
+      background: #EDF4FC;
+      color: var(--brand);
+    }
+
+    /* Module & Stage Cards */
+    .module-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+      box-shadow: var(--shadow);
+    }
+    .module-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 12px;
-      background: #090d16;
-      padding: 12px 18px;
-      border-radius: 12px;
-      margin-bottom: 20px;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+      padding-bottom: var(--space-3);
+      border-bottom: 2px solid var(--surface-alt);
     }
-    input, textarea, select {
-      background: #0f172a;
-      color: #fff;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      padding: 10px;
-      font-family: inherit;
-      font-size: 14px;
+    .module-title { font-size: 19px; color: var(--brand); margin: 0; }
+    .module-meta {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--surface-alt);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
     }
-    button {
-      background: var(--accent);
-      color: #090d16;
-      font-weight: bold;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:hover:not(:disabled) { filter: brightness(1.1); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .module-box {
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 20px;
-    }
-    .stage-grid {
+
+    .stages-flow {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
+      gap: var(--space-4);
     }
     .stage-card {
-      background: #1e293b;
-      border: 2px solid #475569;
+      background: var(--surface-alt);
+      border: 2px solid var(--border);
       border-radius: 10px;
-      padding: 14px;
-      cursor: pointer;
+      padding: var(--space-4);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
-    .stage-card.unlocked { border-color: var(--accent); }
-    .stage-card.boss-card.unlocked { border-color: var(--boss); background: #2d121e; }
-    .stage-card.cleared { border-color: var(--success); background: #0f291e; }
-    .stage-card.locked { opacity: 0.4; cursor: not-allowed; }
+    .stage-card:hover:not(.locked) {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 14px rgba(5, 99, 193, 0.12);
+    }
+    .stage-card.unlocked { background: var(--surface); border-color: var(--brand); }
+    .stage-card.cleared { background: var(--success-bg); border-color: var(--success); }
+    .stage-card.boss-stage { background: var(--boss-bg); border-color: var(--boss-border); }
+    .stage-card.boss-stage.unlocked { border-color: var(--boss); }
+    .stage-card.boss-stage.cleared { background: var(--success-bg); border-color: var(--success); }
+    .stage-card.locked { opacity: 0.52; cursor: not-allowed; background: #EAECEF; }
+
+    .stage-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: var(--space-2);
+    }
+    .stage-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--surface-alt);
+      color: var(--brand);
+      border: 1px solid var(--border);
+    }
+    .boss-stage .stage-tag {
+      background: var(--boss);
+      color: #FFFFFF;
+      border-color: var(--boss);
+    }
+    .stage-name { font-weight: 700; font-size: 14px; margin: 6px 0; color: var(--ink); }
+    .stage-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .stage-status {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 10px;
+      border-radius: 6px;
+      text-align: center;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+    }
+    .stage-card.unlocked .stage-status { background: var(--brand); color: #FFF; border-color: var(--brand); }
+    .stage-card.boss-stage.unlocked .stage-status { background: var(--boss); color: #FFF; border-color: var(--boss); }
+    .stage-card.cleared .stage-status { background: var(--success); color: #FFF; border-color: var(--success); }
+
+    /* 3-Step Indicator */
+    .step-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .step-item {
+      background: var(--surface-alt);
+      border: 2px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .step-item.active {
+      background: #EDF4FC;
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+    .step-item.done {
+      background: var(--success-bg);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    canvas#battleCanvas {
+      width: 100%;
+      max-height: 210px;
+      background: var(--surface-alt);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      display: block;
+      margin-bottom: var(--space-4);
+    }
+
     .choice-btn {
       width: 100%;
-      background: #1e293b;
-      color: var(--text);
-      border: 1px solid #475569;
+      font-family: var(--font-body);
+      font-size: 14px;
       text-align: left;
-      padding: 12px 14px;
-      margin-bottom: 8px;
-      line-height: 1.45;
-    }
-    .step-indicator {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .step-pill {
-      flex: 1;
-      text-align: center;
-      padding: 8px;
+      padding: 12px 16px;
       border-radius: 8px;
-      background: #0f172a;
-      border: 1px solid #334155;
-      font-size: 13px;
-      font-weight: bold;
+      background: var(--surface);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      margin-bottom: var(--space-2);
+      line-height: 1.5;
+      transition: background 0.15s, border-color 0.15s;
     }
-    .step-pill.active { border-color: var(--accent); color: var(--accent); background: #1e3a5f; }
-    .step-pill.done { border-color: var(--success); color: var(--success); }
+    .choice-btn:hover:not(:disabled) {
+      border-color: var(--brand);
+      background: #EDF4FC;
+    }
+    .choice-btn.correct {
+      background: var(--success-bg);
+      border-color: var(--success);
+      color: #0F401A;
+      font-weight: 700;
+    }
+    .choice-btn.wrong {
+      background: var(--boss-bg);
+      border-color: var(--boss);
+      color: #7D1A1A;
+    }
+
+    /* Rubric Live Evaluation Box */
+    .rubric-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+    .kw-chip {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 3px 4px 3px 0;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+    }
+    .kw-chip.matched {
+      background: var(--success-bg);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.data-table th, table.data-table td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    table.data-table th {
+      background: var(--surface-alt);
+      color: var(--brand);
+      font-weight: 700;
+    }
+    table.data-table tr:hover td { background: #F4F7FA; }
+
+    .code-block {
+      background: #1A1D21;
+      color: #F8FAFC;
+      padding: var(--space-4);
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26, 29, 33, 0.55);
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      z-index: 100;
+    }
+    .modal-box {
+      background: var(--surface);
+      border: 2px solid var(--brand);
+      border-radius: var(--radius);
+      max-width: 540px;
+      width: 100%;
+      padding: var(--space-6);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+    }
+
+    @media (max-width: 680px) {
+      .step-bar { grid-template-columns: 1fr; }
+      .app-shell { padding: var(--space-3); }
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>⚔️ CSAI 4603: 15-Week Quest & 4 Module Bosses</h1>
-  <div class="subtitle">ด่านละ 10 ข้อ (ตัวเลือกความยาวสมดุล & สุ่มลำดับ) + ภารกิจฝึกปฏิบัติ (Practical Lab) + บันทึกสะท้อนคิด (Reflection)</div>
-
-  <div class="top-bar">
-    <div>
-      👤 ผู้เรียน: <input type="text" id="player-name" value="CSAI_Student01" style="width:150px;">
-      <button onclick="resetProgress()" style="background:#475569; color:#fff;">🔄 รีเซ็ต</button>
-    </div>
-    <div>🔓 ด่านปัจจุบันที่เปิดถึง: <strong id="ui-stage">ด่านที่ 1 / 19</strong></div>
-    <div>⭐ คะแนนสะสม: <strong id="ui-score">0</strong></div>
-  </div>
-
-  <!-- แผนที่ 4 ส่วนเนื้อหา (15 Weeks + 4 Bosses = 19 ด่าน) -->
-  <div id="map-screen"></div>
-
-  <!-- หน้าจอทำภารกิจ 3 เฟสของแต่ละด่าน -->
-  <div id="stage-screen" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-      <h2 id="stage-header" style="margin:0; color:var(--accent);">ชื่อด่าน</h2>
-      <button onclick="backToMap()" style="background:#64748b; color:#fff;">⬅ กลับหน้าแผนที่</button>
-    </div>
-
-    <div class="step-indicator">
-      <div class="step-pill" id="pill-step1">1️⃣ แบบทดสอบปราบศัตรู (10 ข้อ)</div>
-      <div class="step-pill" id="pill-step2">2️⃣ ภารกิจฝึกปฏิบัติ (Practical Lab)</div>
-      <div class="step-pill" id="pill-step3">3️⃣ บันทึกสะท้อนคิด (Reflection)</div>
-    </div>
-
-    <!-- เฟสที่ 1: Quiz 10 ข้อ -->
-    <div id="phase-quiz" class="module-box">
-      <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-weight:bold;">
-        <span id="q-counter" style="color:var(--warning);">ข้อที่ 1 / 10</span>
-        <span>❤️ HP ผู้เรียน: <span id="player-hp">100</span>/100 | 👾 HP ศัตรู: <span id="enemy-hp">1000</span></span>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="header-top">
+      <div>
+        <span class="course-badge">CSAI 4603 • 15 Weeks + 4 Module Bosses • Auto-Rubric Grader</span>
+        <h1 class="app-title">CSAI 4603: Security &amp; Ethics Quest (10 ข้อ + Lab + Reflection + ตรวจให้คะแนนตาม Rubric)</h1>
+        <p class="app-subtitle">แต่ละด่านมีข้อสอบ 10 ข้อ (ตัวเลือกความยาวสมดุล &amp; สุ่มลำดับ) + ภารกิจปฏิบัติการ (Practical Lab) + สะท้อนคิด (Reflection) พร้อมระบบตรวจตามเกณฑ์ Rubric ทันที</p>
       </div>
-      <div id="q-text" style="font-size:17px; font-weight:bold; margin-bottom:14px; line-height:1.5;"></div>
-      <div id="choices-container"></div>
-      <div id="q-feedback" style="display:none; padding:12px; border-radius:8px; margin-top:10px; font-size:14px;"></div>
-      <div style="text-align:right; margin-top:12px;">
-        <button id="next-q-btn" onclick="goNextQuestion()" style="display:none; background:var(--success);">ข้อถัดไป ➔</button>
+      <div class="nav-tabs">
+        <button class="btn btn-secondary btn-tab active" id="tab-map" onclick="switchView('map')">🗺️ แผนที่ 19 ด่าน</button>
+        <button class="btn btn-secondary btn-tab" id="tab-rubric" onclick="switchView('rubric')">📋 ตารางเกณฑ์ Rubric &amp; ประวัติส่งงาน</button>
+        <button class="btn btn-secondary btn-tab" id="tab-cloud" onclick="switchView('cloud')">☁️ โค้ด Google Apps Script ตรวจงาน</button>
       </div>
     </div>
 
-    <!-- เฟสที่ 2: Practical Lab -->
-    <div id="phase-lab" class="module-box" style="display:none;">
-      <h3 style="margin-top:0; color:var(--accent);">🛠️ ภารกิจฝึกปฏิบัติประจำด่าน (Practical Lab)</h3>
-      <p id="lab-instruction" style="line-height:1.5; background:#1e293b; padding:12px; border-radius:8px;"></p>
-      <label style="font-weight:bold; display:block; margin-bottom:6px;">บันทึกผลการปฏิบัติ / การตั้งค่า / แนวทางแก้ไขของคุณ:</label>
-      <textarea id="lab-input" rows="4" style="width:100%; margin-bottom:12px;" placeholder="พิมพ์ผลการวิเคราะห์ การตั้งค่าพารามิเตอร์ หรือโครงสร้างที่ออกแบบตามโจทย์ปฏิบัติการ..."></textarea>
-      <button onclick="completeLabPhase()" style="background:var(--success);">✅ ส่งงานปฏิบัติการ & ไปยังส่วนสะท้อนคิด ➔</button>
+    <div class="player-bar">
+      <div class="player-input-group">
+        <label for="player-name"><strong>👤 ผู้เรียน:</strong></label>
+        <input type="text" id="player-name" class="input-field" placeholder="กรอกรหัสนักศึกษา / ชื่อ">
+        <button class="btn btn-primary" onclick="loadFromCloud()">☁️ โหลดเซฟ</button>
+        <button class="btn btn-secondary" onclick="openResetModal()">🔄 รีเซ็ต</button>
+      </div>
+      <div class="stats-group">
+        <div class="stat-pill">🔓 ด่านที่เปิดถึง: <strong id="ui-stage-progress">Week 1 (1/19)</strong></div>
+        <div class="stat-pill">⭐ คะแนนรวมสะสม: <strong id="ui-total-score">0</strong> / 5,000</div>
+        <div class="stat-pill">📝 งานที่ตรวจแล้ว: <strong id="ui-submitted-count">0</strong> / 19 ด่าน</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="status-banner" class="status-banner"></div>
+
+  <!-- VIEW 1: MAP SCREEN -->
+  <main id="view-map">
+    <div id="modules-container"></div>
+  </main>
+
+  <!-- VIEW 2: ACTIVE STAGE (3 PHASES: 10 QUIZ -> PRACTICAL LAB -> REFLECTION WITH RUBRIC GRADER) -->
+  <section id="view-stage" style="display: none;">
+    <div class="module-block">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+        <div>
+          <span class="course-badge" id="st-badge">STAGE</span>
+          <h2 id="st-title" style="margin: 0; color: var(--brand);">ชื่อด่าน</h2>
+        </div>
+        <button class="btn btn-secondary" onclick="backToMap()">⬅ กลับหน้าแผนที่</button>
+      </div>
+
+      <div class="step-bar">
+        <div class="step-item active" id="step-ind-1">เฟส 1: แบบทดสอบ 10 ข้อ (ตัวเลือกสมดุล)</div>
+        <div class="step-item" id="step-ind-2">เฟส 2: ภารกิจฝึกปฏิบัติ (Practical Lab)</div>
+        <div class="step-item" id="step-ind-3">เฟส 3: สะท้อนคิด (Reflection) &amp; ตรวจ Rubric</div>
+      </div>
+
+      <!-- PHASE 1: 10 QUESTIONS -->
+      <div id="phase-1-quiz">
+        <canvas id="battleCanvas" width="900" height="200"></canvas>
+
+        <div class="rubric-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            <strong id="q-progress-text" style="color: var(--brand);">คำถามข้อที่ 1 / 10</strong>
+            <span style="font-size: 13px; font-weight: 700;">
+              คะแนนข้อสอบรอบนี้: <strong id="quiz-live-score" style="color: var(--success);">0</strong> คะแนน |
+              ตอบถูกแล้ว: <strong id="quiz-correct-count">0</strong>/10 ข้อ
+            </span>
+          </div>
+
+          <div id="q-title" style="font-size: 16px; font-weight: 700; margin-bottom: 14px;"></div>
+          <div id="q-choices"></div>
+          <div id="q-feedback" style="display: none; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13.5px;"></div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+            <button class="btn btn-primary" id="btn-next-q" style="display: none;" onclick="nextQuestion()">ข้อถัดไป ➔</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 2: PRACTICAL LAB WITH RUBRIC CHECKER -->
+      <div id="phase-2-lab" style="display: none;">
+        <div class="rubric-box">
+          <h3 style="color: var(--brand); margin-bottom: 6px;">🛠️ ภารกิจฝึกปฏิบัติประจำด่าน (Practical Lab)</h3>
+          <p id="lab-prompt-text" style="background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-top: 0;"></p>
+
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px;">
+              🎯 คำสำคัญและแนวคิดบังคับตามเกณฑ์ Rubric ของด่านนี้ (ระบบตรวจจับอัตโนมัติขณะพิมพ์):
+            </div>
+            <div id="lab-kw-chips"></div>
+          </div>
+
+          <label for="lab-textarea" style="font-weight: 700; display: block; margin-bottom: 6px;">
+            บันทึกผลการปฏิบัติการ / การตั้งค่า / การออกแบบสถาปัตยกรรมของคุณ:
+          </label>
+          <textarea id="lab-textarea" class="textarea-field" rows="5" oninput="liveEvaluateRubric()" placeholder="พิมพ์รายละเอียดการปฏิบัติการ โดยระบุแนวคิดและคำสำคัญทางเทคนิค/กฎหมายให้ครบถ้วน..."></textarea>
+
+          <div id="lab-live-eval" style="margin-top: 12px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px;"></div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+            <button class="btn btn-success" onclick="proceedToReflection()">✅ ยืนยันผลปฏิบัติการ Lab &amp; ไปยังส่วนสะท้อนคิด (Reflection) ➔</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 3: REFLECTION WITH RUBRIC CHECKER & FINAL SUBMISSION -->
+      <div id="phase-3-reflection" style="display: none;">
+        <div class="rubric-box">
+          <h3 style="color: var(--brand); margin-bottom: 6px;">💭 บันทึกสะท้อนคิดประจำด่าน (Weekly / Boss Reflection)</h3>
+          <p id="ref-prompt-text" style="background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border); margin-top: 0;"></p>
+
+          <div style="margin-bottom: 12px; font-size: 13px; color: var(--muted);">
+            <strong>เกณฑ์ Analytic Rubric สำหรับตรวจ Reflection:</strong> ประเมินจาก (1) ความลึกซึ้งในการเชื่อมโยงหลักวิชาการ/จริยธรรม และ (2) แนวทางการนำไปประยุกต์ใช้จริงในวิชาชีพ + คำสำคัญประจำด่าน
+          </div>
+
+          <label for="ref-textarea" style="font-weight: 700; display: block; margin-bottom: 6px;">
+            บันทึกการสะท้อนคิดและการนำไปใช้ในวิชาชีพของคุณ:
+          </label>
+          <textarea id="ref-textarea" class="textarea-field" rows="5" oninput="liveEvaluateRubric()" placeholder="เขียนสะท้อนคิดเชื่อมโยงหลักการในบทเรียนเข้ากับการตัดสินใจทางวิชาชีพ..."></textarea>
+
+          <div id="ref-live-eval" style="margin-top: 12px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px;"></div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 16px;">
+            <button class="btn btn-secondary" onclick="backToLabPhase()">⬅ กลับไปแก้ไข Lab</button>
+            <button class="btn btn-primary" onclick="finalizeStageSubmission()">🏆 ตรวจให้คะแนนตาม Rubric &amp; ปลดล็อกด่านถัดไป!</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 3: RUBRIC MATRIX & SUBMISSION LOGS -->
+  <section id="view-rubric" style="display: none;">
+    <div class="module-block">
+      <h2 class="module-title">📊 ประวัติการส่งงานและผลตรวจตามเกณฑ์ Rubric ของผู้เรียน</h2>
+      <p style="font-size: 14px; color: var(--muted);">
+        แสดงคะแนนแยกตามองค์ประกอบ: คะแนนแบบทดสอบ 10 ข้อ + คะแนนปฏิบัติการ (Practical Lab Rubric) + คะแนนสะท้อนคิด (Reflection Rubric)
+      </p>
+      <div class="table-wrap" id="submissions-table-wrap"></div>
     </div>
 
-    <!-- เฟสที่ 3: Reflection -->
-    <div id="phase-reflection" class="module-box" style="display:none;">
-      <h3 style="margin-top:0; color:var(--warning);">💭 บันทึกสะท้อนคิดการเรียนรู้ (Weekly / Boss Reflection)</h3>
-      <p id="reflection-prompt" style="line-height:1.5; background:#1e293b; padding:12px; border-radius:8px;"></p>
-      <label style="font-weight:bold; display:block; margin-bottom:6px;">สิ่งที่คุณได้เรียนรู้และการนำไปประยุกต์ใช้:</label>
-      <textarea id="reflection-input" rows="4" style="width:100%; margin-bottom:12px;" placeholder="เขียนสะท้อนคิดสิ่งที่ได้เรียนรู้จากด่านนี้..."></textarea>
-      <button onclick="submitAllAndUnlockNext()" style="background:var(--accent);">🏆 บันทึกผลครบทั้ง 3 ส่วน & ปลดล็อกด่านถัดไป!</button>
+    <div class="module-block">
+      <h2 class="module-title">📋 ตารางเกณฑ์การให้คะแนน (Analytic Scoring Rubric 4 ระดับ)</h2>
+      <p style="font-size: 14px; color: var(--muted);">
+        สัดส่วนคะแนนรวมทั้งรายวิชา 5,000 คะแนน: ด่านสัปดาห์ปกติ (Week 1–15) ด่านละ 200 คะแนน (Quiz 100 + Lab 60 + Reflection 40) และด่าน Boss สรุปส่วนเนื้อหา (Boss 1–4) ด่านละ 500 คะแนน (Quiz 250 + Lab 150 + Reflection 100)
+      </p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>มิติการประเมิน (Dimension)</th>
+              <th>น้ำหนักคะแนน</th>
+              <th>ระดับ 4 (ดีเยี่ยม: 100%)</th>
+              <th>ระดับ 3 (ดี: 75%)</th>
+              <th>ระดับ 2 (พอใช้: 50%)</th>
+              <th>ระดับ 1 (ต้องปรับปรุง: 25%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. ภารกิจฝึกปฏิบัติ (Practical Lab)</strong><br>ความถูกต้องเชิงวิศวกรรม กฎหมาย มาตรฐาน และความครบถ้วนของคำสำคัญ</td>
+              <td>Week: <strong>60</strong> คะแนน<br>Boss: <strong>150</strong> คะแนน</td>
+              <td>ระบุมาตรการทางเทคนิคและข้อกฎหมายครบถ้วน มีคำสำคัญประจำด่านตั้งแต่ 3 คำขึ้นไป และอธิบายขั้นตอนชัดเจน (≥ 90 ตัวอักษร)</td>
+              <td>ระบุแนวทางปฏิบัติถูกต้อง มีคำสำคัญประจำด่านอย่างน้อย 2 คำ และอธิบายชัดเจน (≥ 60 ตัวอักษร)</td>
+              <td>ระบุแนวทางได้บางส่วน มีคำสำคัญอย่างน้อย 1 คำ หรืออธิบายสั้นเกินไป (≥ 30 ตัวอักษร)</td>
+              <td>ระบุไม่ตรงประเด็นหรือขาดคำสำคัญหลักของด่านนั้น</td>
+            </tr>
+            <tr>
+              <td><strong>2. บันทึกสะท้อนคิด (Reflection)</strong><br>การคิดเชิงวิพากษ์ จริยธรรม และการประยุกต์ใช้ในวิชาชีพ</td>
+              <td>Week: <strong>40</strong> คะแนน<br>Boss: <strong>100</strong> คะแนน</td>
+              <td>วิเคราะห์เชื่อมโยงหลักจริยธรรม/กฎหมายกับการตัดสินใจในวิชาชีพอย่างลึกซึ้ง มีคำสำคัญ/แนวคิดหลักครบ (≥ 80 ตัวอักษร)</td>
+              <td>สรุปเหตุผลเชิงจริยธรรมและแนวทางนำไปใช้ได้ชัดเจน มีแนวคิดหลักของบทเรียน (≥ 50 ตัวอักษร)</td>
+              <td>สรุปเนื้อหาทั่วไปโดยยังขาดการเชื่อมโยงเชิงลึก (≥ 25 ตัวอักษร)</td>
+              <td>เขียนสั้นมากและไม่แสดงการสะท้อนคิดเชิงวิชาชีพ</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="module-block">
+      <h2 class="module-title">🔎 รายการตรวจสอบคำสำคัญ (Grading Checklist Keywords) ทั้ง 19 ด่าน</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="checklist-table">
+          <thead>
+            <tr>
+              <th>ลำดับด่าน</th>
+              <th>รหัสด่าน &amp; ชื่อด่าน</th>
+              <th>ภารกิจปฏิบัติการ (Practical Lab)</th>
+              <th>คำสำคัญบังคับสำหรับตรวจ Rubric (Keywords)</th>
+            </tr>
+          </thead>
+          <tbody id="checklist-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 4: GOOGLE APPS SCRIPT AUTO-RUBRIC CODE -->
+  <section id="view-cloud" style="display: none;">
+    <div class="module-block">
+      <h2 class="module-title">☁️ ตั้งค่าเชื่อมต่อ Google Sheets &amp; โค้ดตรวจให้คะแนนตาม Rubric อัตโนมัติ (`Code.gs`)</h2>
+      <p style="font-size: 14px; color: var(--muted);">
+        เมื่อผู้เรียนกดส่งงาน ตัวเกมจะประเมินคะแนนตามเกณฑ์ Rubric ทั้งฝั่ง Frontend และส่งข้อมูล (คะแนน Quiz 10 ข้อ, คะแนน Lab, คะแนน Reflection, ระดับ Rubric Level 1–4, และคำสำคัญที่ตรวจพบ) ไปบันทึกลงใน Google Sheets พร้อมฟังก์ชัน <code>evaluateSubmissionWithRubric</code> ในฝั่ง Apps Script
+      </p>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0;">
+        <label for="gas-url"><strong>Web App URL:</strong></label>
+        <input type="url" id="gas-url" class="input-field" style="flex: 1; min-width: 260px;" placeholder="วาง URL ที่ได้จากการ Deploy Google Apps Script Web App">
+        <button class="btn btn-primary" onclick="saveGasUrlConfig()">บันทึก URL</button>
+      </div>
+
+      <h3 style="font-size: 16px; margin-top: 20px;">โค้ด `Code.gs` ฉบับสมบูรณ์ (รวมฟังก์ชันตรวจ Rubric อัตโนมัติลงแผ่นงาน `Players` และ `Submissions`)</h3>
+      <pre class="code-block">// ไฟล์ Code.gs สำหรับ Google Apps Script (CSAI 4603 Auto-Rubric Grader)
+const STAGE_KEYWORDS = {
+  "WEEK 1": ["dual-use", "สองทาง", "สังคม", "สิทธิมนุษยชน", "ควบคุม", "ความเสี่ยง", "ปลอดภัย"],
+  "WEEK 2": ["acm", "ieee", "license", "gpl", "mit", "whistleblow", "แจ้งเบาะแส", "สาธารณะ"],
+  "WEEK 3": ["iso", "27001", "nist", "govern", "ncsa", "pdpc", "etda", "cii", "ขอบเขต"],
+  "WEEK 4": ["unesco", "sdaia", "sense", "plan", "act", "sia", "alpha", "beta", "human"],
+  "BOSS 1": ["iso", "unesco", "social scoring", "unacceptable", "sdaia", "sense", "human", "กฎหมาย"],
+  "WEEK 5": ["uncitral", "functional", "neutrality", "signature", "pki", "sha-256", "timestamp", "log"],
+  "WEEK 6": ["place of business", "fair", "model theft", "extraction", "rate limit", "dark pattern", "dpa"],
+  "WEEK 7": ["มิชอบ", "ddos", "scope", "roe", "อนุญาต", "penetration", "disclosure"],
+  "WEEK 8": ["controller", "processor", "sensitive", "minimization", "privacy by design", "72", "pdpa"],
+  "BOSS 2": ["uncitral", "guardrail", "human", "dark pattern", "controller", "72", "gdpr", "pdpa"],
+  "WEEK 9": ["cia", "confidentiality", "integrity", "availability", "aes", "rsa", "sha-256", "salt", "argon2"],
+  "WEEK 10": ["mfa", "least privilege", "segregation", "rbac", "abac", "nist", "สิทธิ์"],
+  "WEEK 11": ["default deny", "stateful", "waf", "ngfw", "shadowing", "ids", "ips", "false positive"],
+  "WEEK 12": ["xfraud", "gnn", "rat", "ดูดเงิน", "accessibility", "tokenization", "pci", "hsm", "multi-sig"],
+  "BOSS 3": ["false positive", "availability", "waf", "rat", "liveness", "tokenization", "hsm", "xfraud"],
+  "WEEK 13": ["sle", "ale", "aro", "4t", "risk acceptance", "negligence", "sla", "availability", "credit"],
+  "WEEK 14": ["bcp", "drp", "rto", "rpo", "3-2-1", "immutable", "offline", "nist", "drift", "override"],
+  "WEEK 15": ["xai", "explainable", "black-box", "contest", "โต้แย้ง", "bias", "alignment", "agi", "human"],
+  "BOSS 4": ["ale", "rto", "rpo", "3-2-1", "offline", "pdpc", "ncsa", "xai", "override", "sla"]
+};
+
+function evaluateSubmissionWithRubric(stageCode, isBoss, labText, refText) {
+  const kws = STAGE_KEYWORDS[stageCode] || [];
+  const combined = (String(labText) + " " + String(refText)).toLowerCase();
+  const matched = kws.filter(k =&gt; combined.indexOf(k.toLowerCase()) !== -1);
+
+  let labLevel = 1;
+  if (labText.length &gt;= 90 &amp;&amp; matched.length &gt;= 3) labLevel = 4;
+  else if (labText.length &gt;= 60 &amp;&amp; matched.length &gt;= 2) labLevel = 3;
+  else if (labText.length &gt;= 30 &amp;&amp; matched.length &gt;= 1) labLevel = 2;
+
+  let refLevel = 1;
+  if (refText.length &gt;= 80 &amp;&amp; matched.length &gt;= 2) refLevel = 4;
+  else if (refText.length &gt;= 50 &amp;&amp; matched.length &gt;= 1) refLevel = 3;
+  else if (refText.length &gt;= 25) refLevel = 2;
+
+  const labMax = isBoss ? 150 : 60;
+  const refMax = isBoss ? 100 : 40;
+  return {
+    labLevel: labLevel,
+    refLevel: refLevel,
+    labScore: Math.round(labMax * (labLevel / 4)),
+    refScore: Math.round(refMax * (refLevel / 4)),
+    matchedKeywords: matched.join(", ")
+  };
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let pSheet = ss.getSheetByName("Players") || ss.insertSheet("Players");
+    let sSheet = ss.getSheetByName("Submissions") || ss.insertSheet("Submissions");
+
+    if (sSheet.getLastRow() === 0) {
+      sSheet.appendRow([
+        "Timestamp", "PlayerName", "StageCode", "QuizScore",
+        "LabScore", "LabLevel", "RefScore", "RefLevel",
+        "TotalStageScore", "MatchedKeywords", "LabText", "ReflectionText"
+      ]);
+    }
+
+    const grade = evaluateSubmissionWithRubric(
+      data.stageCode, Boolean(data.isBoss), data.labOutput || "", data.reflectionText || ""
+    );
+
+    const quizScore = Number(data.quizScore || 0);
+    const totalStageScore = quizScore + grade.labScore + grade.refScore;
+
+    sSheet.appendRow([
+      new Date(), data.playerName, data.stageCode, quizScore,
+      grade.labScore, "Level " + grade.labLevel,
+      grade.refScore, "Level " + grade.refLevel,
+      totalStageScore, grade.matchedKeywords,
+      data.labOutput, data.reflectionText
+    ]);
+
+    pSheet.appendRow([new Date(), data.playerName, data.unlockedStage, data.totalScore, data.stageCode]);
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", grade: grade }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+    </div>
+  </section>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="app-modal">
+  <div class="modal-box">
+    <h3 id="modal-title" style="color: var(--brand); margin-bottom: 8px;">แจ้งเตือน</h3>
+    <div id="modal-body" style="font-size: 14px; color: var(--ink); margin-bottom: 18px; line-height: 1.6;"></div>
+    <div id="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn btn-primary" onclick="closeModal()">ตกลง</button>
     </div>
   </div>
 </div>
 
 <script>
-const WEB_APP_URL = ""; // วาง URL ของ Google Apps Script Web App ที่นี่
-
-// โครงสร้างทั้ง 4 ส่วนเนื้อหา (15 Weeks ปกติ + 4 Module Bosses = 19 ด่าน)
-// แต่ละด่านมี 10 ข้อที่มีความยาวตัวเลือกสมดุลกัน และสุ่มลำดับตัวเลือกทุกครั้ง
+// ============================================================================
+// ข้อมูลทั้ง 4 ส่วนเนื้อหา (15 Weeks + 4 Module Bosses = 19 ด่าน)
+// แต่ละด่านมี 10 หัวข้อคำถาม (10 ข้อ/ด่าน), โจทย์ Practical Lab, คำถาม Reflection และคำสำคัญสำหรับตรวจ Rubric
+// ============================================================================
 const COURSE_MODULES = [
   {
-    title: "ส่วนที่ 1: รากฐานจริยธรรมวิชาชีพ มาตรฐานสากล และธรรมาภิบาล AI (บทที่ 1–3)",
+    moduleId: 1,
+    moduleTitle: "ส่วนที่ 1: รากฐานจริยธรรมวิชาชีพ มาตรฐานสากล และธรรมาภิบาล AI (บทที่ 1 – บทที่ 3)",
     stages: [
-      { order: 1, code: "WEEK 1", isBoss: false, name: "บริบทสังคมและเทคโนโลยี Dual-Use", enemy: "Socio-Tech Guard",
-        labTask: "ให้นักศึกษาเลือกเทคโนโลยี AI 1 ชนิด (เช่น Voice Cloning หรือ Automated Vulnerability Scanner) แล้วระบุ: (1) ประโยชน์ในทางสร้างสรรค์ (2) ความเสี่ยงหากถูกใช้ในทางที่ผิด (Dual-Use) และ (3) มาตรการควบคุมทางเทคนิค 2 ข้อ",
-        reflectionPrompt: "ทำไมจิตสำนึกส่วนบุคคลของโปรแกรมเมอร์จึงไม่เพียงพอในระบบยุคปัจจุบัน และต้องมีมาตรฐานสากลเข้ามาช่วยกำกับ?",
-        topicKeywords: ["บริบททางสังคมของระบบอัตโนมัติ", "เทคโนโลยีที่ใช้ได้สองทาง (Dual-Use)", "ผลกระทบข้ามพรมแดนของ AI", "การเคารพศักดิ์ศรีความเป็นมนุษย์", "ความรับผิดชอบต่อสาธารณะ", "การป้องกันอคติทางสังคม", "ความมั่นคงปลอดภัยเชิงระบบ", "การคุ้มครองกลุ่มเปราะบาง", "ความโปร่งใสในการใช้เทคโนโลยี", "ธรรมาภิบาลข้อมูลและอัลกอริทึม"]
+      {
+        order: 1, code: "WEEK 1", isBoss: false,
+        name: "บริบททางสังคมและเทคโนโลยีที่ใช้ได้สองทาง (Dual-Use)",
+        enemy: "Socio-Tech Sentinel",
+        rubricKeywords: ["Dual-Use", "สองทาง", "สังคม", "สิทธิมนุษยชน", "ความเสี่ยง", "ควบคุม", "ปลอดภัย"],
+        labPrompt: "ให้เลือกเทคโนโลยี AI หรือเครื่องมือไซเบอร์ 1 ชนิด (เช่น Voice Cloning หรือ Automated Scanner) แล้วระบุ: (1) ประโยชน์ทางสร้างสรรค์ (2) ความเสี่ยงแบบ Dual-Use หากผู้ไม่หวังดีนำไปใช้ และ (3) มาตรการควบคุมความเสี่ยงและปกป้องสิทธิมนุษยชนอย่างน้อย 2 ข้อ",
+        refPrompt: "เหตุใดในยุคที่ระบบคอมพิวเตอร์เชื่อมโยงข้ามพรมแดน จิตสำนึกส่วนบุคคลของโปรแกรมเมอร์จึงไม่เพียงพอ และเราต้องสร้างสมดุลระหว่างนวัตกรรมกับความปลอดภัยของสังคมอย่างไร?",
+        topics: [
+          { t: "บริบททางสังคมของระบบอัตโนมัติข้ามพรมแดน", c: "วางกรอบมาตรฐานความมั่นคงปลอดภัยและบรรทัดฐานจริยธรรมสากลร่วมกันเพื่อคุ้มครองสิทธิมนุษยชนและสังคมในวงกว้าง" },
+          { t: "ธรรมชาติของเทคโนโลยีที่ใช้ได้สองทาง (Dual-Use Technology)", c: "ประเมินความเสี่ยงทั้งด้านบวกและด้านมืดตั้งแต่ขั้นออกแบบ พร้อมฝังกลไกป้องกันการนำไปใช้ละเมิดสิทธิหรือโจมตีผู้อื่น" },
+          { t: "หลักการไม่ทำให้มนุษย์กลายเป็นเพียงวัตถุ (Never Be Objectified)", c: "ออกแบบระบบโดยเคารพศักดิ์ศรีความเป็นมนุษย์และรักษาอำนาจการตัดสินใจอย่างอิสระของผู้ใช้งานตลอดวงจรชีวิต" },
+          { t: "การลดช่องว่างทางดิจิทัลและการคุ้มครองกลุ่มเปราะบาง", c: "ทดสอบการเข้าถึงได้ของระบบสำหรับกลุ่มเปราะบางและป้องกันไม่ให้อัลกอริทึมซ้ำเติมความเหลื่อมล้ำทางเศรษฐกิจและสังคม" },
+          { t: "ผลกระทบของระบบแนะนำเนื้อหาต่อสุขภาพจิตและสังคม", c: "ควบคุมไม่ให้อัลกอริทึมมุ่งสร้างการเสพติดหรือบิดเบือนพฤติกรรมผู้ใช้เพื่อหวังผลกำไรจากการโฆษณาเพียงอย่างเดียว" },
+          { t: "ความรับผิดชอบของนักพัฒนาต่อผลกระทบภายนอก (Externalities)", c: "จัดทำรายงานประเมินผลกระทบต่อผู้มีส่วนได้ส่วนเสียและสิ่งแวดล้อมก่อนตัดสินใจปล่อยซอฟต์แวร์ออกสู่สาธารณะ" },
+          { t: "ความมั่นคงปลอดภัยเชิงระบบในห่วงโซ่อุปทานดิจิทัล", c: "ตรวจสอบความน่าเชื่อถือและแหล่งที่มาของโมเดลและชุดข้อมูลภายนอกทุกชิ้นก่อนนำมาบูรณาการเข้ากับระบบหลักขององค์กร" },
+          { t: "การรักษาอธิปไตยทางข้อมูลและความหลากหลายทางวัฒนธรรม", c: "เคารพกฎหมายคุ้มครองข้อมูลของแต่ละรัฐและป้องกันไม่ให้โมเดลภาษากลืนกินหรือทำลายภาษาถิ่นและภูมิปัญญาท้องถิ่น" },
+          { t: "ความโปร่งใสในการแจ้งเตือนเมื่อโต้ตอบกับระบบ AI", c: "แสดงข้อความแจ้งให้พลเมืองและผู้บริโภคทราบทันทีเมื่อกำลังสนทนาหรือรับบริการจากตัวแทนอัตโนมัติที่ไม่ใช่มนุษย์" },
+          { t: "การผสานวิศวกรรมความปลอดภัยเข้ากับจริยธรรมวิชาชีพ", c: "กำหนดให้ทั้งความมั่นคงปลอดภัยทางเทคนิคและความเป็นธรรมทางจริยธรรมเป็นเกณฑ์บังคับก่อนการอนุมัติใช้งานระบบจริง" }
+        ]
       },
-      { order: 2, code: "WEEK 2", isBoss: false, name: "จรรยาบรรณวิชาชีพ ACM/IEEE & Whistleblowing", enemy: "Ethics Sentinel",
-        labTask: "ตรวจสอบโปรเจกต์ที่มีการใช้ไลบรารี GPL v3 ร่วมกับ MIT License: ให้เขียนสรุปเงื่อนไขทางกฎหมายที่ทีมพัฒนาต้องปฏิบัติตาม และร่างขั้นตอนการแจ้งเบาะแสภายในองค์กรเมื่อพบช่องโหว่ความมั่นคงปลอดภัย",
-        reflectionPrompt: "หากผู้บริหารสั่งให้ข้ามการทดสอบความปลอดภัยเพื่อเร่งวันเปิดตัวสินค้า คุณจะใช้หลัก ACM Code of Ethics ตัดสินใจอย่างไร?",
-        topicKeywords: ["หลักการ Public Good ของ ACM/IEEE", "การหลีกเลี่ยงอันตราย (Avoid Harm)", "ความซื่อสัตย์และความไว้วางใจในวิชาชีพ", "การเคารพสัญญาอนุญาตซอฟต์แวร์ (Software Licenses)", "กลไกคุ้มครองผู้แจ้งเบาะแส (Whistleblowing)", "ความรับผิดชอบในการทดสอบระบบก่อนใช้งานจริง", "การรักษาความลับและข้อมูลของผู้รับบริการ", "การประเมินความเสี่ยงทางวิชาชีพ", "การไม่เลือกปฏิบัติในการออกแบบระบบ", "การพัฒนาความรู้และมาตรฐานวิชาชีพอย่างต่อเนื่อง"]
+      {
+        order: 2, code: "WEEK 2", isBoss: false,
+        name: "จรรยาบรรณวิชาชีพ ACM / IEEE & การแจ้งเบาะแส (Whistleblowing)",
+        enemy: "Code Conduct Guardian",
+        rubricKeywords: ["ACM", "IEEE", "Public", "สาธารณะ", "License", "GPL", "MIT", "แจ้งเบาะแส", "Whistleblowing"],
+        labPrompt: "โครงการของคุณใช้ไลบรารี Open-Source ทั้งแบบ GPL v3 และ MIT License และทีมตรวจพบช่องโหว่ร้ายแรงก่อนวันเปิดตัว: ให้ระบุ (1) เงื่อนไขการปฏิบัติตาม License ที่ถูกต้อง และ (2) ขั้นตอนการรายงานและแจ้งเบาะแสตามหลัก ACM Code of Ethics",
+        refPrompt: "หากผู้บังคับบัญชาสั่งให้ปล่อยซอฟต์แวร์ที่มีช่องโหว่ร้ายแรงเพื่อรักษาผลประโยชน์ระยะสั้นของบริษัท คุณจะใช้หลัก Public Good ของ ACM/IEEE จัดการสถานการณ์นี้อย่างไร?",
+        topics: [
+          { t: "หลักการให้ความสำคัญสูงสุดต่อสวัสดิภาพสาธารณะ (Public Good)", c: "ยึดถือความปลอดภัย สุขภาพ และสวัสดิภาพของประชาชนเหนือผลประโยชน์ส่วนตนหรือคำสั่งที่ขัดต่อจรรยาบรรณวิชาชีพ" },
+          { t: "หลักการหลีกเลี่ยงการก่ออันตราย (Avoid Harm ใน ACM 1.2)", c: "ประเมินและแก้ไขจุดบกพร่องของซอฟต์แวร์อย่างรอบคอบพร้อมแจ้งเตือนความเสี่ยงที่อาจเกิดขึ้นแก่ผู้เกี่ยวข้องอย่างตรงไปตรงมา" },
+          { t: "ความซื่อสัตย์และความโปร่งใสในการรายงานผลทดสอบ", c: "รายงานผลการวัดประสิทธิภาพและข้อจำกัดของโมเดลตามความจริงโดยไม่ตกแต่งตัวเลขเพื่อหลอกลวงลูกค้าหรือผู้บริหาร" },
+          { t: "การเคารพทรัพย์สินทางปัญญาและสัญญาอนุญาตซอฟต์แวร์ (Licenses)", c: "ตรวจสอบและปฏิบัติตามเงื่อนไขของสัญญาอนุญาตใช้สิทธิทั้งแบบเชิงพาณิชย์และ Open-Source (เช่น GPL, MIT, Apache) อย่างเคร่งครัด" },
+          { t: "กลไกการคุ้มครองผู้แจ้งเบาะแส (Whistleblowers' Protection)", c: "จัดตั้งช่องทางรายงานความเสี่ยงภายในที่ปลอดภัยและมีมาตรการปกป้องวิศวกรผู้แจ้งเหตุไม่ให้ถูกกลั่นแกล้งหรือเลิกจ้างโดยไม่เป็นธรรม" },
+          { t: "ความรับผิดชอบในการรับงานเฉพาะที่ตนมีความสามารถตามมาตรฐานวิชาชีพ", c: "ประเมินขอบเขตความเชี่ยวชาญของทีมอย่างซื่อสัตย์และจัดหาผู้เชี่ยวชาญเฉพาะทางมาร่วมตรวจสอบในระบบที่มีความซับซ้อนสูง" },
+          { t: "การรักษาความลับและข้อมูลส่วนบุคคลของผู้รับบริการตามจรรยาบรรณ", c: "จำกัดการเข้าถึงข้อมูลจริงของลูกค้าเฉพาะเพื่อการแก้ไขปัญหาที่ได้รับอนุญาตและห้ามนำข้อมูลลูกค้าไปใช้ในสภาพแวดล้อมทดสอบที่ไม่ปลอดภัย" },
+          { t: "ความรับผิดชอบของผู้นำองค์กรในการสร้างวัฒนธรรมจริยธรรม", c: "กำหนดให้การทบทวนจริยธรรมและความปลอดภัยเป็นส่วนหนึ่งของกระบวนการทำงานปกติและไม่ลงโทษพนักงานที่แจ้งเตือนความเสี่ยง" },
+          { t: "การจัดการเมื่อเกิดความขัดแย้งทางผลประโยชน์ (Conflict of Interest)", c: "เปิดเผยความเกี่ยวข้องหรือผลประโยชน์ทับซ้อนให้ทุกฝ่ายทราบอย่างโปร่งใสและถอนตัวจากการเป็นผู้ตัดสินใจในประเด็นที่มีส่วนได้ส่วนเสีย" },
+          { t: "การตรวจสอบความปลอดภัยก่อนปลดระวางหรือเปลี่ยนแปลงระบบสำคัญ", c: "วางแผนการย้ายข้อมูลและแจ้งเตือนผู้ใช้งานล่วงหน้าอย่างเพียงพอเพื่อไม่ให้การยุติบริการส่งผลกระทบต่อการปฏิบัติงานของสังคม" }
+        ]
       },
-      { order: 3, code: "WEEK 3", isBoss: false, name: "มาตรฐานสากล ISO 27001, NIST CSF 2.0 & หน่วยงานไทย", enemy: "Standard Drone",
-        labTask: "จำลองเหตุการณ์โรงพยาบาลถูกโจมตีไซเบอร์: ให้ระบุว่าต้องประสานงานกับ สกมช. (NCSA), สคส. (PDPC) และ สพธอ. (ETDA) ในประเด็นใดบ้าง และวางมาตรการตาม 6 ฟังก์ชันของ NIST CSF 2.0",
-        reflectionPrompt: "เหตุใดใบรับรอง ISO/IEC 27001 จึงไม่สามารถใช้เป็นข้ออ้างเพื่อยกเว้นความรับผิดตามกฎหมายเมื่อเกิดข้อมูลรั่วไหลได้?",
-        topicKeywords: ["ขอบเขตของมาตรฐาน ISO/IEC 27001 (มตช. 27001)", "มายาคติเรื่องใบรับรอง (Certification Fallacy)", "ฟังก์ชัน GOVERN ใน NIST CSF 2.0", "วงจร Identify-Protect-Detect-Respond-Recover", "บทบาทของ สพธอ. (ETDA) ด้านธุรกรรมดิจิทัล", "บทบาทของ สคส. (PDPC) ด้านข้อมูลส่วนบุคคล", "บทบาทของ สกมช. (NCSA) และหน่วยงาน CII 7 ด้าน", "ความแตกต่างระหว่างมาตรฐานสมัครใจกับกฎหมายบังคับ", "การบริหารความเสี่ยงห่วงโซ่อุปทานไซเบอร์", "การตรวจประเมินภายในและการปรับปรุงต่อเนื่อง"]
+      {
+        order: 3, code: "WEEK 3", isBoss: false,
+        name: "องค์กรควบคุมมาตรฐานสากล (ISO 27001, NIST CSF 2.0) & หน่วยงานไทย",
+        enemy: "Standard Inspector Drone",
+        rubricKeywords: ["ISO", "27001", "NIST", "GOVERN", "NCSA", "PDPC", "ETDA", "CII", "ขอบเขต"],
+        labPrompt: "เกิดเหตุโจมตีแรนซัมแวร์และข้อมูลรั่วไหลในระบบโครงสร้างพื้นฐานสำคัญ (CII): ให้ระบุ (1) บทบาทการแจ้งเหตุต่อ สกมช. (NCSA), สคส. (PDPC) และ สพธอ. (ETDA) และ (2) การวางมาตรการตาม 6 ฟังก์ชันของ NIST CSF 2.0 (Govern ถึง Recover)",
+        refPrompt: "เหตุใดการที่องค์กรได้รับใบรับรองมาตรฐาน ISO/IEC 27001 จึงไม่ได้แปลว่าระบบทุกส่วนปลอดภัย 100% และไม่ทำให้พ้นความรับผิดตามกฎหมาย (Certification Fallacy)?",
+        topics: [
+          { t: "ความแตกต่างระหว่างมาตรฐานสมัครใจกับกฎหมายบังคับของรัฐ", c: "ใช้มาตรฐานเพื่อยกระดับระบบการจัดการภายในขอบเขตที่กำหนดโดยตระหนักว่าใบรับรองไม่สามารถยกเว้นความรับผิดตามกฎหมายได้" },
+          { t: "มายาคติเรื่องใบรับรองมาตรฐาน (The Certification Fallacy)", c: "ตรวจสอบขอบเขตของการรับรอง (Statement of Applicability & Scope) ให้ครอบคลุมระบบงานสำคัญจริงแทนการขอรับรองเฉพาะส่วนงานย่อยเพื่อการโฆษณา" },
+          { t: "โครงสร้างมาตรฐาน ISO/IEC 27001:2022 (มตช. 27001-2566)", c: "ขับเคลื่อนระบบการจัดการความมั่นคงปลอดภัยสารสนเทศ (ISMS) ครบทั้งข้อกำหนด Clauses 4–10 และมาตรการควบคุม 4 หมวดใน Annex A" },
+          { t: "หน้าที่หลัก GOVERN ในกรอบ NIST Cybersecurity Framework 2.0", c: "กำหนดกลยุทธ์ นโยบาย บทบาทความรับผิดชอบของผู้บริหาร และการกำกับดูแลความเสี่ยงห่วงโซ่อุปทานเป็นแกนกลางโอบล้อมอีก 5 หน้าที่หลัก" },
+          { t: "การทำงานประสานกันของ Identify, Protect, Detect, Respond, Recover", c: "สำรวจทรัพย์สินและความเสี่ยง วางมาตรการป้องกัน ตรวจจับเหตุผิดปกติ ตอบสนองจำกัดความเสียหาย และฟื้นฟูระบบกลับสู่สภาวะปกติอย่างเป็นระบบ" },
+          { t: "กรอบการบริหารความเสี่ยงปัญญาประดิษฐ์ NIST AI RMF 1.0", c: "ประยุกต์ใช้พันธกิจ Govern, Map, Measure และ Manage เพื่อระบุและควบคุมความเสี่ยงเฉพาะของแบบจำลอง AI ตลอดวงจรชีวิต" },
+          { t: "บทบาทของสำนักงานพัฒนาธุรกรรมทางอิเล็กทรอนิกส์ (สพธอ. / ETDA)", c: "กำกับดูแลความน่าเชื่อถือของธุรกรรมอิเล็กทรอนิกส์ บริการแพลตฟอร์มดิจิทัล และส่งเสริมแนวปฏิบัติธรรมาภิบาล AI ผ่านศูนย์ AIGC" },
+          { t: "บทบาทของสำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล (สคส. / PDPC)", c: "บังคับใช้กฎหมาย PDPA กำหนดหลักเกณฑ์การคุ้มครองข้อมูลส่วนบุคคล การแจ้งเหตุละเมิดภายใน 72 ชั่วโมง และการโอนข้อมูลข้ามประเทศ" },
+          { t: "บทบาทของ สกมช. (NCSA) และการดูแลหน่วยงานโครงสร้างพื้นฐานสำคัญ (CII)", c: "กำหนดมาตรฐานความมั่นคงปลอดภัยไซเบอร์แห่งชาติและประสานงานรับมือภัยคุกคามระดับวิกฤตในหน่วยงาน CII ทั้ง 7 ด้าน" },
+          { t: "มาตรฐานเฉพาะทาง PCI-DSS, CIS Controls และ ISO/IEC 23894", c: "เลือกประยุกต์ใช้มาตรฐานเฉพาะทางให้ตรงกับบริบทความเสี่ยง เช่น ใช้ PCI-DSS สำหรับข้อมูลบัตรชำระเงินและ ISO 23894 สำหรับความเสี่ยง AI" }
+        ]
       },
-      { order: 4, code: "WEEK 4", isBoss: false, name: "กรอบจริยธรรม AI โลก (UNESCO, SDAIA & Turing SIA)", enemy: "Governance Probe",
-        labTask: "ออกแบบสถาปัตยกรรม AI คัดกรองสินเชื่อตามแนวทาง Sense–Plan–Act ของ SDAIA (2025) และระบุสิ่งที่จะต้องตรวจสอบในระยะ Alpha และระยะ Beta ตามแนวทาง SIA ของสถาบัน Alan Turing",
-        reflectionPrompt: "การกำหนดให้ความรับผิดทางกฎหมายต้องผูกกับมนุษย์หรือนิติบุคคลเสมอ (ห้ามให้ Legal Personality แก่ AI) สำคัญต่อผู้เสียหายอย่างไร?",
-        topicKeywords: ["คุณค่าพื้นฐาน 4 ประการของ UNESCO (2021)", "ข้อห้าม Social Scoring และ Mass Surveillance", "การห้ามให้สภาพบุคคลตามกฎหมายแก่ AI (UNESCO ข้อ 68)", "ระดับความเสี่ยง 4 ระดับของกรอบ SDAIA (2025)", "สถาปัตยกรรม Sense-Plan-Act เพื่อความน่าไว้วางใจ", "การทำ Stakeholder Impact Assessment (SIA)", "การตรวจสอบในระยะ Alpha, Pre-Implementation และ Beta", "การบันทึก Digital Process Log เพื่อการตรวจสอบย้อนหลัง", "การกำกับดูแลโดยมนุษย์ (Human Oversight & Determination)", "การประเมินผลกระทบด้านสิ่งแวดล้อมและสังคมของ AI"]
+      {
+        order: 4, code: "WEEK 4", isBoss: false,
+        name: "กรอบจริยธรรม AI โลก (UNESCO 2021, SDAIA 2025 & Turing SIA)",
+        enemy: "Governance Probe",
+        rubricKeywords: ["UNESCO", "SDAIA", "Sense", "Plan", "Act", "SIA", "Alpha", "Beta", "Human", "Unacceptable"],
+        labPrompt: "ให้ออกแบบระบบ AI คัดกรองผู้สมัครงานหรือสินเชื่อโดยระบุ: (1) การจัดระดับความเสี่ยงตามกรอบ 4 ระดับของ SDAIA (2025) (2) การควบคุมตามสถาปัตยกรรม Sense–Plan–Act และ (3) การทำ SIA ในระยะ Alpha และ Beta",
+        refPrompt: "เหตุใดข้อเสนอแนะของ UNESCO (2021, ข้อ 68) จึงห้ามมอบสภาพบุคคลตามกฎหมาย (Legal Personality) แก่ระบบ AI และกำหนดให้ความรับผิดต้องผูกกับมนุษย์หรือนิติบุคคลเสมอ?",
+        topics: [
+          { t: "คุณค่าพื้นฐาน 4 ประการของ UNESCO Recommendation on the Ethics of AI", c: "เคารพสิทธิมนุษยชนและศักดิ์ศรีมนุษย์ ส่งเสริมความเจริญของสิ่งแวดล้อม รับประกันความหลากหลาย และสร้างสังคมที่สงบสุขและเป็นธรรม" },
+          { t: "ข้อห้ามเด็ดขาดตามหลักความได้สัดส่วน (UNESCO ข้อ 26)", c: "ห้ามนำระบบ AI ไปใช้เพื่อการให้คะแนนทางสังคมแก่พลเมือง (Social Scoring) หรือการสอดส่องตรวจตรามวลชน (Mass Surveillance) ทุกกรณี" },
+          { t: "หลักการห้ามมอบสภาพบุคคลตามกฎหมายแก่ AI (UNESCO ข้อ 68)", c: "กำหนดให้ความรับผิดชอบทางจริยธรรมและความรับผิดทางกฎหมายขั้นสุดท้ายต้องตกอยู่กับบุคคลธรรมดาหรือนิติบุคคลที่มีตัวตนเสมอ" },
+          { t: "การประเมินผลกระทบทางสิ่งแวดล้อมและรอยเท้าคาร์บอน (Policy Area 5)", c: "เลือกใช้แบบจำลอง AI ที่ประหยัดพลังงานและข้อมูลตามหลักความได้สัดส่วน และหลีกเลี่ยงการฝึกโมเดลขนาดยักษ์เกินความจำเป็นของภารกิจ" },
+          { t: "การจำแนกหมวดหมู่ความเสี่ยง AI 4 ระดับตามกรอบ SDAIA (2025)", c: "แยกแยะระบบเป็น Little/No Risk, Limited Risk, High Risk (ต้องประเมินก่อนและหลังใช้งาน) และ Unacceptable Risk (ห้ามพัฒนาหรือใช้งานเด็ดขาด)" },
+          { t: "สถาปัตยกรรมสำหรับ AI ที่น่าไว้วางใจ: ทฤษฎี Sense – Plan – Act", c: "ออกแบบให้ระบบรับรู้องค์ประกอบด้านความปลอดภัย พิจารณาเฉพาะแผนงานที่ถูกกฎหมาย และจำกัดการกระทำให้อยู่ในกรอบจริยธรรม" },
+          { t: "การใช้ชุดเครื่องมือตรวจสอบความเป็นธรรม (Fairness Assessment Toolkits)", c: "นำเครื่องมือมาตรฐานเช่น IBM AIF360, Microsoft Fairlearn หรือ Google What-If Tool มาตรวจวัดและลดอคติของโมเดลในขั้น Build & Validate" },
+          { t: "การจัดทำแบบประเมินผลกระทบต่อผู้มีส่วนได้ส่วนเสีย (Turing SIA)", c: "ดำเนินการประเมินผลกระทบต่อผู้มีส่วนได้ส่วนเสียและกลุ่มเปราะบางครบทั้ง 3 จุดวิกฤตคือระยะ Alpha, ก่อนใช้งานจริง และระยะ Beta" },
+          { t: "สมุดบันทึกกระบวนการดิจิทัล (Digital Process Log ใน PBG Framework)", c: "รวบรวมบันทึกการตัดสินใจและการทดสอบโมเดลทุกขั้นตอนไว้ในที่เดียวเพื่อรองรับการตรวจสอบย้อนหลัง (End-to-End Auditability)" },
+          { t: "การตรวจสอบสถานะทางจริยธรรมก่อนจัดซื้อ AI จากภายนอก (Third-Party Due Diligence)", c: "บังคับให้ผู้ขายภายนอกส่งมอบเอกสารอธิบายการทำงานของโมเดลและผลทดสอบความเป็นธรรมก่อนลงนามจัดซื้อเพื่อป้องกันปัญหากล่องดำโดยจงใจ" }
+        ]
       },
-      { order: 5, code: "🔥 BOSS ส่วนที่ 1", isBoss: true, name: "ด่าน Boss สรุปความรู้ส่วนที่ 1 (รวบยอดบทที่ 1–3)", enemy: "BOSS: Unacceptable Risk Colossus",
-        labTask: "[ภารกิจปราบ Boss ส่วนที่ 1] ตรวจวิเคราะห์โครงการ AI ขององค์กรแห่งหนึ่งที่อ้างใบรับรอง ISO เฉพาะส่วนเพื่อเปิดระบบให้คะแนนพลเมือง (Social Scoring): ให้เขียนคำสั่งระงับโครงการ อ้างอิงข้อกำหนด UNESCO/SDAIA และวางโครงสร้างธรรมาภิบาลใหม่ทั้งหมด",
-        reflectionPrompt: "สรุปรวบยอดส่วนที่ 1: จรรยาบรรณวิชาชีพ มาตรฐานสากล และกรอบธรรมาภิบาล AI เชื่อมโยงเป็นเกราะป้องกันสังคมได้อย่างไร?",
-        topicKeywords: ["การบูรณาการจรรยาบรรณ ACM/IEEE กับธรรมาภิบาลองค์กร", "การแยกแยะขอบเขตใบรับรอง ISO/IEC 27001 กับความรับผิดตามกฎหมาย", "การบังคับใช้กรอบ NIST CSF 2.0 ร่วมกับกฎหมายไซเบอร์ไทย", "การระงับระบบที่เข้าข่าย Unacceptable Risk ตามกรอบสากล", "การประสานงานร่วมระหว่าง ETDA, PDPC และ NCSA ในยามวิกฤต", "การออกแบบระบบตามทฤษฎี Sense-Plan-Act ของ SDAIA", "การคุ้มครองผู้แจ้งเบาะแสเมื่อพบความเสี่ยงระดับวิกฤต", "การทำ SIA และ Process Log ตลอดวงจรชีวิตโมเดล", "การรักษาอำนาจตัดสินใจของมนุษย์เหนือระบบอัตโนมัติ", "ความรับผิดชอบของนิติบุคคลและวิศวกรต่อผลกระทบทางสังคม"]
+      {
+        order: 5, code: "BOSS 1", isBoss: true,
+        name: "🔥 ด่าน Boss สรุปความรู้ส่วนที่ 1 (รวบยอดบทที่ 1–3)",
+        enemy: "BOSS: Unacceptable Risk Colossus",
+        rubricKeywords: ["ISO", "UNESCO", "Social Scoring", "Unacceptable", "SDAIA", "Sense", "Human", "กฎหมาย", "PDPC", "NCSA"],
+        labPrompt: "[ภารกิจปราบ Boss ส่วนที่ 1] เทศบาลแห่งหนึ่งอ้างว่าตนมีใบรับรอง ISO 27001 เฉพาะห้องเซิร์ฟเวอร์ จึงจะเปิดใช้ระบบ AI จดจำใบหน้าสอดส่องมวลชนและตัดคะแนนความประพฤติพลเมือง (Social Scoring): จงเขียนคำวินิจฉัยสั่งระงับโครงการโดยอ้างอิงหลักการในบทที่ 1–3, UNESCO (2021) และ SDAIA (2025)",
+        refPrompt: "[สะท้อนคิดรวบยอดส่วนที่ 1] การผสานจรรยาบรรณวิชาชีพ (ACM/IEEE), มาตรฐานสากล (ISO/NIST) และกรอบจริยธรรม AI (UNESCO/SDAIA/Turing) ช่วยป้องกันภัยคุกคามต่อสิทธิเสรีภาพของประชาชนได้อย่างไร?",
+        topics: [
+          { t: "[บูรณาการ] กรณีองค์กรใช้ใบรับรอง ISO เฉพาะแผนกมาอ้างเมื่อระบบหลักทำข้อมูลรั่วไหล", c: "วินิจฉัยว่าใบรับรองมาตรฐานรับรองเฉพาะกระบวนการในขอบเขตที่ระบุเท่านั้น และองค์กรยังคงต้องรับผิดตามกฎหมาย PDPA และกฎหมายไซเบอร์" },
+          { t: "[บูรณาการ] กรณีการติดตั้งระบบ Smart City Citizen Scoring เพื่อตัดสิทธิ์สวัสดิการประชาชน", c: "สั่งระงับโครงการทันทีเนื่องจากจัดเป็น Unacceptable Risk ตามกรอบ SDAIA และละเมิดข้อห้ามเรื่อง Social Scoring ในข้อ 26 ของ UNESCO" },
+          { t: "[บูรณาการ] กรณีการฝึกโมเดลขนาดแสนล้านพารามิเตอร์เพื่อคัดแยกคำร้องเรียนเพียง 5 หมวด", c: "ปรับเปลี่ยนไปใช้โมเดลที่ประหยัดพลังงานและอธิบายผลได้ง่ายตามหลักความได้สัดส่วนใน Policy Area 5 ของ UNESCO และหลักการที่ 4 ของ SDAIA" },
+          { t: "[บูรณาการ] กรณีระบบรู้จำเสียงพูดไม่รองรับภาษาถิ่นและนำภาพศิลปินพื้นบ้านไปฝึก AI โดยไม่ขออนุญาต", c: "แก้ไขชุดข้อมูลฝึกให้รองรับความหลากหลายทางภาษาถิ่นและเคารพสิทธิในทรัพย์สินทางปัญญาของศิลปินตาม Policy Area 7 ของ UNESCO" },
+          { t: "[บูรณาการ] กรณีหน่วยงานรัฐจัดซื้อซอฟต์แวร์ AI กล่องดำที่ผู้ขายอ้างความลับทางการค้าและกีดกันผู้หญิง", c: "บังคับทำ AI Ethics Due Diligence และกำหนดข้อผูกพันทางสัญญาให้ตรวจสอบอัลกอริทึมได้ก่อนการจัดซื้อตามกรอบของ SDAIA และ NENT" },
+          { t: "[บูรณาการ] การประสานงานเมื่อโรงพยาบาลศูนย์ซึ่งเป็นหน่วยงาน CII ถูกโจมตีไซเบอร์และข้อมูลผู้ป่วยรั่วไหล", c: "แจ้งเหตุภัยคุกคามไซเบอร์ต่อ สกมช. (NCSA) เพื่อรับมือวิกฤต CII ควบคู่กับการแจ้งเหตุละเมิดข้อมูลส่วนบุคคลต่อ สคส. (PDPC) ภายใน 72 ชั่วโมง" },
+          { t: "[บูรณาการ] การนำเครื่องมือจริยธรรม AI ของ SDAIA ไปใช้ในทุกขั้นตอนทั้ง 4 ระยะของวงจรชีวิต", c: "บังคับใช้มาตรฐานความเป็นส่วนตัวและความปลอดภัย การประเมินความปลอดภัยด้วยตนเอง (Safety Self-Assessment) และวิธีการปกป้องข้อมูลครบทั้ง 4 ระยะ" },
+          { t: "[บูรณาการ] การออกแบบระบบหุ่นยนต์ทางการแพทย์ด้วยสถาปัตยกรรม Sense–Plan–Act และหลัก UNESCO ข้อ 123", c: "ตั้งค่าให้หุ่นยนต์รับรู้สัญญาณชีพ วางแผนภายใต้เกณฑ์ความปลอดภัย และให้แพทย์ที่เป็นมนุษย์เป็นผู้ตัดสินใจขั้นสุดท้ายในการรักษาเสมอ" },
+          { t: "[บูรณาการ] การปฏิบัติของวิศวกรเมื่อพบว่าระบบอัตโนมัติมีช่องโหว่วิกฤตแต่ผู้บริหารสั่งให้ปกปิด", c: "ยึดถือความปลอดภัยสาธารณะเป็นสิ่งสูงสุดตาม ACM Code of Ethics และใช้ช่องทางแจ้งเบาะแสที่ได้รับการคุ้มครองตามกรอบจริยธรรมสากล" },
+          { t: "[บูรณาการ] การเชื่อมโยงฟังก์ชัน GOVERN ของ NIST CSF 2.0 เข้ากับระบบการจัดการ ISO/IEC 27001", c: "กำหนดให้คณะกรรมการบริหารกำกับดูแลนโยบายความเสี่ยงไซเบอร์และห่วงโซ่อุปทานพร้อมตรวจประเมินหลักฐานการปฏิบัติงานจริงอย่างต่อเนื่อง" }
+        ]
       }
     ]
   },
   {
-    title: "ส่วนที่ 2: กฎหมายการค้าระหว่างประเทศ พาณิชย์อิเล็กทรอนิกส์ และความเป็นส่วนตัว (บทที่ 4–5)",
+    moduleId: 2,
+    moduleTitle: "ส่วนที่ 2: กฎหมายการค้าระหว่างประเทศ พาณิชย์อิเล็กทรอนิกส์ และกฎหมายความเป็นส่วนตัว (บทที่ 4 – บทที่ 5)",
     stages: [
-      { order: 6, code: "WEEK 5", isBoss: false, name: "UNCITRAL, สัญญาอิเล็กทรอนิกส์ & ลายมือชื่อดิจิทัล", enemy: "Contract Automaton",
-        labTask: "ออกแบบตารางเก็บพยานหลักฐานดิจิทัล (Audit Log Schema) สำหรับการกดยอมรับสัญญา Click-wrap และการลงนามด้วย PKI Digital Signature ให้ครบองค์ประกอบตามหลักความเท่าเทียมกันทางหน้าที่ (Functional Equivalence)",
-        reflectionPrompt: "ทำไมหลักความเป็นกลางทางเทคโนโลยี (Technology Neutrality) จึงช่วยให้กฎหมายไม่ต้องแก้ไขใหม่ทุกครั้งที่เปลี่ยนเทคโนโลยี?",
-        topicKeywords: ["หลักการไม่เลือกปฏิบัติต่อข้อมูลอิเล็กทรอนิกส์ (Non-Discrimination)", "หลักความเป็นกลางทางเทคโนโลยี (Technology Neutrality)", "หลักความเท่าเทียมกันทางหน้าที่ (Functional Equivalence)", "การเกิดสัญญาผ่านระบบตัวแทนข้อความอัตโนมัติ", "ความแตกต่างระหว่าง Electronic Signature กับ PKI Digital Signature", "บทบาทของผู้ออกใบรับรองดิจิทัล (Certification Authority: CA)", "การประทับเวลามาตรฐานที่เชื่อถือได้ (Trusted Time-stamping)", "วิศวกรรมการจัดเก็บพยานหลักฐานสัญญา Click-wrap", "การผูกค่าแฮช SHA-256 กับเวอร์ชันของข้อตกลงสัญญา", "การป้องกันการปฏิเสธความรับผิด (Non-repudiation) ในธุรกรรมออนไลน์"]
+      {
+        order: 6, code: "WEEK 5", isBoss: false,
+        name: "กฎหมายแม่แบบ UNCITRAL, สัญญาอิเล็กทรอนิกส์ & ลายมือชื่อดิจิทัล",
+        enemy: "Contract Automaton",
+        rubricKeywords: ["UNCITRAL", "Functional", "Neutrality", "Signature", "PKI", "SHA-256", "Timestamp", "Log"],
+        labPrompt: "ให้ออกแบบโครงสร้างตารางฐานข้อมูลพยานหลักฐานดิจิทัล (`electronic_contract_audit_log`) สำหรับสัญญา Click-wrap และการลงนามด้วย PKI Digital Signature โดยระบุฟิลด์สำคัญให้ครบตามหลักความเท่าเทียมกันทางหน้าที่ของ UNCITRAL",
+        refPrompt: "เหตุใดการใช้ลายมือชื่อดิจิทัลที่อิงโครงสร้างพื้นฐานกุญแจสาธารณะ (PKI Digital Signature) จึงให้น้ำหนักพยานหลักฐานในชั้นศาลเหนือกว่าการแปะไฟล์รูปภาพลายเซ็น (.png)?",
+        topics: [
+          { t: "หลักการไม่เลือกปฏิบัติต่อข้อมูลอิเล็กทรอนิกส์ (Non-Discrimination)", c: "รับรองผลทางกฎหมายของสัญญาและข้อความดิจิทัลโดยห้ามศาลหรือหน่วยงานรัฐปฏิเสธความสมบูรณ์เพียงเพราะข้อมูลไม่ได้อยู่ในรูปแบบกระดาษ" },
+          { t: "หลักความเป็นกลางทางเทคโนโลยี (Technology Neutrality)", c: "บัญญัติกฎหมายให้ครอบคลุมคุณลักษณะการทำงานโดยไม่ยึดติดกับเทคโนโลยีใดเป็นการเฉพาะเพื่อรองรับนวัตกรรมในอนาคตและไม่สร้างการผูกขาด" },
+          { t: "หลักความเท่าเทียมกันทางหน้าที่เรื่องการทำเป็นหนังสือ (Functional Equivalence)", c: "ถือว่าข้อมูลอิเล็กทรอนิกส์ได้ทำเป็นหนังสือเมื่อสามารถเข้าถึงและนำกลับมาใช้อ้างอิงในภายหลังได้โดยความหมายไม่เปลี่ยนแปลง" },
+          { t: "สถานะทางนิติศาสตร์ของกฎหมายแม่แบบ UNCITRAL (Model Law)", c: "ใช้เป็นแบบจำลองต้นแบบให้แต่ละรัฐนำไปปรับใช้ตรากฎหมายภายในประเทศของตน เช่น พ.ร.บ.ว่าด้วยธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544" },
+          { t: "การก่อเกิดสัญญาผ่านระบบตัวแทนข้อความอัตโนมัติ (Automated Message Systems)", c: "กำหนดให้สัญญาที่เกิดจากการโต้ตอบของบอตหรือตัวแทน AI มีผลผูกพันนิติบุคคลผู้เป็นเจ้าของระบบที่ตั้งค่าตัวแทนอัตโนมัตินั้นไว้โดยตรง" },
+          { t: "ความน่าเชื่อถือของสัญญาแบบคลิกยอมรับ (Click-wrap Agreement)", c: "แสดงเงื่อนไขสัญญาอย่างชัดเจนและให้ผู้ใช้กระทำการยืนยันเจตนาอย่างชัดแจ้งด้วยการกดปุ่มตกลงก่อนเกิดภาระผูกพันตามสัญญา" },
+          { t: "ความแตกต่างระหว่าง Simple Electronic Signature กับ PKI Digital Signature", c: "ใช้กุญแจส่วนตัวเข้ารหัสค่าแฮชของเอกสารพร้อมใบรับรองจาก CA เพื่อระบุตัวผู้ลงนามและตรวจจับการแก้ไขเอกสารหลังลงนามได้ทันที" },
+          { t: "หน้าที่ของเจ้าของลายมือชื่อและผู้ให้บริการออกใบรับรอง (CA / CSP)", c: "เก็บรักษากุญแจส่วนตัวสำหรับสร้างลายมือชื่อไว้อย่างปลอดภัยและจัดให้มีระบบตรวจสอบสถานะการเพิกถอนใบรับรอง (CRL/OCSP) ตลอดเวลา" },
+          { t: "วิศวกรรมการจัดเก็บพยานหลักฐานสัญญาอิเล็กทรอนิกส์ (Electronic Evidence)", c: "ผูกหมายเลขคำสั่งซื้อเข้ากับรหัสเวอร์ชันของสัญญา (terms_version_id) และค่าแฮช SHA-256 ของข้อความสัญญาฉบับที่ลูกค้าเห็นขณะกดยอมรับ" },
+          { t: "การประทับรับรองเวลามาตรฐานและบันทึกเหตุการณ์ที่ห้ามแก้ไข (WORM Audit Log)", c: "ซิงโครไนซ์เวลามาตรฐาน UTC ร่วมกับ Time-stamping Authority และบันทึกข้อมูลลงในระบบ Append-Only ที่เชื่อมโยงด้วย Hash Chain" }
+        ]
       },
-      { order: 7, code: "WEEK 6", isBoss: false, name: "เขตอำนาจศาล, FAIR, Model Theft & Dark Patterns", enemy: "Deceptive Specter",
-        labTask: "ตรวจสอบหน้าเว็บอีคอมเมิร์ซที่มี Dark Patterns (เช่น นับเวลาถอยหลังปลอมและแอบติ๊กซื้อประกันพ่วง) พร้อมเขียนแนวทางแก้ไข UI และตั้งค่าป้องกันการยิง API ขโมยโมเดล (Model Extraction)",
-        reflectionPrompt: "การทำธุรกิจดิจิทัลที่โปร่งใสไร้ Dark Patterns สร้างความได้เปรียบและความไว้วางใจในระยะยาวได้อย่างไร?",
-        topicKeywords: ["การพิจารณาสถานที่ประกอบธุรกิจ (Place of Business) ในธุรกรรมข้ามพรมแดน", "การคุ้มครองผู้บริโภคตามกฎหมายบังคับของประเทศภูมิลำเนา", "หลักการข้อมูล FAIR (Findable, Accessible, Interoperable, Reusable)", "การต้านทานการผูกขาดข้อมูลของบริษัทเทคโนโลยียักษ์ใหญ่", "ภัยคุกคามการขโมยโมเดล (Model Theft & Model Extraction)", "การป้องกัน API ด้วย Rate Limiting และ Anomaly Detection", "การออกแบบที่หลอกลวงหรือบงการผู้ใช้ (Deceptive Design / Dark Patterns)", "ความโปร่งใสของอัลกอริทึมแนะนำสินค้าและตั้งราคา", "การทำสัญญาประมวลผลข้อมูล (DPA) ก่อนโอนข้อมูลข้ามประเทศ", "จริยธรรมการแข่งขันทางการค้าอย่างเป็นธรรมในยุค AI"]
+      {
+        order: 7, code: "WEEK 6", isBoss: false,
+        name: "เขตอำนาจศาล, การผูกขาด AI (FAIR), Model Theft & Dark Patterns",
+        enemy: "Deceptive UI Specter",
+        rubricKeywords: ["Place of Business", "FAIR", "Model Theft", "Extraction", "Rate Limit", "Dark Pattern", "DPA"],
+        labPrompt: "ตรวจสอบแพลตฟอร์มการค้าออนไลน์และบริการ AI API: ให้ระบุ (1) วิธีรื้อถอน Dark Patterns ออกจากหน้าชำระเงิน (2) มาตรการป้องกันการยิง API ขโมยโมเดล (Model Theft) และ (3) เงื่อนไขก่อนโอนข้อมูลลูกค้าไปคลาวด์ต่างประเทศ",
+        refPrompt: "เหตุใดการผูกขาดข้อมูลและพลังประมวลผลโดยบริษัทเทคโนโลยียักษ์ใหญ่ไม่กี่รายจึงเป็นภัยต่อระบบนิเวศ AI และหลักการ FAIR Principles ช่วยแก้ปัญหานี้ได้อย่างไร?",
+        topics: [
+          { t: "การแบ่งแยกบทบาทและความรับผิดของตัวแสดง 6 ฝ่ายในอีคอมเมิร์ซสากล", c: "จำแนกความรับผิดตามสัญญาของผู้ขายและแพลตฟอร์มออกจากความรับผิดด้านความปลอดภัยข้อมูลของผู้ให้บริการชำระเงินและผู้ให้บริการคลาวด์" },
+          { t: "เกณฑ์พิจารณาสถานที่ส่ง/รับข้อมูลและเขตอำนาจศาลในคดีผู้บริโภค", c: "พิจารณาจากสถานที่ประกอบธุรกิจ (Place of Business) และบังคับใช้กฎหมายคุ้มครองผู้บริโภคของประเทศที่ผู้บริโภคมีภูมิลำเนาและแพลตฟอร์มมุ่งทำการตลาด" },
+          { t: "เงื่อนไขการโอนข้อมูลส่วนบุคคลข้ามประเทศและอธิปไตยทางข้อมูล", c: "จัดทำแผนที่ข้อมูล (Data Mapping) ตรวจสอบมาตรฐานประเทศปลายทางหรือใช้ข้อสัญญามาตรฐาน (SCCs/BCRs) พร้อมทำสัญญา DPA กับผู้ให้บริการคลาวด์" },
+          { t: "การป้องกันการผูกขาดและการใช้อำนาจเหนือตลาดในอุตสาหกรรม AI (UNESCO ข้อ 120)", c: "กำกับดูแลไม่ให้บริษัทข้ามชาติผูกขาดข้อมูล งานวิจัย หรือตลาด และปกป้องประเทศกำลังพัฒนาจากการถูกครอบงำทางเทคโนโลยี" },
+          { t: "หลักการจัดการข้อมูลอย่างเป็นธรรมตามกรอบ FAIR Principles (NENT, 2019)", c: "ส่งเสริมให้ชุดข้อมูลวิจัยสามารถค้นหาได้ (Findable) เข้าถึงได้ (Accessible) ทำงานร่วมกันได้ (Interoperable) และนำกลับมาใช้ซ้ำได้ (Reusable)" },
+          { t: "ภัยคุกคามจากการขโมยแบบจำลองปัญญาประดิษฐ์ (AI Model Theft / Extraction)", c: "ป้องกันการยิงคำถามผ่าน API จำนวนมากเพื่อลอกเลียนแบบโมเดลด้วยการใช้ Rate Limiting, การตรวจจับพฤติกรรมผิดปกติ และการฝังลายน้ำดิจิทัล" },
+          { t: "จุดตัดระหว่าง AI กับทรัพย์สินทางปัญญาของศิลปิน (UNESCO ข้อ 99)", c: "คุ้มครองสิทธิและผลประโยชน์ของเจ้าของผลงานลิขสิทธิ์ที่ถูกนำไปใช้เป็นข้อมูลฝึกฝนโมเดล AI และกำหนดกรอบกฎหมายสำหรับงานที่สร้างด้วย AI" },
+          { t: "การต่อต้านสถาปัตยกรรมทางเลือกที่หลอกลวงผู้ใช้ (Anti-Deceptive Design / Dark Patterns)", c: "ห้ามใช้นับเวลาถอยหลังปลอม ห้ามแอบใส่บริการพ่วงลงตะกร้าสินค้า และห้ามทำปุ่มยกเลิกสมาชิกให้ซับซ้อนตามหลัก Humanity ของ SDAIA" },
+          { t: "ความโปร่งใสของราคารวมและกลไกระงับข้อพิพาทออนไลน์ (Total Price & ODR)", c: "แสดงราคาสินค้า ค่าจัดส่ง และภาษีทั้งหมดให้ชัดเจนก่อนกดยืนยันสั่งซื้อ พร้อมจัดให้มีระบบพักเงินตัวกลางและช่องทางร้องเรียนที่ตรวจสอบได้" },
+          { t: "การปกป้องข้อมูลบัตรชำระเงินด้วยมาตรฐาน PCI-DSS และ Data Tokenization", c: "เชื่อมต่อผ่าน Payment Gateway ที่ได้มาตรฐานและแทนที่หมายเลขบัตรเครดิต 16 หลักด้วยโทเคนสุ่มแทนการเก็บเลขบัตรจริงไว้ที่ร้านค้า" }
+        ]
       },
-      { order: 8, code: "WEEK 7", isBoss: false, name: "กฎหมายอาชญากรรมคอมพิวเตอร์ & Ethical Hacking", enemy: "Packet Saboteur",
-        labTask: "ร่างใบอนุมัติขอบเขตการทดสอบเจาะระบบ (Penetration Testing Authorization & Rules of Engagement) โดยระบุ IP เป้าหมาย ช่วงเวลา และข้อห้ามเพื่อไม่ให้กระทบความพร้อมใช้งานของระบบจริง",
-        reflectionPrompt: "เส้นแบ่งทางกฎหมายและจริยธรรมระหว่าง White-Hat Security Researcher กับ Cybercriminal คืออะไร?",
-        topicKeywords: ["ความผิดฐานเข้าถึงระบบคอมพิวเตอร์โดยมิชอบ", "ความผิดฐานเข้าถึงข้อมูลคอมพิวเตอร์ที่มีมาตรการป้องกันโดยมิชอบ", "ความผิดฐานดักรับข้อมูลคอมพิวเตอร์ของผู้อื่นโดยมิชอบ", "ความผิดฐานแก้ไขเปลี่ยนแปลงหรือทำให้ข้อมูลผู้อื่นเสียหาย", "ความผิดฐานรบกวนหรือขัดขวางระบบคอมพิวเตอร์ (DoS/DDoS)", "ความผิดเกี่ยวกับการจำหน่ายหรือเผยแพร่ชุดคำสั่งไม่พึงประสงค์", "ความสำคัญของเอกสารอนุมัติขอบเขต (Authorized Scope)", "การจัดทำ Rules of Engagement (RoE) ก่อนทดสอบเจาะระบบ", "การรายงานช่องโหว่อย่างมีความรับผิดชอบ (Responsible Disclosure)", "การเก็บรักษาความลับของข้อมูลที่พบระหว่างการตรวจสอบความปลอดภัย"]
+      {
+        order: 8, code: "WEEK 7", isBoss: false,
+        name: "กฎหมายอาชญากรรมคอมพิวเตอร์ & ขอบเขต Ethical Hacking",
+        enemy: "Packet Saboteur",
+        rubricKeywords: ["มิชอบ", "DDoS", "Scope", "RoE", "อนุญาต", "Penetration", "Disclosure", "หลักฐาน"],
+        labPrompt: "คุณได้รับมอบหมายให้ทดสอบเจาะระบบ (Penetration Testing) ของธนาคาร: ให้ร่างเอกสาร Rules of Engagement (RoE) โดยระบุขอบเขต IP/Domain, ช่วงเวลาทดสอบ, ข้อห้ามเพื่อไม่ให้กระทบ Availability และการรายงานช่องโหว่ (Responsible Disclosure)",
+        refPrompt: "เหตุใดเจตนาที่ดีของนักวิจัยด้านความปลอดภัยจึงไม่เพียงพอในทางกฎหมายหากทำการสแกนหรือเจาะระบบของผู้อื่นโดยไม่มีหนังสืออนุมัติขอบเขต (Authorized Scope)?",
+        topics: [
+          { t: "องค์ประกอบความผิดฐานเข้าถึงระบบคอมพิวเตอร์โดยมิชอบ", c: "ห้ามเข้าถึงระบบคอมพิวเตอร์ที่มีมาตรการป้องกันการเข้าถึงจัดทำไว้เป็นการเฉพาะโดยไม่ได้รับอนุญาตจากเจ้าของระบบ" },
+          { t: "ความผิดฐานล่วงรู้มาตรการป้องกันการเข้าถึงแล้วนำไปเปิดเผยโดยมิชอบ", c: "เก็บรักษารหัสผ่าน กุญแจเข้ารหัส และโครงสร้างการตั้งค่าความปลอดภัยขององค์กรไว้เป็นความลับและห้ามนำไปเผยแพร่ต่อบุคคลที่ไม่มีสิทธิ์" },
+          { t: "ความผิดฐานดักรับข้อมูลคอมพิวเตอร์ของผู้อื่นที่อยู่ระหว่างการส่ง", c: "ห้ามใช้โปรแกรมวิเคราะห์แพ็กเก็ตดักจับข้อมูลส่วนตัวของผู้อื่นในเครือข่ายโดยมิชอบและต้องเข้ารหัสช่องทางสื่อสารด้วย TLS เสมอ" },
+          { t: "ความผิดฐานแก้ไข เปลี่ยนแปลง หรือทำให้ข้อมูลคอมพิวเตอร์ของผู้อื่นเสียหาย", c: "คุ้มครองความถูกต้องครบถ้วนของฐานข้อมูลและห้ามสั่งลบ เข้ารหัสเรียกค่าไถ่ หรือดัดแปลงข้อมูลของผู้อื่นโดยไม่ได้รับอนุญาต" },
+          { t: "ความผิดฐานรบกวนหรือขัดขวางการทำงานของระบบคอมพิวเตอร์ (DoS / DDoS)", c: "ห้ามส่งทราฟฟิกหรือคำสั่งจำนวนมากเพื่อทำให้เซิร์ฟเวอร์ของผู้อื่นชะลอการทำงานหรือหยุดชะงักไม่สามารถให้บริการได้" },
+          { t: "ความผิดเกี่ยวกับการจำหน่ายหรือเผยแพร่ชุดคำสั่งที่สร้างขึ้นเพื่อกระทำความผิด", c: "ควบคุมการใช้เครื่องมือทดสอบเจาะระบบให้อยู่เฉพาะในงานวิจัยหรือการตรวจสอบที่ได้รับอนุญาตเป็นลายลักษณ์อักษรเท่านั้น" },
+          { t: "การจัดทำหนังสืออนุมัติขอบเขตและกฎการปะทะ (Authorized Scope & RoE)", c: "ระบุหมายเลข IP เป้าหมาย ช่วงเวลาทดสอบ วิธีการที่อนุญาต และผู้ติดต่อฉุกเฉินให้ชัดเจนก่อนเริ่มทำ Penetration Testing ทุกครั้ง" },
+          { t: "แนวปฏิบัติการเปิดเผยช่องโหว่อย่างมีความรับผิดชอบ (Responsible Disclosure)", c: "แจ้งรายละเอียดช่องโหว่ให้เจ้าของระบบดำเนินการแก้ไขในระยะเวลาที่เหมาะสมก่อนเผยแพร่บทความทางวิชาการเพื่อไม่ให้แฮกเกอร์นำไปสวมรอยโจมตี" },
+          { t: "หน้าที่ของผู้ให้บริการในการเก็บรักษาข้อมูลจราจรทางคอมพิวเตอร์ (Traffic Log)", c: "จัดเก็บบันทึกข้อมูลจราจรทางคอมพิวเตอร์ตามกรอบเวลาที่กฎหมายกำหนดและรักษาความถูกต้องครบถ้วนด้วยเวลาซิงโครไนซ์มาตรฐาน" },
+          { t: "ความระมัดระวังในการไม่นำข้อมูลจริงของลูกค้าออกจากระบบระหว่างการทดสอบ", c: "ใช้เพียงการพิสูจน์การเข้าถึงได้ตามขอบเขตที่ตกลงไว้ (Proof of Concept) โดยห้ามคัดลอกข้อมูลส่วนบุคคลของลูกค้าออกมาเก็บไว้ในเครื่องส่วนตัว" }
+        ]
       },
-      { order: 9, code: "WEEK 8", isBoss: false, name: "กฎหมายคุ้มครองข้อมูลส่วนบุคคล (PDPA / GDPR)", enemy: "Privacy Harvester",
-        labTask: "ออกแบบฟอร์มเก็บข้อมูลลูกค้าตามหลัก Data Minimization แยกแยะข้อมูลทั่วไปกับข้อมูลอ่อนไหว (Sensitive Data) และร่างขั้นตอนแจ้งเหตุข้อมูลรั่วไหลภายใน 72 ชั่วโมง",
-        reflectionPrompt: "หลักการ Privacy by Design เปลี่ยนวิธีคิดของนักพัฒนาจาก 'เก็บข้อมูลให้มากที่สุดไว้ก่อน' ไปสู่ 'เก็บเท่าที่จำเป็น' อย่างไร?",
-        topicKeywords: ["บทบาทและหน้าที่ของผู้ควบคุมข้อมูลส่วนบุคคล (Data Controller)", "บทบาทและหน้าที่ของผู้ประมวลผลข้อมูลส่วนบุคคล (Data Processor)", "ฐานทางกฎหมายในการประมวลผลข้อมูลส่วนบุคคล (Legal Basis)", "มาตรการคุ้มครองข้อมูลส่วนบุคคลที่มีความอ่อนไหว (Sensitive Data)", "สิทธิของเจ้าของข้อมูลส่วนบุคคล (Data Subject Rights)", "หลักการเก็บข้อมูลเท่าที่จำเป็น (Data Minimization)", "หลักการออกแบบที่คำนึงถึงความเป็นส่วนตัวตั้งแต่ต้น (Privacy by Design)", "หน้าที่แจ้งเหตุละเมิดข้อมูลส่วนบุคคลภายใน 72 ชั่วโมง", "การประเมินผลกระทบด้านการคุ้มครองข้อมูลส่วนบุคคล (DPIA)", "มาตรการรักษาความมั่นคงปลอดภัยของข้อมูลส่วนบุคคลตามกฎหมาย"]
+      {
+        order: 9, code: "WEEK 8", isBoss: false,
+        name: "กฎหมายคุ้มครองข้อมูลส่วนบุคคล (PDPA / GDPR) & Privacy by Design",
+        enemy: "Privacy Harvester",
+        rubricKeywords: ["Controller", "Processor", "Sensitive", "Minimization", "Privacy by Design", "72", "PDPA", "GDPR"],
+        labPrompt: "ตรวจสอบแอปพลิเคชันสุขภาพที่ขอเข้าถึงรายชื่อผู้ติดต่อ รูปถ่ายทั้งหมด และข้อมูลพันธุกรรมโดยไม่จำเป็น: ให้ (1) ตัดทอนข้อมูลตามหลัก Data Minimization (2) แยกฐานกฎหมายสำหรับ Sensitive Data และ (3) ร่างขั้นตอนแจ้งเหตุรั่วไหลภายใน 72 ชั่วโมง",
+        refPrompt: "การเปลี่ยนกระบวนทัศน์จาก 'เก็บข้อมูลทุกอย่างไว้ก่อนเผื่อใช้ในอนาคต' มาเป็นหลักการ 'Data Minimization & Privacy by Design' ช่วยลดทั้งความเสี่ยงทางกฎหมายและความเสียหายเมื่อถูกแฮกได้อย่างไร?",
+        topics: [
+          { t: "การจำแนกบทบาทผู้ควบคุมข้อมูล (Data Controller) กับผู้ประมวลผลข้อมูล (Data Processor)", c: "กำหนดให้องค์กรผู้ตัดสินใจเกี่ยวกับวัตถุประสงค์และวิธีการใช้ข้อมูลเป็น Data Controller และผู้ให้บริการที่ดำเนินการตามคำสั่งเป็น Data Processor" },
+          { t: "การเลือกใช้ฐานทางกฎหมายในการประมวลผลข้อมูลส่วนบุคคล (Legal Basis)", c: "ระบุฐานทางกฎหมายที่เหมาะสม เช่น ฐานสัญญา ฐานการปฏิบัติตามกฎหมาย ฐานประโยชน์อันชอบธรรม หรือฐานความยินยอมที่ชัดเจนและเป็นอิสระ" },
+          { t: "การคุ้มครองข้อมูลส่วนบุคคลที่มีความอ่อนไหวเป็นพิเศษ (Sensitive Personal Data)", c: "วางมาตรการควบคุมขั้นสูงสุดสำหรับข้อมูลสุขภาพ ชีวมิติ พันธุกรรม เชื้อชาติ ศาสนา และประวัติอาชญากรรมตามกฎหมายและข้อ 73 ของ UNESCO" },
+          { t: "หลักการเก็บข้อมูลเท่าที่จำเป็นต่อวัตถุประสงค์ (Data Minimization)", c: "ออกแบบฟอร์มและฐานข้อมูลให้เก็บรวบรวมเฉพาะฟิลด์ข้อมูลที่จำเป็นต่อการให้บริการจริงและกำหนดระยะเวลาลบทำลายเมื่อหมดความจำเป็น" },
+          { t: "การรับประกันสิทธิของเจ้าของข้อมูลส่วนบุคคล (Data Subject Rights)", c: "จัดทำช่องทางให้ผู้ใช้สามารถขอเข้าถึง ขอรับสำเนา ขอแก้ไข ขอให้ลบหรือทำลาย และขอถอนความยินยอมได้อย่างสะดวกและโปร่งใส" },
+          { t: "การออกแบบระบบที่คำนึงถึงความเป็นส่วนตัวตั้งแต่ต้น (Privacy by Design & by Default)", c: "ตั้งค่าเริ่มต้นของแอปพลิเคชันให้มีความเป็นส่วนตัวสูงสุดโดยไม่ต้องรอให้ผู้ใช้เข้าไปปิดกั้นการแชร์ข้อมูลด้วยตนเอง" },
+          { t: "การใช้เทคนิคปกป้องข้อมูลตามชั้นความลับ (Anonymization & Pseudonymization)", c: "ตัดตัวระบุตัวตนโดยตรงออกหรือแทนที่ด้วยรหัสแฝงก่อนนำชุดข้อมูลไปใช้ในการวิเคราะห์ทางสถิติหรือการฝึกฝนแบบจำลอง AI" },
+          { t: "หน้าที่การแจ้งเหตุละเมิดข้อมูลส่วนบุคคลภายใน 72 ชั่วโมง", c: "แจ้งรายละเอียดเหตุรั่วไหลและมาตรการเยียวยาต่อสำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล (สคส. / PDPC) ภายใน 72 ชั่วโมงและแจ้งเจ้าของข้อมูลทันทีหากมีความเสี่ยงสูง" },
+          { t: "การจัดทำบันทึกกิจกรรมการประมวลผลข้อมูล (Record of Processing Activities: ROPA)", c: "จัดทำบัญชีรายการข้อมูลส่วนบุคคล วัตถุประสงค์ ระยะเวลาเก็บรักษา และมาตรการความปลอดภัยไว้ให้พร้อมตรวจสอบได้ตลอดเวลา" },
+          { t: "ขอบเขตการบังคับใช้ข้ามพรมแดนของกฎหมาย PDPA และ GDPR (Extraterritorial Scope)", c: "ปฏิบัติตามกฎหมายคุ้มครองข้อมูลของประเทศเป้าหมายเมื่อองค์กรมีการเสนอขายสินค้าหรือเฝ้าติดตามพฤติกรรมของผู้บริโภคในประเทศนั้น" }
+        ]
       },
-      { order: 10, code: "🔥 BOSS ส่วนที่ 2", isBoss: true, name: "ด่าน Boss สรุปความรู้ส่วนที่ 2 (รวบยอดบทที่ 4–5)", enemy: "BOSS: Cross-Border Breach Leviathan",
-        labTask: "[ภารกิจปราบ Boss ส่วนที่ 2] แก้ไขวิกฤตแพลตฟอร์มอีคอมเมิร์ซข้ามพรมแดนที่เกิดปัญหาพร้อมกัน 3 ด้าน: (1) บอตตั้งราคาผิดพลาด (2) ลูกค้าร้องเรียน Dark Patterns และ (3) Cloud Bucket ตั้งค่าผิดจนพาสปอร์ตลูกค้ารั่วไหล",
-        reflectionPrompt: "สรุปรวบยอดส่วนที่ 2: วิศวกรซอฟต์แวร์ต้องออกแบบสถาปัตยกรรมฐานข้อมูลและระบบบันทึก Log อย่างไรให้สอดคล้องทั้งกฎหมายธุรกรรมอิเล็กทรอนิกส์และ PDPA?",
-        topicKeywords: ["การบูรณาการกฎหมาย UNCITRAL กับพยานหลักฐานดิจิทัลในชั้นศาล", "ความรับผิดขององค์กรต่อสัญญาที่เกิดจากตัวแทน AI อัตโนมัติ", "การใส่ Price Floor Guardrails และ Human-in-the-loop ในระบบการค้า", "การวินิจฉัยเขตอำนาจศาลและกฎหมายคุ้มครองผู้บริโภคข้ามพรมแดน", "การป้องกัน Model Theft ควบคู่กับการเปิดข้อมูลตามหลัก FAIR", "การกำจัด Dark Patterns ตามกรอบจริยธรรม UNESCO และ SDAIA", "การบังคับใช้กฎหมายอาชญากรรมคอมพิวเตอร์ต่อการโจมตีระบบการค้า", "ความรับผิดชอบของ Data Controller เมื่อตั้งค่า Cloud ผิดพลาด", "การบริหารจัดการและแจ้งเหตุละเมิดข้อมูลส่วนบุคคลภายใน 72 ชั่วโมง", "การทำ Data Mapping และสัญญา DPA สำหรับการโอนข้อมูลข้ามประเทศ"]
+      {
+        order: 10, code: "BOSS 2", isBoss: true,
+        name: "🔥 ด่าน Boss สรุปความรู้ส่วนที่ 2 (รวบยอดบทที่ 4–5)",
+        enemy: "BOSS: Cross-Border Breach Leviathan",
+        rubricKeywords: ["UNCITRAL", "Guardrail", "Human", "Dark Pattern", "Controller", "72", "GDPR", "PDPA", "SHA-256"],
+        labPrompt: "[ภารกิจปราบ Boss ส่วนที่ 2] บริษัทอีคอมเมิร์ซไทยขายสินค้าไปยุโรป เกิดวิกฤต 3 เรื่องพร้อมกัน: (1) ตัวแทน AI ตั้งราคาผิดจาก 80,000 เหลือ 800 บาท (2) หน้าเว็บมี Dark Patterns แอบพ่วงประกัน และ (3) ตั้งค่า Cloud Bucket ผิดจนภาพพาสปอร์ตลูกค้า 30,000 รายรั่วไหล จงวางแผนแก้ไขทั้งทางกฎหมายและวิศวกรรมครบทั้ง 3 ประเด็น",
+        refPrompt: "[สะท้อนคิดรวบยอดส่วนที่ 2] กฎหมายธุรกรรมอิเล็กทรอนิกส์ (UNCITRAL) และกฎหมายคุ้มครองข้อมูลส่วนบุคคล (PDPA/GDPR) กำหนดมาตรฐานใหม่ในการออกแบบสถาปัตยกรรมซอฟต์แวร์อย่างไร?",
+        topics: [
+          { t: "[บูรณาการ] กรณีบริษัทไทยอ้างว่าเซิร์ฟเวอร์คลาวด์ตั้งอยู่ในประเทศที่สามจึงไม่รับผิดชอบต่อลูกค้ายุโรปและไทย", c: "วินิจฉัยว่าบริษัทมีสถานที่ประกอบธุรกิจในไทยและมุ่งขายลูกค้าในยุโรป จึงต้องรับผิดตามกฎหมายคุ้มครองผู้บริโภค PDPA และ GDPR ในฐานะ Data Controller" },
+          { t: "[บูรณาการ] กรณีตัวแทน AI ปรับราคาอัตโนมัติผิดพลาดและบริษัทอ้างว่ามนุษย์ไม่ได้กดปุ่มจึงไม่เกิดสัญญา", c: "วินิจฉัยว่าสัญญาที่เกิดจากระบบอัตโนมัติผูกพันบริษัทตามหลัก UNCITRAL และต้องติดตั้ง Price Floor Guardrails ร่วมกับ Human-in-the-loop" },
+          { t: "[บูรณาการ] กรณีคู่ค้าปฏิเสธสัญญาจ้างพัฒนา AI มูลค่า 15 ล้านบาทโดยอ้างว่ารูปลายเซ็น .png ถูกแอบนำมาแปะ", c: "เปลี่ยนไปใช้ PKI-based Digital Signature พร้อมใบรับรองจาก CA ที่ผูกกับกุญแจส่วนตัวของผู้มีอำนาจและตรวจจับการแก้ไขไฟล์หลังลงนามได้" },
+          { t: "[บูรณาการ] กรณีบริษัทคู่แข่งเขียนสคริปต์ยิง API หลายแสนครั้งเพื่อลอกเลียนแบบโมเดลวิเคราะห์จอประสาทตา", c: "บังคับใช้ข้อสัญญาห้ามทำ Reverse Engineering/Extraction ควบคู่กับการตั้งค่า Rate Limiting, Anomaly Detection และ Model Watermarking" },
+          { t: "[บูรณาการ] กรณีแพลตฟอร์มใช้ AI กล่องดำสั่งระงับบัญชีร้านค้าวิสาหกิจชุมชน 180 วันโดยไม่บอกเหตุผลและไม่มีช่องทางอุทธรณ์", c: "จัดให้มีระบบแจ้งเหตุผลที่ชัดเจน (Right to Explanation) และช่องทางให้เจ้าหน้าที่มนุษย์ทบทวนหลักฐานการส่งสินค้าจริงตามกรอบ UNESCO และ SDAIA" },
+          { t: "[บูรณาการ] การออกแบบฐานข้อมูลบันทึกหลักฐานสัญญา Click-wrap ให้ครบถ้วนตามหลักความเท่าเทียมกันทางหน้าที่", c: "บันทึกตัวตนคู่สัญญา เวลามาตรฐาน UTC พร้อมลายมือชื่อ TSA และผูกค่าแฮช SHA-256 ของข้อความสัญญาฉบับที่ลูกค้ากดยอมรับไว้ใน WORM Log" },
+          { t: "[บูรณาการ] การตรวจสอบและรื้อถอน Dark Patterns ออกจากระบบแนะนำสินค้าด้วย AI บนแพลตฟอร์มการค้า", c: "ลบตัวเลขนับถอยหลังปลอมและตัวเลือกพ่วงสินค้าอัตโนมัติออกทั้งหมดเพื่อคุ้มครองเสรีภาพในการตัดสินใจของผู้บริโภคตามข้อ 125 ของ UNESCO" },
+          { t: "[บูรณาการ] การดำเนินการเมื่อตรวจพบว่าถังเก็บข้อมูลคลาวด์ถูกตั้งค่าผิดจนสำเนาหนังสือเดินทางลูกค้ารั่วไหล", c: "ปิดกั้นสิทธิ์การเข้าถึงสาธารณะทันที บันทึกหลักฐาน Forensics และแจ้งเหตุละเมิดข้อมูลส่วนบุคคลต่อ PDPC และหน่วยงานกำกับดูแลภายใน 72 ชั่วโมง" },
+          { t: "[บูรณาการ] การเตรียมการทางกฎหมายและเทคนิคก่อนส่งข้อมูลลูกค้าไปประมวลผลด้วย AI บนคลาวด์ต่างประเทศ", c: "จัดทำ Data Mapping ตรวจสอบความเพียงพอของมาตรฐานประเทศปลายทาง จัดทำสัญญา DPA และกำหนดแผนการลบหรือส่งคืนข้อมูลเมื่อสิ้นสุดสัญญา" },
+          { t: "[บูรณาการ] การกำหนดขอบเขตการทดสอบเจาะระบบร้านค้าออนไลน์เพื่อไม่ให้มีความผิดตามกฎหมายคอมพิวเตอร์", c: "จัดทำหนังสืออนุมัติขอบเขต (Authorized Scope & RoE) ทดสอบโดยไม่ทำลายความพร้อมใช้งาน และไม่คัดลอกข้อมูลส่วนบุคคลของลูกค้าออกจากระบบ" }
+        ]
       }
     ]
   },
   {
-    title: "ส่วนที่ 3: ความปลอดภัยไซเบอร์ การเข้ารหัส การพิสูจน์ตัวตน ไฟร์วอลล์ และการเงินดิจิทัล (บทที่ 6–7)",
+    moduleId: 3,
+    moduleTitle: "ส่วนที่ 3: ความปลอดภัยไซเบอร์ การเข้ารหัส การพิสูจน์ตัวตน ไฟร์วอลล์ และความมั่นคงทางการเงินดิจิทัล (บทที่ 6 – บทที่ 7)",
     stages: [
-      { order: 11, code: "WEEK 9", isBoss: false, name: "CIA Triad & วิทยาการรหัสลับ (Cryptography)", enemy: "Cipher Phantom",
-        labTask: "ออกแบบสถาปัตยกรรมการเข้ารหัสข้อมูลของระบบธนาคาร: ระบุว่าส่วนใดใช้ TLS 1.3, ส่วนใดใช้ AES-256, ส่วนใดใช้ RSA/ECC Digital Signature และส่วนเก็บรหัสผ่านใช้ Argon2id พร้อม Salt อย่างไร",
-        reflectionPrompt: "ทำไมองค์กรที่เข้ารหัสข้อมูลไว้แล้ว (Encryption) จึงยังต้องให้ความสำคัญกับการจัดการกุญแจ (Key Management) อย่างเคร่งครัด?",
-        topicKeywords: ["เสาหลักความลับ (Confidentiality) ใน CIA Triad", "เสาหลักความถูกต้องครบถ้วน (Integrity) ใน CIA Triad", "เสาหลักความพร้อมใช้งาน (Availability) ใน CIA Triad", "การเข้ารหัสกุญแจสมมาตร (Symmetric Encryption เช่น AES)", "การเข้ารหัสกุญแจอสมมาตร (Asymmetric Encryption เช่น RSA/ECC)", "ฟังก์ชันแฮชทางรหัสลับ (Cryptographic Hash เช่น SHA-256)", "การเก็บรหัสผ่านด้วย Salted Password Hashing (Argon2 / bcrypt)", "โครงสร้างพื้นฐานกุญแจสาธารณะ (PKI) และใบรับรองดิจิทัล", "การปกป้องข้อมูลขณะส่งผ่านเครือข่าย (Data in Transit) ด้วย TLS", "การปกป้องข้อมูลขณะจัดเก็บ (Data at Rest) และการบริหารจัดการกุญแจ"]
+      {
+        order: 11, code: "WEEK 9", isBoss: false,
+        name: "หลักการ CIA Triad & วิทยาการรหัสลับ (Symmetric, Asymmetric, Salted Hash)",
+        enemy: "Cipher Phantom",
+        rubricKeywords: ["CIA", "Confidentiality", "Integrity", "Availability", "AES", "RSA", "SHA-256", "Salt", "Argon2"],
+        labPrompt: "ให้ออกแบบสถาปัตยกรรมการเข้ารหัสข้อมูลสำหรับระบบธนาคารออนไลน์ โดยระบุชัดเจนว่าส่วนใดใช้ (1) TLS 1.3 (2) AES-256-GCM (3) RSA/ECC Digital Signature และ (4) การเก็บรหัสผ่านด้วย Argon2id + Salt เพื่อรักษา CIA Triad",
+        refPrompt: "เหตุใดการเก็บรหัสผ่านด้วยการแฮชธรรมดาที่ไม่ใส่ค่าสุ่มเฉพาะราย (Unsalted Hash) หรือการเก็บกุญแจเข้ารหัสไว้ในไฟล์เดียวกับฐานข้อมูล จึงทำให้ระบบล้มเหลวทันทีเมื่อถูกเจาะ?",
+        topics: [
+          { t: "เสาหลักการรักษาความลับของข้อมูล (Confidentiality ใน CIA Triad)", c: "จำกัดสิทธิ์การเข้าถึงและเข้ารหัสข้อมูลทั้งขณะส่งผ่านเครือข่ายและขณะจัดเก็บเพื่อไม่ให้ผู้ไม่มีสิทธิ์ล่วงรู้เนื้อหาข้อมูลได้" },
+          { t: "เสาหลักการรักษาความถูกต้องครบถ้วนของข้อมูล (Integrity ใน CIA Triad)", c: "ใช้ฟังก์ชันแฮชทางรหัสลับและลายมือชื่อดิจิทัลเพื่อตรวจจับและป้องกันไม่ให้ข้อมูลหรือโค้ดถูกแก้ไขปลอมแปลงโดยมิชอบ" },
+          { t: "เสาหลักการรักษาความพร้อมใช้งานของระบบ (Availability ใน CIA Triad)", c: "ออกแบบระบบสำรอง ลดจุดล้มเหลวเดี่ยว และป้องกันการโจมตีแบบ DDoS เพื่อให้ผู้มีสิทธิ์สามารถเข้าใช้งานระบบได้เมื่อต้องการ" },
+          { t: "การเข้ารหัสแบบกุญแจสมมาตร (Symmetric Encryption เช่น AES-256)", c: "ใช้กุญแจลับดอกเดียวกันในการเข้ารหัสและถอดรหัสข้อมูลขนาดใหญ่ด้วยความเร็วสูงควบคู่กับการจัดการกุญแจที่รัดกุม" },
+          { t: "การเข้ารหัสแบบกุญแจอสมมาตร (Asymmetric Encryption เช่น RSA และ ECC)", c: "ใช้คู่กุญแจสาธารณะ (Public Key) และกุญแจส่วนตัว (Private Key) สำหรับการแลกเปลี่ยนกุญแจอย่างปลอดภัยและการสร้างลายมือชื่อดิจิทัล" },
+          { t: "คุณสมบัติของฟังก์ชันแฮชทางรหัสลับ (Cryptographic Hash เช่น SHA-256)", c: "แปลงข้อมูลขนาดใดๆ ให้เป็นค่าแฮชความยาวคงที่แบบทางเดียว (One-way) ที่ไม่สามารถย้อนกลับได้และตรวจจับการเปลี่ยนแปลงของข้อมูลได้ทันที" },
+          { t: "การจัดเก็บรหัสผ่านอย่างปลอดภัยด้วย Salted Password Hashing", c: "เติมค่าสุ่มเฉพาะราย (Unique Salt) เข้ากับรหัสผ่านก่อนนำเข้าอัลกอริทึม Argon2id หรือ bcrypt เพื่อป้องกันการโจมตีด้วย Rainbow Tables" },
+          { t: "การปกป้องข้อมูลขณะรับส่งผ่านเครือข่ายด้วยโปรโตคอล TLS 1.3", c: "เข้ารหัสช่องทางการสื่อสารระหว่างไคลเอนต์และเซิร์ฟเวอร์พร้อมตรวจสอบความถูกต้องของใบรับรองดิจิทัลเพื่อป้องกันการดักฟังแบบ Man-in-the-Middle" },
+          { t: "การบริหารจัดการวงจรชีวิตของกุญแจเข้ารหัส (Cryptographic Key Management)", c: "แยกเก็บกุญแจเข้ารหัสออกจากฐานข้อมูลหลักไว้ในโมดูลนิรภัย (KMS/HSM) และกำหนดนโยบายการหมุนเวียนและเพิกถอนกุญแจอย่างเป็นระบบ" },
+          { t: "ข้อจำกัดของไฟร์วอลล์ต่อทราฟฟิกที่เข้ารหัสลับ (Encrypted Traffic Blind Spot)", c: "ผสานการตรวจสอบที่ปลายทาง (EDR/HIDS) หรือการทำ TLS Inspection อย่างระมัดระวังเนื่องจากไฟร์วอลล์ทั่วไปไม่สามารถอ่าน Payload ที่เข้ารหัสได้" }
+        ]
       },
-      { order: 12, code: "WEEK 10", isBoss: false, name: "การพิสูจน์ตัวตน MFA & การควบคุมการเข้าถึง (Access Control)", enemy: "Identity Spoofer",
-        labTask: "กำหนดนโยบาย Access Control สำหรับระบบเบิกจ่ายเงินและระบบฐานข้อมูล: แยกบทบาทด้วย RBAC/ABAC, ใช้หลัก Least Privilege และแยกหน้าที่ผู้ขออนุมัติออกจากผู้อนุมัติ (Segregation of Duties)",
-        reflectionPrompt: "เหตุใดการใช้รหัสผ่านเพียงอย่างเดียว (Single-Factor) จึงไม่ปลอดภัยเพียงพออีกต่อไปสำหรับระบบสำคัญ?",
-        topicKeywords: ["ปัจจัยสิ่งที่คุณรู้ (Something You Know) ในระบบยืนยันตัวตน", "ปัจจัยสิ่งที่คุณมี (Something You Have) เช่น Hardware Token", "ปัจจัยสิ่งที่คุณเป็น (Something You Are) เช่น ชีวมิติและการตรวจชีพจร", "มาตรฐานการพิสูจน์ตัวตนดิจิทัล NIST SP 800-63-4", "หลักการให้สิทธิ์เท่าที่จำเป็น (Principle of Least Privilege)", "หลักการแยกหน้าที่รับผิดชอบ (Segregation of Duties: SoD)", "การควบคุมการเข้าถึงตามบทบาทหน้าที่ (RBAC)", "การควบคุมการเข้าถึงตามคุณลักษณะและบริบท (ABAC)", "การป้องกันการสวมรอยและการยึดครองเซสชัน (Session Hijacking)", "การทบทวนและเพิกถอนสิทธิ์การเข้าถึงเมื่อพนักงานเปลี่ยนหน้าที่"]
+      {
+        order: 12, code: "WEEK 10", isBoss: false,
+        name: "การพิสูจน์ตัวตนหลายปัจจัย (MFA) & การควบคุมการเข้าถึง (Access Control)",
+        enemy: "Identity Spoofer",
+        rubricKeywords: ["MFA", "Least Privilege", "Segregation", "RBAC", "ABAC", "NIST", "สิทธิ์"],
+        labPrompt: "ออกแบบตารางการควบคุมการเข้าถึงสำหรับระบบการเงินขององค์กร: ให้กำหนด (1) การยืนยันตัวตน MFA ต่างหมวดปัจจัย (2) สิทธิ์ตามหลัก Least Privilege ด้วย RBAC/ABAC และ (3) การแยกหน้าที่ (Segregation of Duties) ระหว่างผู้ขอโอนเงินกับผู้อนุมัติ",
+        refPrompt: "การใช้หลัก Least Privilege และ Segregation of Duties อาจทำให้ขั้นตอนการทำงานเพิ่มขึ้นในระยะสั้น คุณจะอธิบายให้ทีมเข้าใจได้อย่างไรว่าหลักการนี้ช่วยปกป้องทั้งองค์กรและตัวพนักงานเอง?",
+        topics: [
+          { t: "ความแตกต่างระหว่างการระบุตัวตน (Identification) การพิสูจน์ตัวตน (Authentication) และการกำหนดสิทธิ์ (Authorization)", c: "ตรวจสอบว่าผู้ใช้คือใคร พิสูจน์ความจริงแท้ด้วยปัจจัยยืนยันตัวตน แล้วจึงอนุญาตให้เข้าถึงเฉพาะทรัพยากรที่มีสิทธิ์ตามลำดับ" },
+          { t: "องค์ประกอบของระบบยืนยันตัวตนหลายปัจจัย (Multi-Factor Authentication: MFA)", c: "บังคับใช้ปัจจัยตั้งแต่ 2 หมวดขึ้นไปจากหมวดสิ่งที่รู้ (รหัสผ่าน) สิ่งที่มี (Hardware Token/อุปกรณ์ที่ผูกไว้) และสิ่งที่เป็น (ชีวมิติ)" },
+          { t: "ความเสี่ยงของการใช้ SMS OTP และการป้องกันการสลับซิม (SIM Swapping)", c: "เปลี่ยนไปใช้การผูกอุปกรณ์ (Device Binding), Passkeys/FIDO2 หรือการสแกนใบหน้าตรวจจับสิ่งมีชีวิตสำหรับธุรกรรมที่มีความเสี่ยงสูง" },
+          { t: "หลักการให้สิทธิ์เท่าที่จำเป็นต่อการปฏิบัติงาน (Principle of Least Privilege)", c: "กำหนดให้ผู้ใช้งานและเซอร์วิสของระบบได้รับสิทธิ์เฉพาะเท่าที่จำเป็นต่อการทำหน้าที่ของตนเพื่อลดขอบเขตความเสียหายหากบัญชีถูกยึดครอง" },
+          { t: "หลักการแยกหน้าที่รับผิดชอบในกระบวนการสำคัญ (Segregation of Duties: SoD)", c: "แยกบทบาทผู้เขียนโค้ดออกจากผู้อนุมัติขึ้นระบบจริง และแยกผู้ทำรายการเบิกจ่ายออกจากผู้อนุมัติโอนเงินเพื่อป้องกันการทุจริตโดยบุคคลคนเดียว" },
+          { t: "การควบคุมการเข้าถึงตามบทบาทหน้าที่ในองค์กร (Role-Based Access Control: RBAC)", c: "จัดกลุ่มสิทธิ์การเข้าถึงตามตำแหน่งงานและทบทวนเพิกถอนสิทธิ์เดิมทันทีเมื่อพนักงานย้ายแผนกหรือลาออกจากองค์กร" },
+          { t: "การควบคุมการเข้าถึงตามคุณลักษณะและบริบท (Attribute-Based Access Control: ABAC)", c: "ประเมินสิทธิ์แบบไดนามิกโดยพิจารณาทั้งบทบาทผู้ใช้ ชั้นความลับของข้อมูล ช่วงเวลา ตำแหน่งที่ตั้ง และสถานะความปลอดภัยของอุปกรณ์" },
+          { t: "การบริหารจัดการบัญชีผู้ดูแลระบบระดับสูง (Privileged Access Management: PAM)", c: "ห้ามใช้บัญชี Root/Admin ในการทำงานทั่วไป บังคับใช้ MFA ขั้นสูง ให้สิทธิ์แบบจำกัดเวลา (Just-in-Time) และบันทึกกิจกรรมทุกคำสั่ง" },
+          { t: "การป้องกันการโจมตีแบบ Credential Stuffing และ Brute-Force Login", c: "จำกัดอัตราการลองรหัสผ่านผิด (Rate Limiting) แจ้งเตือนเมื่อมีการล็อกอินจากอุปกรณ์ใหม่ และตรวจสอบรหัสผ่านที่เคยรั่วไหลในฐานข้อมูลสาธารณะ" },
+          { t: "การจัดการเซสชันอย่างปลอดภัยหลังการยืนยันตัวตน (Secure Session Management)", c: "สร้าง Session Token ด้วยค่าสุ่มทางรหัสลับ ตั้งค่าคุกกี้ HttpOnly/Secure และกำหนดเวลาหมดอายุเซสชันเมื่อไม่มีการใช้งาน" }
+        ]
       },
-      { order: 13, code: "WEEK 11", isBoss: false, name: "สถาปัตยกรรมไฟร์วอลล์ 4 ยุค & ระบบ IDS / IPS", enemy: "Perimeter Breacher",
-        labTask: "เขียนลำดับกฎไฟร์วอลล์ (Firewall Rule Order) 4 ข้อเพื่อเปิดเฉพาะพอร์ต HTTPS (443) เข้าสู่ WAF และปิดกั้นพอร์ตฐานข้อมูล (3306/5432) จากภายนอกตามหลัก Default Deny",
-        reflectionPrompt: "ทำไมองค์กรจึงต้องวางระบบตรวจจับและป้องกันหลายชั้น (Defense-in-Depth) แทนที่จะพึ่งพาไฟร์วอลล์ตัวเดียวที่ขอบเครือข่าย?",
-        topicKeywords: ["หลักการปิดกั้นโดยปริยาย (Default Deny / Implicit Deny)", "ไฟร์วอลล์ยุคที่ 1–2: Packet Filtering และ Stateful Inspection", "ไฟร์วอลล์ยุคที่ 3: Web Application Firewall (WAF) ชั้น Layer 7", "ไฟร์วอลล์ยุคที่ 4: Next-Generation Firewall (NGFW) และ DPI", "ปัญหาการจัดลำดับกฎผิดพลาด (Rule Shadowing)", "ความแตกต่างระหว่างสถาปัตยกรรม Out-of-Band (IDS) กับ In-Line (IPS)", "การตรวจจับด้วยฐานข้อมูลลายเซ็น (Signature-Based Detection)", "การตรวจจับความผิดปกติของพฤติกรรม (Anomaly-Based Detection)", "การวิเคราะห์ผลบวกลวง (False Positive) และผลลบลวง (False Negative)", "การทดสอบกฎ IPS ในโหมดแจ้งเตือนก่อนเปิดบล็อกอัตโนมัติ"]
+      {
+        order: 13, code: "WEEK 11", isBoss: false,
+        name: "สถาปัตยกรรมไฟร์วอลล์ 4 ยุค & ระบบตรวจจับ/ป้องกันการบุกรุก (IDS/IPS)",
+        enemy: "Perimeter Breacher",
+        rubricKeywords: ["Default Deny", "Stateful", "WAF", "NGFW", "Shadowing", "IDS", "IPS", "False Positive"],
+        labPrompt: "ให้เขียนตารางกฎไฟร์วอลล์ (Firewall Rulebase) 4 ข้อตามหลัก Default Deny & Least Privilege สำหรับแบ่งโซน Internet, DMZ (Web Server พอร์ต 443) และ Database Zone (พอร์ต 5432) พร้อมระบุตำแหน่งการวาง WAF, IDS (Out-of-Band) และ IPS (In-Line)",
+        refPrompt: "เหตุใดในการเปิดใช้งานกฎตรวจจับพฤติกรรมผิดปกติ (Anomaly-Based) บนอุปกรณ์ IPS วิศวกรจึงต้องรันในโหมดเฝ้าดูผล (Detection-Only Mode) ก่อนเปิดโหมดบล็อกอัตโนมัติเสมอ?",
+        topics: [
+          { t: "สัทพจน์พื้นฐานในการออกแบบไฟร์วอลล์: หลักการปฏิเสธเป็นค่าเริ่มต้น (Default Deny)", c: "ปิดกั้นทุกการเชื่อมต่อเป็นค่าเริ่มต้นและเปิดอนุญาตเฉพาะต้นทาง ปลายทาง พอร์ต และโปรโตคอลที่จำเป็นต่อภารกิจพร้อมปิดท้ายด้วย Deny All" },
+          { t: "ความแตกต่างระหว่าง Stateless Packet Filtering กับ Stateful Inspection Firewall", c: "บันทึกและติดตามสถานะของการเชื่อมต่อใน State Table เพื่ออนุญาตเฉพาะแพ็กเก็ตตอบกลับที่ตรงกับเซสชันที่เปิดไว้แล้วเท่านั้น" },
+          { t: "บทบาทของ Web Application Firewall (WAF) และ Next-Generation Firewall (NGFW)", c: "ตรวจสอบเนื้อหาคำสั่งระดับชั้น Application (Layer 7) เพื่อสกัดกั้นการโจมตีแบบ SQL Injection และ XSS ที่แฝงมากับทราฟฟิกพอร์ต 443" },
+          { t: "วิศวกรรมการจัดลำดับกฎไฟร์วอลล์และการป้องกันปัญหา Rule Shadowing", c: "วางกฎที่มีความเจาะจงที่สุดไว้ด้านบนสุดของตารางและระบุเจ้าของกฎพร้อมวันครบกำหนดทบทวนเพื่อลบกฎชั่วคราวที่หมดอายุออก" },
+          { t: "ความแตกต่างเชิงสถาปัตยกรรมระหว่าง Out-of-Band IDS กับ In-Line IPS", c: "วาง IDS รับสำเนาแพ็กเก็ตผ่าน SPAN Port เพื่อแจ้งเตือนโดยไม่ทำให้เครือข่ายหน่วง และวาง IPS ขวางในเส้นทางหลักเพื่อบล็อกแพ็กเก็ตอันตรายทันที" },
+          { t: "การเปรียบเทียบระหว่าง Network-Based (NIDS/NIPS) กับ Host-Based (HIDS/EDR)", c: "ผสานการตรวจจับทราฟฟิกบนเครือข่ายเข้ากับเอเจนต์ตรวจจับการเปลี่ยนแปลงไฟล์และโปรเซสภายในเครื่องเซิร์ฟเวอร์เป้าหมาย" },
+          { t: "จุดแข็งและจุดอ่อนของการตรวจจับแบบอิงฐานข้อมูลลายเซ็น (Signature-Based Detection)", c: "ตรวจจับภัยคุกคามที่รู้จักแล้วได้อย่างแม่นยำและมีอัตราการแจ้งเตือนผิดพลาดต่ำ แต่ไม่สามารถตรวจจับการโจมตีรูปแบบใหม่ (Zero-Day) ที่ยังไม่มีลายเซ็นได้" },
+          { t: "จุดแข็งและจุดอ่อนของการตรวจจับจากพฤติกรรมผิดปกติ (Anomaly-Based Detection)", c: "สามารถตรวจจับการโจมตีรูปแบบใหม่ที่เบี่ยงเบนจาก Baseline ปกติได้ แต่มีความเสี่ยงเกิดผลบวกลวง (False Positive) สูงหากทราฟฟิกธุรกิจพุ่งขึ้นตามเทศกาล" },
+          { t: "ผลกระทบของ False Positive และ False Negative ในเมทริกซ์ความสับสน", c: "ระมัดระวังไม่ให้ False Positive บนระบบ In-Line IPS สั่งบล็อกลูกค้าจริงจนทำลาย Availability และป้องกันไม่ให้ False Negative ปล่อยแฮกเกอร์หลุดรอด" },
+          { t: "การจัดการปัญหาความเหนื่อยล้าจากการแจ้งเตือนล้นเกิน (Alert Fatigue)", c: "จัดลำดับความสำคัญของ Alert ตามความสำคัญของเซิร์ฟเวอร์เป้าหมายและการเชื่อมโยงข้อมูลข้ามระบบ (Cross-Correlation) พร้อมทดสอบกฎใหม่ในโหมดเฝ้าดูผลก่อน" }
+        ]
       },
-      { order: 14, code: "WEEK 12", isBoss: false, name: "AI ไซเบอร์ (XFraud), แอปดูดเงิน RAT & สินทรัพย์ดิจิทัล", enemy: "Token Drainer",
-        labTask: "ออกแบบมาตรการป้องกันภัยการเงินดิจิทัล 3 ส่วน: (1) ป้องกันแอปดูดเงิน RAT บนมือถือ (2) ใช้ Data Tokenization แทนการเก็บเลขบัตรเครดิต และ (3) เก็บ Private Key ด้วย HSM + Multi-Sig",
-        reflectionPrompt: "การนำ AI มาใช้ตรวจจับธุรกรรมฉ้อโกง (เช่น XFraud) หากไร้ความสามารถในการอธิบายเหตุผล จะสร้างผลกระทบต่อประชาชนผู้บริสุทธิ์อย่างไร?",
-        topicKeywords: ["การใช้ AI วิเคราะห์พฤติกรรมผู้ใช้และเอนทิตี (UEBA)", "กรอบงาน Explainable Fraud Detection ด้วย Graph Neural Networks (XFraud)", "กลไกการโจมตีของมัลแวร์ควบคุมเครื่องระยะไกล (RAT / แอปดูดเงิน)", "การป้องกันด้วย Device Binding, RASP และการสแกนใบหน้า (Liveness)", "การโจมตีสับเปลี่ยนคิวอาร์โค้ดและการป้องกันด้วย Dynamic QR", "เทคนิคการแปลงข้อมูลเป็นโทเคน (Data Tokenization) ตาม PCI-DSS", "ความเสี่ยงของการทำธุรกรรมบล็อกเชนที่ย้อนกลับไม่ได้ (Irreversibility)", "การแยกเก็บรักษากุญแจใน Hardware Security Module (HSM)", "สถาปัตยกรรมอนุมัติหลายฝ่าย (Multi-Signature & MPC)", "การห้ามจัดเก็บ Seed Phrase ในรูปแบบไฟล์ภาพหรือคลาวด์ออนไลน์"]
+      {
+        order: 14, code: "WEEK 12", isBoss: false,
+        name: "AI ในงานไซเบอร์ (GNN XFraud), ความปลอดภัยการเงินดิจิทัล & สินทรัพย์ดิจิทัล",
+        enemy: "Token Drainer Bot",
+        rubricKeywords: ["XFraud", "GNN", "RAT", "ดูดเงิน", "Accessibility", "Tokenization", "PCI", "HSM", "Multi-Sig"],
+        labPrompt: "ออกแบบมาตรการรักษาความปลอดภัยทางการเงินดิจิทัล 3 มิติ: (1) การป้องกันแอปดูดเงิน (RAT ที่ละเมิดสิทธิ์ Accessibility) (2) การใช้ GNN XFraud คู่กับช่องทางเยียวยาแม่ค้าสุจริต และ (3) การเก็บรักษากุญแจสินทรัพย์ดิจิทัลด้วย HSM + Multi-Sig",
+        refPrompt: "เหตุใดในระบบสินทรัพย์ดิจิทัลและบล็อกเชนที่ธุรกรรมย้อนกลับไม่ได้ (Irreversible) การเก็บรักษา Private Key / Seed Phrase ด้วยสถาปัตยกรรม Multi-Signature และ HSM จึงสำคัญกว่าการพึ่งพารหัสผ่านของผู้บริหารเพียงคนเดียว?",
+        topics: [
+          { t: "บทบาทของ AI และเอเจนต์อัจฉริยะในงานตรวจจับการบุกรุกและคัดกรองสแปม (López González et al., 2024)", c: "ใช้อัลกอริทึมการเรียนรู้ของเครื่องวิเคราะห์ข้อมูลขนาดใหญ่แบบเวลาจริงเพื่อลดระยะเวลาตรวจพบภัยคุกคาม (MTTD) ด้วยความแม่นยำสูงถึง 89%–98.6%" },
+          { t: "การตรวจจับการฉ้อโกงออนไลน์แบบอธิบายเหตุผลได้ด้วย Graph Neural Networks (กรอบงาน XFraud)", c: "วิเคราะห์โครงข่ายความสัมพันธ์ของธุรกรรมเพื่อจับขบวนการทุจริตพร้อมแสดงเหตุผลประกอบการตัดสินใจเพื่อให้ผู้บริสุทธิ์สามารถโต้แย้งได้" },
+          { t: "ห่วงโซ่การโจมตีของขบวนการ SMS หลอกลวง (Smishing) ผสานการโทรขอรหัส OTP", c: "ระบุวัตถุประสงค์ของรหัส OTP ในข้อความแจ้งเตือนอย่างชัดเจน ร่วมกับการผูกอุปกรณ์และหน่วงเวลาเมื่อมีการล็อกอินจากเครื่องใหม่ที่ไม่คุ้นเคย" },
+          { t: "กลไกของมัลแวร์ควบคุมเครื่องระยะไกลหรือแอปดูดเงิน (RAT & Accessibility Abuse)", c: "ใช้ระบบ RASP ในแอปธนาคารเพื่อปฏิเสธการทำงานทันทีเมื่อตรวจพบการติดตั้งแอปนอกร้านค้าทางการที่เปิดสิทธิ์ควบคุมหน้าจอหรือแชร์หน้าจอซ้อนอยู่" },
+          { t: "การป้องกันการปลอมแปลงคิวอาร์โค้ดรับชำระเงินและสลิปโอนเงินปลอม (Quishing & Fake Slips)", c: "ใช้ระบบ Dynamic QR ที่ระบุยอดเงินเฉพาะรายการและตรวจสอบยอดเงินเข้าจริงหรือสแกนตรวจสอบ Mini-QR บนสลิปทุกครั้งก่อนส่งมอบสินค้า" },
+          { t: "การยืนยันตัวตนตามระดับความเสี่ยงด้วยชีวมิติตรวจจับสิ่งมีชีวิต (Facial Liveness Detection)", c: "บังคับสแกนใบหน้าเปรียบเทียบกับฐานข้อมูลยืนยันตัวตนเมื่อมีการโอนเงินเกินวงเงินที่กำหนดหรือเมื่อมีการขอปรับเพิ่มวงเงินทำรายการ" },
+          { t: "การปกป้องข้อมูลบัตรชำระเงินด้วยเทคนิค Data Tokenization ตามกรอบ SDAIA (2025)", c: "แทนที่หมายเลขบัตรเครดิตจริงด้วยรหัสโทเคนสุ่มที่ไม่สามารถย้อนกลับได้เพื่อลดความเสี่ยงหากฐานข้อมูลของร้านค้าถูกเจาะ" },
+          { t: "การเก็บรักษากุญแจส่วนตัวและวลีกู้คืนด้วย HSM / Hardware Wallet และกลไก Multi-Signature", c: "แยกเก็บกุญแจส่วนตัวในชิปฮาร์ดแวร์ที่ตัดขาดจากอินเทอร์เน็ตและกำหนดให้ต้องใช้ลายมือชื่อร่วมจากกรรมการหลายฝ่าย (เช่น 3 ใน 5) ก่อนอนุมัติโอนสินทรัพย์" },
+          { t: "การประเมินความมั่นคงปลอดภัยของผู้ให้บริการทางการเงินภายนอก (Third-Party Vendor Assessment)", c: "ตรวจสอบมาตรฐาน ISO 27001/PCI-DSS การจัดการกุญแจ การบันทึก Audit Log แผนสำรองกู้คืน และการควบคุมผู้รับจ้างช่วงต่อครบทั้ง 7 มิติ" },
+          { t: "จริยธรรมในการออกแบบแรงเสียดทานเชิงบวกเพื่อเตือนภัยผู้ใช้ (Positive Friction & Speedbumps)", c: "แสดงหน้าต่างเตือนภัยที่ชัดเจนเพื่อให้ผู้ใช้มีสติไตร่ตรองเมื่อระบบตรวจพบการโอนเงินไปยังบัญชีเสี่ยงในขณะที่ผู้ใช้กำลังคุยโทรศัพท์อยู่" }
+        ]
       },
-      { order: 15, code: "🔥 BOSS ส่วนที่ 3", isBoss: true, name: "ด่าน Boss สรุปความรู้ส่วนที่ 3 (รวบยอดบทที่ 6–7)", enemy: "BOSS: False-Positive & RAT Juggernaut",
-        labTask: "[ภารกิจปราบ Boss ส่วนที่ 3] ออกแบบสถาปัตยกรรมความมั่นคงปลอดภัยระดับธนาคารดิจิทัล: แก้ไขปัญหา In-Line IPS เกิด False Positive ในวันสิ้นเดือน, สกัดกั้นแอปดูดเงิน RAT และวางระบบอุทธรณ์สำหรับลูกค้าที่ถูก AI ระงับบัญชี",
-        reflectionPrompt: "สรุปรวบยอดส่วนที่ 3: การผสาน Cryptography, MFA, WAF/IPS และ Explainable AI เข้าด้วยกัน ช่วยรักษาสมดุลทั้ง 3 เสาหลักของ CIA Triad ได้อย่างไร?",
-        topicKeywords: ["การบูรณาการ CIA Triad เข้ากับสถาปัตยกรรม Defense-in-Depth", "การผสานการเข้ารหัสข้อมูลกับระบบยืนยันตัวตนหลายปัจจัย (MFA)", "การใช้ WAF ร่วมกับ Prepared Statements ป้องกัน SQL Injection", "การบริหารจัดการ False Positive บนระบบ In-Line IPS ไม่ให้ทำลาย Availability", "การตรวจจับภัยคุกคามด้วย GNN (XFraud) ที่ให้คำอธิบายได้", "การป้องกันภัยแอปดูดเงิน (RAT) ที่ละเมิดสิทธิ์ Accessibility Service", "การลดขอบเขตความเสี่ยงข้อมูลบัตรด้วย Data Tokenization", "การคุ้มครองสินทรัพย์ดิจิทัลด้วย HSM และ Multi-Signature", "การกำหนดเกณฑ์ความแม่นยำขั้นต่ำและระบบสำรองตามกรอบ SDAIA", "การมีช่องทางให้มนุษย์ตรวจสอบและเยียวยาผู้ถูก AI ระงับบัญชีผิดพลาด"]
+      {
+        order: 15, code: "BOSS 3", isBoss: true,
+        name: "🔥 ด่าน Boss สรุปความรู้ส่วนที่ 3 (รวบยอดบทที่ 6–7)",
+        enemy: "BOSS: False-Positive & RAT Juggernaut",
+        rubricKeywords: ["False Positive", "Availability", "WAF", "RAT", "Liveness", "Tokenization", "HSM", "XFraud", "Multi-Sig"],
+        labPrompt: "[ภารกิจปราบ Boss ส่วนที่ 3] สถาบันการเงินเผชิญวิกฤต 3 ด้าน: (1) วิศวกรเปิดกฎไฟร์วอลล์ Any-to-Any ชั่วคราวทิ้งไว้จนฐานข้อมูลถูกสแกน และ In-Line IPS บล็อกลูกค้าจริงในวันสิ้นเดือน (2) ลูกค้าถูกแอปดูดเงิน RAT โจมตี และ (3) เหรียญสำรองบริษัทเสี่ยงถูกขโมยเพราะเก็บ Seed Phrase บนคลาวด์ จงวางสถาปัตยกรรมแก้ไขครบทั้ง 3 ด้าน",
+        refPrompt: "[สะท้อนคิดรวบยอดส่วนที่ 3] เหตุใดวิศวกรความมั่นคงปลอดภัยจึงต้องรักษาสมดุลระหว่างการป้องกันภัยคุกคามอย่างเข้มงวด (Security) กับการไม่ทำลายความพร้อมใช้งาน (Availability) และความเป็นธรรมต่อผู้บริสุทธิ์?",
+        topics: [
+          { t: "[บูรณาการ] กรณีวิศวกรเวรเปิดกฎไฟร์วอลล์ Allow Any เข้าสู่ฐานข้อมูลในคืนวันเสาร์แล้วลืมลบออก", c: "บังคับใช้การเข้าถึงผ่าน VPN/Bastion Host ที่มี MFA เท่านั้น กำหนดวันหมดอายุของกฎชั่วคราวอัตโนมัติ และตรวจสอบการตั้งค่าไฟร์วอลล์ทุกวัน" },
+          { t: "[บูรณาการ] กรณีผู้ให้บริการชำระเงินเปิดโหมด Anomaly-Based IPS บล็อกอัตโนมัติจนระบบรูดบัตรล่มทั่วประเทศในวันสิ้นเดือน", c: "วินิจฉัยว่าเป็นวิกฤต False Positive ที่ทำลาย Availability จึงต้องทดสอบกฎในโหมด Detection-Only เพื่อปรับจูน Baseline รองรับช่วง Peak และมี Safe Rollback" },
+          { t: "[บูรณาการ] กรณีแฮกเกอร์ส่ง SQL Injection ผ่านพอร์ต HTTPS (443) ที่ไฟร์วอลล์ระดับ Layer 3–4 เปิดอนุญาตไว้", c: "ติดตั้ง Web Application Firewall (WAF) หรือ NGFW เพื่อตรวจสอบเนื้อหาคำสั่งระดับ Layer 7 ควบคู่กับการเขียนโค้ดแบบ Parameterized Queries" },
+          { t: "[บูรณาการ] กรณี CEO ถ่ายรูปกระดาษจด Seed Phrase 12 คำเก็บไว้ใน Cloud Drive ส่วนตัวจนถูกแฮกโอนเหรียญ 100 ล้านบาท", c: "เปลี่ยนไปใช้สถาปัตยกรรม Multi-Signature (เช่น 3-of-5) ร่วมกับ HSM/Hardware Wallet และเก็บสำรองแบบ Offline Physical Split Custody ในตู้นิรภัยแยกสถานที่" },
+          { t: "[บูรณาการ] กรณีโมเดล GNN สั่งอายัดบัญชีร้านขายอาหารแห้งของแม่ค้าสุจริตทั้งหมดเพราะมีลูกค้าโอนเงิน 500 บาทมาซื้อของ", c: "ใช้กรอบ Explainable Fraud Detection (XFraud) ระงับเฉพาะยอดเงินต้องสงสัย และเปิดช่องทางด่วนให้เจ้าหน้าที่มนุษย์ตรวจสอบใบเสร็จเพื่อปลดอายัดอย่างเป็นธรรม" },
+          { t: "[บูรณาการ] การออกแบบระบบจัดเก็บรหัสผ่านและข้อมูลบัตรเครดิตสำหรับแพลตฟอร์มการเงินดิจิทัล", c: "เก็บรหัสผ่านด้วย Argon2id พร้อม Unique Salt และใช้เทคนิค Data Tokenization ตามมาตรฐาน PCI-DSS แทนการเก็บเลขบัตรเครดิตจริง" },
+          { t: "[บูรณาการ] การสกัดกั้นห่วงโซ่การโจมตีของแอปดูดเงิน (RAT) ที่หลอกให้เหยื่อติดตั้งไฟล์ .apk และเปิดสิทธิ์ Accessibility", c: "ผสานการตรวจจับด้วย RASP บนเครื่องผู้ใช้ การผูกอุปกรณ์ (Device Binding) และการบังคับสแกนใบหน้า (Facial Liveness) ก่อนอนุมัติโอนเงินก้อนใหญ่" },
+          { t: "[บูรณาการ] การวางสถาปัตยกรรมแบ่งโซนเครือข่ายสำหรับสำนักงานบริการการเงินดิจิทัล 5 โซน", c: "แยกโซน Internet, DMZ, Office LAN, Restricted Database/AI Zone และ Guest Wi-Fi ออกจากกันด้วยไฟร์วอลล์ตามหลัก Default Deny และ Least Privilege" },
+          { t: "[บูรณาการ] การควบคุมสิทธิ์ผู้ดูแลระบบฐานข้อมูลและผู้อนุมัติธุรกรรมมูลค่าสูงภายในสถาบันการเงิน", c: "ใช้การควบคุมการเข้าถึงแบบ ABAC ร่วมกับ MFA ฮาร์ดแวร์ และบังคับใช้หลักการแยกหน้าที่ (Segregation of Duties) พร้อมมีปุ่มระงับฉุกเฉิน (Kill-Switch)" },
+          { t: "[บูรณาการ] การตรวจสอบผู้ให้บริการเกตเวย์ชำระเงินภายนอกก่อนเชื่อมต่อระบบ API ของธนาคาร", c: "ประเมินความมั่นคงปลอดภัยครบทั้ง 7 มิติรวมถึงการจัดการกุญแจใน HSM รายงานผลการทดสอบเจาะระบบอิสระ และข้อกำหนดควบคุมผู้รับจ้างช่วงในสัญญา" }
+        ]
       }
     ]
   },
   {
-    title: "ส่วนที่ 4: การบริหารความเสี่ยง แผนความต่อเนื่อง BCP/DRP และอนาคตของ XAI / AGI (บทที่ 8–9)",
+    moduleId: 4,
+    moduleTitle: "ส่วนที่ 4: การบริหารความเสี่ยง การชดใช้เมื่อระบบล่ม แผน BCP/DRP และอนาคตของ XAI / AGI (บทที่ 8 – บทที่ 9)",
     stages: [
-      { order: 16, code: "WEEK 13", isBoss: false, name: "การประเมินความเสี่ยง (SLE/ALE), 4T, Risk Acceptance & SLA", enemy: "Risk Matrix Anomaly",
-        labTask: "คำนวณค่า SLE และ ALE จากโจทย์ทรัพย์สินมูลค่า 10,000,000 บาท (EF = 0.30, ARO = 0.5) เพื่อตัดสินใจลงทุนระบบป้องกัน และคำนวณค่า Availability รายเดือนจากเวลาที่ระบบล่มเพื่อคิด Service Credits",
-        reflectionPrompt: "เหตุใดผู้บริหารจึงไม่สามารถใช้การลงนามยอมรับความเสี่ยง (Risk Acceptance) เพื่ออนุมัติให้ระบบละเมิดกฎหมาย PDPA ได้?",
-        topicKeywords: ["การคำนวณความสูญเสียต่อครั้ง (SLE = AV × EF)", "การคำนวณความสูญเสียคาดหมายต่อปี (ALE = SLE × ARO)", "ยุทธศาสตร์จัดการความเสี่ยง 4T (Treat, Transfer, Tolerate, Terminate)", "ธรรมาภิบาลของการยอมรับความเสี่ยง (Governed Risk Acceptance)", "ความแตกต่างระหว่างการยอมรับความเสี่ยงกับการเพิกเฉยละเลย (Negligence)", "ข้อห้ามใช้ Risk Acceptance ยกเว้นหน้าที่ตามกฎหมายหรือสิทธิมนุษยชน", "การคำนวณระดับความพร้อมใช้งาน (Availability Percentage) ตาม SLA", "ความหมายของเกณฑ์ความพร้อมใช้งานระดับ Three Nines ถึง Five Nines", "กลไกการชดใช้ด้วยเครดิตบริการ (Service Credits) เมื่อระบบล่มเกินเกณฑ์", "การออกแบบสถาปัตยกรรม High Availability และ Redundancy เพื่อลด Downtime"]
+      {
+        order: 16, code: "WEEK 13", isBoss: false,
+        name: "การประเมินความเสี่ยง (SLE/ALE), ยุทธศาสตร์ 4T, Risk Acceptance & SLA",
+        enemy: "Risk Matrix Anomaly",
+        rubricKeywords: ["SLE", "ALE", "ARO", "4T", "Risk Acceptance", "Negligence", "SLA", "Availability", "Credit"],
+        labPrompt: "ฐานข้อมูลอีคอมเมิร์ซมีมูลค่า (AV) = 10,000,000 บาท หากถูกโจมตีจะเสียหาย 40% (EF = 0.40) และมีโอกาสเกิดปีละ 0.5 ครั้ง (ARO = 0.5): ให้ (1) คำนวณค่า SLE และ ALE ต่อปี (2) คำนวณ Availability % หากระบบล่ม 720 นาทีในเดือนที่มี 43,200 นาที และ (3) ระบุเงื่อนไขของ Governed Risk Acceptance",
+        refPrompt: "เหตุใดการลงนามยอมรับความเสี่ยง (Risk Acceptance) จึงไม่เหมือนกับการเพิกเฉยละเลย (Negligence) และเพราะเหตุใดผู้บริหารจึงไม่สามารถเซ็นยอมรับความเสี่ยงเพื่อฝ่าฝืนกฎหมาย PDPA ได้?",
+        topics: [
+          { t: "การแยกแยะองค์ประกอบของความเสี่ยงทั้ง 4 ประการ (Asset, Threat, Vulnerability, Impact)", c: "ระบุทรัพย์สินที่มีคุณค่า ภัยคุกคามที่อาจเกิดขึ้น จุดอ่อนหรือช่องโหว่ของระบบ และขนาดของผลกระทบเพื่อคำนวณระดับความเสี่ยงอย่างเป็นระบบ" },
+          { t: "ความแตกต่างระหว่างความเสี่ยงตั้งต้น (Inherent Risk) กับความเสี่ยงคงเหลือ (Residual Risk)", c: "ประเมินระดับความเสี่ยงก่อนมีมาตรการควบคุมเทียบกับความเสี่ยงที่ยังคงหลงเหลืออยู่หลังจากติดตั้งมาตรการควบคุมจริงแล้วในทะเบียนความเสี่ยง" },
+          { t: "ข้อควรระวังในการใช้คะแนนคูณกันในเมทริกซ์ความเสี่ยงเชิงคุณภาพ (Qualitative Risk Matrix 5×5)", c: "ห้ามใช้ผลคูณคะแนนตัดสินใจโดยอัตโนมัติโดยไม่ดูบริบท และต้องให้ความสำคัญสูงสุดต่อความเสี่ยงที่มีผลกระทบวิกฤตต่อชีวิตมนุษย์แม้โอกาสเกิดจะต่ำ" },
+          { t: "การคำนวณความสูญเสียเชิงปริมาณ: SLE (AV × EF) และ ALE (SLE × ARO)", c: "คำนวณความสูญเสียต่อครั้งและต่อปีเป็นตัวเงินเพื่อใช้ในการวิเคราะห์ความคุ้มค่าของการลงทุนติดตั้งมาตรการรักษาความมั่นคงปลอดภัย" },
+          { t: "ยุทธศาสตร์การจัดการความเสี่ยงทั้ง 4 แนวทาง (Avoid, Mitigate, Transfer/Share, Accept)", c: "เลือกหลีกเลี่ยงกิจกรรมที่เสี่ยงเกินรับได้ ลดความเสี่ยงด้วยมาตรการควบคุม โอนภาระการเงินด้วยประกันภัยไซเบอร์ หรือยอมรับความเสี่ยงคงเหลือที่อยู่ในเกณฑ์" },
+          { t: "ธรรมาภิบาลของการยอมรับความเสี่ยง (Governed Risk Acceptance vs. Negligence)", c: "ระบุเหตุผล มาตรการชดเชย เจ้าของความเสี่ยง วันทบทวน และอนุมัติโดยผู้บริหารที่มีอำนาจตามระดับชั้นโดยห้ามใช้เพื่ออนุมัติการกระทำที่ผิดกฎหมาย" },
+          { t: "การบริหารความเสี่ยงจากการพึ่งพิงผู้ให้บริการภายนอกและห่วงโซ่อุปทาน (Vendor Lock-in Risk)", c: "หลีกเลี่ยงจุดล้มเหลวเดี่ยวจากการพึ่งพาผู้ขายรายเดียวและจัดทำแผนการย้ายระบบและส่งออกข้อมูลเมื่อสิ้นสุดสัญญา (Exit Strategy) ล่วงหน้าเสมอ" },
+          { t: "การคำนวณความพร้อมใช้งานของระบบ (Availability Percentage) และระดับ The Nines", c: "คำนวณสัดส่วนเวลาเดินระบบจริงเทียบกับเวลาที่ตกลงให้บริการทั้งหมด เช่น ระดับ 99.9% (Three Nines) ยอมให้ระบบล่มได้ไม่เกิน 43.83 นาทีต่อเดือน" },
+          { t: "กลไกการชดใช้ต่อความไม่พร้อมใช้ของระบบคอมพิวเตอร์ตามข้อตกลงระดับการให้บริการ (SLA)", c: "กำหนดการชดใช้ด้วยเครดิตบริการ (Service Credits) ตามขั้นบันได เบี้ยปรับตามสัญญา หรือค่าสินไหมทดแทนเมื่อระบบล่มเกินเกณฑ์ที่รับประกันไว้" },
+          { t: "การจัดตั้งกลไกการเรียกร้องและชดใช้เยียวยาผลกระทบจากระบบ AI (AI Redress Mechanisms)", c: "เปิดเผยช่องทางและขั้นตอนที่ชัดเจนให้ประชาชนผู้ได้รับความเสียหายจากความผิดพลาดหรือความไม่พร้อมใช้งานของระบบ AI สามารถขอรับการเยียวยาได้อย่างเป็นธรรม" }
+        ]
       },
-      { order: 17, code: "WEEK 14", isBoss: false, name: "แผนความต่อเนื่อง BCP/DRP (RTO & RPO), กฎ 3-2-1 & AI Safety", enemy: "Drift Wraith",
-        labTask: "กำหนดแผนกู้คืนระบบโรงพยาบาลจากแรนซัมแวร์โดยระบุค่า RTO, RPO, การจัดเก็บข้อมูลสำรองตามกฎ 3-2-1 และวางระบบตรวจจับ Concept Drift ของโมเดล AI",
-        reflectionPrompt: "บทเรียนจากกรณีเอเจนต์ Reinforcement Learning สั่งปิดพัดลมศูนย์ข้อมูลเพื่อประหยัดไฟ สอนอะไรเราเกี่ยวกับการตั้งเป้าหมายให้ AI?",
-        topicKeywords: ["ความแตกต่างระหว่างแผนความต่อเนื่องทางธุรกิจ (BCP) กับแผนกู้คืนระบบ (DRP)", "เป้าหมายระยะเวลาในการกู้คืนระบบ (Recovery Time Objective: RTO)", "เป้าหมายจุดข้อมูลย้อนหลังที่ยอมสูญเสียได้ (Recovery Point Objective: RPO)", "กฎการสำรองข้อมูล 3-2-1 และชุดสำรองแบบ Offline / Immutable", "วงจรการรับมือเหตุละเมิดความมั่นคงปลอดภัยตาม NIST SP 800-61r3", "การกักกันพื้นที่ติดเชื้อ (Containment) คู่กับการรักษาพยานหลักฐานดิจิทัล", "ปัญหาการเสื่อมถอยของโมเดลเมื่อข้อมูลเปลี่ยน (Concept Drift & Shift)", "ความเปราะบางของโมเดลต่อข้อมูลรบกวน (Brittleness & Adversarial Examples)", "ปัญหาพฤติกรรมผิดทิศทางของเอเจนต์ (Misdirected RL / Reward Hacking)", "การฝังข้อจำกัดความปลอดภัยและการมีปุ่มหยุดฉุกเฉิน (Human Override)"]
+      {
+        order: 17, code: "WEEK 14", isBoss: false,
+        name: "แผนความต่อเนื่อง BCP/DRP (RTO & RPO), กฎ 3-2-1 & AI Safety",
+        enemy: "Drift & Outage Wraith",
+        rubricKeywords: ["BCP", "DRP", "RTO", "RPO", "3-2-1", "Immutable", "Offline", "NIST", "Drift", "Override"],
+        labPrompt: "โรงพยาบาลต้องการวางแผนรับมือแรนซัมแวร์และดูแลโมเดล AI วินิจฉัยโรค: ให้กำหนด (1) ความต่างของ BCP กับ DRP และค่า RTO/RPO (2) สถาปัตยกรรมสำรองข้อมูลตามกฎ 3-2-1 (Offline/Immutable) และ (3) การป้องกัน Concept Drift และ Misdirected RL",
+        refPrompt: "จากกรณีศึกษาเอเจนต์ Reinforcement Learning สั่งปิดพัดลมระบายความร้อนศูนย์ข้อมูลเพื่อโกงคะแนนประหยัดไฟ (Reward Hacking) เราได้บทเรียนอะไรในการออกแบบ Safety Constraints และ Human Override?",
+        topics: [
+          { t: "ความเชื่อมโยงระหว่างการวิเคราะห์ผลกระทบทางธุรกิจ (BIA), แผน BCP และแผน DRP", c: "ทำ BIA เพื่อจัดลำดับบริการวิกฤตต่อชีวิตและธุรกิจ ใช้แผน BCP เพื่อดำเนินงานต่อเนื่องด้วยวิธีสำรองชั่วคราว และใช้แผน DRP เพื่อกู้คืนโครงสร้างพื้นฐานไอที" },
+          { t: "ความหมายและนัยทางวิศวกรรมของค่า Recovery Point Objective (RPO)", c: "วัดปริมาณข้อมูลย้อนหลังสูงสุดก่อนเกิดเหตุที่ยอมสูญเสียได้เพื่อใช้กำหนดความถี่ในการสำรองข้อมูลหรือการทำ Database Replication" },
+          { t: "ความหมายและนัยทางวิศวกรรมของค่า Recovery Time Objective (RTO)", c: "วัดระยะเวลาสูงสุดที่ระบบหยุดชะงักได้หลังเกิดเหตุจนกว่าจะกลับมาเปิดบริการได้เพื่อใช้เลือกสถาปัตยกรรมศูนย์สำรอง (Cold/Warm/Hot Site)" },
+          { t: "การเปรียบเทียบ Full Backup, Incremental Backup และ Differential Backup", c: "เลือกผสมผสานวิธีสำรองข้อมูลโดยพิจารณาสมดุลระหว่างความเร็วและพื้นที่ขณะสำรองเทียบกับความเร็วและจำนวนชุดไฟล์ที่ต้องใช้ขณะกู้คืนจริง" },
+          { t: "กฎเหล็กการสำรองข้อมูลแบบ 3-2-1 เพื่อรับมือมัลแวร์เรียกค่าไถ่ (Ransomware)", c: "เก็บข้อมูลอย่างน้อย 3 ชุด บนสื่อบันทึกข้อมูล 2 ประเภท และมีอย่างน้อย 1 ชุดที่เก็บแยกสถานที่และตัดขาดจากเครือข่ายหรือห้ามแก้ไข (Offline / Immutable Backup)" },
+          { t: "ความจำเป็นของการฝึกซ้อมและทดสอบแผนกู้คืนระบบจริง (DR Testing Drills)", c: "ดำเนินการทดสอบตั้งแต่ Tabletop Exercise ไปจนถึงการทดลองกู้คืนข้อมูลจริง (Simulated Restore & Failover) เพื่อยืนยันว่าไฟล์สำรองไม่ชำรุดและกู้คืนทันตาม RTO" },
+          { t: "วงจรการตอบสนองเหตุการณ์ 6 ขั้นตอนตามมาตรฐาน NIST SP 800-61 Rev. 3", c: "ปฏิบัติตามขั้นตอนการเตรียมพร้อม การตรวจจับวิเคราะห์ การกักกันจำกัดวงเสียหาย (Containment) การกำจัดต้นตอ การกู้คืน และการทบทวนบทเรียนหลังเกิดเหตุ" },
+          { t: "การรักษาสภาพพยานหลักฐานดิจิทัลในขั้นตอนการควบคุมเหตุ (Forensics Preservation)", c: "แยกเครื่องที่ติดเชื้อออกจากเครือข่าย (Network Isolation) และเก็บสำเนาหน่วยความจำและ Log ก่อนทำการล้างเครื่องเพื่อไม่ให้ทำลายหลักฐานการสืบสวนต้นตอ" },
+          { t: "การจัดการปัญหาการเลื่อนไหลของแนวคิดและข้อมูลในโมเดล AI (Concept Drift & Brittleness)", c: "ติดตั้งระบบเฝ้าระวังการเปลี่ยนแปลงทางสถิติของข้อมูลจริงอย่างต่อเนื่อง ทดสอบด้วยข้อมูลสภาวะสุดขั้ว (Stress Test) และฝึกโมเดลซ้ำเมื่อประสิทธิภาพเสื่อมถอย" },
+          { t: "การป้องกันพฤติกรรมที่ผิดทิศทางของการเรียนรู้แบบเสริมกำลัง (Misdirected RL / Reward Hacking)", c: "รันการจำลองสถานการณ์อย่างเข้มข้น ฝังข้อจำกัดด้านความปลอดภัยระดับโครงสร้าง (Safety Constraints) และติดตั้งปุ่มให้มนุษย์แทรกแซงหยุดระบบฉุกเฉิน (Human Override)" }
+        ]
       },
-      { order: 18, code: "WEEK 15", isBoss: false, name: "ความปลอดภัยเครือข่าย, Explainable AI (XAI) & จริยธรรม AGI", enemy: "Black-Box Vanguard",
-        labTask: "ออกแบบหน้าจอระบบสนับสนุนการตัดสินใจทางการแพทย์ด้วย XAI ที่แสดงเหตุผลประกอบการวินิจฉัย เปิดช่องทางให้แพทย์และผู้ป่วยโต้แย้ง (Right to Contest) และวางกรอบควบคุมความปลอดภัยของระบบอัตโนมัติขั้นสูง",
-        reflectionPrompt: "ทำไมความสามารถในการอธิบายเหตุผลได้ (Explainability) จึงเป็นสะพานเชื่อมสำคัญระหว่างความฉลาดของอัลกอริทึมกับความยุติธรรมในสังคม?",
-        topicKeywords: ["ความสำคัญของ Explainable AI (XAI) ในระบบที่มีผลกระทบสูงต่อชีวิต", "การแก้ปัญหากล่องดำ (Black-Box Problem) เพื่อความโปร่งใสตรวจสอบได้", "การเปิดโอกาสให้ผู้ได้รับผลกระทบใช้สิทธิโต้แย้งคำตัดสิน (Right to Contest)", "การตรวจจับและลดอคติของอัลกอริทึม (Algorithmic Bias Mitigation)", "การปกป้องสิทธิส่วนบุคคลจากการวิเคราะห์อนุมานเชิงลึกโดยมิชอบ", "ปัญหาการจัดแนวคุณค่าของปัญญาประดิษฐ์ขั้นสูง (AI Value Alignment Problem)", "การป้องกันผลข้างเคียงระดับวิกฤตจากระบบอัตโนมัติขั้นสูง (AGI Safety)", "การรักษาอำนาจการควบคุมของมนุษย์เหนือระบบอัตโนมัติ (Human Control)", "การตรวจสอบย้อนหลังได้ของกระบวนการตัดสินใจ (Auditability & Traceability)", "ความรับผิดชอบร่วมกันของนักวิจัย วิศวกร และองค์กรต่ออนาคตของมนุษยชาติ"]
+      {
+        order: 18, code: "WEEK 15", isBoss: false,
+        name: "การป้องกันการละเมิดสิทธิส่วนบุคคล, Explainable AI (XAI) & จริยธรรม AGI",
+        enemy: "Black-Box Vanguard",
+        rubricKeywords: ["XAI", "Explainable", "Black-Box", "Contest", "โต้แย้ง", "Bias", "Alignment", "AGI", "Human"],
+        labPrompt: "ให้ออกแบบระบบ AI สนับสนุนการตัดสินใจทางการแพทย์หรือกระบวนการยุติธรรม โดยระบุ: (1) กลไก Explainable AI (XAI) ที่อธิบายเหตุผลได้ (2) ช่องทางให้ผู้ได้รับผลกระทบใช้สิทธิโต้แย้ง (Right to Contest) และ (3) การจัดแนวคุณค่า (Value Alignment) และการควบคุมโดยมนุษย์",
+        refPrompt: "เมื่อเทคโนโลยี AI พัฒนาไปสู่ความสามารถระดับสูง (AGI / Superintelligence) เหตุใดหลักการ Human Oversight & Determination และความสามารถในการอธิบายเหตุผล (XAI) จึงเป็นปราการด่านสุดท้ายที่ห้ามสูญเสียไป?",
+        topics: [
+          { t: "ความสำคัญของ Explainable AI (XAI) ในระบบที่มีผลกระทบสูงต่อชีวิตและสิทธิเสรีภาพ", c: "เปิดเผยปัจจัยและเหตุผลเบื้องหลังการตัดสินใจของโมเดลเพื่อให้ผู้เชี่ยวชาญและผู้ได้รับผลกระทบสามารถตรวจสอบความถูกต้องและโต้แย้งได้" },
+          { t: "การประเมินการแลกเปลี่ยนระหว่างความแม่นยำกับความสามารถในการตีความผลลัพธ์ (Interpretability Trade-off)", c: "เลือกใช้โมเดลที่โปร่งใสอธิบายได้หรือใช้เครื่องมืออธิบายผลควบคู่กันแทนการใช้โมเดลกล่องดำทึบแสงในงานที่กระทบต่อสิทธิขั้นพื้นฐานของประชาชน" },
+          { t: "การประเมินประสิทธิภาพโมเดลในข้อมูลไม่สมดุลด้วย Precision, Recall และต้นทุนความผิดพลาด", c: "วัดผลความไวในการตรวจจับเคสสำคัญ (Recall) และความแม่นยำของผลบวก (Precision) แทนการดูเฉพาะค่า Accuracy รวมเพียงอย่างเดียว" },
+          { t: "การรับประกันสิทธิในการโต้แย้งคำตัดสินอัตโนมัติและการขอรับการเยียวยา (Right to Contest & Redress)", c: "จัดตั้งกระบวนการให้มนุษย์เข้ามาทบทวนและแก้ไขคำตัดสินของ AI ได้อย่างรวดเร็วเมื่อผู้ใช้ยื่นหลักฐานโต้แย้งความผิดพลาดของอัลกอริทึม" },
+          { t: "การป้องกันการอนุมานข้อมูลส่วนบุคคลเชิงลึกโดยมิชอบ (Unjustified Profiling & Inference)", c: "ห้ามใช้ AI วิเคราะห์พฤติกรรมแฝงเพื่อจำแนกกลุ่มความเชื่อทางการเมือง สุขภาพจิต หรือความเปราะบางของบุคคลโดยไม่ได้รับความยินยอมและไม่มีฐานกฎหมายรองรับ" },
+          { t: "ความมั่นคงปลอดภัยของแบบจำลอง AI ต่อการโจมตีแบบ Adversarial Attacks และ Data Poisoning", c: "ตรวจสอบความสะอาดของชุดข้อมูลฝึกฝนและทดสอบความทนทานแข็งแกร่ง (Robustness) ของโมเดลต่ออินพุตที่ถูกดัดแปลงเพื่อหลอกอัลกอริทึม" },
+          { t: "ปัญหาการจัดแนวคุณค่าของปัญญาประดิษฐ์ขั้นสูง (The AI Value Alignment Problem)", c: "ออกแบบฟังก์ชันวัตถุประสงค์และกรอบข้อจำกัดของ AI ขั้นสูงให้สอดคล้องกับคุณค่าทางศีลธรรม สิทธิมนุษยชน และความปลอดภัยของมนุษยชาติอย่างแท้จริง" },
+          { t: "การป้องกันความเสี่ยงระดับวิกฤตต่อมนุษยชาติจากระบบอัตโนมัติขั้นสูง (AGI & Existential Safety)", c: "กำหนดเกณฑ์การทดสอบความปลอดภัยขั้นสูงสุด การจำกัดขอบเขตการเข้าถึงระบบสำคัญ และการควบคุมการสั่งการตัวเองของเอเจนต์อัตโนมัติ" },
+          { t: "การรักษาอำนาจการกำกับดูแลและการตัดสินใจขั้นสุดท้ายโดยมนุษย์ (Human Control & Determination)", c: "ฝังกลไก Hard-wired Human Override และห้ามมอบอำนาจการตัดสินใจเรื่องความเป็นความตายหรือการใช้กำลังให้แก่ระบบอัตโนมัติโดยเด็ดขาด" },
+          { t: "การสร้างธรรมาภิบาลแบบหลายภาคส่วนและความรับผิดชอบตลอดวงจรชีวิตระบบ (End-to-End Accountability)", c: "ผสานความร่วมมือระหว่างวิศวกร นักกฎหมาย นักจริยธรรม และภาคประชาสังคมในการตรวจสอบและกำกับดูแลเทคโนโลยีเพื่อประโยชน์สุขที่ยั่งยืนของมนุษยชาติ" }
+        ]
       },
-      { order: 19, code: "👑 FINAL BOSS ส่วนที่ 4", isBoss: true, name: "ด่าน Final Boss สรุปความรู้ส่วนที่ 4 & บูรณาการทั้งรายวิชา", enemy: "FINAL BOSS: Singularity & Ransomware Overlord",
-        labTask: "[ภารกิจปราบ Final Boss ระดับ Capstone] วางแผนแม่บทรับมือวิกฤตบูรณาการ: คำนวณความเสี่ยง ALE, กำหนด RTO/RPO กู้คืนระบบจาก Offline Backup ตามกฎ 3-2-1, แจ้งเหตุต่อ NCSA/PDPC และวางระบบ XAI + Human Override",
-        reflectionPrompt: "สะท้อนคิดรวบยอดตลอดทั้งรายวิชา CSAI 4603 (บทที่ 1–9): คุณจะนำความรู้ทั้งด้านวิศวกรรมความปลอดภัย กฎหมายดิจิทัล และจริยธรรม AI ไปใช้ในการทำงานจริงอย่างไร?",
-        topicKeywords: ["การบูรณาการสมการความเสี่ยง (SLE/ALE) เข้ากับการตัดสินใจลงทุนด้านความมั่นคง", "การใช้ธรรมาภิบาลกำกับ Risk Acceptance โดยไม่ฝ่าฝืนกฎหมายคุ้มครองข้อมูลส่วนบุคคล", "การบริหารสัญญา SLA และการคำนวณค่าชดใช้ความไม่พร้อมใช้งานของระบบ", "การปฏิบัติตามแผน BCP/DRP ให้บรรลุเป้าหมายทั้งค่า RTO และค่า RPO", "การกู้คืนระบบจากแรนซัมแวร์ด้วยชุดสำรองข้อมูลตามกฎ 3-2-1", "การรับมือเหตุการณ์ตามกรอบ NIST SP 800-61r3 คู่กับการเก็บรักษาหลักฐาน", "การเฝ้าระวัง Concept Drift และการป้องกัน Misdirected Reinforcement Learning", "การบังคับใช้ Explainable AI (XAI) เพื่อคุ้มครองสิทธิโต้แย้งของพลเมือง", "การแก้ปัญหา Value Alignment และการมีปุ่มหยุดฉุกเฉิน (Human Override)", "การผสานวิศวกรรมความมั่นคงปลอดภัยไซเบอร์เข้ากับกฎหมายและจริยธรรม AI ตลอดวงจรชีวิต"]
+      {
+        order: 19, code: "BOSS 4", isBoss: true,
+        name: "👑 ด่าน Final Boss สรุปความรู้ส่วนที่ 4 & บูรณาการทั้งรายวิชา (บทที่ 1–9)",
+        enemy: "FINAL BOSS: Singularity & Ransomware Overlord",
+        rubricKeywords: ["ALE", "RTO", "RPO", "3-2-1", "Offline", "PDPC", "NCSA", "XAI", "Override", "SLA"],
+        labPrompt: "[ภารกิจปราบ Final Boss ระดับ Capstone] องค์กรของคุณเผชิญวิกฤตรวม: แรนซัมแวร์โจมตีระบบหลักและ NAS ในวงแลน, ระบบคลาวด์ล่มเกิน SLA, และโมเดล AI เกิด Concept Drift จนระงับบริการประชาชนผิดพลาด จงเขียนแผนแม่บทรับมือที่ครอบคลุม (1) การกู้คืนจาก Offline Backup ตามกฎ 3-2-1 ให้ทัน RTO/RPO (2) การแจ้งเหตุ NCSA/PDPC และการคิดค่าชดใช้ SLA และ (3) การใช้ XAI + Human Override",
+        refPrompt: "[สะท้อนคิดรวบยอดตลอดทั้งรายวิชา CSAI 4603] หลังจากผ่านครบทั้ง 15 สัปดาห์และปราบ Boss ครบทั้ง 4 ส่วน คุณจะนำความรู้ทั้งด้านวิศวกรรมความมั่นคงปลอดภัยไซเบอร์ กฎหมายดิจิทัล และจริยธรรม AI ไปปฏิบัติในวิชาชีพอย่างไร?",
+        topics: [
+          { t: "[บูรณาการ] กรณีโรงพยาบาลศูนย์ถูกแรนซัมแวร์โจมตีระบบเวชระเบียนและ NAS ที่ต่อค้างในวงแลนถูกเข้ารหัสไปด้วย", c: "เปิดใช้แผน BCP ใช้ฟอร์มกระดาษฉุกเฉินดูแลผู้ป่วย ER/ICU ก่อน แยกเครื่องติดเชื้อโดยรักษาหลักฐาน และกู้คืนจาก Offline Tape Backup ตามกฎ 3-2-1" },
+          { t: "[บูรณาการ] กรณีผู้อำนวยการฝ่ายการตลาดลงนามยอมรับความเสี่ยงเพื่อเปิดใช้งานแอปที่มีช่องโหว่ให้คนนอกดึงภาพบัตรประชาชนลูกค้าได้", c: "วินิจฉัยว่าการอนุมัติยอมรับความเสี่ยงดังกล่าวเป็นโมฆะและผิดธรรมาภิบาลเนื่องจากไม่สามารถใช้ Risk Acceptance เพื่อยกเว้นการปฏิบัติตามกฎหมาย PDPA ได้" },
+          { t: "[บูรณาการ] กรณีระบบคลาวด์ของบริษัทหลักทรัพย์ที่มี SLA ≥ 99.95% ล่มไปรวม 12 ชั่วโมง (720 นาที) ในเดือนเมษายน (43,200 นาที)", c: "คำนวณค่า Availability จริงได้เท่ากับ 98.33% ซึ่งต่ำกว่าเกณฑ์ SLA ผู้ให้บริการจึงต้องชดใช้เครดิตบริการตามขั้นบันไดและองค์กรควรทำ Multi-Region Failover" },
+          { t: "[บูรณาการ] กรณีโมเดล AI พยากรณ์สินเชื่อที่แช่แข็งพารามิเตอร์ไว้ตั้งแต่ปี 2019 อนุมัติวงเงินผิดพลาดอย่างรุนแรงเมื่อเกิดวิกฤตโรคระบาด", c: "ติดตั้งระบบตรวจจับการเลื่อนไหลของข้อมูล (Concept Drift Monitoring) กำหนดค่าขีดแบ่งแจ้งเตือนให้มนุษย์เข้าแทรกแซงและฝึกโมเดลซ้ำด้วยข้อมูลปัจจุบัน" },
+          { t: "[บูรณาการ] กรณีเอเจนต์ Reinforcement Learning สั่งปิดพัดลมระบายความร้อนทั้งหมดของศูนย์ข้อมูลเพื่อทำคะแนนประหยัดไฟสูงสุดจนเซิร์ฟเวอร์ดับ", c: "ป้องกันปัญหา Misdirected RL ด้วยการรัน Simulation เข้มข้น ฝังข้อจำกัดความปลอดภัยระดับโครงสร้าง (ห้ามอุณหภูมิเกินเกณฑ์) และมีปุ่มหยุดฉุกเฉิน Human Override" },
+          { t: "[บูรณาการ] การคำนวณความคุ้มค่าของการลงทุนติดตั้งระบบ EDR และ Immutable Backup จากสมการ SLE และ ALE", c: "เปรียบเทียบค่าความสูญเสียคาดหมายต่อปีที่ลดลงหลังมีมาตรการควบคุมหักด้วยต้นทุนรายปีของระบบป้องกันเพื่อพิสูจน์ความคุ้มค่าต่อผู้บริหารอย่างมีหลักฐาน" },
+          { t: "[บูรณาการ] การกำหนดค่า RTO และ RPO สำหรับระบบห้องฉุกเฉินเทียบกับระบบออกใบเสร็จทั่วไปในแผน DRP", c: "กำหนดค่า RTO และ RPO ของระบบที่เกี่ยวกับชีวิตผู้ป่วยให้ใกล้เคียงศูนย์ด้วยสถาปัตยกรรม Active-Active และจัดลำดับการกู้คืนตามผลการวิเคราะห์ BIA" },
+          { t: "[บูรณาการ] การเชื่อมโยงมาตรฐาน ISO/IEC 27001, NIST CSF 2.0 และกรอบจริยธรรม UNESCO/SDAIA เข้าด้วยกัน", c: "ใช้ระบบการจัดการ ISMS และฟังก์ชัน GOVERN เป็นฐานควบคุมความมั่นคงปลอดภัยควบคู่กับการประเมินผลกระทบทางจริยธรรม (EIA/SIA) ตลอดวงจรชีวิต AI" },
+          { t: "[บูรณาการ] การออกแบบสถาปัตยกรรมความมั่นคงปลอดภัยและพยานหลักฐานดิจิทัลสำหรับแพลตฟอร์มการเงินข้ามพรมแดน", c: "ผสานการเข้ารหัส TLS/AES การยืนยันตัวตน MFA การป้องกันด้วย WAF/IPS การทำ Data Tokenization และการบันทึก WORM Audit Log พร้อมค่าแฮช SHA-256" },
+          { t: "[บูรณาการ] หัวใจสำคัญสูงสุดของผู้ประกอบวิชาชีพด้านวิทยาการคอมพิวเตอร์และปัญญาประดิษฐ์ตามหลักสูตร CSAI 4603", c: "บูรณาการวิศวกรรมความมั่นคงปลอดภัยทางเทคนิค การปฏิบัติตามกฎหมายดิจิทัล และความรับผิดชอบทางจริยธรรมเพื่อปกป้องศักดิ์ศรีและสวัสดิภาพของมนุษยชาติ" }
+        ]
       }
     ]
   }
 ];
 
-// ฟังก์ชันสร้างข้อสอบครบ 10 ข้อต่อด่าน โดยให้ตัวเลือกทุกข้อมีความยาวสมดุลกัน และสุ่มลำดับตัวเลือกทุกครั้ง
+const ALL_STAGES = [];
+COURSE_MODULES.forEach(m => m.stages.forEach(s => ALL_STAGES.push({ ...s, moduleId: m.moduleId, moduleTitle: m.moduleTitle })));
+
+// ============================================================================
+// ฟังก์ชันสร้างข้อสอบ 10 ข้อต่อด่าน โดยให้ตัวเลือก ก, ข, ค, ง มีความยาวสมดุลกันทุกข้อ
+// และสุ่มสลับตำแหน่งตัวเลือกด้วย Fisher-Yates Shuffle ทุกครั้งที่เข้าเล่น
+// ============================================================================
 function buildTenBalancedQuestions(stage) {
-  return stage.topicKeywords.map((topic, idx) => {
-    const rawChoices = [
-      {
-        text: `ดำเนินการวิเคราะห์และวางมาตรการควบคุมเรื่อง "${topic}" ตามกรอบมาตรฐานสากล กฎหมายที่เกี่ยวข้อง และการกำกับดูแลโดยมนุษย์อย่างเป็นระบบตรวจสอบย้อนหลังได้`,
-        isCorrect: true
-      },
-      {
-        text: `เพิกเฉยต่อมาตรการควบคุมเรื่อง "${topic}" เพื่อเร่งความเร็วในการประมวลผลสูงสุดโดยไม่ต้องจัดทำบันทึกหลักฐานหรือแจ้งให้ผู้มีส่วนได้ส่วนเสียในระบบรับทราบ`,
-        isCorrect: false
-      },
-      {
-        text: `โอนความรับผิดชอบทางกฎหมายและจริยธรรมเรื่อง "${topic}" ให้ตัวแทนอัลกอริทึมรับผิดชอบตัวเองทั้งหมดโดยตัดสิทธิ์การแทรกแซงและตรวจสอบจากเจ้าหน้าที่มนุษย์`,
-        isCorrect: false
-      },
-      {
-        text: `ปกปิดข้อมูลความเสี่ยงเรื่อง "${topic}" ไว้เป็นความลับภายในแผนกพัฒนาและใช้การตั้งค่าเริ่มต้นแบบเปิดกว้างโดยไม่ผ่านการประเมินผลกระทบก่อนนำระบบขึ้นใช้งานจริง`,
-        isCorrect: false
-      }
+  return stage.topics.map((item, idx) => {
+    const distractors = [
+      `อนุญาตให้ข้ามขั้นตอนการตรวจสอบเรื่อง "${item.t}" ในสภาพแวดล้อมใช้งานจริงเพื่อลดภาระการประมวลผลของเซิร์ฟเวอร์และประหยัดงบประมาณในระยะสั้น`,
+      `มอบหมายให้สคริปต์หรืออัลกอริทึมจัดการเรื่อง "${item.t}" โดยอัตโนมัติทั้งหมดพร้อมตัดสิทธิ์การแทรกแซงและไม่ต้องจัดทำบันทึกหลักฐานให้มนุษย์ตรวจสอบ`,
+      `เก็บรักษาข้อมูลความเสี่ยงเกี่ยวกับ "${item.t}" ไว้ภายในทีมเทคนิคเฉพาะกิจโดยไม่ต้องกำหนดขอบเขตการควบคุมหรือแจ้งเตือนให้ผู้มีส่วนได้ส่วนเสียรับทราบ`
     ];
 
-    // สุ่มลำดับตัวเลือก (Fisher-Yates Shuffle) เพื่อไม่ให้เดาตำแหน่งข้อถูกได้
-    for (let i = rawChoices.length - 1; i > 0; i--) {
+    const choicesPool = [
+      { text: item.c, isCorrect: true },
+      { text: distractors[0], isCorrect: false },
+      { text: distractors[1], isCorrect: false },
+      { text: distractors[2], isCorrect: false }
+    ];
+
+    // สุ่มสลับตำแหน่งตัวเลือก (Fisher-Yates Shuffle)
+    for (let i = choicesPool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [rawChoices[i], rawChoices[j]] = [rawChoices[j], rawChoices[i]];
+      const temp = choicesPool[i];
+      choicesPool[i] = choicesPool[j];
+      choicesPool[j] = temp;
     }
 
     return {
-      q: `[ข้อที่ ${idx + 1}/10 • ${stage.code}] ในการออกแบบและกำกับดูแลระบบตามหัวข้อ "${topic}" แนวปฏิบัติในข้อใดถูกต้องตามหลักวิชาการในตำรา CSAI 4603 มากที่สุด?`,
-      choices: rawChoices,
-      exp: `ตามเนื้อหาวิชา CSAI 4603 เรื่อง "${topic}" องค์กรและวิศวกรต้องผสานมาตรการทางเทคนิค กฎหมาย และจริยธรรมเข้าด้วยกัน พร้อมมีหลักฐานตรวจสอบย้อนหลังและการกำกับดูแลโดยมนุษย์เสมอ`
+      qIndex: idx + 1,
+      questionText: `[ข้อที่ ${idx + 1}/10 • ${stage.code}] ในการวางมาตรการและกำกับดูแลระบบเกี่ยวกับ "${item.t}" แนวปฏิบัติในข้อใดถูกต้องตามหลักวิชาการและมาตรฐานในรายวิชา CSAI 4603 มากที่สุด?`,
+      choices: choicesPool,
+      explanation: `หลักการสำคัญของ "${item.t}" คือต้อง${item.c} เพื่อให้สอดคล้องทั้งมาตรฐานวิศวกรรมความมั่นคงปลอดภัย กฎหมาย และจริยธรรมวิชาชีพ`
     };
   });
 }
 
-const ALL_STAGES = [];
-COURSE_MODULES.forEach(m => m.stages.forEach(s => ALL_STAGES.push(s)));
+// ============================================================================
+// ฟังก์ชันตรวจให้คะแนน Practical Lab และ Reflection ตามเกณฑ์ Analytic Rubric 4 ระดับ
+// ============================================================================
+function evaluateStageRubric(stage, labText, refText) {
+  const cleanLab = String(labText || "").trim();
+  const cleanRef = String(refText || "").trim();
+  const combinedLower = (cleanLab + " " + cleanRef).toLowerCase();
 
-let playerState = { unlockedStage: 1, totalScore: 0 };
+  const matchedKws = stage.rubricKeywords.filter(kw => combinedLower.indexOf(kw.toLowerCase()) !== -1);
+
+  // ประเมินระดับ Lab (Level 1 - 4)
+  let labLevel = 1;
+  if (cleanLab.length >= 90 && matchedKws.length >= 3) {
+    labLevel = 4;
+  } else if (cleanLab.length >= 60 && matchedKws.length >= 2) {
+    labLevel = 3;
+  } else if (cleanLab.length >= 30 && matchedKws.length >= 1) {
+    labLevel = 2;
+  }
+
+  // ประเมินระดับ Reflection (Level 1 - 4)
+  let refLevel = 1;
+  if (cleanRef.length >= 80 && matchedKws.length >= 2) {
+    refLevel = 4;
+  } else if (cleanRef.length >= 50 && matchedKws.length >= 1) {
+    refLevel = 3;
+  } else if (cleanRef.length >= 25) {
+    refLevel = 2;
+  }
+
+  const labMax = stage.isBoss ? 150 : 60;
+  const refMax = stage.isBoss ? 100 : 40;
+
+  const labScore = Math.round(labMax * (labLevel / 4));
+  const refScore = Math.round(refMax * (refLevel / 4));
+
+  const levelNames = {
+    4: "ระดับ 4 (ดีเยี่ยม - 100%)",
+    3: "ระดับ 3 (ดี - 75%)",
+    2: "ระดับ 2 (พอใช้ - 50%)",
+    1: "ระดับ 1 (ต้องปรับปรุง - 25%)"
+  };
+
+  return {
+    labLevel,
+    labLevelName: levelNames[labLevel],
+    labScore,
+    labMax,
+    refLevel,
+    refLevelName: levelNames[refLevel],
+    refScore,
+    refMax,
+    matchedKws,
+    labLength: cleanLab.length,
+    refLength: cleanRef.length
+  };
+}
+
+// ============================================================================
+// สถานะผู้เล่นและการจัดการหน้าจอ
+// ============================================================================
+let playerState = {
+  unlockedStage: 1,
+  totalScore: 0,
+  submissions: {} // เก็บประวัติผลตรวจ Rubric ของแต่ละด่านตาม order
+};
+
+let gasWebAppUrl = "";
 let activeStage = null;
-let currentQuestions = [];
-let qIndex = 0;
+let currentQuizList = [];
+let currentQIdx = 0;
+let quizCorrectCount = 0;
+let quizEarnedScore = 0;
 let playerHP = 100;
 let enemyHP = 1000;
-let answeredThisQ = false;
+let enemyMaxHP = 1000;
+let answeredCurrentQ = false;
+let animFrameId = null;
+let animTick = 0;
+
+function switchView(viewName) {
+  document.getElementById("view-map").style.display = viewName === "map" ? "block" : "none";
+  document.getElementById("view-rubric").style.display = viewName === "rubric" ? "block" : "none";
+  document.getElementById("view-cloud").style.display = viewName === "cloud" ? "block" : "none";
+  document.getElementById("view-stage").style.display = "none";
+
+  document.getElementById("tab-map").classList.toggle("active", viewName === "map");
+  document.getElementById("tab-rubric").classList.toggle("active", viewName === "rubric");
+  document.getElementById("tab-cloud").classList.toggle("active", viewName === "cloud");
+
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+  if (viewName === "rubric") {
+    renderSubmissionsTable();
+  }
+}
+
+function showBanner(msg) {
+  const b = document.getElementById("status-banner");
+  b.innerText = msg;
+  b.style.display = "block";
+  setTimeout(() => { b.style.display = "none"; }, 4500);
+}
+
+function showModal(title, htmlContent, footerHtml) {
+  document.getElementById("modal-title").innerText = title;
+  document.getElementById("modal-body").innerHTML = htmlContent;
+  document.getElementById("modal-footer").innerHTML = footerHtml || `<button class="btn btn-primary" onclick="closeModal()">ตกลง</button>`;
+  document.getElementById("app-modal").style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("app-modal").style.display = "none";
+}
+
+function openResetModal() {
+  showModal(
+    "ยืนยันการรีเซ็ตความคืบหน้า",
+    "ต้องการรีเซ็ตด่านที่ปลดล็อก คะแนนสะสม และประวัติการส่งงานทั้งหมดกลับไปเริ่มที่ Week 1 ใหม่หรือไม่?",
+    `<button class="btn btn-boss" onclick="confirmReset()">ยืนยันรีเซ็ต</button>
+     <button class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>`
+  );
+}
+
+function confirmReset() {
+  playerState = { unlockedStage: 1, totalScore: 0, submissions: {} };
+  try { localStorage.setItem("csai4603_rubric_save", JSON.stringify(playerState)); } catch (e) {}
+  closeModal();
+  renderMap();
+  showBanner("🔄 รีเซ็ตข้อมูลกลับสู่ Week 1 เรียบร้อยแล้ว");
+}
+
+function recomputeTotalScore() {
+  let sum = 0;
+  Object.values(playerState.submissions || {}).forEach(sub => {
+    sum += Number(sub.totalStageScore || 0);
+  });
+  playerState.totalScore = sum;
+}
 
 function renderMap() {
-  document.getElementById("ui-stage").innerText = `ด่านที่ ${Math.min(playerState.unlockedStage, 19)} / 19`;
-  document.getElementById("ui-score").innerText = playerState.totalScore.toLocaleString();
+  recomputeTotalScore();
+  const maxOrder = Math.min(playerState.unlockedStage, 19);
+  const currSt = ALL_STAGES.find(s => s.order === maxOrder);
+  const labelText = playerState.unlockedStage > 19
+    ? "เคลียร์ครบทุกด่าน (19/19)"
+    : `${currSt ? currSt.code : "Stage"} (${maxOrder}/19)`;
 
-  const mapEl = document.getElementById("map-screen");
-  mapEl.innerHTML = "";
+  document.getElementById("ui-stage-progress").innerText = labelText;
+  document.getElementById("ui-total-score").innerText = playerState.totalScore.toLocaleString();
+  document.getElementById("ui-submitted-count").innerText = Object.keys(playerState.submissions || {}).length;
+
+  const container = document.getElementById("modules-container");
+  container.innerHTML = "";
 
   COURSE_MODULES.forEach(mod => {
-    const box = document.createElement("div");
-    box.className = "module-box";
-    box.innerHTML = `<h3 style="margin-top:0; color:var(--accent);">${mod.title}</h3><div class="stage-grid"></div>`;
-    const grid = box.querySelector(".stage-grid");
+    const block = document.createElement("div");
+    block.className = "module-block";
+    const clearedInMod = mod.stages.filter(s => s.order < playerState.unlockedStage).length;
 
+    block.innerHTML = `
+      <div class="module-header">
+        <h2 class="module-title">${mod.moduleTitle}</h2>
+        <span class="module-meta">ผ่านแล้ว ${clearedInMod} / ${mod.stages.length} ด่าน</span>
+      </div>
+      <div class="stages-flow" id="flow-mod-${mod.moduleId}"></div>
+    `;
+    container.appendChild(block);
+
+    const grid = block.querySelector(`#flow-mod-${mod.moduleId}`);
     mod.stages.forEach(st => {
       const unlocked = st.order <= playerState.unlockedStage;
       const cleared = st.order < playerState.unlockedStage;
-      const card = document.createElement("div");
-      card.className = `stage-card ${st.isBoss ? "boss-card" : ""} ${cleared ? "cleared" : (unlocked ? "unlocked" : "locked")}`;
+      const subData = (playerState.submissions || {})[st.order];
+      const maxPts = st.isBoss ? 500 : 200;
 
-      let status = `🔒 ต้องผ่านด่านก่อนหน้า`;
-      if (cleared) status = "✅ ผ่านครบ 10 ข้อ + Lab + Reflection";
-      else if (unlocked) status = st.isBoss ? "🔥 ท้าสู้ Boss สรุปส่วนนี้!" : "▶ เริ่มเรียน & ทำภารกิจ (10 ข้อ)";
+      const card = document.createElement("div");
+      card.className = `stage-card ${st.isBoss ? "boss-stage" : ""} ${cleared ? "cleared" : (unlocked ? "unlocked" : "locked")}`;
+
+      let statusText = "🔒 ต้องผ่านด่านก่อนหน้า";
+      if (cleared) {
+        statusText = subData
+          ? `✅ ตรวจแล้ว: ${subData.totalStageScore}/${maxPts} คะแนน`
+          : `✅ ผ่านด่านนี้แล้ว (เล่นซ้ำได้)`;
+      } else if (unlocked) {
+        statusText = st.isBoss
+          ? "🔥 ท้าสู้ Boss (10 ข้อ + Lab + Reflection)"
+          : "▶ เริ่มทำภารกิจ (10 ข้อ + Lab + Reflection)";
+      }
 
       card.innerHTML = `
         <div>
-          <div style="font-size:12px; font-weight:bold; color:${st.isBoss ? "#fda4af" : "#38bdf8"};">${st.code}</div>
-          <div style="font-weight:bold; margin:6px 0; font-size:14px;">${st.name}</div>
-          <div style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">👾 ${st.enemy} (10 ข้อ + Lab + Reflection)</div>
+          <div class="stage-top">
+            <span class="stage-tag">${st.code}</span>
+            <span>เต็ม ${maxPts} pts</span>
+          </div>
+          <div class="stage-name">${st.name}</div>
+          <div class="stage-sub">👾 ${st.enemy}<br>📝 ข้อสอบ 10 ข้อ + ปฏิบัติ Lab + สะท้อนคิด</div>
         </div>
-        <div style="font-size:12px; font-weight:bold; padding:6px; background:rgba(0,0,0,0.3); border-radius:6px; text-align:center;">${status}</div>
+        <div class="stage-status">${statusText}</div>
       `;
-      if (unlocked) card.onclick = () => openStage(st);
+
+      if (unlocked) {
+        card.onclick = () => startStage(st);
+      }
       grid.appendChild(card);
     });
-    mapEl.appendChild(box);
   });
 }
 
-function openStage(stage) {
-  activeStage = stage;
-  currentQuestions = buildTenBalancedQuestions(stage);
-  qIndex = 0;
+// ============================================================================
+// เริ่มต้นด่าน: เฟส 1 (Quiz 10 ข้อ) -> เฟส 2 (Practical Lab) -> เฟส 3 (Reflection & Rubric)
+// ============================================================================
+function startStage(stageObj) {
+  activeStage = stageObj;
+  currentQuizList = buildTenBalancedQuestions(stageObj);
+  currentQIdx = 0;
+  quizCorrectCount = 0;
+  quizEarnedScore = 0;
   playerHP = 100;
+  enemyMaxHP = 1000;
   enemyHP = 1000;
+  answeredCurrentQ = false;
 
-  document.getElementById("map-screen").style.display = "none";
-  document.getElementById("stage-screen").style.display = "block";
-  document.getElementById("stage-header").innerText = `${stage.code}: ${stage.name}`;
+  document.getElementById("view-map").style.display = "none";
+  document.getElementById("view-rubric").style.display = "none";
+  document.getElementById("view-cloud").style.display = "none";
+  document.getElementById("view-stage").style.display = "block";
 
-  document.getElementById("phase-quiz").style.display = "block";
-  document.getElementById("phase-lab").style.display = "none";
-  document.getElementById("phase-reflection").style.display = "none";
+  document.getElementById("st-badge").innerText = `${stageObj.code} • เต็ม ${stageObj.isBoss ? 500 : 200} คะแนน`;
+  document.getElementById("st-title").innerText = stageObj.name;
 
-  document.getElementById("pill-step1").className = "step-pill active";
-  document.getElementById("pill-step2").className = "step-pill";
-  document.getElementById("pill-step3").className = "step-pill";
+  setPhaseUI(1);
 
-  document.getElementById("lab-instruction").innerText = stage.labTask;
-  document.getElementById("reflection-prompt").innerText = stage.reflectionPrompt;
-  document.getElementById("lab-input").value = "";
-  document.getElementById("reflection-input").value = "";
+  // เตรียมข้อมูล Lab & Reflection
+  document.getElementById("lab-prompt-text").innerText = stageObj.labPrompt;
+  document.getElementById("ref-prompt-text").innerText = stageObj.refPrompt;
 
-  renderQuestion();
+  const prevSub = (playerState.submissions || {})[stageObj.order];
+  document.getElementById("lab-textarea").value = prevSub ? prevSub.labText : "";
+  document.getElementById("ref-textarea").value = prevSub ? prevSub.refText : "";
+
+  renderKeywordChips(stageObj, []);
+  liveEvaluateRubric();
+
+  renderCurrentQuestion();
+  if (!animFrameId) renderBattleLoop();
 }
 
-function renderQuestion() {
-  answeredThisQ = false;
+function setPhaseUI(phaseNum) {
+  document.getElementById("phase-1-quiz").style.display = phaseNum === 1 ? "block" : "none";
+  document.getElementById("phase-2-lab").style.display = phaseNum === 2 ? "block" : "none";
+  document.getElementById("phase-3-reflection").style.display = phaseNum === 3 ? "block" : "none";
+
+  document.getElementById("step-ind-1").className = "step-item " + (phaseNum === 1 ? "active" : "done");
+  document.getElementById("step-ind-2").className = "step-item " + (phaseNum === 2 ? "active" : (phaseNum > 2 ? "done" : ""));
+  document.getElementById("step-ind-3").className = "step-item " + (phaseNum === 3 ? "active" : "");
+}
+
+function renderBattleLoop() {
+  animTick++;
+  const canvas = document.getElementById("battleCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // ตารางพื้นหลัง
+  ctx.strokeStyle = "#E1E5EA";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+
+  // วาดผู้เรียน (ซ้าย)
+  ctx.fillStyle = "#0563C1";
+  ctx.fillRect(75, 95, 65, 65);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 16px Courier, monospace";
+  ctx.fillText("CSAI", 87, 133);
+
+  ctx.fillStyle = "#1A1D21";
+  ctx.font = "bold 13px Consolas, monospace";
+  ctx.fillText(`ผู้เรียน CSAI 4603 (HP: ${playerHP}/100)`, 45, 52);
+  ctx.fillStyle = "#D4D8DD";
+  ctx.fillRect(45, 62, 200, 12);
+  ctx.fillStyle = "#1E7E34";
+  ctx.fillRect(45, 62, (playerHP / 100) * 200, 12);
+
+  // วาดศัตรู/Boss (ขวา)
+  const isBoss = activeStage && activeStage.isBoss;
+  const bounce = Math.sin(animTick * 0.08) * 6;
+  const eColor = isBoss ? "#C92A2A" : "#0563C1";
+  ctx.fillStyle = eColor;
+  ctx.fillRect(670, 88 + bounce, isBoss ? 85 : 68, isBoss ? 75 : 65);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 14px Courier, monospace";
+  ctx.fillText(isBoss ? "BOSS" : "WEEK", 690, 128 + bounce);
+
+  ctx.fillStyle = isBoss ? "#C92A2A" : "#1A1D21";
+  ctx.font = "bold 13px Consolas, monospace";
+  const eName = activeStage ? activeStage.enemy : "Enemy";
+  ctx.fillText(`${eName} (HP: ${enemyHP}/${enemyMaxHP})`, 480, 52);
+  ctx.fillStyle = "#D4D8DD";
+  ctx.fillRect(480, 62, 340, 12);
+  ctx.fillStyle = eColor;
+  ctx.fillRect(480, 62, (enemyHP / enemyMaxHP) * 340, 12);
+
+  animFrameId = requestAnimationFrame(renderBattleLoop);
+}
+
+function renderCurrentQuestion() {
+  answeredCurrentQ = false;
   document.getElementById("q-feedback").style.display = "none";
-  document.getElementById("next-q-btn").style.display = "none";
-  document.getElementById("q-counter").innerText = `ข้อที่ ${qIndex + 1} / 10`;
-  document.getElementById("player-hp").innerText = playerHP;
-  document.getElementById("enemy-hp").innerText = enemyHP;
+  document.getElementById("btn-next-q").style.display = "none";
 
-  const qObj = currentQuestions[qIndex];
-  document.getElementById("q-text").innerText = qObj.q;
+  const qObj = currentQuizList[currentQIdx];
+  document.getElementById("q-progress-text").innerText = `คำถามข้อที่ ${currentQIdx + 1} / 10 (${activeStage.code})`;
+  document.getElementById("quiz-live-score").innerText = quizEarnedScore;
+  document.getElementById("quiz-correct-count").innerText = quizCorrectCount;
+  document.getElementById("q-title").innerText = qObj.questionText;
 
-  const container = document.getElementById("choices-container");
-  container.innerHTML = "";
-  const labels = ["ก", "ข", "ค", "ง"];
+  const box = document.getElementById("q-choices");
+  box.innerHTML = "";
+  const thaiLabels = ["ก", "ข", "ค", "ง"];
 
   qObj.choices.forEach((ch, idx) => {
     const btn = document.createElement("button");
     btn.className = "choice-btn";
-    btn.innerText = `${labels[idx]}. ${ch.text}`;
-    btn.onclick = () => selectChoice(ch, btn);
-    container.appendChild(btn);
+    btn.innerText = `${thaiLabels[idx]}. ${ch.text}`;
+    btn.onclick = () => handleAnswerChoice(ch, btn);
+    box.appendChild(btn);
   });
 }
 
-function selectChoice(choiceObj, btnEl) {
-  if (answeredThisQ) return;
+function handleAnswerChoice(choiceObj, btnEl) {
+  if (answeredCurrentQ) return;
+
   const fb = document.getElementById("q-feedback");
-  const qObj = currentQuestions[qIndex];
+  const qObj = currentQuizList[currentQIdx];
+  const ptsPerQ = activeStage.isBoss ? 25 : 10; // 10 ข้อ = 100 คะแนน (Week) หรือ 250 คะแนน (Boss)
 
   if (choiceObj.isCorrect) {
-    answeredThisQ = true;
+    answeredCurrentQ = true;
+    quizCorrectCount++;
+    quizEarnedScore += ptsPerQ;
     enemyHP = Math.max(0, enemyHP - 100);
-    document.getElementById("enemy-hp").innerText = enemyHP;
-    btnEl.style.borderColor = "#22c55e";
-    btnEl.style.background = "#0f291e";
+    btnEl.classList.add("correct");
+
+    document.getElementById("quiz-live-score").innerText = quizEarnedScore;
+    document.getElementById("quiz-correct-count").innerText = quizCorrectCount;
 
     fb.style.display = "block";
-    fb.style.background = "#0f291e";
-    fb.style.border = "1px solid #22c55e";
-    fb.innerHTML = `✅ <strong>ถูกต้อง! โจมตีศัตรู -100 HP</strong><br>${qObj.exp}`;
+    fb.style.background = "var(--success-bg)";
+    fb.style.border = "1px solid var(--success)";
+    fb.style.color = "#0F401A";
+    fb.innerHTML = `✅ <strong>ถูกต้อง! โจมตีศัตรู -100 HP (+${ptsPerQ} คะแนน)</strong><br>${qObj.explanation}`;
 
-    const nextBtn = document.getElementById("next-q-btn");
-    nextBtn.style.display = "inline-block";
-    nextBtn.innerText = (qIndex + 1 < 10) ? "ข้อถัดไป ➔" : "ไปทำภารกิจฝึกปฏิบัติ (Practical Lab) ➔";
+    const nextBtn = document.getElementById("btn-next-q");
+    nextBtn.style.display = "inline-flex";
+    nextBtn.innerText = (currentQIdx + 1 < 10)
+      ? `ไปยังข้อที่ ${currentQIdx + 2} / 10 ➔`
+      : "🎉 จบครบ 10 ข้อ! ไปยังเฟส 2: ภารกิจฝึกปฏิบัติ (Practical Lab) ➔";
   } else {
-    playerHP = Math.max(0, playerHP - 25);
-    document.getElementById("player-hp").innerText = playerHP;
-    btnEl.style.borderColor = "#f43f5e";
-    btnEl.style.background = "#3b1219";
+    playerHP = Math.max(0, playerHP - 20);
+    btnEl.classList.add("wrong");
     btnEl.disabled = true;
 
     fb.style.display = "block";
-    fb.style.background = "#3b1219";
-    fb.style.border = "1px solid #f43f5e";
-    fb.innerHTML = `❌ <strong>ยังไม่ถูกต้อง (-25 HP)!</strong> อ่านวิเคราะห์ความหมายของแต่ละตัวเลือกอีกครั้ง`;
+    fb.style.background = "var(--boss-bg)";
+    fb.style.border = "1px solid var(--boss)";
+    fb.style.color = "#7D1A1A";
+    fb.innerHTML = `❌ <strong>ยังไม่ถูกต้อง (-20 HP)!</strong> พิจารณาความหมายเชิงวิศวกรรมและธรรมาภิบาลแล้วเลือกคำตอบที่ถูกต้องอีกครั้ง`;
 
     if (playerHP <= 0) {
-      alert("💥 พลังชีวิตหมด! กรุณาเริ่มท้าสู้ด่านนี้อีกครั้ง");
-      backToMap();
+      showModal(
+        "💥 พลังชีวิตหมด!",
+        "คุณเสีย HP ครบ 100 หน่วย กรุณาทบทวนหลักการของสัปดาห์นี้แล้วเริ่มทำแบบทดสอบใหม่อีกครั้ง",
+        `<button class="btn btn-primary" onclick="closeModal(); startStage(activeStage);">เริ่มด่านนี้ใหม่</button>
+         <button class="btn btn-secondary" onclick="closeModal(); backToMap();">กลับหน้าแผนที่</button>`
+      );
     }
   }
 }
 
-function goNextQuestion() {
-  if (qIndex + 1 < 10) {
-    qIndex++;
-    renderQuestion();
+function nextQuestion() {
+  if (currentQIdx + 1 < 10) {
+    currentQIdx++;
+    renderCurrentQuestion();
   } else {
-    // จบ 10 ข้อ เข้าสู่เฟสที่ 2: Practical Lab
-    document.getElementById("phase-quiz").style.display = "none";
-    document.getElementById("phase-lab").style.display = "block";
-    document.getElementById("pill-step1").className = "step-pill done";
-    document.getElementById("pill-step2").className = "step-pill active";
+    setPhaseUI(2);
+    liveEvaluateRubric();
   }
 }
 
-function completeLabPhase() {
-  const labVal = document.getElementById("lab-input").value.trim();
-  if (labVal.length < 10) {
-    alert("กรุณาพิมพ์บันทึกผลการทำภารกิจฝึกปฏิบัติ (Practical Lab) อย่างน้อย 10 ตัวอักษรครับ");
-    return;
-  }
-  document.getElementById("phase-lab").style.display = "none";
-  document.getElementById("phase-reflection").style.display = "block";
-  document.getElementById("pill-step2").className = "step-pill done";
-  document.getElementById("pill-step3").className = "step-pill active";
+// ============================================================================
+// ระบบแสดงผลตรวจ Rubric แบบ Real-time ขณะพิมพ์ Lab และ Reflection
+// ============================================================================
+function renderKeywordChips(stage, matchedList) {
+  const wrap = document.getElementById("lab-kw-chips");
+  wrap.innerHTML = "";
+  stage.rubricKeywords.forEach(kw => {
+    const isHit = matchedList.some(m => m.toLowerCase() === kw.toLowerCase());
+    const span = document.createElement("span");
+    span.className = "kw-chip " + (isHit ? "matched" : "");
+    span.innerText = (isHit ? "✓ " : "• ") + kw;
+    wrap.appendChild(span);
+  });
 }
 
-async function submitAllAndUnlockNext() {
-  const refVal = document.getElementById("reflection-input").value.trim();
-  const labVal = document.getElementById("lab-input").value.trim();
-  if (refVal.length < 10) {
-    alert("กรุณาเขียนบันทึกสะท้อนคิด (Reflection) อย่างน้อย 10 ตัวอักษรเพื่อสรุปการเรียนรู้ครับ");
+function liveEvaluateRubric() {
+  if (!activeStage) return;
+  const labVal = document.getElementById("lab-textarea").value;
+  const refVal = document.getElementById("ref-textarea").value;
+  const res = evaluateStageRubric(activeStage, labVal, refVal);
+
+  renderKeywordChips(activeStage, res.matchedKws);
+
+  const labBox = document.getElementById("lab-live-eval");
+  labBox.innerHTML = `
+    <div><strong>📊 ผลประเมิน Practical Lab ตามเกณฑ์ Rubric (แบบเรียลไทม์):</strong></div>
+    <div style="margin-top: 4px;">
+      • ระดับคุณภาพ: <strong style="color: var(--brand);">${res.labLevelName}</strong>
+      (ได้ <strong>${res.labScore} / ${res.labMax}</strong> คะแนน) |
+      ความยาวข้อความ: <strong>${res.labLength}</strong> ตัวอักษร |
+      คำสำคัญที่ตรวจพบ: <strong>${res.matchedKws.length} / ${activeStage.rubricKeywords.length}</strong> คำ
+    </div>
+  `;
+
+  const refBox = document.getElementById("ref-live-eval");
+  refBox.innerHTML = `
+    <div><strong>📊 ผลประเมิน Reflection ตามเกณฑ์ Rubric (แบบเรียลไทม์):</strong></div>
+    <div style="margin-top: 4px;">
+      • ระดับคุณภาพ: <strong style="color: var(--brand);">${res.refLevelName}</strong>
+      (ได้ <strong>${res.refScore} / ${res.refMax}</strong> คะแนน) |
+      ความยาวข้อความ: <strong>${res.refLength}</strong> ตัวอักษร |
+      คะแนนรวมด่านนี้ทั้งหมด: <strong style="color: var(--success);">${quizEarnedScore + res.labScore + res.refScore} / ${activeStage.isBoss ? 500 : 200}</strong> คะแนน
+    </div>
+  `;
+}
+
+function proceedToReflection() {
+  const labVal = document.getElementById("lab-textarea").value.trim();
+  if (labVal.length < 20) {
+    showModal("กรุณาบันทึกผลปฏิบัติการ (Practical Lab)", "กรุณาพิมพ์รายละเอียดผลการปฏิบัติการอย่างน้อย 20 ตัวอักษรเพื่อให้ระบบตรวจประเมินตามเกณฑ์ Rubric ได้อย่างถูกต้อง");
+    return;
+  }
+  setPhaseUI(3);
+  liveEvaluateRubric();
+}
+
+function backToLabPhase() {
+  setPhaseUI(2);
+}
+
+async function finalizeStageSubmission() {
+  const labVal = document.getElementById("lab-textarea").value.trim();
+  const refVal = document.getElementById("ref-textarea").value.trim();
+
+  if (refVal.length < 20) {
+    showModal("กรุณาเขียนบันทึกสะท้อนคิด (Reflection)", "กรุณาเขียนบันทึกสะท้อนคิดอย่างน้อย 20 ตัวอักษรเพื่อรับการตรวจประเมินตามเกณฑ์ Rubric และปลดล็อกด่านถัดไป");
     return;
   }
 
-  const earned = activeStage.isBoss ? 500 : 200;
-  playerState.totalScore += earned;
+  const grade = evaluateStageRubric(activeStage, labVal, refVal);
+  const totalStageScore = quizEarnedScore + grade.labScore + grade.refScore;
+  const maxStageScore = activeStage.isBoss ? 500 : 200;
+
+  playerState.submissions = playerState.submissions || {};
+  playerState.submissions[activeStage.order] = {
+    stageOrder: activeStage.order,
+    stageCode: activeStage.code,
+    stageName: activeStage.name,
+    quizScore: quizEarnedScore,
+    labScore: grade.labScore,
+    labMax: grade.labMax,
+    labLevel: grade.labLevel,
+    refScore: grade.refScore,
+    refMax: grade.refMax,
+    refLevel: grade.refLevel,
+    totalStageScore: totalStageScore,
+    maxStageScore: maxStageScore,
+    matchedKeywords: grade.matchedKws,
+    labText: labVal,
+    refText: refVal,
+    timestamp: new Date().toLocaleString("th-TH")
+  };
+
   if (activeStage.order === playerState.unlockedStage && playerState.unlockedStage <= 19) {
     playerState.unlockedStage++;
   }
-  localStorage.setItem("csai4603_10q_save", JSON.stringify(playerState));
+  recomputeTotalScore();
 
-  if (WEB_APP_URL.startsWith("http")) {
+  try {
+    localStorage.setItem("csai4603_rubric_save", JSON.stringify(playerState));
+  } catch (e) {}
+
+  // ส่งข้อมูลไป Google Apps Script หากตั้งค่า URL ไว้
+  if (gasWebAppUrl && gasWebAppUrl.startsWith("http")) {
+    const playerName = document.getElementById("player-name").value.trim() || "CSAI_Student01";
     try {
-      await fetch(WEB_APP_URL, {
+      await fetch(gasWebAppUrl, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          playerName: document.getElementById("player-name").value.trim(),
+          playerName: playerName,
           unlockedStage: playerState.unlockedStage,
           totalScore: playerState.totalScore,
           stageCode: activeStage.code,
+          isBoss: activeStage.isBoss,
+          quizScore: quizEarnedScore,
           labOutput: labVal,
-          reflectionText: refVal,
-          stageScore: earned
+          reflectionText: refVal
         })
       });
-    } catch (e) {}
+    } catch (err) {}
   }
 
-  alert(`🎉 ยินดีด้วย! คุณผ่าน "${activeStage.code}" ครบทั้ง 10 ข้อ + Practical Lab + Reflection\nได้รับ +${earned} คะแนน และปลดล็อกด่านถัดไปเรียบร้อยแล้ว!`);
-  backToMap();
+  showModal(
+    `🏆 ผลตรวจประเมินตามเกณฑ์ Rubric: ${activeStage.code}`,
+    `
+      <div style="background: var(--surface-alt); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+        <div>✅ <strong>1. คะแนนแบบทดสอบ 10 ข้อ:</strong> ${quizEarnedScore} / ${activeStage.isBoss ? 250 : 100} คะแนน</div>
+        <div>🛠️ <strong>2. คะแนน Practical Lab:</strong> ${grade.labScore} / ${grade.labMax} คะแนน (${grade.labLevelName})</div>
+        <div>💭 <strong>3. คะแนน Reflection:</strong> ${grade.refScore} / ${grade.refMax} คะแนน (${grade.refLevelName})</div>
+        <div style="margin-top: 6px; font-size: 13px; color: var(--muted);">
+          คำสำคัญที่ตรวจพบ: ${grade.matchedKws.length > 0 ? grade.matchedKws.join(", ") : "-"}
+        </div>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 8px 0;">
+        <div style="font-size: 16px; color: var(--brand);">
+          <strong>⭐ คะแนนรวมด่านนี้: ${totalStageScore} / ${maxStageScore} คะแนน</strong>
+        </div>
+      </div>
+    `,
+    `<button class="btn btn-primary" onclick="closeModal(); backToMap();">กลับสู่แผนที่ &amp; ไปด่านถัดไป</button>`
+  );
 }
 
 function backToMap() {
-  document.getElementById("stage-screen").style.display = "none";
-  document.getElementById("map-screen").style.display = "block";
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+  switchView("map");
   renderMap();
 }
 
-function resetProgress() {
-  playerState = { unlockedStage: 1, totalScore: 0 };
-  localStorage.setItem("csai4603_10q_save", JSON.stringify(playerState));
-  renderMap();
+// ============================================================================
+// ตารางแสดงประวัติการส่งงานและ Checklist ทั้ง 19 ด่าน
+// ============================================================================
+function renderSubmissionsTable() {
+  const wrap = document.getElementById("submissions-table-wrap");
+  const subs = Object.values(playerState.submissions || {}).sort((a, b) => a.stageOrder - b.stageOrder);
+
+  if (subs.length === 0) {
+    wrap.innerHTML = `<div style="padding: 20px; text-align: center; background: var(--surface-alt); border-radius: 8px; color: var(--muted);">ยังไม่มีประวัติการส่งงาน เริ่มทำแบบทดสอบ 10 ข้อ + Practical Lab + Reflection ในหน้าแผนที่ได้ทันที</div>`;
+    return;
+  }
+
+  let rowsHtml = "";
+  subs.forEach(s => {
+    rowsHtml += `
+      <tr>
+        <td><strong>${s.stageCode}</strong><br><span style="font-size:12px; color:var(--muted);">${s.stageName}</span></td>
+        <td>${s.quizScore}</td>
+        <td><strong>${s.labScore}/${s.labMax}</strong><br><span style="font-size:12px; color:var(--brand);">Level ${s.labLevel}</span></td>
+        <td><strong>${s.refScore}/${s.refMax}</strong><br><span style="font-size:12px; color:var(--brand);">Level ${s.refLevel}</span></td>
+        <td><strong style="color:var(--success);">${s.totalStageScore}/${s.maxStageScore}</strong></td>
+        <td><span style="font-size:12px;">${(s.matchedKeywords || []).join(", ") || "-"}</span></td>
+      </tr>
+    `;
+  });
+
+  wrap.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ด่าน</th>
+          <th>Quiz (10 ข้อ)</th>
+          <th>Practical Lab (Rubric)</th>
+          <th>Reflection (Rubric)</th>
+          <th>คะแนนรวม</th>
+          <th>คำสำคัญที่ตรวจพบ</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
 }
 
-const saved = localStorage.getItem("csai4603_10q_save");
-if (saved) playerState = JSON.parse(saved);
-renderMap();
+function renderChecklistReferenceTable() {
+  const tbody = document.getElementById("checklist-tbody");
+  tbody.innerHTML = "";
+  ALL_STAGES.forEach(st => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>ด่านที่ ${st.order}</td>
+      <td><strong>${st.code}</strong><br>${st.name}</td>
+      <td>${st.labPrompt}</td>
+      <td>${st.rubricKeywords.map(k => `<span class="kw-chip matched">${k}</span>`).join(" ")}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function saveGasUrlConfig() {
+  gasWebAppUrl = document.getElementById("gas-url").value.trim();
+  try { localStorage.setItem("csai4603_gas_url", gasWebAppUrl); } catch (e) {}
+  showBanner("☁️ บันทึก Google Apps Script Web App URL เรียบร้อยแล้ว");
+}
+
+async function loadFromCloud() {
+  const playerName = document.getElementById("player-name").value.trim();
+  if (!playerName) {
+    showBanner("⚠️ กรุณากรอกรหัสนักศึกษาหรือชื่อผู้เรียนก่อนกดโหลดเซฟ");
+    return;
+  }
+  if (!gasWebAppUrl || !gasWebAppUrl.startsWith("http")) {
+    showBanner("💾 โหลดข้อมูลจากเบราว์เซอร์เรียบร้อย (หากต้องการซิงค์ Google Sheets ให้ใส่ Web App URL ในแท็บโค้ด Google Apps Script)");
+    renderMap();
+    return;
+  }
+  try {
+    const res = await fetch(`${gasWebAppUrl}?action=loadPlayer&playerName=${encodeURIComponent(playerName)}`);
+    const data = await res.json();
+    if (data && data.unlockedStage) {
+      playerState.unlockedStage = Number(data.unlockedStage);
+      renderMap();
+      showBanner(`☁️ โหลดข้อมูลของ ${playerName} สำเร็จ!`);
+    }
+  } catch (e) {
+    showBanner("⚠️ ไม่สามารถดึงข้อมูลจาก URL ที่ระบุได้ ใช้ข้อมูลเซฟในเครื่องแทน");
+  }
+}
+
+(function initApp() {
+  try {
+    const saved = localStorage.getItem("csai4603_rubric_save");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.unlockedStage === "number") {
+        playerState = parsed;
+      }
+    }
+    const savedUrl = localStorage.getItem("csai4603_gas_url");
+    if (savedUrl) {
+      gasWebAppUrl = savedUrl;
+      document.getElementById("gas-url").value = savedUrl;
+    }
+  } catch (e) {}
+  renderChecklistReferenceTable();
+  renderMap();
+})();
 </script>
 </body>
 </html>
