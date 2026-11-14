@@ -3,8 +3,18 @@ import axios from 'axios'
 import Camera from './components/Camera'
 import ResultCard from './components/ResultCard'
 import ConfirmationModal from './components/ConfirmationModal'
+import {
+  MENU_DATABASE,
+  REFERENCE_STANDARDS,
+  getMenuById,
+  calculateNutrition,
+  computeHealthInsights,
+  verifyGeminiKeyDirect,
+  predictClientSide
+} from './nutritionEngine'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const IS_LOCALHOST = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
 const HEALTH_CONDITIONS = [
   { id: 'general', label: '🌿 สุขภาพทั่วไป (สมดุลตามเกณฑ์ Thai RDI)' },
@@ -23,9 +33,15 @@ function App() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [predictionId, setPredictionId] = useState(null)
 
-  const [menus, setMenus] = useState([])
-  const [history, setHistory] = useState([])
-  const [references, setReferences] = useState([])
+  const [menus, setMenus] = useState(MENU_DATABASE)
+  const [references, setReferences] = useState(REFERENCE_STANDARDS)
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('nutriscan_history_logs')
+      if (saved) return JSON.parse(saved)
+    } catch (e) {}
+    return []
+  })
 
   // โหมดการทำงานหลัก: 'scan' (ถ่ายรูป/อัปโหลด) หรือ 'search' (ค้นหาจากฐานข้อมูล 30 เมนู)
   const [activeTab, setActiveTab] = useState('scan')
@@ -51,6 +67,16 @@ function App() {
   const [keyStatus, setKeyStatus] = useState(null)
   const [testingKey, setTestingKey] = useState(false)
 
+  const saveHistoryLocal = (updater) => {
+    setHistory((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      try {
+        localStorage.setItem('nutriscan_history_logs', JSON.stringify(next))
+      } catch (e) {}
+      return next
+    })
+  }
+
   const handleVerifyApiKey = async () => {
     const trimmed = geminiKey.trim()
     if (!trimmed) {
@@ -60,32 +86,34 @@ function App() {
     setTestingKey(true)
     setKeyStatus(null)
     try {
-      const res = await axios.post(`${API_URL}/api/predictions/verify-key`, { api_key: trimmed })
-      if (res.data?.valid) {
+      // ทดสอบกับ Google Gemini API โดยตรงจากเบราว์เซอร์ (รองรับ GitHub Pages 100%)
+      const check = await verifyGeminiKeyDirect(trimmed)
+      if (check.valid) {
         localStorage.setItem('nutriscan_gemini_key', trimmed)
-        setKeyStatus({ ok: true, msg: `✅ ${res.data.detail} — พร้อมสแกนภาพอาหารจริงด้วย AI!` })
+        setKeyStatus({ ok: true, msg: `✅ ${check.detail} — พร้อมสแกนภาพอาหารจริงด้วย AI!` })
       } else {
-        setKeyStatus({ ok: false, msg: res.data?.detail || 'ไม่สามารถยืนยัน Key ได้' })
+        setKeyStatus({ ok: false, msg: check.detail || 'ไม่สามารถยืนยัน Key ได้' })
       }
     } catch (err) {
-      setKeyStatus({ ok: false, msg: err.response?.data?.detail || 'API Key ไม่ถูกต้อง หรือเชื่อมต่อไม่สำเร็จ' })
+      setKeyStatus({ ok: false, msg: err.message || 'API Key ไม่ถูกต้อง หรือเชื่อมต่อไม่สำเร็จ' })
     } finally {
       setTestingKey(false)
     }
   }
 
   const fetchInitialData = async () => {
+    if (!IS_LOCALHOST) return
     try {
       const [menusRes, histRes, refRes] = await Promise.all([
-        axios.get(`${API_URL}/api/predictions/menus`),
-        axios.get(`${API_URL}/api/predictions/history`),
-        axios.get(`${API_URL}/api/predictions/references`).catch(() => ({ data: { standards: [] } }))
+        axios.get(`${API_URL}/api/predictions/menus`, { timeout: 2000 }),
+        axios.get(`${API_URL}/api/predictions/history`, { timeout: 2000 }),
+        axios.get(`${API_URL}/api/predictions/references`, { timeout: 2000 }).catch(() => ({ data: { standards: REFERENCE_STANDARDS } }))
       ])
-      setMenus(menusRes.data || [])
-      setHistory(histRes.data || [])
-      setReferences(refRes.data?.standards || [])
+      if (menusRes.data?.length) setMenus(menusRes.data)
+      if (histRes.data?.length) saveHistoryLocal(histRes.data)
+      if (refRes.data?.standards?.length) setReferences(refRes.data.standards)
     } catch (err) {
-      console.error('ไม่สามารถโหลดข้อมูลเริ่มต้นได้:', err)
+      // ทำงานในโหมด Standalone (GitHub Pages / Client-side Engine) อัตโนมัติ
     }
   }
 
@@ -131,33 +159,40 @@ function App() {
     setResult(null)
     setShowConfirm(false)
 
-    const formData = new FormData()
-    formData.append('file', imageFile)
-    if (presetMenuId) {
-      formData.append('menu_id', presetMenuId)
-    }
-    if (geminiKey.trim()) {
-      formData.append('gemini_api_key', geminiKey.trim())
-    }
-
     try {
-      const response = await axios.post(`${API_URL}/api/predictions/predict`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(geminiKey.trim() ? { 'X-Gemini-Key': geminiKey.trim() } : {})
+      let data = null
+      if (IS_LOCALHOST) {
+        try {
+          const formData = new FormData()
+          formData.append('file', imageFile)
+          if (presetMenuId) formData.append('menu_id', presetMenuId)
+          if (geminiKey.trim()) formData.append('gemini_api_key', geminiKey.trim())
+          const response = await axios.post(`${API_URL}/api/predictions/predict`, formData, {
+            timeout: 15000,
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              ...(geminiKey.trim() ? { 'X-Gemini-Key': geminiKey.trim() } : {})
+            }
+          })
+          data = response.data
+        } catch (localErr) {
+          if (localErr.response?.data?.detail) {
+            throw new Error(localErr.response.data.detail)
+          }
+          data = await predictClientSide(imageFile, presetMenuId, geminiKey.trim())
         }
-      })
+      } else {
+        data = await predictClientSide(imageFile, presetMenuId, geminiKey.trim())
+      }
 
-      setResult(response.data)
-      setPredictionId(response.data.prediction_id)
-
-      if (response.data.needs_confirmation) {
+      setResult(data)
+      setPredictionId(data.prediction_id || data.id)
+      if (data.needs_confirmation) {
         setShowConfirm(true)
       }
-      const histRes = await axios.get(`${API_URL}/api/predictions/history`)
-      setHistory(histRes.data || [])
+      saveHistoryLocal((prev) => [data, ...prev.filter((item) => item.id !== data.id)].slice(0, 50))
     } catch (err) {
-      setError(err.response?.data?.detail || 'ไม่สามารถติดต่อเซิร์ฟเวอร์วิเคราะห์ภาพได้ กรุณาตรวจสอบว่า Backend ทำงานอยู่')
+      setError(err.message || err.response?.data?.detail || 'ไม่สามารถวิเคราะห์ภาพได้ กรุณาตรวจสอบ Gemini API Key หรือการเชื่อมต่ออินเทอร์เน็ต')
     } finally {
       setLoading(false)
     }
@@ -168,15 +203,41 @@ function App() {
     setError(null)
     setShowConfirm(false)
     try {
-      const res = await axios.post(`${API_URL}/api/predictions/manual-log`, {
+      const weightG = menuItem.default_weight_g || 300
+      const nutrition = calculateNutrition(menuItem.id, weightG, [])
+      const insights = computeHealthInsights(nutrition, weightG, menuItem)
+      const newId = Date.now()
+      const logItem = {
+        id: newId,
+        prediction_id: newId,
         menu_id: menuItem.id,
-        weight_g: menuItem.default_weight_g,
-        addons: []
-      })
-      setResult(res.data)
-      setPredictionId(res.data.prediction_id)
-      const histRes = await axios.get(`${API_URL}/api/predictions/history`)
-      setHistory(histRes.data || [])
+        menu_name_th: menuItem.name_th,
+        menu_name_en: menuItem.name_en,
+        category: menuItem.category,
+        fcd_code: menuItem.fcd_code,
+        reference_source: menuItem.reference_source,
+        confidence: 1.0,
+        estimated_weight_g: weightG,
+        addons: [],
+        ai_provider: 'Manual Catalog Selection (Thai FCD)',
+        ...nutrition,
+        ...insights,
+        needs_confirmation: false,
+        confirmation_question: null,
+        created_at: new Date().toISOString()
+      }
+
+      if (IS_LOCALHOST) {
+        axios.post(`${API_URL}/api/predictions/manual-log`, {
+          menu_id: menuItem.id,
+          weight_g: weightG,
+          addons: []
+        }).catch(() => {})
+      }
+
+      setResult(logItem)
+      setPredictionId(newId)
+      saveHistoryLocal((prev) => [logItem, ...prev].slice(0, 50))
     } catch (err) {
       setError('ไม่สามารถบันทึกเมนูที่เลือกได้')
     } finally {
@@ -186,62 +247,101 @@ function App() {
 
   const handleConfirmation = async (correctionMenuId) => {
     try {
-      const res = await axios.post(`${API_URL}/api/predictions/confirm`, {
-        prediction_id: predictionId,
-        confirmed: true,
-        correction: correctionMenuId || null
-      })
+      const targetMenuId = correctionMenuId || result?.menu_id || 1
+      const menuItem = getMenuById(targetMenuId) || result
+      const weightG = result?.estimated_weight_g || menuItem.default_weight_g || 300
+      const addons = result?.addons || []
+      const nutrition = calculateNutrition(targetMenuId, weightG, addons, menuItem.energy_kcal_per_100g ? null : menuItem)
+      const insights = computeHealthInsights(nutrition, weightG, menuItem)
+
+      const updatedItem = {
+        ...result,
+        menu_id: menuItem.id || targetMenuId,
+        menu_name_th: menuItem.name_th || result.menu_name_th,
+        menu_name_en: menuItem.name_en || result.menu_name_en,
+        category: menuItem.category || result.category,
+        fcd_code: menuItem.fcd_code || result.fcd_code,
+        reference_source: menuItem.reference_source || result.reference_source,
+        estimated_weight_g: weightG,
+        addons,
+        ...nutrition,
+        ...insights,
+        confidence: correctionMenuId ? 0.99 : result.confidence,
+        needs_confirmation: false
+      }
 
       setShowConfirm(false)
-      if (res.data && res.data.updated_energy_kcal !== undefined) {
-        setResult((prev) => ({
-          ...prev,
-          ...res.data,
-          energy_kcal: res.data.updated_energy_kcal,
-          confidence: correctionMenuId ? 0.99 : prev.confidence
-        }))
+      setResult(updatedItem)
+      saveHistoryLocal((prev) => prev.map((item) => (item.id === predictionId ? updatedItem : item)))
+
+      if (IS_LOCALHOST) {
+        axios.post(`${API_URL}/api/predictions/confirm`, {
+          prediction_id: predictionId,
+          confirmed: true,
+          correction: correctionMenuId || null
+        }).catch(() => {})
       }
-      const histRes = await axios.get(`${API_URL}/api/predictions/history`)
-      setHistory(histRes.data || [])
     } catch (err) {
       setError('ไม่สามารถบันทึกการยืนยันได้')
     }
   }
 
   const handleUpdateMenuOrWeight = async (newMenuId, newWeightG, addons = []) => {
-    if (!predictionId) return
+    if (!result) return
     try {
-      const res = await axios.post(`${API_URL}/api/predictions/confirm`, {
-        prediction_id: predictionId,
-        confirmed: true,
-        correction: newMenuId,
-        custom_weight_g: newWeightG,
-        addons
-      })
+      const isChangingMenu = Number(newMenuId) !== Number(result.menu_id)
+      const dbMenu = getMenuById(newMenuId)
+      const customBase = (!isChangingMenu && Number(newMenuId) === 999) ? {
+        energy_kcal_per_100g: (result.energy_kcal / (result.estimated_weight_g || 300)) * 100,
+        protein_g_per_100g: (result.protein_g / (result.estimated_weight_g || 300)) * 100,
+        carb_g_per_100g: (result.carb_g / (result.estimated_weight_g || 300)) * 100,
+        fat_g_per_100g: (result.fat_g / (result.estimated_weight_g || 300)) * 100,
+        sugar_g_per_100g: ((result.sugar_g || 3) / (result.estimated_weight_g || 300)) * 100,
+        fiber_g_per_100g: ((result.fiber_g || 2) / (result.estimated_weight_g || 300)) * 100,
+        sodium_mg_per_100g: ((result.sodium_mg || 700) / (result.estimated_weight_g || 300)) * 100,
+        cholesterol_mg_per_100g: ((result.cholesterol_mg || 45) / (result.estimated_weight_g || 300)) * 100
+      } : null
 
-      if (res.data) {
-        setResult((prev) => ({
-          ...prev,
-          ...res.data,
-          estimated_weight_g: res.data.estimated_weight_g || newWeightG,
-          addons: res.data.addons || addons,
-          energy_kcal: res.data.updated_energy_kcal ?? prev.energy_kcal,
-          confidence: 0.99
-        }))
+      const nutrition = calculateNutrition(newMenuId, newWeightG, addons, customBase)
+      const targetMenuMeta = isChangingMenu ? dbMenu : (Number(newMenuId) === 999 ? result : dbMenu)
+      const insights = computeHealthInsights(nutrition, newWeightG, targetMenuMeta)
+
+      const updatedItem = {
+        ...result,
+        menu_id: isChangingMenu ? dbMenu.id : result.menu_id,
+        menu_name_th: isChangingMenu ? dbMenu.name_th : result.menu_name_th,
+        menu_name_en: isChangingMenu ? dbMenu.name_en : result.menu_name_en,
+        category: isChangingMenu ? dbMenu.category : result.category,
+        fcd_code: isChangingMenu ? dbMenu.fcd_code : result.fcd_code,
+        reference_source: isChangingMenu ? dbMenu.reference_source : result.reference_source,
+        estimated_weight_g: newWeightG,
+        addons,
+        ...nutrition,
+        ...insights,
+        confidence: 0.99
       }
-      const histRes = await axios.get(`${API_URL}/api/predictions/history`)
-      setHistory(histRes.data || [])
+
+      setResult(updatedItem)
+      saveHistoryLocal((prev) => prev.map((item) => (item.id === predictionId ? updatedItem : item)))
+
+      if (IS_LOCALHOST) {
+        axios.post(`${API_URL}/api/predictions/confirm`, {
+          prediction_id: predictionId,
+          confirmed: true,
+          correction: newMenuId,
+          custom_weight_g: newWeightG,
+          addons
+        }).catch(() => {})
+      }
     } catch (err) {
       setError('ไม่สามารถอัปเดตเมนูได้')
     }
   }
 
   const handleDeleteLog = async (id) => {
-    try {
-      await axios.delete(`${API_URL}/api/predictions/history/${id}`)
-      setHistory((prev) => prev.filter((item) => item.id !== id))
-    } catch (err) {
-      console.error('ลบรายการไม่สำเร็จ:', err)
+    saveHistoryLocal((prev) => prev.filter((item) => item.id !== id))
+    if (IS_LOCALHOST) {
+      axios.delete(`${API_URL}/api/predictions/history/${id}`).catch(() => {})
     }
   }
 
@@ -527,6 +627,7 @@ function App() {
             {geminiKey.trim() ? 'เปลี่ยน Key' : 'ใส่ API Key'}
           </button>
         </div>
+
         {/* แถบสลับโหมด: สแกนด้วยรูปภาพ vs ค้นหาจากฐานข้อมูล 30 เมนู */}
         <div className="mode-tabs">
           <button
