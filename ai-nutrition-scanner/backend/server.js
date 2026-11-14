@@ -449,10 +449,13 @@ function callGeminiModel(modelName, payload, apiKey) {
             if (parsed.error) {
               return resolve({ error: parsed.error.message || 'API Error', status: res.statusCode });
             }
-            const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
+            const parts = parsed.candidates?.[0]?.content?.parts;
+            if (Array.isArray(parts) && parts.length > 0) {
+              const nonThought = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text);
+              const text = (nonThought.length > 0 ? nonThought : parts.map(p => p.text || '')).join('\n').trim();
               const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-              resolve({ data: JSON.parse(cleaned), model: modelName });
+              const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+              resolve({ data: JSON.parse(jsonMatch ? jsonMatch[0] : cleaned), model: modelName });
             } else {
               resolve({ error: 'ไม่พบผลลัพธ์จากโมเดล' });
             }

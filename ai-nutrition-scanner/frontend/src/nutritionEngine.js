@@ -409,12 +409,66 @@ function fileToBase64(file) {
     reader.onload = () => {
       const res = String(reader.result || '')
       const b64 = res.includes(',') ? res.split(',')[1] : res
-      resolve(b64)
+      resolve({ b64, mimeType: file.type || 'image/jpeg' })
     }
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
 }
+
+// ย่อขนาดและบีบอัดรูปภาพให้ไม่เกิน 720px (JPEG ~50KB) เพื่อส่งให้ Gemini Vision ประมวลผลเสร็จภายใน 1-3 วินาที
+function compressImageToBase64(file, maxDim = 720, quality = 0.82) {
+  return new Promise((resolve) => {
+    const fallbackTimer = setTimeout(() => {
+      fileToBase64(file).then(resolve).catch(() => resolve({ b64: '', mimeType: 'image/jpeg' }))
+    }, 2500)
+
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      clearTimeout(fallbackTimer)
+      try {
+        let width = img.naturalWidth || img.width || 640
+        let height = img.naturalHeight || img.height || 480
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        URL.revokeObjectURL(url)
+        const b64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl
+        resolve({ b64, mimeType: 'image/jpeg' })
+      } catch (e) {
+        URL.revokeObjectURL(url)
+        fileToBase64(file).then(resolve)
+      }
+    }
+    img.onerror = () => {
+      clearTimeout(fallbackTimer)
+      URL.revokeObjectURL(url)
+      fileToBase64(file).then(resolve)
+    }
+    img.src = url
+  })
+}
+
+function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
+let cachedWorkingModel = null
 
 async function discoverGeminiModels(apiKey) {
   const defaultModels = [
@@ -422,13 +476,13 @@ async function discoverGeminiModels(apiKey) {
     'gemini-2.5-flash-lite',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-2.5-pro',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
+    'gemini-1.5-flash'
   ]
   try {
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    const resp = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+      {},
+      6000
     )
     const data = await resp.json()
     if (!resp.ok) {
@@ -439,15 +493,17 @@ async function discoverGeminiModels(apiKey) {
       .map((m) => String(m.name || '').replace(/^models\//, ''))
       .filter((name) => name.startsWith('gemini') && !name.includes('embedding') && !name.includes('tts') && !name.includes('imagen'))
 
-    // จัดลำดับให้ใช้โมเดลตระกูล flash รุ่นล่าสุดก่อนเพราะเร็วและรองรับ Vision
     const prioritized = [
       ...defaultModels.filter((d) => available.includes(d)),
       ...available.filter((a) => a.includes('flash') && !defaultModels.includes(a)),
       ...available.filter((a) => !defaultModels.includes(a))
     ]
+    if (prioritized.length > 0) {
+      cachedWorkingModel = prioritized[0]
+    }
     return { ok: true, models: prioritized.length > 0 ? prioritized : defaultModels }
   } catch (e) {
-    return { ok: false, error: e.message, models: defaultModels }
+    return { ok: false, error: e.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อ (Timeout)' : e.message, models: defaultModels }
   }
 }
 
@@ -476,6 +532,20 @@ export async function verifyGeminiKeyDirect(apiKey) {
   }
 }
 
+function extractJsonFromGeminiResponse(json) {
+  const parts = json?.candidates?.[0]?.content?.parts
+  if (!Array.isArray(parts) || parts.length === 0) return null
+  // รวมเฉพาะข้อความที่ไม่ใช่ thought block ของ Gemini 2.5
+  const nonThoughtTexts = parts
+    .filter((p) => !p.thought && typeof p.text === 'string')
+    .map((p) => p.text)
+  const combined = (nonThoughtTexts.length > 0 ? nonThoughtTexts : parts.map((p) => p.text || '')).join('\n').trim()
+  const cleaned = combined.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+  const targetStr = jsonMatch ? jsonMatch[0] : cleaned
+  return JSON.parse(targetStr)
+}
+
 export async function predictClientSide(imageFile, presetMenuId = '', geminiKey = '') {
   let menu
   let confidence = 0.96
@@ -488,13 +558,13 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
     menu = getMenuById(presetMenuId)
     estimatedWeight = menu.default_weight_g
   } else if (geminiKey && geminiKey.trim()) {
-    const b64 = await fileToBase64(imageFile)
+    const { b64, mimeType } = await compressImageToBase64(imageFile)
     const menuStr = MENU_DATABASE.map((m) => `${m.id}:${m.name_th} (${m.name_en})`).join(', ')
     const prompt = `คุณคือผู้เชี่ยวชาญด้านโภชนาการอาหารไทยของสถาบันโภชนาการ มหาวิทยาลัยมหิดล (INMU) และกรมอนามัย
 จงวิเคราะห์ภาพถ่ายนี้:
 1. หากภาพอยู่ในหรือใกล้เคียงกับ 30 เมนูมาตรฐานนี้: [${menuStr}] ให้ระบุ menu_id ตามรหัส (เช่น "m001")
 2. หากเป็นอาหารชนิดอื่นที่ไม่อยู่ใน 30 เมนูข้างต้น ให้ระบุ menu_id เป็น "custom" และระบุค่าสารอาหารต่อ 100 กรัมของอาหารในภาพตามตารางโภชนาการจริง
-3. ประเมินน้ำหนักอาหารในจานเป็นกรัม (estimated_weight_g) และสิ่งที่มองเห็นในจาน (detected_components เช่น ["เนื้อหมูสับ", "ใบกะเพรา", "ข้าวสวย", "ไข่ดาว"])
+3. ประเมินน้ำหนักอาหารในจานเป็นกรัม (estimated_weight_g) และสิ่งที่มองเห็นในจาน (detected_components เช่น ["เนื้อหมูสับ", "เต้าหู้ไข่", "ผักกาดขาว", "แครอท"])
 
 ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:
 {
@@ -515,15 +585,24 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
   "micronutrients": ["วิตามินหรือแร่ธาตุเด่น 1", "วิตามินหรือแร่ธาตุเด่น 2"]
 }`
 
-    const discovery = await discoverGeminiModels(geminiKey.trim())
-    const modelsToTry = discovery.models
-    let parsedAi = null
-    let usedModel = modelsToTry[0] || 'gemini-2.5-flash'
-    let lastErr = discovery.error || null
+    const baseList = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    const modelsToTry = cachedWorkingModel
+      ? [cachedWorkingModel, ...baseList.filter((m) => m !== cachedWorkingModel)]
+      : baseList
 
-    for (const modelName of modelsToTry.slice(0, 4)) {
+    let parsedAi = null
+    let usedModel = modelsToTry[0]
+    let lastErr = null
+
+    for (const modelName of modelsToTry.slice(0, 3)) {
       try {
-        const resp = await fetch(
+        const genConfig = {
+          response_mime_type: 'application/json',
+          temperature: 0.1,
+          ...(modelName.includes('2.5-flash') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+        }
+
+        const resp = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey.trim())}`,
           {
             method: 'POST',
@@ -532,24 +611,31 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
               contents: [{
                 parts: [
                   { text: prompt },
-                  { inline_data: { mime_type: imageFile.type || 'image/jpeg', data: b64 } }
+                  { inline_data: { mime_type: mimeType || 'image/jpeg', data: b64 } }
                 ]
               }],
-              generationConfig: { response_mime_type: 'application/json', temperature: 0.1 }
+              generationConfig: genConfig
             })
-          }
+          },
+          10000
         )
         const json = await resp.json()
-        if (resp.ok && json.candidates?.[0]?.content?.parts?.[0]?.text) {
-          const rawText = json.candidates[0].content.parts[0].text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()
-          parsedAi = JSON.parse(rawText)
-          usedModel = modelName
-          break
+        if (resp.ok) {
+          const extracted = extractJsonFromGeminiResponse(json)
+          if (extracted && extracted.menu_name_th) {
+            parsedAi = extracted
+            usedModel = modelName
+            cachedWorkingModel = modelName
+            break
+          }
         } else if (json.error) {
           lastErr = json.error.message
+          if (lastErr.includes('API_KEY_INVALID') || lastErr.includes('API key not valid')) {
+            break
+          }
         }
       } catch (err) {
-        lastErr = err.message
+        lastErr = err.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อโมเดล AI (Timeout)' : err.message
       }
     }
 

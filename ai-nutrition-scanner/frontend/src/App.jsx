@@ -160,30 +160,8 @@ function App() {
     setShowConfirm(false)
 
     try {
-      let data = null
-      if (IS_LOCALHOST) {
-        try {
-          const formData = new FormData()
-          formData.append('file', imageFile)
-          if (presetMenuId) formData.append('menu_id', presetMenuId)
-          if (geminiKey.trim()) formData.append('gemini_api_key', geminiKey.trim())
-          const response = await axios.post(`${API_URL}/api/predictions/predict`, formData, {
-            timeout: 15000,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              ...(geminiKey.trim() ? { 'X-Gemini-Key': geminiKey.trim() } : {})
-            }
-          })
-          data = response.data
-        } catch (localErr) {
-          if (localErr.response?.data?.detail) {
-            throw new Error(localErr.response.data.detail)
-          }
-          data = await predictClientSide(imageFile, presetMenuId, geminiKey.trim())
-        }
-      } else {
-        data = await predictClientSide(imageFile, presetMenuId, geminiKey.trim())
-      }
+      const activeKey = (geminiKey || localStorage.getItem('nutriscan_gemini_key') || '').trim()
+      const data = await predictClientSide(imageFile, presetMenuId, activeKey)
 
       setResult(data)
       setPredictionId(data.prediction_id || data.id)
