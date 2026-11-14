@@ -468,42 +468,62 @@ function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
 }
 
-let cachedWorkingModel = null
+let cachedModelList = null
+let cachedForKey = null
 
 async function discoverGeminiModels(apiKey) {
-  const defaultModels = [
+  if (cachedModelList && cachedForKey === apiKey && cachedModelList.length > 0) {
+    return { ok: true, models: cachedModelList }
+  }
+
+  const preferredModels = [
+    'gemini-3.8-flash',
+    'gemini-3.8-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.0-flash',
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash'
+    'gemini-2.5-pro',
+    'gemini-3.8-pro'
   ]
   try {
     const resp = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
       {},
-      6000
+      8000
     )
     const data = await resp.json()
     if (!resp.ok) {
-      return { ok: false, error: data?.error?.message || `HTTP ${resp.status}`, models: defaultModels }
+      return { ok: false, error: data?.error?.message || `HTTP ${resp.status}`, models: ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'] }
     }
     const available = (data.models || [])
       .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
       .map((m) => String(m.name || '').replace(/^models\//, ''))
-      .filter((name) => name.startsWith('gemini') && !name.includes('embedding') && !name.includes('tts') && !name.includes('imagen'))
+      .filter((name) =>
+        name.startsWith('gemini') &&
+        !name.includes('embedding') &&
+        !name.includes('tts') &&
+        !name.includes('imagen') &&
+        !name.includes('aqa') &&
+        !name.startsWith('gemini-1.') &&
+        !name.startsWith('gemini-2.0')
+      )
 
     const prioritized = [
-      ...defaultModels.filter((d) => available.includes(d)),
-      ...available.filter((a) => a.includes('flash') && !defaultModels.includes(a)),
-      ...available.filter((a) => !defaultModels.includes(a))
+      ...preferredModels.filter((d) => available.includes(d)),
+      ...available.filter((a) => a.includes('flash') && !preferredModels.includes(a)).sort().reverse(),
+      ...available.filter((a) => !preferredModels.includes(a) && !a.includes('flash')).sort().reverse()
     ]
-    if (prioritized.length > 0) {
-      cachedWorkingModel = prioritized[0]
-    }
-    return { ok: true, models: prioritized.length > 0 ? prioritized : defaultModels }
+    const finalModels = prioritized.length > 0 ? prioritized : ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+    cachedModelList = finalModels
+    cachedForKey = apiKey
+    return { ok: true, models: finalModels }
   } catch (e) {
-    return { ok: false, error: e.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อ (Timeout)' : e.message, models: defaultModels }
+    return {
+      ok: false,
+      error: e.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อ (Timeout)' : e.message,
+      models: ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+    }
   }
 }
 
@@ -558,50 +578,35 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
     menu = getMenuById(presetMenuId)
     estimatedWeight = menu.default_weight_g
   } else if (geminiKey && geminiKey.trim()) {
-    const { b64, mimeType } = await compressImageToBase64(imageFile)
-    const menuStr = MENU_DATABASE.map((m) => `${m.id}:${m.name_th} (${m.name_en})`).join(', ')
-    const prompt = `คุณคือผู้เชี่ยวชาญด้านโภชนาการอาหารไทยของสถาบันโภชนาการ มหาวิทยาลัยมหิดล (INMU) และกรมอนามัย
-จงวิเคราะห์ภาพถ่ายนี้:
-1. หากภาพอยู่ในหรือใกล้เคียงกับ 30 เมนูมาตรฐานนี้: [${menuStr}] ให้ระบุ menu_id ตามรหัส (เช่น "m001")
-2. หากเป็นอาหารชนิดอื่นที่ไม่อยู่ใน 30 เมนูข้างต้น ให้ระบุ menu_id เป็น "custom" และระบุค่าสารอาหารต่อ 100 กรัมของอาหารในภาพตามตารางโภชนาการจริง
-3. ประเมินน้ำหนักอาหารในจานเป็นกรัม (estimated_weight_g) และสิ่งที่มองเห็นในจาน (detected_components เช่น ["เนื้อหมูสับ", "เต้าหู้ไข่", "ผักกาดขาว", "แครอท"])
-
-ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:
+    const { b64, mimeType } = await compressImageToBase64(imageFile, 512, 0.78)
+    const prompt = `คุณคือผู้เชี่ยวชาญด้านโภชนาการอาหารไทย สถาบันโภชนาการ มหาวิทยาลัยมหิดล (INMU) และกรมอนามัย
+วิเคราะห์ภาพอาหารนี้แล้วตอบเป็น JSON เท่านั้น:
 {
-  "menu_id": "รหัส m001-m030 หรือ custom",
-  "menu_name_th": "ชื่อเมนูภาษาไทยที่เห็นในภาพ",
+  "menu_name_th": "ชื่อเมนูภาษาไทย เช่น แกงจืดเต้าหู้หมูสับ หรือ ผัดกระเพราหมูสับ",
   "menu_name_en": "English Menu Name",
-  "category": "ประเภทอาหาร เช่น ผัด/ต้ม/แกง/ยำ/ทอด/ข้าว/ก๋วยเตี๋ยว/ของหวาน/ผลไม้",
-  "confidence": 0.92,
+  "category": "ประเภทอาหาร เช่น ต้ม/ผัด/แกง/ยำ/ทอด/ข้าว/ก๋วยเตี๋ยว",
+  "confidence": 0.94,
   "estimated_weight_g": 280,
-  "detected_components": ["ส่วนประกอบที่เห็นในภาพ 1", "ส่วนประกอบที่เห็นในภาพ 2"],
-  "protein_g_per_100g": 12.0,
-  "carb_g_per_100g": 15.0,
-  "fat_g_per_100g": 8.0,
-  "fiber_g_per_100g": 1.5,
-  "sugar_g_per_100g": 2.5,
-  "sodium_mg_per_100g": 420,
-  "cholesterol_mg_per_100g": 45,
+  "detected_components": ["ส่วนประกอบในภาพ 1", "ส่วนประกอบในภาพ 2", "ส่วนประกอบในภาพ 3"],
+  "protein_g_per_100g": 7.5,
+  "carb_g_per_100g": 4.5,
+  "fat_g_per_100g": 4.0,
+  "fiber_g_per_100g": 1.2,
+  "sugar_g_per_100g": 1.5,
+  "sodium_mg_per_100g": 290,
+  "cholesterol_mg_per_100g": 28,
   "micronutrients": ["วิตามินหรือแร่ธาตุเด่น 1", "วิตามินหรือแร่ธาตุเด่น 2"]
 }`
 
-    const baseList = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash']
-    const modelsToTry = cachedWorkingModel
-      ? [cachedWorkingModel, ...baseList.filter((m) => m !== cachedWorkingModel)]
-      : baseList
+    const discovery = await discoverGeminiModels(geminiKey.trim())
+    const modelsToTry = discovery.models
 
     let parsedAi = null
-    let usedModel = modelsToTry[0]
-    let lastErr = null
+    let usedModel = modelsToTry[0] || 'gemini-3.8-flash'
+    let firstErr = null
 
     for (const modelName of modelsToTry.slice(0, 3)) {
       try {
-        const genConfig = {
-          response_mime_type: 'application/json',
-          temperature: 0.1,
-          ...(modelName.includes('2.5-flash') ? { thinkingConfig: { thinkingBudget: 0 } } : {})
-        }
-
         const resp = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey.trim())}`,
           {
@@ -614,10 +619,13 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
                   { inline_data: { mime_type: mimeType || 'image/jpeg', data: b64 } }
                 ]
               }],
-              generationConfig: genConfig
+              generationConfig: {
+                response_mime_type: 'application/json',
+                temperature: 0.1
+              }
             })
           },
-          10000
+          25000
         )
         const json = await resp.json()
         if (resp.ok) {
@@ -625,25 +633,28 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
           if (extracted && extracted.menu_name_th) {
             parsedAi = extracted
             usedModel = modelName
-            cachedWorkingModel = modelName
             break
           }
         } else if (json.error) {
-          lastErr = json.error.message
-          if (lastErr.includes('API_KEY_INVALID') || lastErr.includes('API key not valid')) {
+          if (!firstErr) firstErr = json.error.message
+          if (json.error.message?.includes('API_KEY_INVALID') || json.error.message?.includes('API key not valid')) {
             break
           }
         }
       } catch (err) {
-        lastErr = err.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อโมเดล AI (Timeout)' : err.message
+        if (!firstErr) {
+          firstErr = err.name === 'AbortError' ? 'หมดเวลาเชื่อมต่อโมเดล AI (Timeout)' : err.message
+        }
       }
     }
 
     if (!parsedAi || !parsedAi.menu_name_th) {
-      throw new Error(lastErr || 'ไม่สามารถวิเคราะห์ภาพด้วย Gemini API Key นี้ได้ กรุณาตรวจสอบ API Key ของคุณ')
+      throw new Error(firstErr || 'ไม่สามารถวิเคราะห์ภาพด้วย Gemini API Key นี้ได้ กรุณาตรวจสอบ API Key ของคุณ')
     }
 
-    const matchedInDb = MENU_DATABASE.find((m) => m.id === parsedAi.menu_id)
+    const matchedInDb = MENU_DATABASE.find(
+      (m) => m.id === parsedAi.menu_id || m.name_th === parsedAi.menu_name_th
+    )
     if (matchedInDb && parsedAi.menu_id !== 'custom') {
       menu = matchedInDb
     } else {

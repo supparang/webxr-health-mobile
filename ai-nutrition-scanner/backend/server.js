@@ -513,7 +513,7 @@ async function classifyWithGemini(imageBuffer, mimeType, apiKey) {
   });
 
   // ลองเรียกโมเดลรุ่นใหม่ตามลำดับเพื่อให้ใช้งานได้แน่นอนไม่ว่า Google จะอัปเดตชื่อรุ่นใด
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-pro', 'gemini-1.5-flash'];
+  const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
   let lastError = 'ไม่สามารถเชื่อมต่อ Gemini API ได้';
 
   for (const modelName of modelsToTry) {
@@ -653,7 +653,7 @@ const server = http.createServer((req, res) => {
           contents: [{ parts: [{ text: 'Respond with JSON: {"ok":true}' }] }],
           generationConfig: { response_mime_type: 'application/json' }
         });
-        const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-pro', 'gemini-1.5-flash'];
+        const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
         let lastErrDetail = '';
         for (const m of modelsToTry) {
           const check = await callGeminiModel(m, testPayload, keyToTest);
