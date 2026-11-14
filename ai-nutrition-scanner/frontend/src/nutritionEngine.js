@@ -288,14 +288,16 @@ const ADDON_MAP = {
 }
 
 export function getMenuById(menuId) {
-  return MENU_DATABASE.find((m) => m.id === menuId) || MENU_DATABASE[0]
+  if (menuId && typeof menuId === 'object') return menuId
+  return MENU_DATABASE.find((m) => String(m.id) === String(menuId)) || MENU_DATABASE[0]
 }
 
-export function calculateNutrition(menu, weightG, addons = []) {
-  const ratio = weightG / 100.0
-  let protein_g = menu.protein_g_per_100g * ratio
-  let carb_g = menu.carb_g_per_100g * ratio
-  let fat_g = menu.fat_g_per_100g * ratio
+export function calculateNutrition(menuOrId, weightG, addons = [], customBase = null) {
+  const menu = customBase || getMenuById(menuOrId)
+  const ratio = (Number(weightG) || 300) / 100.0
+  let protein_g = (Number(menu.protein_g_per_100g) || 10) * ratio
+  let carb_g = (Number(menu.carb_g_per_100g) || 18) * ratio
+  let fat_g = (Number(menu.fat_g_per_100g) || 7) * ratio
   let fiber_g = (menu.fiber_g_per_100g ?? 1.2) * ratio
   let sugar_g = (menu.sugar_g_per_100g ?? 2.0) * ratio
   let sodium_mg = (menu.sodium_mg_per_100g ?? 400) * ratio
@@ -348,7 +350,8 @@ export function calculateNutrition(menu, weightG, addons = []) {
   }
 }
 
-export function computeHealthInsights(menu, nutrition) {
+export function computeHealthInsights(arg1, arg2, arg3) {
+  const nutrition = (arg1 && arg1.energy_kcal !== undefined) ? arg1 : (arg2 || {})
   let score = 82
   const notes = []
 
@@ -397,7 +400,7 @@ export function computeHealthInsights(menu, nutrition) {
     ? notes.join(' • ')
     : 'สัดส่วนสารอาหารหลักสมดุลตามเกณฑ์โภชนาการ แนะนำทานคู่กับผักสดและดื่มน้ำเปล่า'
 
-  return { score, advice }
+  return { score, advice, health_score: score, health_advice: advice }
 }
 
 function fileToBase64(file) {
@@ -413,34 +416,64 @@ function fileToBase64(file) {
   })
 }
 
+async function discoverGeminiModels(apiKey) {
+  const defaultModels = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-2.5-pro',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
+  ]
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+    )
+    const data = await resp.json()
+    if (!resp.ok) {
+      return { ok: false, error: data?.error?.message || `HTTP ${resp.status}`, models: defaultModels }
+    }
+    const available = (data.models || [])
+      .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => String(m.name || '').replace(/^models\//, ''))
+      .filter((name) => name.startsWith('gemini') && !name.includes('embedding') && !name.includes('tts') && !name.includes('imagen'))
+
+    // จัดลำดับให้ใช้โมเดลตระกูล flash รุ่นล่าสุดก่อนเพราะเร็วและรองรับ Vision
+    const prioritized = [
+      ...defaultModels.filter((d) => available.includes(d)),
+      ...available.filter((a) => a.includes('flash') && !defaultModels.includes(a)),
+      ...available.filter((a) => !defaultModels.includes(a))
+    ]
+    return { ok: true, models: prioritized.length > 0 ? prioritized : defaultModels }
+  } catch (e) {
+    return { ok: false, error: e.message, models: defaultModels }
+  }
+}
+
 export async function verifyGeminiKeyDirect(apiKey) {
   const trimmed = (apiKey || '').trim()
   if (!trimmed) return { valid: false, detail: 'กรุณาระบุ Gemini API Key' }
 
-  const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest']
-  for (const modelName of modelsToTry) {
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(trimmed)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Respond with JSON: {"ok":true}' }] }],
-            generationConfig: { response_mime_type: 'application/json' }
-          })
-        }
-      )
-      const data = await resp.json()
-      if (resp.ok && data.candidates) {
-        return { valid: true, model: modelName, detail: `เชื่อมต่อสำเร็จ (${modelName})` }
-      }
-      if (data.error?.message?.includes('API key not valid') || data.error?.message?.includes('API_KEY_INVALID')) {
-        return { valid: false, detail: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' }
-      }
-    } catch (e) {}
+  const discovery = await discoverGeminiModels(trimmed)
+  if (discovery.ok && discovery.models.length > 0) {
+    return {
+      valid: true,
+      model: discovery.models[0],
+      detail: `เชื่อมต่อสำเร็จ (พร้อมใช้งานโมเดล ${discovery.models[0]})`
+    }
   }
-  return { valid: false, detail: 'ไม่สามารถเชื่อมต่อ Gemini API ได้' }
+
+  if (discovery.error?.includes('API key not valid') || discovery.error?.includes('API_KEY_INVALID')) {
+    return { valid: false, detail: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบว่าคัดลอกมาครบทุกตัวอักษร' }
+  }
+
+  return {
+    valid: false,
+    detail: discovery.error
+      ? `เชื่อมต่อไม่สำเร็จ: ${discovery.error}`
+      : 'ไม่สามารถเชื่อมต่อ Gemini API ได้ กรุณาตรวจสอบอินเทอร์เน็ตหรือ API Key'
+  }
 }
 
 export async function predictClientSide(imageFile, presetMenuId = '', geminiKey = '') {
@@ -482,12 +515,13 @@ export async function predictClientSide(imageFile, presetMenuId = '', geminiKey 
   "micronutrients": ["วิตามินหรือแร่ธาตุเด่น 1", "วิตามินหรือแร่ธาตุเด่น 2"]
 }`
 
-    const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest']
+    const discovery = await discoverGeminiModels(geminiKey.trim())
+    const modelsToTry = discovery.models
     let parsedAi = null
-    let usedModel = 'gemini-2.0-flash'
-    let lastErr = null
+    let usedModel = modelsToTry[0] || 'gemini-2.5-flash'
+    let lastErr = discovery.error || null
 
-    for (const modelName of modelsToTry) {
+    for (const modelName of modelsToTry.slice(0, 4)) {
       try {
         const resp = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(geminiKey.trim())}`,

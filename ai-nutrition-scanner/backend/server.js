@@ -510,7 +510,7 @@ async function classifyWithGemini(imageBuffer, mimeType, apiKey) {
   });
 
   // ลองเรียกโมเดลรุ่นใหม่ตามลำดับเพื่อให้ใช้งานได้แน่นอนไม่ว่า Google จะอัปเดตชื่อรุ่นใด
-  const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-pro', 'gemini-1.5-flash'];
   let lastError = 'ไม่สามารถเชื่อมต่อ Gemini API ได้';
 
   for (const modelName of modelsToTry) {
@@ -650,17 +650,21 @@ const server = http.createServer((req, res) => {
           contents: [{ parts: [{ text: 'Respond with JSON: {"ok":true}' }] }],
           generationConfig: { response_mime_type: 'application/json' }
         });
-        const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+        const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-pro', 'gemini-1.5-flash'];
+        let lastErrDetail = '';
         for (const m of modelsToTry) {
           const check = await callGeminiModel(m, testPayload, keyToTest);
           if (check && check.data) {
-            return sendJson(res, 200, { valid: true, model: m, detail: `เชื่อมต่อสำเร็จ (${m})` });
+            return sendJson(res, 200, { valid: true, model: m, detail: `เชื่อมต่อสำเร็จ (พร้อมใช้งานโมเดล ${m})` });
           }
-          if (check && check.error && (check.error.includes('API_KEY_INVALID') || check.error.includes('API key not valid'))) {
-            return sendJson(res, 400, { valid: false, detail: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' });
+          if (check && check.error) {
+            lastErrDetail = check.error;
+            if (check.error.includes('API_KEY_INVALID') || check.error.includes('API key not valid')) {
+              return sendJson(res, 400, { valid: false, detail: 'API Key ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง' });
+            }
           }
         }
-        return sendJson(res, 400, { valid: false, detail: 'ไม่สามารถเชื่อมต่อ Gemini API ได้' });
+        return sendJson(res, 400, { valid: false, detail: lastErrDetail || 'ไม่สามารถเชื่อมต่อ Gemini API ได้' });
       } catch (err) {
         return sendJson(res, 500, { valid: false, detail: err.message });
       }
