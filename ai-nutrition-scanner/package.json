@@ -1,0 +1,12 @@
+{
+  "name": "ai-nutrition-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Nutrition Scanner — ระบบประเมินพลังงานและสารอาหารจากภาพอาหารไทย",
+  "scripts": {
+    "start": "node backend/server.js",
+    "backend": "node backend/server.js",
+    "frontend": "npm.cmd run dev --prefix frontend",
+    "build": "npm.cmd run build --prefix frontend"
+  }
+}

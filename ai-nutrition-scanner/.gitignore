@@ -1,0 +1,6 @@
+node_modules/
+dist/
+uploads/
+*.db
+nutrition_logs.json
+.env
