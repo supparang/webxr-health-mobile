@@ -24,9 +24,20 @@ import {
   summarizeSevenDayTrend,
   updateMealRecord,
 } from './nutrition.js';
+import {
+  EXPERIMENT_ARMS,
+  applyClarificationAdjustments,
+  getDishUncertaintyMeta,
+  normalizeArm,
+  parseExperimentParams,
+  researchTrialsToCsv,
+  selectClarificationQuestions,
+  summarizeExperimentByArm,
+} from './experiment.js';
 
 const STORAGE_KEY = 'nutrilens_th_meal_history_v1';
 const PROFILE_STORAGE_KEY = 'nutrilens_th_profile_v1';
+const STUDY_STORAGE_KEY = 'nutrilens_th_study_v1';
 
 const MAX_RAW_UPLOAD_BYTES = 25 * 1024 * 1024; // Accept large mobile photos and auto-compress
 const MAX_FINAL_BYTES = 5 * 1024 * 1024;
@@ -53,9 +64,43 @@ const TREND_METRICS = Object.freeze({
   totalCount: { label: 'จำนวนมื้อ', unit: 'มื้อ' },
 });
 
+function loadInitialStudyConfig() {
+  const urlParams = parseExperimentParams(window.location.search);
+  let saved = {};
+  try {
+    const raw = window.localStorage.getItem(STUDY_STORAGE_KEY);
+    if (raw) saved = JSON.parse(raw) || {};
+  } catch {
+    saved = {};
+  }
+  return {
+    arm: urlParams.arm || normalizeArm(saved.arm || 'B'),
+    participantId: urlParams.participantId || saved.participantId || '',
+    sessionId: urlParams.sessionId || saved.sessionId || '',
+    armLocked: Boolean(urlParams.locked),
+  };
+}
+
+const initialStudy = loadInitialStudyConfig();
+
 const state = {
   mode: 'demo', // 'demo' | 'ai'
   captureTab: 'photo', // 'photo' | 'gda'
+  arm: initialStudy.arm, // 'A' | 'B' | 'C'
+  participantId: initialStudy.participantId,
+  sessionId: initialStudy.sessionId,
+  armLocked: initialStudy.armLocked,
+  activeQuestions: [],
+  clarificationAnswers: {},
+  trialTiming: {
+    scanStartedAt: 0,
+    resultReadyAt: 0,
+    tapCount: 0,
+    initialFoodId: UNKNOWN_DISH_ID,
+    portionUncertainty: 'medium',
+  },
+  perceivedEase: null,
+  perceivedConfidence: null,
   serverHealth: { reachable: false, aiConfigured: false, model: '' },
   profileSettings: loadProfileSettings(),
   selectedImage: null, // { dataUrl, filename, presetId, sizeBytes, compressionNote }
@@ -82,6 +127,15 @@ const els = {
   serverStatusPill: document.getElementById('serverStatusPill'),
   installPwaBtn: document.getElementById('installPwaBtn'),
   modeNotice: document.getElementById('modeNotice'),
+
+  armBtns: Array.from(document.querySelectorAll('.arm-btn')),
+  toggleStudyMetaBtn: document.getElementById('toggleStudyMetaBtn'),
+  studyMetaDrawer: document.getElementById('studyMetaDrawer'),
+  armDescriptionText: document.getElementById('armDescriptionText'),
+  participantIdInput: document.getElementById('participantIdInput'),
+  sessionIdInput: document.getElementById('sessionIdInput'),
+  copyLinkBtns: Array.from(document.querySelectorAll('[data-copy-arm]')),
+  copyLinkFeedback: document.getElementById('copyLinkFeedback'),
 
   profileSummaryTitle: document.getElementById('profileSummaryTitle'),
   profileSummaryMeta: document.getElementById('profileSummaryMeta'),
@@ -157,6 +211,14 @@ const els = {
   outcomeReason: document.getElementById('outcomeReason'),
   componentsRow: document.getElementById('componentsRow'),
 
+  clarificationBox: document.getElementById('clarificationBox'),
+  clarificationTitle: document.getElementById('clarificationTitle'),
+  clarificationCountPill: document.getElementById('clarificationCountPill'),
+  clarificationSub: document.getElementById('clarificationSub'),
+  questionList: document.getElementById('questionList'),
+  adjustmentStrip: document.getElementById('adjustmentStrip'),
+  manualEditControls: document.getElementById('manualEditControls'),
+
   dishSearchInput: document.getElementById('dishSearchInput'),
   dishCategoryChips: document.getElementById('dishCategoryChips'),
   dishSelect: document.getElementById('dishSelect'),
@@ -194,6 +256,8 @@ const els = {
 
   mealTypeGroup: document.getElementById('mealTypeGroup'),
   mealNoteInput: document.getElementById('mealNoteInput'),
+  easeRatingPills: document.getElementById('easeRatingPills'),
+  confRatingPills: document.getElementById('confRatingPills'),
   saveMealBtn: document.getElementById('saveMealBtn'),
   saveFeedback: document.getElementById('saveFeedback'),
 
@@ -210,10 +274,13 @@ const els = {
   dailyCount: document.getElementById('dailyCount'),
   dailyModeBreakdown: document.getElementById('dailyModeBreakdown'),
 
+  armCompareGrid: document.getElementById('armCompareGrid'),
+
   trendMetricBtns: Array.from(document.querySelectorAll('.trend-metric-btn')),
   trendSvgWrap: document.getElementById('trendSvgWrap'),
 
   historyFilterRow: document.getElementById('historyFilterRow'),
+  exportResearchCsvBtn: document.getElementById('exportResearchCsvBtn'),
   exportCsvBtn: document.getElementById('exportCsvBtn'),
   clearHistoryBtn: document.getElementById('clearHistoryBtn'),
   emptyHistory: document.getElementById('emptyHistory'),
@@ -975,6 +1042,170 @@ async function handleFileSelection(file) {
   }
 }
 
+/* ---------- 3-Arm Research Study Controls & Clarification Engine ---------- */
+function persistStudyConfig() {
+  try {
+    window.localStorage.setItem(
+      STUDY_STORAGE_KEY,
+      JSON.stringify({
+        arm: state.arm,
+        participantId: state.participantId,
+        sessionId: state.sessionId,
+      })
+    );
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function renderStudyControls() {
+  const armMeta = EXPERIMENT_ARMS[state.arm] || EXPERIMENT_ARMS.B;
+  for (const btn of els.armBtns) {
+    btn.setAttribute('aria-pressed', String(btn.dataset.arm === state.arm));
+    btn.disabled = state.armLocked;
+  }
+  els.armDescriptionText.textContent = state.armLocked
+    ? `${armMeta.titleTh} — ${armMeta.descriptionTh} (ล็อกเงื่อนไขจาก URL)`
+    : `${armMeta.titleTh} — ${armMeta.descriptionTh}`;
+  els.participantIdInput.value = state.participantId;
+  els.sessionIdInput.value = state.sessionId;
+}
+
+function setExperimentArm(nextArm) {
+  if (state.armLocked) return;
+  state.arm = normalizeArm(nextArm);
+  persistStudyConfig();
+  renderStudyControls();
+  if (state.scanResult) {
+    state.activeQuestions = selectClarificationQuestions(state.arm, state.scanResult);
+    state.clarificationAnswers = {};
+    renderResultPanel();
+  }
+}
+
+function renderRatingPills() {
+  const renderRow = (container, currentVal, onPick) => {
+    container.innerHTML = '';
+    for (let score = 1; score <= 5; score += 1) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'rating-pill';
+      btn.textContent = String(score);
+      btn.dataset.score = String(score);
+      btn.setAttribute('aria-pressed', String(currentVal === score));
+      btn.addEventListener('click', () => {
+        state.trialTiming.tapCount += 1;
+        onPick(currentVal === score ? null : score);
+        renderRatingPills();
+      });
+      container.appendChild(btn);
+    }
+  };
+
+  renderRow(els.easeRatingPills, state.perceivedEase, (v) => {
+    state.perceivedEase = v;
+  });
+  renderRow(els.confRatingPills, state.perceivedConfidence, (v) => {
+    state.perceivedConfidence = v;
+  });
+}
+
+function handleClarificationAnswer(question, value) {
+  state.trialTiming.tapCount += 1;
+  state.clarificationAnswers[question.id] = value;
+
+  if (question.kind === 'dish' && state.trayItems[0]) {
+    state.trayItems[0].foodId = value;
+    renderDishSelectOptions();
+  } else if (question.kind === 'portion' && state.trayItems[0]) {
+    const mult = clampPortionMultiplier(value);
+    state.trayItems[0].portionMultiplier = mult;
+    els.portionInput.value = String(mult);
+  }
+
+  renderResultPanel();
+}
+
+function renderClarificationPanel(adjustmentLog, baseKcal, finalKcal) {
+  const arm = state.arm;
+  const armMeta = EXPERIMENT_ARMS[arm];
+  const questions = state.activeQuestions || [];
+  const answeredCount = questions.filter((q) => Boolean(state.clarificationAnswers[q.id])).length;
+
+  els.clarificationBox.dataset.arm = arm;
+  els.clarificationTitle.textContent = armMeta.titleTh;
+
+  if (arm === 'A') {
+    els.clarificationCountPill.textContent = '0 ข้อ (ภาพอย่างเดียว)';
+    els.clarificationSub.textContent =
+      'ระบบ A ใช้ผลจากภาพถ่ายโดยตรงโดยไม่ถามคำถามยืนยันเพิ่มเติม เพื่อวัดความเร็วและค่าพื้นฐานของภาพถ่ายล้วน';
+    els.questionList.innerHTML = '';
+    els.adjustmentStrip.hidden = true;
+    return;
+  }
+
+  if (arm === 'B') {
+    els.clarificationCountPill.textContent =
+      questions.length === 0
+        ? '0 ข้อ (ภาพชัดเจน)'
+        : `เลือกถาม ${questions.length} ข้อ (ตอบแล้ว ${answeredCount}/${questions.length})`;
+    els.clarificationSub.textContent =
+      questions.length === 0
+        ? 'ภาพอาหารมีความชัดเจนและไม่มีปัจจัยซ่อนเร้นที่มีความไม่แน่นอนสูง จึงข้ามคำถามยืนยันได้ทันที'
+        : 'ระบบ B คัดเฉพาะคำถามที่มีความไม่แน่นอนสูงและส่งผลต่อพลังงาน/โซเดียม/น้ำตาลมากที่สุด';
+  } else {
+    els.clarificationCountPill.textContent = `ชุดคงที่ ${questions.length} ข้อ (ตอบแล้ว ${answeredCount}/${questions.length})`;
+    els.clarificationSub.textContent =
+      'ระบบ C ถามชุดคำถามมาตรฐานคงที่ครบทั้ง 5 ข้อทุกมื้อ เพื่อเปรียบเทียบความแม่นยำและภาระผู้ใช้กับระบบ B';
+  }
+
+  els.questionList.innerHTML = '';
+  for (const q of questions) {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    card.dataset.questionId = q.id;
+
+    const prompt = document.createElement('div');
+    prompt.className = 'question-prompt';
+    prompt.textContent = q.promptTh;
+
+    const why = document.createElement('div');
+    why.className = 'question-why';
+    why.textContent = q.whyTh;
+
+    const optsRow = document.createElement('div');
+    optsRow.className = 'category-row';
+
+    const selectedVal =
+      state.clarificationAnswers[q.id] ||
+      (q.kind === 'dish' ? state.trayItems[0]?.foodId : '') ||
+      (q.kind === 'portion' ? String(state.trayItems[0]?.portionMultiplier || 1) : '');
+
+    for (const opt of q.options || []) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip-btn';
+      btn.dataset.qId = q.id;
+      btn.dataset.qVal = opt.value;
+      btn.textContent = opt.labelTh;
+      btn.setAttribute('aria-pressed', String(selectedVal === opt.value));
+      btn.addEventListener('click', () => handleClarificationAnswer(q, opt.value));
+      optsRow.appendChild(btn);
+    }
+
+    card.append(prompt, why, optsRow);
+    els.questionList.appendChild(card);
+  }
+
+  if (adjustmentLog && adjustmentLog.length > 0 && state.scanResult?.mode !== 'ai') {
+    els.adjustmentStrip.hidden = false;
+    els.adjustmentStrip.textContent = `ปรับค่าตามคำตอบยืนยัน (${formatNumber(baseKcal)} → ${formatNumber(finalKcal)} kcal): ${adjustmentLog.join(' • ')}`;
+  } else {
+    els.adjustmentStrip.hidden = true;
+    els.adjustmentStrip.textContent = '';
+  }
+}
+
 /* ---------- Scan & Multi-Dish Tray ---------- */
 function setScanningState(isScanning) {
   state.scanning = isScanning;
@@ -988,6 +1219,8 @@ async function runScan() {
   showUploadError('');
   showSaveFeedback('');
   setScanningState(true);
+
+  const scanStartedAt = Date.now();
 
   try {
     if (state.mode === 'ai') {
@@ -1029,6 +1262,7 @@ async function runScan() {
     const initialPortion = clampPortionMultiplier(
       state.scanResult.suggestedPortionMultiplier || 1
     );
+    const meta = getDishUncertaintyMeta(initialFoodId, state.scanResult);
 
     state.dishSearchQuery = '';
     state.dishCategory = 'all';
@@ -1043,8 +1277,21 @@ async function runScan() {
       },
     ];
 
+    state.activeQuestions = selectClarificationQuestions(state.arm, state.scanResult);
+    state.clarificationAnswers = {};
+    state.perceivedEase = null;
+    state.perceivedConfidence = null;
+    state.trialTiming = {
+      scanStartedAt,
+      resultReadyAt: Date.now(),
+      tapCount: 0,
+      initialFoodId,
+      portionUncertainty: meta.portionUncertainty,
+    };
+
     renderDishCategoryChips();
     renderDishSelectOptions();
+    renderRatingPills();
     els.portionInput.value = String(initialPortion);
 
     renderResultPanel();
@@ -1058,6 +1305,7 @@ async function runScan() {
 function addDishToTray(foodId) {
   const dish = getDishById(foodId);
   if (!dish) return;
+  state.trialTiming.tapCount += 1;
   state.trayItems.push({
     uid: makeUid(),
     foodId: dish.id,
@@ -1071,6 +1319,7 @@ function addDishToTray(foodId) {
 function updateTrayItemPortion(uid, nextMult) {
   const target = state.trayItems.find((it) => it.uid === uid);
   if (!target) return;
+  state.trialTiming.tapCount += 1;
   target.portionMultiplier = clampPortionMultiplier(nextMult);
   if (state.trayItems[0]?.uid === uid) {
     els.portionInput.value = String(target.portionMultiplier);
@@ -1080,6 +1329,7 @@ function updateTrayItemPortion(uid, nextMult) {
 
 function removeTrayItem(uid) {
   if (state.trayItems.length <= 1) return;
+  state.trialTiming.tapCount += 1;
   state.trayItems = state.trayItems.filter((it) => it.uid !== uid);
   renderDishSelectOptions();
   if (state.trayItems[0]) {
@@ -1178,14 +1428,16 @@ function renderResultPanel() {
   const primary = state.trayItems[0];
   const primaryDish = getDishById(primary.foodId);
 
+  // In Arm A (Photo-Only baseline), keep flow strictly photo-only (hide manual edit/tray unless unknown)
+  els.manualEditControls.hidden = state.arm === 'A' && Boolean(primaryDish);
+
   els.provenanceBadge.hidden = false;
   els.provenanceBadge.dataset.mode = activeMode;
   els.provenanceBadge.textContent =
     activeMode === 'ai'
-      ? 'AI Classification-Only (ไม่มีตัวเลขจำลอง)'
-      : 'ค่าตัวอย่างสาธิต (Demo Fixture)';
+      ? `ระบบ ${state.arm} • AI Classification-Only`
+      : `ระบบ ${state.arm} • ค่าตัวอย่างสาธิต`;
 
-  // Allergen check works in BOTH Demo and AI modes (ingredient awareness without fabricating nutrients!)
   const matchedAllergens = detectTrayAllergens(state.trayItems, goal);
   if (matchedAllergens.length > 0) {
     els.allergenAlert.hidden = false;
@@ -1229,6 +1481,7 @@ function renderResultPanel() {
 
   // SAFETY POLICY: AI mode NEVER displays mock/illustrative nutrition fixtures
   if (activeMode === 'ai') {
+    renderClarificationPanel([], 0, 0);
     els.nutritionBlock.hidden = true;
     els.aiSafetyBox.hidden = false;
     return;
@@ -1236,11 +1489,20 @@ function renderResultPanel() {
 
   els.aiSafetyBox.hidden = true;
 
-  const combo = scaleComboNutrition(state.trayItems, goal);
-  if (!combo) {
+  const baseCombo = scaleComboNutrition(state.trayItems, goal);
+  if (!baseCombo) {
+    renderClarificationPanel([], 0, 0);
     els.nutritionBlock.hidden = true;
     return;
   }
+
+  const { adjustedNutrients, adjustmentLog } =
+    state.arm === 'A'
+      ? { adjustedNutrients: baseCombo, adjustmentLog: [] }
+      : applyClarificationAdjustments(baseCombo, state.clarificationAnswers, activeMode);
+
+  const combo = adjustedNutrients || baseCombo;
+  renderClarificationPanel(adjustmentLog, baseCombo.kcal, combo.kcal);
 
   els.nutritionBlock.hidden = false;
 
@@ -1264,7 +1526,7 @@ function renderResultPanel() {
   els.fiberVal.textContent = `${combo.fiberG} ก.`;
 
   els.foodGroupsRow.innerHTML = '';
-  for (const g of combo.foodGroups) {
+  for (const g of baseCombo.foodGroups) {
     const pill = document.createElement('span');
     pill.className = 'group-pill';
     pill.textContent = FOOD_GROUP_LABELS[g];
@@ -1272,13 +1534,13 @@ function renderResultPanel() {
   }
 
   els.tipsList.innerHTML = '';
-  for (const tip of combo.tips) {
+  for (const tip of baseCombo.tips) {
     const li = document.createElement('li');
     li.textContent = tip;
     els.tipsList.appendChild(li);
   }
   els.swapLine.textContent =
-    combo.swaps.length > 0 ? `ทางเลือกสุขภาพดีกว่า: ${combo.swaps[0]}` : '';
+    baseCombo.swaps.length > 0 ? `ทางเลือกสุขภาพดีกว่า: ${baseCombo.swaps[0]}` : '';
 }
 
 function saveCurrentMeal() {
@@ -1305,13 +1567,57 @@ function saveCurrentMeal() {
     confidence: state.scanResult.confidence,
   });
 
+  // Apply deterministic clarification adjustments for Demo mode only (never AI mode!)
+  let initialNutrients = null;
+  if (record.mode !== 'ai' && record.nutrients) {
+    initialNutrients = { ...record.nutrients };
+    if (state.arm !== 'A') {
+      const { adjustedNutrients } = applyClarificationAdjustments(
+        record.nutrients,
+        state.clarificationAnswers,
+        record.mode
+      );
+      if (adjustedNutrients) {
+        record.nutrients = adjustedNutrients;
+      }
+    }
+  }
+
+  const now = Date.now();
+  const questions = state.activeQuestions || [];
+  const answeredCount = questions.filter((q) => Boolean(state.clarificationAnswers[q.id])).length;
+
+  record.experiment = {
+    arm: state.arm,
+    participantId: state.participantId,
+    sessionId: state.sessionId,
+    initialFoodId: state.trialTiming.initialFoodId,
+    portionUncertainty: state.trialTiming.portionUncertainty,
+    dishChanged: primary.foodId !== state.trialTiming.initialFoodId,
+    questionsShownCount: questions.length,
+    questionsAnsweredCount: answeredCount,
+    questionIdsShown: questions.map((q) => q.id),
+    answers: { ...state.clarificationAnswers },
+    totalDurationMs: state.trialTiming.scanStartedAt ? now - state.trialTiming.scanStartedAt : 0,
+    clarificationDurationMs: state.trialTiming.resultReadyAt
+      ? now - state.trialTiming.resultReadyAt
+      : 0,
+    tapCount: state.trialTiming.tapCount,
+    perceivedEase: state.perceivedEase,
+    perceivedConfidence: state.perceivedConfidence,
+    initialNutrients,
+  };
+
   state.history.unshift(record);
   persistHistory();
   els.mealNoteInput.value = '';
   renderDailySummary();
+  renderArmComparison();
   renderSevenDayChart();
   renderHistoryList();
-  showSaveFeedback(`บันทึก "${record.foodNameTh}" (${getMealLabel(record.mealType)}) เรียบร้อยแล้ว`);
+  showSaveFeedback(
+    `บันทึก "${record.foodNameTh}" (ระบบ ${state.arm} • ${getMealLabel(record.mealType)}) เรียบร้อยแล้ว`
+  );
 }
 
 /* ---------- Daily Summary & 7-Day Trend SVG Chart ---------- */
@@ -1404,12 +1710,47 @@ function renderSevenDayChart() {
     </svg>`;
 }
 
+function renderArmComparison() {
+  const byArm = summarizeExperimentByArm(state.history);
+  els.armCompareGrid.innerHTML = '';
+
+  for (const armId of ['A', 'B', 'C']) {
+    const stat = byArm[armId];
+    const meta = EXPERIMENT_ARMS[armId];
+    const card = document.createElement('div');
+    card.className = 'arm-stat-card';
+    card.dataset.armStat = armId;
+
+    const title = document.createElement('span');
+    title.className = 'arm-stat-title';
+    title.textContent = meta.shortLabelTh;
+
+    const line1 = document.createElement('span');
+    line1.className = 'arm-stat-line';
+    line1.textContent =
+      stat.trialCount > 0
+        ? `จำนวนทดลอง: ${stat.trialCount} ครั้ง • เฉลี่ย ${stat.avgQuestionsShown} คำถาม`
+        : 'ยังไม่มีข้อมูลทดลองในระบบนี้';
+
+    const line2 = document.createElement('span');
+    line2.className = 'arm-stat-line';
+    const durStr = stat.avgDurationSec !== null ? `${stat.avgDurationSec} วิ.` : '-';
+    const easeStr = stat.avgEase !== null ? `${stat.avgEase}/5` : '-';
+    const confStr = stat.avgConfidence !== null ? `${stat.avgConfidence}/5` : '-';
+    line2.textContent = `เวลาเฉลี่ย ${durStr} • ง่าย ${easeStr} • มั่นใจ ${confStr}`;
+
+    card.append(title, line1, line2);
+    els.armCompareGrid.appendChild(card);
+  }
+}
+
 /* ---------- History List & Inline Edit ---------- */
 function deleteRecord(recordId) {
   state.history = state.history.filter((rec) => rec.id !== recordId);
   if (state.editingRecordId === recordId) state.editingRecordId = null;
   persistHistory();
   renderDailySummary();
+  renderArmComparison();
   renderSevenDayChart();
   renderHistoryList();
 }
@@ -1420,27 +1761,40 @@ function clearAllHistory() {
   state.editingRecordId = null;
   persistHistory();
   renderDailySummary();
+  renderArmComparison();
   renderSevenDayChart();
   renderHistoryList();
 }
 
-function exportCsv() {
-  if (state.history.length === 0) return;
-  const csv = recordsToCsv(state.history);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+function triggerCsvDownload(csvText, filename) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `nutrilens-th-history-${getLocalDateKey()}.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function exportCsv() {
+  if (state.history.length === 0) return;
+  triggerCsvDownload(recordsToCsv(state.history), `nutrilens-th-history-${getLocalDateKey()}.csv`);
+}
+
+function exportResearchCsv() {
+  if (state.history.length === 0) return;
+  triggerCsvDownload(
+    researchTrialsToCsv(state.history),
+    `nutrilens-th-research-abc-${getLocalDateKey()}.csv`
+  );
+}
+
 function renderHistoryList() {
   const hasAny = state.history.length > 0;
   els.exportCsvBtn.disabled = !hasAny;
+  els.exportResearchCsvBtn.disabled = !hasAny;
   els.clearHistoryBtn.disabled = !hasAny;
 
   const filtered =
@@ -1499,6 +1853,13 @@ function renderHistoryList() {
 
     titleRow.append(dishEl, mealTag, modeTag);
 
+    if (rec.experiment?.arm) {
+      const armTag = document.createElement('span');
+      armTag.className = 'tag tag-ai';
+      armTag.textContent = `ระบบ ${rec.experiment.arm} (${rec.experiment.questionsShownCount ?? 0} ข้อ)`;
+      titleRow.appendChild(armTag);
+    }
+
     const meta = document.createElement('span');
     meta.className = 'history-meta';
     const gramsStr = rec.estimatedGrams ? ` (~${formatNumber(rec.estimatedGrams)} ก.)` : '';
@@ -1554,6 +1915,7 @@ function renderHistoryList() {
         state.editingRecordId = null;
         persistHistory();
         renderDailySummary();
+        renderArmComparison();
         renderSevenDayChart();
         renderHistoryList();
       });
@@ -1662,6 +2024,48 @@ function bindEvents() {
   els.modeDemoBtn.addEventListener('click', () => setMode('demo'));
   els.modeAiBtn.addEventListener('click', () => setMode('ai'));
 
+  for (const btn of els.armBtns) {
+    btn.addEventListener('click', () => setExperimentArm(btn.dataset.arm));
+  }
+
+  els.toggleStudyMetaBtn.addEventListener('click', () => {
+    const isHidden = els.studyMetaDrawer.hidden;
+    els.studyMetaDrawer.hidden = !isHidden;
+    els.toggleStudyMetaBtn.setAttribute('aria-expanded', String(isHidden));
+  });
+
+  els.participantIdInput.addEventListener('input', () => {
+    state.participantId = els.participantIdInput.value.trim().slice(0, 40);
+    persistStudyConfig();
+  });
+
+  els.sessionIdInput.addEventListener('input', () => {
+    state.sessionId = els.sessionIdInput.value.trim().slice(0, 40);
+    persistStudyConfig();
+  });
+
+  for (const btn of els.copyLinkBtns) {
+    btn.addEventListener('click', async () => {
+      const targetArm = btn.dataset.copyArm;
+      const url = new URL(window.location.href);
+      url.searchParams.set('arm', targetArm);
+      url.searchParams.set('lock', '1');
+      if (state.participantId) url.searchParams.set('pid', state.participantId);
+      else url.searchParams.delete('pid');
+      if (state.sessionId) url.searchParams.set('session', state.sessionId);
+      else url.searchParams.delete('session');
+
+      const linkStr = url.toString();
+      try {
+        await navigator.clipboard.writeText(linkStr);
+        els.copyLinkFeedback.textContent = `คัดลอกลิงก์ระบบ ${targetArm} แล้ว: ${linkStr}`;
+      } catch {
+        els.copyLinkFeedback.textContent = `ลิงก์ระบบ ${targetArm}: ${linkStr}`;
+      }
+      els.copyLinkFeedback.hidden = false;
+    });
+  }
+
   els.toggleProfileBtn.addEventListener('click', () => {
     const isHidden = els.profileDrawer.hidden;
     els.profileDrawer.hidden = !isHidden;
@@ -1732,7 +2136,6 @@ function bindEvents() {
   ]) {
     input.addEventListener('input', () => {
       if (input !== els.gdaServingsInput) {
-        // User manually adjusted a label value -> mark provenance as user-entered GDA label
         state.gdaFromFixture = false;
       }
       renderGdaPreview();
@@ -1748,6 +2151,7 @@ function bindEvents() {
 
   els.dishSelect.addEventListener('change', () => {
     if (!state.trayItems[0]) return;
+    state.trialTiming.tapCount += 1;
     state.trayItems[0].foodId = els.dishSelect.value;
     showSaveFeedback('');
     renderResultPanel();
@@ -1762,6 +2166,7 @@ function bindEvents() {
   for (const btn of els.portionChips) {
     btn.addEventListener('click', () => {
       if (!state.trayItems[0]) return;
+      state.trialTiming.tapCount += 1;
       state.trayItems[0].portionMultiplier = clampPortionMultiplier(btn.dataset.portion);
       els.portionInput.value = String(state.trayItems[0].portionMultiplier);
       renderResultPanel();
@@ -1801,10 +2206,12 @@ function bindEvents() {
 
   els.saveMealBtn.addEventListener('click', saveCurrentMeal);
   els.exportCsvBtn.addEventListener('click', exportCsv);
+  els.exportResearchCsvBtn.addEventListener('click', exportResearchCsv);
   els.clearHistoryBtn.addEventListener('click', clearAllHistory);
 }
 
 function init() {
+  renderStudyControls();
   renderProfileControls();
   renderDishCategoryChips();
   renderDishSelectOptions();
@@ -1813,8 +2220,10 @@ function init() {
   renderBarcodeSampleChips();
   renderGdaPreview();
   renderMealTypeButtons();
+  renderRatingPills();
   renderHistoryFilters();
   renderDailySummary();
+  renderArmComparison();
   renderSevenDayChart();
   renderHistoryList();
   bindEvents();

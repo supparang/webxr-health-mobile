@@ -12,6 +12,16 @@ export const ALLOWED_OUTCOMES = Object.freeze(['matched', 'uncertain', 'not_food
 export const DEFAULT_OPENAI_ENDPOINT = 'https://api.openai.com/v1/responses';
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
+export const ALLOWED_PORTION_UNCERTAINTIES = Object.freeze(['low', 'medium', 'high']);
+export const ALLOWED_HIDDEN_FACTORS = Object.freeze([
+  'oil_level',
+  'sweetness_level',
+  'broth_consumed',
+  'egg_style',
+  'skin_fat',
+  'sauce_amount',
+]);
+
 export const VISION_RESPONSE_JSON_SCHEMA = Object.freeze({
   type: 'object',
   additionalProperties: false,
@@ -20,6 +30,9 @@ export const VISION_RESPONSE_JSON_SCHEMA = Object.freeze({
     'food_id',
     'confidence',
     'suggested_portion_multiplier',
+    'portion_uncertainty',
+    'top_candidates',
+    'hidden_factors',
     'reason_th',
     'visible_components_th',
   ],
@@ -41,6 +54,26 @@ export const VISION_RESPONSE_JSON_SCHEMA = Object.freeze({
       type: 'number',
       minimum: 0.25,
       maximum: 4,
+    },
+    portion_uncertainty: {
+      type: 'string',
+      enum: [...ALLOWED_PORTION_UNCERTAINTIES],
+    },
+    top_candidates: {
+      type: 'array',
+      maxItems: 3,
+      items: {
+        type: 'string',
+        enum: [...ALLOWED_VISION_FOOD_IDS],
+      },
+    },
+    hidden_factors: {
+      type: 'array',
+      maxItems: 4,
+      items: {
+        type: 'string',
+        enum: [...ALLOWED_HIDDEN_FACTORS],
+      },
     },
     reason_th: {
       type: 'string',
@@ -190,6 +223,15 @@ export function parseAndValidateImageInput(payload) {
   };
 }
 
+const CORE_REQUIRED_KEYS = Object.freeze([
+  'outcome',
+  'food_id',
+  'confidence',
+  'suggested_portion_multiplier',
+  'reason_th',
+  'visible_components_th',
+]);
+
 export function validateVisionPayload(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new VisionGatewayError(
@@ -201,7 +243,10 @@ export function validateVisionPayload(raw) {
 
   const allowedKeys = new Set(VISION_RESPONSE_JSON_SCHEMA.required);
   const rawKeys = Object.keys(raw);
-  if (rawKeys.length !== allowedKeys.size || rawKeys.some((k) => !allowedKeys.has(k))) {
+  if (
+    CORE_REQUIRED_KEYS.some((k) => !(k in raw)) ||
+    rawKeys.some((k) => !allowedKeys.has(k))
+  ) {
     throw new VisionGatewayError(
       502,
       'INVALID_MODEL_SCHEMA',
@@ -242,6 +287,30 @@ export function validateVisionPayload(raw) {
     throw new VisionGatewayError(502, 'INVALID_MODEL_COMPONENTS', 'รายการส่วนประกอบที่มองเห็นไม่ถูกต้อง');
   }
 
+  const portionUncertainty =
+    raw.portion_uncertainty === undefined ? 'medium' : raw.portion_uncertainty;
+  if (!ALLOWED_PORTION_UNCERTAINTIES.includes(portionUncertainty)) {
+    throw new VisionGatewayError(502, 'INVALID_MODEL_UNCERTAINTY', 'ค่าความไม่แน่นอนของปริมาณไม่ถูกต้อง');
+  }
+
+  const topCandidates = raw.top_candidates === undefined ? [] : raw.top_candidates;
+  if (
+    !Array.isArray(topCandidates) ||
+    topCandidates.length > 3 ||
+    topCandidates.some((id) => !ALLOWED_VISION_FOOD_IDS.includes(id))
+  ) {
+    throw new VisionGatewayError(502, 'INVALID_MODEL_CANDIDATES', 'รายการเมนูผู้ท้าชิงจาก AI ไม่ถูกต้อง');
+  }
+
+  const hiddenFactors = raw.hidden_factors === undefined ? [] : raw.hidden_factors;
+  if (
+    !Array.isArray(hiddenFactors) ||
+    hiddenFactors.length > 4 ||
+    hiddenFactors.some((f) => !ALLOWED_HIDDEN_FACTORS.includes(f))
+  ) {
+    throw new VisionGatewayError(502, 'INVALID_MODEL_HIDDEN_FACTORS', 'รายการปัจจัยซ่อนเร้นจาก AI ไม่ถูกต้อง');
+  }
+
   let normalizedOutcome = raw.outcome;
   let normalizedFoodId = raw.food_id;
 
@@ -259,6 +328,9 @@ export function validateVisionPayload(raw) {
     foodId: normalizedFoodId,
     confidence: Math.round(raw.confidence * 100) / 100,
     suggestedPortionMultiplier: Math.round(raw.suggested_portion_multiplier * 100) / 100,
+    portionUncertainty,
+    topCandidates,
+    hiddenFactors,
     reasonTh: raw.reason_th.trim(),
     visibleComponentsTh: raw.visible_components_th.map((s) => s.trim()),
   };

@@ -144,6 +144,55 @@
         </div>
       </section>
 
+      <!-- 3-Arm Research Comparison Control Bar (System A / B / C) -->
+      <section id="studyCard" class="study-card" aria-label="โหมดเปรียบเทียบ 3 ระบบงานวิจัย (A / B / C)">
+        <div class="profile-bar">
+          <div class="arm-switch" role="group" aria-label="เลือกระบบการทดลอง">
+            <button id="armBtnA" class="arm-btn" type="button" data-arm="A" aria-pressed="false">
+              ระบบ A: ภาพอย่างเดียว (0 ข้อ)
+            </button>
+            <button id="armBtnB" class="arm-btn" type="button" data-arm="B" aria-pressed="true">
+              ระบบ B: ปรับตามความไม่แน่นอน (0–3 ข้อ)
+            </button>
+            <button id="armBtnC" class="arm-btn" type="button" data-arm="C" aria-pressed="false">
+              ระบบ C: คำถามคงที่ (5 ข้อ)
+            </button>
+          </div>
+          <button
+            id="toggleStudyMetaBtn"
+            class="btn btn-ghost"
+            type="button"
+            aria-expanded="false"
+            aria-controls="studyMetaDrawer"
+          >
+            ตั้งค่างานวิจัย / ลิงก์ A-B-C
+          </button>
+        </div>
+
+        <div id="studyMetaDrawer" class="profile-drawer" hidden>
+          <p id="armDescriptionText" class="clarification-sub"></p>
+          <div class="study-meta-grid">
+            <div>
+              <label for="participantIdInput" class="field-label">รหัสผู้เข้าร่วม (Participant ID)</label>
+              <input id="participantIdInput" class="field-control" type="text" maxlength="40" placeholder="เช่น P01" />
+            </div>
+            <div>
+              <label for="sessionIdInput" class="field-label">รอบการทดลอง (Session ID)</label>
+              <input id="sessionIdInput" class="field-control" type="text" maxlength="40" placeholder="เช่น S1" />
+            </div>
+            <div>
+              <span class="field-label">ลิงก์ล็อกกลุ่มสำหรับส่งผู้เข้าร่วม</span>
+              <div class="category-row" style="margin-top: 6px">
+                <button id="copyLinkA" class="chip-btn" type="button" data-copy-arm="A">คัดลอกลิงก์ A</button>
+                <button id="copyLinkB" class="chip-btn" type="button" data-copy-arm="B">คัดลอกลิงก์ B</button>
+                <button id="copyLinkC" class="chip-btn" type="button" data-copy-arm="C">คัดลอกลิงก์ C</button>
+              </div>
+            </div>
+          </div>
+          <div id="copyLinkFeedback" class="alert alert-info" hidden role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
       <div id="modeNotice" class="alert alert-warn" hidden role="status" aria-live="polite"></div>
 
       <div class="workspace-grid">
@@ -365,90 +414,103 @@
               <div id="componentsRow" class="group-pills" hidden></div>
             </div>
 
-            <!-- Searchable Dish Picker -->
-            <div class="field-group">
-              <label for="dishSearchInput" class="field-label">ค้นหาเมนูอาหารไทย (20 เมนู + ระบุเอง)</label>
-              <input
-                id="dishSearchInput"
-                class="field-control"
-                type="search"
-                placeholder="พิมพ์ค้นหา เช่น กะเพรา, ส้มตำ, ไก่ย่าง, ข้าวเหนียว…"
-              />
+            <!-- 3-Arm Clarification Panel (A: 0 questions | B: Uncertainty-Adaptive 0-3 | C: Fixed 5) -->
+            <div id="clarificationBox" class="clarification-box" data-arm="B">
+              <div class="clarification-head">
+                <h3 id="clarificationTitle" class="clarification-title">คำถามยืนยันเพิ่มเติม</h3>
+                <span id="clarificationCountPill" class="server-pill">0 ข้อ</span>
+              </div>
+              <p id="clarificationSub" class="clarification-sub"></p>
+              <div id="questionList" class="question-list"></div>
+              <div id="adjustmentStrip" class="adjustment-strip" hidden></div>
             </div>
 
-            <div id="dishCategoryChips" class="category-row field-group" role="group" aria-label="หมวดหมู่เมนูอาหาร"></div>
-
-            <div class="field-group">
-              <label for="dishSelect" class="field-label">เมนูหลักที่ยืนยัน</label>
-              <select id="dishSelect" class="field-control"></select>
-            </div>
-
-            <div id="customDishGroup" class="field-group" hidden>
-              <label for="customDishInput" class="field-label">ระบุชื่อเมนูเอง</label>
-              <input
-                id="customDishInput"
-                class="field-control"
-                type="text"
-                maxlength="80"
-                placeholder="เช่น ข้าวผัดกุ้ง, ยำวุ้นเส้น, ผลไม้รวม"
-              />
-            </div>
-
-            <div class="field-group">
-              <span class="field-label">ปรับปริมาณเมนูหลัก</span>
-              <div class="portion-row" role="group" aria-label="สัดส่วนปริมาณอาหาร">
-                <button class="chip-btn portion-chip" type="button" data-portion="0.5" aria-pressed="false">
-                  ครึ่งจาน (0.5×)
-                </button>
-                <button class="chip-btn portion-chip" type="button" data-portion="1" aria-pressed="true">
-                  ปกติ (1×)
-                </button>
-                <button class="chip-btn portion-chip" type="button" data-portion="1.5" aria-pressed="false">
-                  พิเศษ (1.5×)
-                </button>
-                <button class="chip-btn portion-chip" type="button" data-portion="2" aria-pressed="false">
-                  2 เท่า (2×)
-                </button>
-                <label class="sr-only" for="portionInput">ตัวคูณปริมาณแบบกำหนดเอง</label>
+            <div id="manualEditControls">
+              <!-- Searchable Dish Picker -->
+              <div class="field-group">
+                <label for="dishSearchInput" class="field-label">ค้นหาเมนูอาหารไทย (20 เมนู + ระบุเอง)</label>
                 <input
-                  id="portionInput"
-                  class="portion-custom"
-                  type="number"
-                  min="0.25"
-                  max="4"
-                  step="0.25"
-                  value="1"
-                  aria-label="ตัวคูณปริมาณอาหาร"
+                  id="dishSearchInput"
+                  class="field-control"
+                  type="search"
+                  placeholder="พิมพ์ค้นหา เช่น กะเพรา, ส้มตำ, ไก่ย่าง, ข้าวเหนียว…"
                 />
-                <span id="portionGramsText" class="portion-grams"></span>
-              </div>
-            </div>
-
-            <!-- Multi-dish / Combo Meal Tray -->
-            <div class="tray-box" aria-label="ชุดอาหารหลายเมนูในมื้อนี้">
-              <div class="tray-header">
-                <h3 class="tray-title">ถาดมื้ออาหาร (<span id="trayCount">1</span> รายการ)</h3>
-                <button id="addCompanionToggleBtn" class="btn btn-ghost" type="button">
-                  + เพิ่มเมนูร่วมในมื้อนี้
-                </button>
               </div>
 
-              <div id="companionPicker" hidden>
-                <div class="barcode-row" style="margin-bottom: 8px">
-                  <select id="companionSelect" class="field-control" aria-label="เลือกเมนูร่วม"></select>
-                  <button id="addCompanionBtn" class="btn btn-secondary" type="button">เพิ่มลงถาด</button>
+              <div id="dishCategoryChips" class="category-row field-group" role="group" aria-label="หมวดหมู่เมนูอาหาร"></div>
+
+              <div class="field-group">
+                <label for="dishSelect" class="field-label">เมนูหลักที่ยืนยัน</label>
+                <select id="dishSelect" class="field-control"></select>
+              </div>
+
+              <div id="customDishGroup" class="field-group" hidden>
+                <label for="customDishInput" class="field-label">ระบุชื่อเมนูเอง</label>
+                <input
+                  id="customDishInput"
+                  class="field-control"
+                  type="text"
+                  maxlength="80"
+                  placeholder="เช่น ข้าวผัดกุ้ง, ยำวุ้นเส้น, ผลไม้รวม"
+                />
+              </div>
+
+              <div class="field-group">
+                <span class="field-label">ปรับปริมาณเมนูหลัก</span>
+                <div class="portion-row" role="group" aria-label="สัดส่วนปริมาณอาหาร">
+                  <button class="chip-btn portion-chip" type="button" data-portion="0.5" aria-pressed="false">
+                    ครึ่งจาน (0.5×)
+                  </button>
+                  <button class="chip-btn portion-chip" type="button" data-portion="1" aria-pressed="true">
+                    ปกติ (1×)
+                  </button>
+                  <button class="chip-btn portion-chip" type="button" data-portion="1.5" aria-pressed="false">
+                    พิเศษ (1.5×)
+                  </button>
+                  <button class="chip-btn portion-chip" type="button" data-portion="2" aria-pressed="false">
+                    2 เท่า (2×)
+                  </button>
+                  <label class="sr-only" for="portionInput">ตัวคูณปริมาณแบบกำหนดเอง</label>
+                  <input
+                    id="portionInput"
+                    class="portion-custom"
+                    type="number"
+                    min="0.25"
+                    max="4"
+                    step="0.25"
+                    value="1"
+                    aria-label="ตัวคูณปริมาณอาหาร"
+                  />
+                  <span id="portionGramsText" class="portion-grams"></span>
                 </div>
               </div>
 
-              <div class="quick-add-row">
-                <span class="quick-add-label">เพิ่มด่วน:</span>
-                <button class="chip-btn quick-side-btn" type="button" data-side-id="sticky_rice">+ ข้าวเหนียว</button>
-                <button class="chip-btn quick-side-btn" type="button" data-side-id="gai_yang">+ ไก่ย่าง</button>
-                <button class="chip-btn quick-side-btn" type="button" data-side-id="boiled_egg">+ ไข่ต้ม</button>
-                <button class="chip-btn quick-side-btn" type="button" data-side-id="drinking_water">+ น้ำเปล่า</button>
-              </div>
+              <!-- Multi-dish / Combo Meal Tray -->
+              <div class="tray-box" aria-label="ชุดอาหารหลายเมนูในมื้อนี้">
+                <div class="tray-header">
+                  <h3 class="tray-title">ถาดมื้ออาหาร (<span id="trayCount">1</span> รายการ)</h3>
+                  <button id="addCompanionToggleBtn" class="btn btn-ghost" type="button">
+                    + เพิ่มเมนูร่วมในมื้อนี้
+                  </button>
+                </div>
 
-              <ul id="trayList" class="tray-list"></ul>
+                <div id="companionPicker" hidden>
+                  <div class="barcode-row" style="margin-bottom: 8px">
+                    <select id="companionSelect" class="field-control" aria-label="เลือกเมนูร่วม"></select>
+                    <button id="addCompanionBtn" class="btn btn-secondary" type="button">เพิ่มลงถาด</button>
+                  </div>
+                </div>
+
+                <div class="quick-add-row">
+                  <span class="quick-add-label">เพิ่มด่วน:</span>
+                  <button class="chip-btn quick-side-btn" type="button" data-side-id="sticky_rice">+ ข้าวเหนียว</button>
+                  <button class="chip-btn quick-side-btn" type="button" data-side-id="gai_yang">+ ไก่ย่าง</button>
+                  <button class="chip-btn quick-side-btn" type="button" data-side-id="boiled_egg">+ ไข่ต้ม</button>
+                  <button class="chip-btn quick-side-btn" type="button" data-side-id="drinking_water">+ น้ำเปล่า</button>
+                </div>
+
+                <ul id="trayList" class="tray-list"></ul>
+              </div>
             </div>
 
             <!-- Demo-only illustrative nutrition breakdown -->
@@ -534,6 +596,18 @@
                 />
               </div>
 
+              <!-- Optional Post-Trial 1-5 Rating for Research Study -->
+              <div id="postTrialRatingBox" class="rating-box" aria-label="แบบประเมินสั้นท้ายมื้อ (1-5)">
+                <div class="rating-row">
+                  <span class="rating-label">ความง่าย/รวดเร็วของขั้นตอนนี้ (1–5)</span>
+                  <div id="easeRatingPills" class="rating-pills" role="group" aria-label="คะแนนความง่าย 1 ถึง 5"></div>
+                </div>
+                <div class="rating-row">
+                  <span class="rating-label">ความมั่นใจต่อผลลัพธ์ (1–5)</span>
+                  <div id="confRatingPills" class="rating-pills" role="group" aria-label="คะแนนความมั่นใจ 1 ถึง 5"></div>
+                </div>
+              </div>
+
               <button id="saveMealBtn" class="btn btn-primary" type="button">
                 บันทึกมื้อนี้ลงประวัติ
               </button>
@@ -579,6 +653,15 @@
           </div>
         </div>
 
+        <!-- Live 3-Arm Research Telemetry Comparison Summary -->
+        <div id="armCompareBox" class="arm-compare-box" aria-label="สรุปเปรียบเทียบระบบ A, B และ C">
+          <div class="trend-header" style="margin-bottom: 0">
+            <h3 class="trend-title">สรุปเปรียบเทียบระบบการทดลอง (A / B / C)</h3>
+            <span class="summary-sub">จำนวนคำถามเฉลี่ย • เวลาที่ใช้ • คะแนนความง่าย/มั่นใจ</span>
+          </div>
+          <div id="armCompareGrid" class="arm-compare-grid"></div>
+        </div>
+
         <!-- 7-Day Nutrition Trend SVG Chart -->
         <div class="trend-box" aria-label="กราฟแนวโน้มโภชนาการย้อนหลัง 7 วัน">
           <div class="trend-header">
@@ -596,6 +679,9 @@
         <div class="history-toolbar">
           <div id="historyFilterRow" class="filter-row" role="group" aria-label="กรองตามมื้ออาหาร"></div>
           <div class="history-actions">
+            <button id="exportResearchCsvBtn" class="btn btn-secondary" type="button" disabled>
+              ส่งออก Research CSV (A/B/C)
+            </button>
             <button id="exportCsvBtn" class="btn btn-secondary" type="button" disabled>
               ส่งออก CSV
             </button>

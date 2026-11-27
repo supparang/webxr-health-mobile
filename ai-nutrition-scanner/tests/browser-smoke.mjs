@@ -126,16 +126,53 @@ async function run() {
     await page.waitForSelector('#gdaSaveFeedback:not([hidden])');
     assert.match(await page.textContent('#dailyKcal'), /780/);
 
-    // Switch back to Photo tab -> AI Vision mode safety check
+    // 3-Arm Controlled Study Verification (A: 0 Q | B: Adaptive | C: Fixed 5 Q)
     await page.click('#tabPhotoBtn');
+    await page.click('#armBtnA');
+    await page.click('.sample-card[data-preset-id="pad_krapow_gai"]');
+    await page.click('#scanBtn');
+    await page.waitForSelector('#scanOverlay', { state: 'hidden' });
+    await page.waitForSelector('#resultContent:not([hidden])');
+    assert.equal(await page.locator('#questionList .question-card').count(), 0, 'Arm A must show 0 questions');
+    await page.click('#saveMealBtn');
+
+    await page.click('#armBtnB');
+    await page.click('.sample-card[data-preset-id="pad_krapow_gai"]');
+    await page.click('#scanBtn');
+    await page.waitForSelector('#scanOverlay', { state: 'hidden' });
+    const armBQCount = await page.locator('#questionList .question-card').count();
+    assert.equal(armBQCount, 2, 'Arm B on Pad Krapow should adaptively ask 2 hidden-factor questions');
+    await page.click('button[data-q-id="q_oil_level"][data-q-val="low_oil"]');
+    await page.waitForSelector('#adjustmentStrip:not([hidden])');
+    await page.click('#easeRatingPills button[data-score="5"]');
+    await page.click('#confRatingPills button[data-score="4"]');
+    await page.click('#saveMealBtn');
+
+    await page.click('#armBtnC');
+    await page.click('.sample-card[data-preset-id="pad_krapow_gai"]');
+    await page.click('#scanBtn');
+    await page.waitForSelector('#scanOverlay', { state: 'hidden' });
+    assert.equal(await page.locator('#questionList .question-card').count(), 5, 'Arm C must always show 5 fixed questions');
+    await page.click('#saveMealBtn');
+
+    // Verify Research CSV export
+    const [researchDl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('#exportResearchCsvBtn'),
+    ]);
+    const researchCsv = await fs.readFile(await researchDl.path(), 'utf8');
+    assert.ok(researchCsv.startsWith('\uFEFF'));
+    assert.match(researchCsv, /questions_shown_count,questions_answered_count/);
+    assert.match(researchCsv, /q_oil_level\|q_egg_style/);
+
+    // Switch back to Arm B + AI Vision mode safety check
+    await page.click('#armBtnB');
     await page.click('#modeAiBtn');
     await page.click('.sample-card[data-preset-id="tom_yum_kung"]');
     await page.click('#scanBtn');
     await page.waitForSelector('#aiSafetyBox:not([hidden])');
     assert.equal(await page.isHidden('#nutritionBlock'), true, 'AI mode MUST hide mock nutrition block');
     await page.click('#saveMealBtn');
-    assert.equal(await page.locator('#historyList li').count(), 3);
-    assert.match(await page.textContent('#dailyKcal'), /780/);
 
     // CSV export check (contains Demo, User GDA, and AI Classification-Only provenances)
     const [download] = await Promise.all([

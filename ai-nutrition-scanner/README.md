@@ -8,6 +8,11 @@ Mobile-first Thai food nutrition scanner, GDA label logger, multi-dish meal plan
 - **Barcode & Thai GDA Label Helper (บาร์โค้ด / ฉลากหวาน มัน เค็ม)**: Live camera barcode scanning (`BarcodeDetector` API where supported), manual EAN-13 lookup with 4 Thai packaged sample fixtures, interactive 4-capsule Thai GDA preview (`พลังงาน / น้ำตาล / ไขมัน / โซเดียม`), and direct user-entered label logging (`USER_ENTERED_GDA_LABEL`).
 - **Age-Band Personal Goals & Allergen Alerts (ตั้งเป้าหมายตามวัยและสารก่อภูมิแพ้)**: Presets for ป.1–ป.3, ป.4–ป.6, ม.1–ม.6, Thai RDI Adult, and custom targets; optional Low-Sodium / Low-Sugar / High-Protein focus toggles; instant allergen alerts (`ถั่วลิสง`, `กุ้ง/อาหารทะเล`, `ไข่`, `นม`, `ถั่วเหลือง/กลูเตน`).
 - **7-Day Trend SVG Chart, Inline History Edit, CSV Export & Offline PWA**: Local-only `localStorage` persistence, inline editing of saved meals, 7-day responsive SVG bar chart with goal threshold line, UTF-8 BOM CSV export (with formula-injection escaping), and offline-ready PWA (`manifest.webmanifest` + `sw.js`).
+- **3-Arm Controlled Study Mode (ระบบ A / B / C สำหรับงานวิจัย)**:
+  - **ระบบ A (Photo-Only)**: ใช้ภาพถ่ายอย่างเดียว (0 คำถาม) เพื่อวัดเวลาและความแม่นยำพื้นฐาน
+  - **ระบบ B (Uncertainty-Adaptive)**: คำนวณความไม่แน่นอนและปัจจัยซ่อนเร้นอาหารไทย (น้ำมัน, ความหวาน, น้ำซุป, ไข่, หนังสัตว์, น้ำจิ้ม) เพื่อเลือกถามเฉพาะ **0–3 ข้อ** ที่กระทบโภชนาการมากที่สุด พร้อมตัวปรับค่าแบบตรวจสอบได้ (`initial_*` vs `final_*`)
+  - **ระบบ C (Fixed Questionnaire)**: ถามชุดคำถามมาตรฐานคงที่ **5 ข้อทุกมื้อ** เพื่อควบคุมตัวแปรเปรียบเทียบ
+  - รองรับ URL ล็อกเงื่อนไขสำหรับผู้เข้าร่วมทดลอง เช่น `?arm=B&pid=P01&session=S1&lock=1`, ตารางสรุปเปรียบเทียบ A/B/C แบบเรียลไทม์, แบบประเมินสั้น 1–5 ท้ายมื้อ, และส่งออก **Research CSV (A/B/C)** พร้อมคอลัมน์ Telemetry ครบถ้วนสำหรับ SPSS/R/Python
 - **Structured AI Vision Server Mode (`server.mjs` + `vision.mjs`)**:
   - Pure Node.js 22 ESM HTTP server (zero external npm dependencies).
   - Magic-byte signature verification for JPEG/PNG/WebP, 5 MB payload guard, OpenAI Responses API **strict JSON Schema** (`additionalProperties: false`), explicit `matched` / `uncertain` / `not_food` outcomes, and safe refusal/error handling.
