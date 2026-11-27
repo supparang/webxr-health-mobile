@@ -12,5 +12,5 @@
 export const APP_CONFIG = Object.freeze({
   // Leave empty '' to use same-origin server (e.g. local `npm start`),
   // or set to your deployed Cloudflare Worker / Cloud Run URL for GitHub Pages.
-  DEFAULT_AI_API_BASE: '',
+  DEFAULT_AI_API_BASE: 'https://nutrilens-th-api.supparang-r.workers.dev',
 });

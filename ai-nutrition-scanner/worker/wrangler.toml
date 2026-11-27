@@ -9,5 +9,6 @@ ALLOWED_ORIGINS = "https://supparang.github.io,http://127.0.0.1:5500,http://loca
 RATE_LIMIT_MAX_PER_MIN = "15"
 
 # Secrets (set once via CLI — NEVER commit keys here):
-#   npx wrangler secret put GEMINI_API_KEY
-#   npx wrangler secret put STUDY_ACCESS_CODE   # optional cohort passcode
+#   npx wrangler deploy -c wrangler.toml
+#   npx wrangler secret put GEMINI_API_KEY -c wrangler.toml
+#   npx wrangler secret put STUDY_ACCESS_CODE -c wrangler.toml   # optional cohort passcode

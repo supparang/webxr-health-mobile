@@ -77,6 +77,11 @@ function normalizeApiBase(raw) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : '';
 }
 
+function isLocalHostname(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+}
+
 function loadInitialStudyConfig() {
   const urlParams = parseExperimentParams(window.location.search);
   let saved = {};
@@ -86,15 +91,15 @@ function loadInitialStudyConfig() {
   } catch {
     saved = {};
   }
+  const explicitBase = urlParams.apiBase || normalizeApiBase(saved.remoteApiBase);
+  const defaultBase = normalizeApiBase(APP_CONFIG.DEFAULT_AI_API_BASE);
   return {
     arm: urlParams.arm || normalizeArm(saved.arm || 'B'),
     participantId: urlParams.participantId || saved.participantId || '',
     sessionId: urlParams.sessionId || saved.sessionId || '',
     studyAccessCode: urlParams.accessCode || saved.studyAccessCode || '',
     remoteApiBase:
-      urlParams.apiBase ||
-      normalizeApiBase(saved.remoteApiBase) ||
-      normalizeApiBase(APP_CONFIG.DEFAULT_AI_API_BASE),
+      explicitBase || (isLocalHostname(window.location.hostname) ? '' : defaultBase),
     armLocked: Boolean(urlParams.locked),
   };
 }

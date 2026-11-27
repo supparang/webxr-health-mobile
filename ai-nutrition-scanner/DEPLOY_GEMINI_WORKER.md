@@ -19,15 +19,15 @@ cd ai-nutrition-scanner/worker
 # 1. ล็อกอิน Cloudflare ครั้งแรก
 npx wrangler login
 
-# 2. บันทึก Gemini API Key เป็น Secret ฝั่งเซิร์ฟเวอร์ (ตั้งค่าครั้งเดียว)
-npx wrangler secret put GEMINI_API_KEY
+# 2. Deploy Worker ขึ้นระบบจริง (ต้องใส่ -c wrangler.toml เพื่อไม่ให้ไปอ่าน wrangler.jsonc ของโฟลเดอร์หลัก)
+npx wrangler deploy -c wrangler.toml
 
-# 3. (แนะนำสำหรับงานวิจัย/ห้องเรียน) ตั้งรหัสรอบทดลองแทน Login รายบุคคล
+# 3. บันทึก Gemini API Key เป็น Secret ฝั่งเซิร์ฟเวอร์ (ตั้งค่าครั้งเดียว)
+npx wrangler secret put GEMINI_API_KEY -c wrangler.toml
+
+# 4. (แนะนำสำหรับงานวิจัย/ห้องเรียน) ตั้งรหัสรอบทดลองแทน Login รายบุคคล
 #    เช่น พิมพ์ NUTRI2026 — ถ้าอยากเปิดให้ใช้โดยไม่ต้องกรอกรหัส ข้ามขั้นนี้ได้
-npx wrangler secret put STUDY_ACCESS_CODE
-
-# 4. Deploy Worker ขึ้นระบบจริง
-npx wrangler deploy
+npx wrangler secret put STUDY_ACCESS_CODE -c wrangler.toml
 ```
 
 หลังรันคำสั่งสุดท้าย Wrangler จะแสดง URL ของ Backend เช่น:
