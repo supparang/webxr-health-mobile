@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutrilens-th-static-v2';
+const CACHE_NAME = 'nutrilens-th-static-v3';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,10 +6,14 @@ const STATIC_ASSETS = [
   './app.js',
   './nutrition.js',
   './experiment.js',
+  './benchmark.js',
   './manifest.webmanifest',
   './assets/pad-krapow-gai.jpg',
   './assets/som-tum-thai.jpg',
   './assets/tom-yum-kung.jpg',
+  './assets/bench-thai-iced-tea.jpg',
+  './assets/bench-boiled-egg.jpg',
+  './assets/bench-ambiguous-krapow.jpg',
 ];
 
 self.addEventListener('install', (event) => {

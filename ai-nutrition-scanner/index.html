@@ -229,6 +229,16 @@
             >
               บาร์โค้ด / ฉลาก GDA
             </button>
+            <button
+              id="tabBenchmarkBtn"
+              class="tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="benchmarkPane"
+            >
+              Benchmark A/B/C (6)
+            </button>
           </div>
 
           <!-- Pane A: Photo Scanner -->
@@ -385,6 +395,18 @@
             </button>
             <div id="gdaSaveFeedback" class="alert alert-info" hidden role="status" aria-live="polite"></div>
           </div>
+
+          <!-- Pane C: 6-Case Benchmark Suite for A/B/C Controlled Study -->
+          <div id="benchmarkPane" role="tabpanel" aria-labelledby="tabBenchmarkBtn" hidden>
+            <p class="clarification-sub">
+              ชุดภาพทดสอบมาตรฐาน 6 กรณี ครอบคลุม 3 กลุ่มความท้าทาย (ปัจจัยซ่อนเร้น • ภาพชัดไม่ซับซ้อน • ภาพเบลอ/แสงน้อย) สำหรับวัดความแม่นยำ (Top-1 / MAE) และจำนวนคำถามของระบบ A / B / C
+            </p>
+            <div id="benchmarkSelectedBanner" class="scenario-banner" hidden style="margin-top: 10px"></div>
+            <button id="runBenchmarkScanBtn" class="btn btn-primary" type="button" disabled style="margin-top: 10px">
+              สแกนทดสอบกรณี Benchmark ที่เลือก
+            </button>
+            <div id="benchmarkGrid" class="benchmark-grid" aria-label="ชุดภาพทดสอบ Benchmark 6 กรณี"></div>
+          </div>
         </section>
 
         <!-- Step 2: Result, Searchable Picker, Multi-dish Tray & Confirmation -->
@@ -399,10 +421,11 @@
 
           <div id="resultPlaceholder" class="result-placeholder">
             <strong>ยังไม่ได้วิเคราะห์ภาพอาหาร</strong>
-            <p>เลือกภาพอาหารหรือแตะภาพตัวอย่างทางซ้าย แล้วกด "สแกนวิเคราะห์อาหาร" (หรือเลือกแท็บบาร์โค้ด/ฉลาก GDA)</p>
+            <p>เลือกภาพอาหารหรือแตะภาพตัวอย่างทางซ้าย แล้วกด "สแกนวิเคราะห์อาหาร" (หรือเลือกแท็บบาร์โค้ด / Benchmark A/B/C)</p>
           </div>
 
           <div id="resultContent" hidden>
+            <div id="step2ScenarioBanner" class="scenario-banner" hidden></div>
             <div id="allergenAlert" class="allergen-banner" hidden role="alert"></div>
 
             <div id="outcomeBanner" class="outcome-banner" data-outcome="matched" role="status" aria-live="polite">

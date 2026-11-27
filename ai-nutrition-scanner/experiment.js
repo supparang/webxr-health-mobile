@@ -575,6 +575,8 @@ export function researchTrialsToCsv(records = []) {
     'participant_id',
     'session_id',
     'arm',
+    'benchmark_id',
+    'benchmark_stratum',
     'mode',
     'provenance',
     'scan_outcome',
@@ -584,6 +586,8 @@ export function researchTrialsToCsv(records = []) {
     'final_food_id',
     'final_food_name_th',
     'dish_changed',
+    'gt_food_id',
+    'dish_exact_match',
     'final_portion_multiplier',
     'questions_shown_count',
     'questions_answered_count',
@@ -596,10 +600,14 @@ export function researchTrialsToCsv(records = []) {
     'perceived_confidence_1_5',
     'initial_kcal_illustrative',
     'final_kcal_illustrative',
+    'gt_kcal_illustrative',
+    'abs_err_kcal',
     'initial_sodium_mg_illustrative',
     'final_sodium_mg_illustrative',
+    'abs_err_sodium_mg',
     'initial_sugar_g_illustrative',
     'final_sugar_g_illustrative',
+    'abs_err_sugar_g',
     'initial_fat_g_illustrative',
     'final_fat_g_illustrative',
     'note',
@@ -609,7 +617,8 @@ export function researchTrialsToCsv(records = []) {
 
   for (const rec of records) {
     const exp = rec.experiment || {};
-    // Enforce scientific safety invariant: AI mode NEVER exports numeric nutrient fixtures
+    const bmEval = exp.benchmarkEval || null;
+    // Enforce scientific safety invariant: AI mode NEVER exports numeric nutrient fixtures or nutrient errors
     const allowNutrients = rec.mode !== 'ai' && rec.nutrients;
     const initN = allowNutrients ? exp.initialNutrients || rec.nutrients : null;
     const finalN = allowNutrients ? rec.nutrients : null;
@@ -620,6 +629,8 @@ export function researchTrialsToCsv(records = []) {
       exp.participantId || '',
       exp.sessionId || '',
       exp.arm || '',
+      exp.benchmarkId || '',
+      bmEval?.stratum || '',
       rec.mode,
       rec.provenance,
       rec.scanOutcome || '',
@@ -629,6 +640,8 @@ export function researchTrialsToCsv(records = []) {
       rec.foodId,
       rec.foodNameTh,
       exp.dishChanged !== undefined ? String(Boolean(exp.dishChanged)) : '',
+      bmEval?.gtFoodId || '',
+      bmEval ? String(Boolean(bmEval.dishExactMatch)) : '',
       rec.portionMultiplier,
       exp.questionsShownCount ?? 0,
       exp.questionsAnsweredCount ?? 0,
@@ -641,10 +654,14 @@ export function researchTrialsToCsv(records = []) {
       exp.perceivedConfidence ?? '',
       initN ? initN.kcal : '',
       finalN ? finalN.kcal : '',
+      allowNutrients && bmEval?.gtKcal != null ? bmEval.gtKcal : '',
+      allowNutrients && bmEval?.absErrKcal != null ? bmEval.absErrKcal : '',
       initN ? initN.sodiumMg : '',
       finalN ? finalN.sodiumMg : '',
+      allowNutrients && bmEval?.absErrSodiumMg != null ? bmEval.absErrSodiumMg : '',
       initN ? initN.sugarG : '',
       finalN ? finalN.sugarG : '',
+      allowNutrients && bmEval?.absErrSugarG != null ? bmEval.absErrSugarG : '',
       initN ? initN.fatG : '',
       finalN ? finalN.fatG : '',
       rec.note || '',

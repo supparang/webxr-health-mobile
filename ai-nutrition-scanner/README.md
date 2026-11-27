@@ -13,6 +13,7 @@ Mobile-first Thai food nutrition scanner, GDA label logger, multi-dish meal plan
   - **ระบบ B (Uncertainty-Adaptive)**: คำนวณความไม่แน่นอนและปัจจัยซ่อนเร้นอาหารไทย (น้ำมัน, ความหวาน, น้ำซุป, ไข่, หนังสัตว์, น้ำจิ้ม) เพื่อเลือกถามเฉพาะ **0–3 ข้อ** ที่กระทบโภชนาการมากที่สุด พร้อมตัวปรับค่าแบบตรวจสอบได้ (`initial_*` vs `final_*`)
   - **ระบบ C (Fixed Questionnaire)**: ถามชุดคำถามมาตรฐานคงที่ **5 ข้อทุกมื้อ** เพื่อควบคุมตัวแปรเปรียบเทียบ
   - รองรับ URL ล็อกเงื่อนไขสำหรับผู้เข้าร่วมทดลอง เช่น `?arm=B&pid=P01&session=S1&lock=1`, ตารางสรุปเปรียบเทียบ A/B/C แบบเรียลไทม์, แบบประเมินสั้น 1–5 ท้ายมื้อ, และส่งออก **Research CSV (A/B/C)** พร้อมคอลัมน์ Telemetry ครบถ้วนสำหรับ SPSS/R/Python
+  - **6-Case A/B/C Benchmark Suite (`benchmark.js` + แท็บ `Benchmark A/B/C (6)`)**: ชุดภาพทดสอบมาตรฐาน 6 กรณี (`BM01`–`BM06`) แบ่ง 3 กลุ่มความท้าทาย — ปัจจัยซ่อนเร้น (`BM01`–`BM04`), ภาพชัดไม่ซับซ้อน (`BM05` ไข่ต้มที่ระบบ B ถาม 0 ข้อ), และภาพเบลอแสงน้อยที่ระบบภาพเดี่ยวทายผิด (`BM06`) — พร้อมโจทย์จำลองผู้เข้าร่วมและคำนวณ Top-1 Accuracy / MAE (kcal, โซเดียม, น้ำตาล) อัตโนมัติทั้งบนหน้าจอและใน Research CSV
 - **Structured AI Vision Server Mode (`server.mjs` + `vision.mjs`)**:
   - Pure Node.js 22 ESM HTTP server (zero external npm dependencies).
   - Magic-byte signature verification for JPEG/PNG/WebP, 5 MB payload guard, OpenAI Responses API **strict JSON Schema** (`additionalProperties: false`), explicit `matched` / `uncertain` / `not_food` outcomes, and safe refusal/error handling.

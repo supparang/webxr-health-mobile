@@ -34,6 +34,13 @@ import {
   selectClarificationQuestions,
   summarizeExperimentByArm,
 } from './experiment.js';
+import {
+  ABC_BENCHMARK_CASES,
+  BENCHMARK_STRATA,
+  evaluateTrialAgainstBenchmark,
+  getBenchmarkById,
+  summarizeBenchmarkByArm,
+} from './benchmark.js';
 
 const STORAGE_KEY = 'nutrilens_th_meal_history_v1';
 const PROFILE_STORAGE_KEY = 'nutrilens_th_profile_v1';
@@ -85,11 +92,12 @@ const initialStudy = loadInitialStudyConfig();
 
 const state = {
   mode: 'demo', // 'demo' | 'ai'
-  captureTab: 'photo', // 'photo' | 'gda'
+  captureTab: 'photo', // 'photo' | 'gda' | 'benchmark'
   arm: initialStudy.arm, // 'A' | 'B' | 'C'
   participantId: initialStudy.participantId,
   sessionId: initialStudy.sessionId,
   armLocked: initialStudy.armLocked,
+  activeBenchmarkId: null,
   activeQuestions: [],
   clarificationAnswers: {},
   trialTiming: {
@@ -103,7 +111,7 @@ const state = {
   perceivedConfidence: null,
   serverHealth: { reachable: false, aiConfigured: false, model: '' },
   profileSettings: loadProfileSettings(),
-  selectedImage: null, // { dataUrl, filename, presetId, sizeBytes, compressionNote }
+  selectedImage: null, // { dataUrl, filename, presetId, sizeBytes, compressionNote, benchmarkId }
   scanning: false,
   scanResult: null,
   dishSearchQuery: '',
@@ -155,8 +163,13 @@ const els = {
 
   tabPhotoBtn: document.getElementById('tabPhotoBtn'),
   tabGdaBtn: document.getElementById('tabGdaBtn'),
+  tabBenchmarkBtn: document.getElementById('tabBenchmarkBtn'),
   photoPane: document.getElementById('photoPane'),
   gdaPane: document.getElementById('gdaPane'),
+  benchmarkPane: document.getElementById('benchmarkPane'),
+  benchmarkSelectedBanner: document.getElementById('benchmarkSelectedBanner'),
+  runBenchmarkScanBtn: document.getElementById('runBenchmarkScanBtn'),
+  benchmarkGrid: document.getElementById('benchmarkGrid'),
 
   dropzone: document.getElementById('dropzone'),
   emptyStage: document.getElementById('emptyStage'),
@@ -204,6 +217,7 @@ const els = {
   provenanceBadge: document.getElementById('provenanceBadge'),
   resultPlaceholder: document.getElementById('resultPlaceholder'),
   resultContent: document.getElementById('resultContent'),
+  step2ScenarioBanner: document.getElementById('step2ScenarioBanner'),
   allergenAlert: document.getElementById('allergenAlert'),
   outcomeBanner: document.getElementById('outcomeBanner'),
   outcomeTitle: document.getElementById('outcomeTitle'),
@@ -621,16 +635,104 @@ function renderHistoryFilters() {
   }
 }
 
-/* ---------- Capture Tab & Barcode / Thai GDA ---------- */
+/* ---------- Capture Tab, Benchmark Suite & Barcode / Thai GDA ---------- */
 function setCaptureTab(tab) {
-  state.captureTab = tab === 'gda' ? 'gda' : 'photo';
+  state.captureTab = tab === 'gda' ? 'gda' : tab === 'benchmark' ? 'benchmark' : 'photo';
   const isPhoto = state.captureTab === 'photo';
+  const isGda = state.captureTab === 'gda';
+  const isBench = state.captureTab === 'benchmark';
+
   els.tabPhotoBtn.setAttribute('aria-selected', String(isPhoto));
-  els.tabGdaBtn.setAttribute('aria-selected', String(!isPhoto));
+  els.tabGdaBtn.setAttribute('aria-selected', String(isGda));
+  els.tabBenchmarkBtn.setAttribute('aria-selected', String(isBench));
+
   els.photoPane.hidden = !isPhoto;
-  els.gdaPane.hidden = isPhoto;
-  if (isPhoto) {
+  els.gdaPane.hidden = !isGda;
+  els.benchmarkPane.hidden = !isBench;
+
+  if (!isGda) {
     stopBarcodeCamera();
+  }
+}
+
+function updateBenchmarkPressedStates(activeId) {
+  for (const btn of els.benchmarkGrid.querySelectorAll('.benchmark-card')) {
+    btn.setAttribute('aria-pressed', String(btn.dataset.benchmarkId === activeId));
+  }
+}
+
+function renderBenchmarkGrid() {
+  els.benchmarkGrid.innerHTML = '';
+  for (const bm of ABC_BENCHMARK_CASES) {
+    const stratum = BENCHMARK_STRATA[bm.stratum];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'benchmark-card';
+    btn.dataset.benchmarkId = bm.id;
+    btn.setAttribute('aria-pressed', String(state.activeBenchmarkId === bm.id));
+
+    const img = document.createElement('img');
+    img.className = 'sample-thumb';
+    img.src = bm.imagePath;
+    img.alt = bm.titleTh;
+    img.loading = 'lazy';
+
+    const body = document.createElement('div');
+    body.className = 'benchmark-card-body';
+
+    const top = document.createElement('div');
+    top.className = 'benchmark-card-top';
+
+    const idEl = document.createElement('span');
+    idEl.className = 'benchmark-id';
+    idEl.textContent = bm.id;
+
+    const badge = document.createElement('span');
+    badge.className = 'stratum-badge';
+    badge.dataset.stratum = bm.stratum;
+    badge.textContent = stratum?.labelTh || bm.stratum;
+
+    top.append(idEl, badge);
+
+    const title = document.createElement('span');
+    title.className = 'sample-name';
+    title.textContent = bm.titleTh;
+
+    body.append(top, title);
+    btn.append(img, body);
+    btn.addEventListener('click', () => selectBenchmarkCase(bm));
+    els.benchmarkGrid.appendChild(btn);
+  }
+}
+
+async function selectBenchmarkCase(bm) {
+  showUploadError('');
+  try {
+    const res = await fetch(bm.imagePath);
+    if (!res.ok) throw new Error('โหลดภาพ Benchmark ไม่สำเร็จ');
+    const blob = await res.blob();
+    const dataUrl = await blobToDataUrl(blob);
+
+    state.activeBenchmarkId = bm.id;
+    setSelectedImage({
+      dataUrl,
+      filename: `${bm.id.toLowerCase()}.jpg`,
+      presetId: bm.demoScanOverride.foodId,
+      sizeBytes: blob.size,
+      compressionNote: '',
+      benchmarkId: bm.id,
+    });
+
+    updateBenchmarkPressedStates(bm.id);
+    els.benchmarkSelectedBanner.hidden = false;
+    els.benchmarkSelectedBanner.innerHTML = '';
+    const strong = document.createElement('strong');
+    strong.textContent = `${bm.id}: ${bm.titleTh}`;
+    const txt = document.createTextNode(bm.scenarioPromptTh);
+    els.benchmarkSelectedBanner.append(strong, txt);
+    els.runBenchmarkScanBtn.disabled = false;
+  } catch {
+    showUploadError('ไม่สามารถโหลดภาพ Benchmark ได้ กรุณาลองใหม่');
   }
 }
 
@@ -871,8 +973,16 @@ function updateSamplePressedStates(activePresetId) {
   }
 }
 
-function setSelectedImage({ dataUrl, filename, presetId = null, sizeBytes = 0, compressionNote = '' }) {
-  state.selectedImage = { dataUrl, filename, presetId, sizeBytes, compressionNote };
+function setSelectedImage({
+  dataUrl,
+  filename,
+  presetId = null,
+  sizeBytes = 0,
+  compressionNote = '',
+  benchmarkId = null,
+}) {
+  state.activeBenchmarkId = benchmarkId;
+  state.selectedImage = { dataUrl, filename, presetId, sizeBytes, compressionNote, benchmarkId };
   showUploadError('');
   showSaveFeedback('');
 
@@ -895,11 +1005,17 @@ function setSelectedImage({ dataUrl, filename, presetId = null, sizeBytes = 0, c
   }
 
   els.scanBtn.disabled = false;
-  updateSamplePressedStates(presetId);
+  updateSamplePressedStates(benchmarkId ? null : presetId);
+  if (!benchmarkId) {
+    updateBenchmarkPressedStates(null);
+    els.benchmarkSelectedBanner.hidden = true;
+    els.runBenchmarkScanBtn.disabled = true;
+  }
 }
 
 function clearSelectedImage() {
   state.selectedImage = null;
+  state.activeBenchmarkId = null;
   state.scanResult = null;
   state.trayItems = [];
   els.previewImage.src = '';
@@ -910,9 +1026,13 @@ function clearSelectedImage() {
   els.clearImageBtn.hidden = true;
   els.dropzone.classList.remove('has-image');
   els.scanBtn.disabled = true;
+  els.runBenchmarkScanBtn.disabled = true;
+  els.benchmarkSelectedBanner.hidden = true;
+  els.step2ScenarioBanner.hidden = true;
   els.fileInput.value = '';
   els.cameraInput.value = '';
   updateSamplePressedStates(null);
+  updateBenchmarkPressedStates(null);
   showUploadError('');
   showSaveFeedback('');
   els.resultPlaceholder.hidden = false;
@@ -1209,9 +1329,14 @@ function renderClarificationPanel(adjustmentLog, baseKcal, finalKcal) {
 /* ---------- Scan & Multi-Dish Tray ---------- */
 function setScanningState(isScanning) {
   state.scanning = isScanning;
+  document.body.dataset.scanning = String(isScanning);
   els.scanOverlay.hidden = !isScanning;
   els.scanBtn.disabled = isScanning || !state.selectedImage;
   els.scanBtn.textContent = isScanning ? 'กำลังวิเคราะห์ภาพ…' : 'สแกนวิเคราะห์อาหาร';
+  els.runBenchmarkScanBtn.disabled = isScanning || !state.activeBenchmarkId;
+  els.runBenchmarkScanBtn.textContent = isScanning
+    ? 'กำลังวิเคราะห์กรณี Benchmark…'
+    : 'สแกนทดสอบกรณี Benchmark ที่เลือก';
 }
 
 async function runScan() {
@@ -1221,6 +1346,7 @@ async function runScan() {
   setScanningState(true);
 
   const scanStartedAt = Date.now();
+  const activeBm = getBenchmarkById(state.activeBenchmarkId);
 
   try {
     if (state.mode === 'ai') {
@@ -1248,10 +1374,12 @@ async function runScan() {
       };
     } else {
       await new Promise((resolve) => setTimeout(resolve, 200));
-      const demoRes = demoClassifyImage({
-        filename: state.selectedImage.filename,
-        presetId: state.selectedImage.presetId,
-      });
+      const demoRes = activeBm
+        ? { ...activeBm.demoScanOverride, provenance: PROVENANCE.ILLUSTRATIVE_DEMO }
+        : demoClassifyImage({
+            filename: state.selectedImage.filename,
+            presetId: state.selectedImage.presetId,
+          });
       state.scanResult = {
         mode: 'demo',
         ...demoRes,
@@ -1428,6 +1556,19 @@ function renderResultPanel() {
   const primary = state.trayItems[0];
   const primaryDish = getDishById(primary.foodId);
 
+  // Show Benchmark scenario prompt if running a benchmark case
+  const activeBm = getBenchmarkById(state.activeBenchmarkId);
+  if (activeBm) {
+    els.step2ScenarioBanner.hidden = false;
+    els.step2ScenarioBanner.innerHTML = '';
+    const st = document.createElement('strong');
+    st.textContent = `กำลังทดสอบ ${activeBm.id}: ${activeBm.titleTh}`;
+    els.step2ScenarioBanner.append(st, document.createTextNode(activeBm.scenarioPromptTh));
+  } else {
+    els.step2ScenarioBanner.hidden = true;
+    els.step2ScenarioBanner.textContent = '';
+  }
+
   // In Arm A (Photo-Only baseline), keep flow strictly photo-only (hide manual edit/tray unless unknown)
   els.manualEditControls.hidden = state.arm === 'A' && Boolean(primaryDish);
 
@@ -1591,6 +1732,7 @@ function saveCurrentMeal() {
     arm: state.arm,
     participantId: state.participantId,
     sessionId: state.sessionId,
+    benchmarkId: state.activeBenchmarkId || '',
     initialFoodId: state.trialTiming.initialFoodId,
     portionUncertainty: state.trialTiming.portionUncertainty,
     dishChanged: primary.foodId !== state.trialTiming.initialFoodId,
@@ -1608,6 +1750,10 @@ function saveCurrentMeal() {
     initialNutrients,
   };
 
+  if (state.activeBenchmarkId) {
+    record.experiment.benchmarkEval = evaluateTrialAgainstBenchmark(record);
+  }
+
   state.history.unshift(record);
   persistHistory();
   els.mealNoteInput.value = '';
@@ -1615,8 +1761,9 @@ function saveCurrentMeal() {
   renderArmComparison();
   renderSevenDayChart();
   renderHistoryList();
+  const bmTag = state.activeBenchmarkId ? ` • ${state.activeBenchmarkId}` : '';
   showSaveFeedback(
-    `บันทึก "${record.foodNameTh}" (ระบบ ${state.arm} • ${getMealLabel(record.mealType)}) เรียบร้อยแล้ว`
+    `บันทึก "${record.foodNameTh}" (ระบบ ${state.arm}${bmTag} • ${getMealLabel(record.mealType)}) เรียบร้อยแล้ว`
   );
 }
 
@@ -1712,10 +1859,12 @@ function renderSevenDayChart() {
 
 function renderArmComparison() {
   const byArm = summarizeExperimentByArm(state.history);
+  const bmByArm = summarizeBenchmarkByArm(state.history);
   els.armCompareGrid.innerHTML = '';
 
   for (const armId of ['A', 'B', 'C']) {
     const stat = byArm[armId];
+    const bmStat = bmByArm[armId];
     const meta = EXPERIMENT_ARMS[armId];
     const card = document.createElement('div');
     card.className = 'arm-stat-card';
@@ -1740,6 +1889,16 @@ function renderArmComparison() {
     line2.textContent = `เวลาเฉลี่ย ${durStr} • ง่าย ${easeStr} • มั่นใจ ${confStr}`;
 
     card.append(title, line1, line2);
+
+    if (bmStat.benchmarkCount > 0) {
+      const line3 = document.createElement('span');
+      line3.className = 'arm-stat-line';
+      const maeKcalStr = bmStat.maeKcal !== null ? `MAE ${bmStat.maeKcal} kcal` : 'AI-only';
+      const maeSodStr = bmStat.maeSodiumMg !== null ? ` • โซเดียม ${bmStat.maeSodiumMg} มก.` : '';
+      line3.textContent = `Benchmark (${bmStat.benchmarkCount}): แม่นเมนู ${bmStat.dishAccuracyPct}% • ${maeKcalStr}${maeSodStr}`;
+      card.appendChild(line3);
+    }
+
     els.armCompareGrid.appendChild(card);
   }
 }
@@ -2097,6 +2256,8 @@ function bindEvents() {
 
   els.tabPhotoBtn.addEventListener('click', () => setCaptureTab('photo'));
   els.tabGdaBtn.addEventListener('click', () => setCaptureTab('gda'));
+  els.tabBenchmarkBtn.addEventListener('click', () => setCaptureTab('benchmark'));
+  els.runBenchmarkScanBtn.addEventListener('click', runScan);
 
   els.cameraBtn.addEventListener('click', () => els.cameraInput.click());
   els.uploadBtn.addEventListener('click', () => els.fileInput.click());
@@ -2217,6 +2378,7 @@ function init() {
   renderDishSelectOptions();
   renderCompanionSelectOptions();
   renderSampleCards();
+  renderBenchmarkGrid();
   renderBarcodeSampleChips();
   renderGdaPreview();
   renderMealTypeButtons();

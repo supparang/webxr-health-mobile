@@ -161,9 +161,11 @@ test('parseExperimentParams, summarizeExperimentByArm, and researchTrialsToCsv w
 
   const lines = csv.slice(1).split('\r\n');
   assert.equal(lines.length, 3);
+  const headers = lines[0].split(',');
   const aiCols = lines[2].split(',');
-  // initial/final nutrient columns (24..31) must be blank for AI trial
-  for (let i = 24; i <= 31; i += 1) {
-    assert.equal(aiCols[i], '', `Research CSV AI nutrient col ${i} must be blank`);
-  }
+  headers.forEach((h, i) => {
+    if (/(kcal|sodium|sugar|fat)/.test(h)) {
+      assert.equal(aiCols[i], '', `Research CSV AI nutrient column "${h}" must be blank`);
+    }
+  });
 });

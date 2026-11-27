@@ -155,17 +155,38 @@ async function run() {
     assert.equal(await page.locator('#questionList .question-card').count(), 5, 'Arm C must always show 5 fixed questions');
     await page.click('#saveMealBtn');
 
-    // Verify Research CSV export
+    // Benchmark A/B/C Suite E2E check: BM05 (0 Q in Arm B) & BM06 (low-light recovery in Arm B)
+    await page.click('#tabBenchmarkBtn');
+    await page.click('#armBtnB');
+    await page.click('.benchmark-card[data-benchmark-id="BM05"]');
+    await page.click('#runBenchmarkScanBtn');
+    await page.waitForSelector('body[data-scanning="false"]');
+    await page.waitForSelector('#step2ScenarioBanner:not([hidden])');
+    assert.equal(await page.locator('#questionList .question-card').count(), 0, 'BM05 boiled egg in Arm B must ask 0 questions');
+    await page.click('#saveMealBtn');
+
+    await page.click('.benchmark-card[data-benchmark-id="BM06"]');
+    await page.click('#runBenchmarkScanBtn');
+    await page.waitForSelector('body[data-scanning="false"]');
+    assert.equal(await page.locator('#questionList .question-card').count(), 3, 'BM06 blurry photo in Arm B must ask 3 questions');
+    await page.click('button[data-q-id="q_dish_confirm"][data-q-val="pad_krapow_gai"]');
+    await page.click('button[data-q-id="q_portion"][data-q-val="1.5"]');
+    await page.click('#saveMealBtn');
+
+    // Verify Research CSV export includes benchmark evaluation columns
     const [researchDl] = await Promise.all([
       page.waitForEvent('download'),
       page.click('#exportResearchCsvBtn'),
     ]);
     const researchCsv = await fs.readFile(await researchDl.path(), 'utf8');
     assert.ok(researchCsv.startsWith('\uFEFF'));
+    assert.match(researchCsv, /benchmark_id,benchmark_stratum/);
+    assert.match(researchCsv, /BM06,visual_ambiguous/);
     assert.match(researchCsv, /questions_shown_count,questions_answered_count/);
     assert.match(researchCsv, /q_oil_level\|q_egg_style/);
 
-    // Switch back to Arm B + AI Vision mode safety check
+    // Switch back to Photo tab + Arm B + AI Vision mode safety check
+    await page.click('#tabPhotoBtn');
     await page.click('#armBtnB');
     await page.click('#modeAiBtn');
     await page.click('.sample-card[data-preset-id="tom_yum_kung"]');
