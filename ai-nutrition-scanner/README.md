@@ -1,49 +1,57 @@
-# 🥗 AI Nutrition Scanner (Thai Food Nutrition & Clinical Insights)
+# NutriLens TH — AI Nutrition Scanner (`ai-nutrition-scanner`)
 
-ระบบประเมินพลังงานและสารอาหารจากภาพอาหารไทยด้วย **Google Gemini Vision AI** ร่วมกับฐานข้อมูลคุณค่าทางโภชนาการอาหารไทย (**INMU Thai FCD & สำนักโภชนาการ กรมอนามัย กระทรวงสาธารณสุข**)
+Mobile-first Thai food nutrition scanner, GDA label logger, multi-dish meal planner, and 7-day tracker built as an isolated PWA module (zero changes to HeroHealth production runtime).
 
----
+## Key Features
+- **Mobile-first Thai UI & Client-side Auto-Compression**: Camera capture (`capture="environment"`), file upload/drag-and-drop, automatic browser Canvas image resize/compression for large phone photos (up to 25 MB raw → optimized JPEG), plus 3 real sample Thai dish presets.
+- **Multi-dish / Combo Meal Tray (อาหารหลายเมนูใน 1 มื้อ)**: Combine scanned main dishes with Thai sides (e.g., ส้มตำไทย + ข้าวเหนียวนึ่ง + ไก่ย่าง) from a searchable 20-dish Thai catalog + custom entry, with per-item portion multipliers (`0.25×`–`4×`).
+- **Barcode & Thai GDA Label Helper (บาร์โค้ด / ฉลากหวาน มัน เค็ม)**: Live camera barcode scanning (`BarcodeDetector` API where supported), manual EAN-13 lookup with 4 Thai packaged sample fixtures, interactive 4-capsule Thai GDA preview (`พลังงาน / น้ำตาล / ไขมัน / โซเดียม`), and direct user-entered label logging (`USER_ENTERED_GDA_LABEL`).
+- **Age-Band Personal Goals & Allergen Alerts (ตั้งเป้าหมายตามวัยและสารก่อภูมิแพ้)**: Presets for ป.1–ป.3, ป.4–ป.6, ม.1–ม.6, Thai RDI Adult, and custom targets; optional Low-Sodium / Low-Sugar / High-Protein focus toggles; instant allergen alerts (`ถั่วลิสง`, `กุ้ง/อาหารทะเล`, `ไข่`, `นม`, `ถั่วเหลือง/กลูเตน`).
+- **7-Day Trend SVG Chart, Inline History Edit, CSV Export & Offline PWA**: Local-only `localStorage` persistence, inline editing of saved meals, 7-day responsive SVG bar chart with goal threshold line, UTF-8 BOM CSV export (with formula-injection escaping), and offline-ready PWA (`manifest.webmanifest` + `sw.js`).
+- **3-Arm Controlled Study Mode (ระบบ A / B / C สำหรับงานวิจัย)**:
+  - **ระบบ A (Photo-Only)**: ใช้ภาพถ่ายอย่างเดียว (0 คำถาม) เพื่อวัดเวลาและความแม่นยำพื้นฐาน
+  - **ระบบ B (Uncertainty-Adaptive)**: คำนวณความไม่แน่นอนและปัจจัยซ่อนเร้นอาหารไทย (น้ำมัน, ความหวาน, น้ำซุป, ไข่, หนังสัตว์, น้ำจิ้ม) เพื่อเลือกถามเฉพาะ **0–3 ข้อ** ที่กระทบโภชนาการมากที่สุด พร้อมตัวปรับค่าแบบตรวจสอบได้ (`initial_*` vs `final_*`)
+  - **ระบบ C (Fixed Questionnaire)**: ถามชุดคำถามมาตรฐานคงที่ **5 ข้อทุกมื้อ** เพื่อควบคุมตัวแปรเปรียบเทียบ
+  - รองรับ URL ล็อกเงื่อนไขสำหรับผู้เข้าร่วมทดลอง เช่น `?arm=B&pid=P01&session=S1&lock=1`, ตารางสรุปเปรียบเทียบ A/B/C แบบเรียลไทม์, แบบประเมินสั้น 1–5 ท้ายมื้อ, และส่งออก **Research CSV (A/B/C)** พร้อมคอลัมน์ Telemetry ครบถ้วนสำหรับ SPSS/R/Python
+  - **6-Case A/B/C Benchmark Suite (`benchmark.js` + แท็บ `Benchmark A/B/C (6)`)**: ชุดภาพทดสอบมาตรฐาน 6 กรณี (`BM01`–`BM06`) แบ่ง 3 กลุ่มความท้าทาย — ปัจจัยซ่อนเร้น (`BM01`–`BM04`), ภาพชัดไม่ซับซ้อน (`BM05` ไข่ต้มที่ระบบ B ถาม 0 ข้อ), และภาพเบลอแสงน้อยที่ระบบภาพเดี่ยวทายผิด (`BM06`) — พร้อมโจทย์จำลองผู้เข้าร่วมและคำนวณ Top-1 Accuracy / MAE (kcal, โซเดียม, น้ำตาล) อัตโนมัติทั้งบนหน้าจอและใน Research CSV
+- **Structured AI Vision Gateway (`server.mjs` + `vision.mjs` + `worker/`)**:
+  - Supports **Gemini Vision AI (`gemini-2.5-flash`)** and **OpenAI Responses API** (`AI_PROVIDER=gemini | openai`), with **Open-Vocabulary food recognition** (`detected_name_th`) for scanning any food/drink photo beyond the 20-dish catalog.
+  - Zero external npm dependencies; magic-byte JPEG/PNG/WebP validation, 5 MB limit, optional **Study Access Code** (`STUDY_ACCESS_CODE`, no per-user login required), per-IP rate limiting (`RATE_LIMIT_MAX_PER_MIN`), CORS allowlist, and safe refusal/timeout/error handling.
+  - Includes a ready-to-deploy **Cloudflare Worker Proxy** (`worker/`) so `GEMINI_API_KEY` is configured **once** on the server and works automatically on every device opening GitHub Pages — see [`DEPLOY_GEMINI_WORKER.md`](./DEPLOY_GEMINI_WORKER.md).
+  - **Scientific Safety Invariant**: AI Vision mode **never** displays or exports unverified illustrative nutrient fixtures; it saves confirmed dish names, portions, and provenance (`AI_CLASSIFICATION_ONLY_NO_UNVERIFIED_NUTRIENTS`) until verified Thai FCD records are integrated.
 
-## ✨ ฟีเจอร์หลัก (Key Features)
+## Running Locally
 
-1. **📸 วิเคราะห์ภาพถ่ายอาหารจริงด้วย Gemini Vision AI (`gemini-2.0-flash` / `gemini-1.5-flash`)**
-   - รองรับทั้ง 30 เมนูอาหารไทยมาตรฐาน และอาหารทั่วไปทุกชนิด (`custom`)
-   - แสดงส่วนประกอบในจานที่ AI มองเห็นจากภาพจริง (`detected_components`)
-   - รองรับการถ่ายผ่านกล้องเว็บแคม/มือถือ, อัปโหลดไฟล์รูป, ปุ่มเมนูตัวอย่างด่วน 6 เมนู และแท็บค้นหาเมนูโดยตรง
+### 1. Static Demo / PWA Mode (no API key required)
+```bash
+python3 -m http.server 5500 --directory ai-nutrition-scanner
+# Open http://127.0.0.1:5500/
+```
 
-2. **📚 ข้อมูลโภชนาการแม่นยำตามหลักวิชาการ 100%**
-   - สมการพลังงานมาตรฐานสากล **FAO/WHO Atwater System**: $\text{พลังงาน (kcal)} = (\text{โปรตีน}\times 4) + (\text{คาร์โบไฮเดรต}\times 4) + (\text{ไขมัน}\times 9)$ ตรงกันทุกทศนิยม 100%
-   - แสดงค่า **พลังงาน, โปรตีน, คาร์โบไฮเดรต, ไขมัน, โซเดียม (mg), น้ำตาล (g), ใยอาหาร (g), คอเลสเตอรอล (mg)** และ **วิตามิน/แร่ธาตุเด่น**
-   - เทียบสัดส่วนร้อยละของปริมาณที่แนะนำต่อวัน (**% Thai RDI** ตามประกาศกระทรวงสาธารณสุข / กรมอนามัย และเกณฑ์น้ำตาล WHO)
-
-3. **⚖️ เครื่องมือดูแลสุขภาพเฉพาะบุคคล**
-   - **BMR & TDEE Calculator**: คำนวณพลังงานที่ควรได้รับต่อวันด้วยสมการ *Mifflin-St Jeor*
-   - **Quick Portion & Add-ons**: ปรับขนาดจาน (`ครึ่งจาน 0.6x`, `จานปกติ 1.0x`, `พิเศษ 1.3x`) และกดเพิ่ม/ลดท็อปปิ้ง (`+ไข่ดาว`, `+ไข่ต้ม`, `ลดข้าวครึ่งหนึ่ง`, `ผัดน้ำ`, `ไม่ซดน้ำแกง ลดโซเดียม 45%`)
-   - **สัญญาณไฟจราจร (หวาน-มัน-เค็ม)**, **โหมดแจ้งเตือนโรคประจำตัว (NCDs)**, **แนะนำเมนูทางเลือกสุขภาพ (Smart Healthy Swap)** และ **ส่งออกรายงานเป็นไฟล์ CSV (Excel)**
-
----
-
-## 🚀 วิธีรันใช้งาน (Quick Start)
-
-### วิธีที่ 1: รันด้วย Node.js (เสิร์ฟทั้ง Backend API + Frontend ในพอร์ตเดียว)
+### 2. Full Server Mode (Demo + GDA + Gemini/OpenAI AI Vision Gateway)
 ```bash
 cd ai-nutrition-scanner
-npm run build
+export GEMINI_API_KEY="AIza..."      # Recommended (or OPENAI_API_KEY="sk-...")
+export STUDY_ACCESS_CODE="NUTRI2026" # Optional cohort access code (no login needed)
 npm start
+# Open http://127.0.0.1:8787/
 ```
-เปิดเบราว์เซอร์ไปที่ `http://localhost:8000`
 
-### วิธีที่ 2: รันแยก Backend (Python FastAPI) และ Frontend (Vite Dev Server)
-**Backend:**
+### 3. Central Cloudflare Worker Deployment (Set API Key Once for All Devices)
+See step-by-step Thai guide in [`DEPLOY_GEMINI_WORKER.md`](./DEPLOY_GEMINI_WORKER.md).
+
+## Automated Tests & QA
 ```bash
-cd ai-nutrition-scanner/backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+cd ai-nutrition-scanner
+npm test
 ```
-**Frontend:**
+
+Playwright browser smoke test (Desktop 1280×800, Mobile 390×844, Compact Mobile 320×568):
 ```bash
-cd ai-nutrition-scanner/frontend
-npm install
-npm run dev
+cd ai-nutrition-scanner
+npm run qa:browser
 ```
-เปิดเบราว์เซอร์ไปที่ `http://localhost:5173`
+
+## Scientific & Deployment Notes
+- GitHub Pages serves static files only and cannot run `/api/analyze`. The UI detects static hosting via `/api/health` automatically.
+- Demo nutrient values are **illustrative fixtures for prototyping and educational UI testing**, not validated clinical measurements. See [`data/THAI_FCD_INTEGRATION.md`](./data/THAI_FCD_INTEGRATION.md) for the Thai FCD integration plan.
