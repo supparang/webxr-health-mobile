@@ -256,10 +256,14 @@ export function normalizeArm(arm) {
 export function parseExperimentParams(searchString = '') {
   const params = new URLSearchParams(searchString || '');
   const armParam = params.get('arm');
+  const rawApi = String(params.get('api') || '').trim();
+  const safeApi = /^https?:\/\//i.test(rawApi) ? rawApi.replace(/\/+$/, '') : '';
   return {
     arm: armParam ? normalizeArm(armParam) : null,
     participantId: String(params.get('pid') || '').trim().slice(0, 40),
     sessionId: String(params.get('session') || '').trim().slice(0, 40),
+    accessCode: String(params.get('code') || '').trim().slice(0, 40),
+    apiBase: safeApi,
     locked: params.get('lock') === '1' || params.get('lock') === 'true',
   };
 }

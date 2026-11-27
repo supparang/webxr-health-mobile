@@ -41,6 +41,7 @@ import {
   getBenchmarkById,
   summarizeBenchmarkByArm,
 } from './benchmark.js';
+import { APP_CONFIG } from './config.js';
 
 const STORAGE_KEY = 'nutrilens_th_meal_history_v1';
 const PROFILE_STORAGE_KEY = 'nutrilens_th_profile_v1';
@@ -71,6 +72,11 @@ const TREND_METRICS = Object.freeze({
   totalCount: { label: 'จำนวนมื้อ', unit: 'มื้อ' },
 });
 
+function normalizeApiBase(raw) {
+  const trimmed = String(raw || '').trim().replace(/\/+$/, '');
+  return /^https?:\/\//i.test(trimmed) ? trimmed : '';
+}
+
 function loadInitialStudyConfig() {
   const urlParams = parseExperimentParams(window.location.search);
   let saved = {};
@@ -84,6 +90,11 @@ function loadInitialStudyConfig() {
     arm: urlParams.arm || normalizeArm(saved.arm || 'B'),
     participantId: urlParams.participantId || saved.participantId || '',
     sessionId: urlParams.sessionId || saved.sessionId || '',
+    studyAccessCode: urlParams.accessCode || saved.studyAccessCode || '',
+    remoteApiBase:
+      urlParams.apiBase ||
+      normalizeApiBase(saved.remoteApiBase) ||
+      normalizeApiBase(APP_CONFIG.DEFAULT_AI_API_BASE),
     armLocked: Boolean(urlParams.locked),
   };
 }
@@ -96,6 +107,8 @@ const state = {
   arm: initialStudy.arm, // 'A' | 'B' | 'C'
   participantId: initialStudy.participantId,
   sessionId: initialStudy.sessionId,
+  studyAccessCode: initialStudy.studyAccessCode,
+  remoteApiBase: initialStudy.remoteApiBase,
   armLocked: initialStudy.armLocked,
   activeBenchmarkId: null,
   activeQuestions: [],
@@ -109,7 +122,13 @@ const state = {
   },
   perceivedEase: null,
   perceivedConfidence: null,
-  serverHealth: { reachable: false, aiConfigured: false, model: '' },
+  serverHealth: {
+    reachable: false,
+    aiConfigured: false,
+    provider: '',
+    model: '',
+    accessCodeRequired: false,
+  },
   profileSettings: loadProfileSettings(),
   selectedImage: null, // { dataUrl, filename, presetId, sizeBytes, compressionNote, benchmarkId }
   scanning: false,
@@ -142,6 +161,8 @@ const els = {
   armDescriptionText: document.getElementById('armDescriptionText'),
   participantIdInput: document.getElementById('participantIdInput'),
   sessionIdInput: document.getElementById('sessionIdInput'),
+  studyAccessCodeInput: document.getElementById('studyAccessCodeInput'),
+  remoteApiUrlInput: document.getElementById('remoteApiUrlInput'),
   copyLinkBtns: Array.from(document.querySelectorAll('[data-copy-arm]')),
   copyLinkFeedback: document.getElementById('copyLinkFeedback'),
 
@@ -904,6 +925,14 @@ function saveGdaMeal() {
 }
 
 /* ---------- Mode & Server Health ---------- */
+function buildApiUrl(endpointPath) {
+  const cleanPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+  if (state.remoteApiBase) {
+    return `${state.remoteApiBase}${cleanPath}`;
+  }
+  return `.${cleanPath}`;
+}
+
 function updateModeUi() {
   els.modeDemoBtn.setAttribute('aria-pressed', String(state.mode === 'demo'));
   els.modeAiBtn.setAttribute('aria-pressed', String(state.mode === 'ai'));
@@ -911,11 +940,15 @@ function updateModeUi() {
   if (state.mode === 'ai') {
     if (!state.serverHealth.reachable) {
       els.modeNotice.textContent =
-        'โหมด AI Vision ต้องเรียก API ฝั่งเซิร์ฟเวอร์ (/api/analyze) ซึ่งไม่สามารถทำงานบนหน้าเว็บแบบ Static อย่าง GitHub Pages ได้ กรุณารัน npm start ในเครื่อง หรือสลับกลับไปใช้โหมดทดลอง (Demo)';
+        'โหมด AI Vision ต้องเชื่อมต่อ AI Gateway กลาง (เช่น Cloudflare Worker หรือ npm start) — ตั้งค่า GEMINI_API_KEY เพียงครั้งเดียวที่เซิร์ฟเวอร์แล้วระบุ URL ใน config.js (ดู DEPLOY_GEMINI_WORKER.md) หรือสลับใช้โหมดทดลอง (Demo)';
       els.modeNotice.hidden = false;
     } else if (!state.serverHealth.aiConfigured) {
       els.modeNotice.textContent =
-        'เชื่อมต่อเซิร์ฟเวอร์ได้แล้ว แต่ยังไม่ได้ตั้งค่า OPENAI_API_KEY ฝั่งเซิร์ฟเวอร์ — หากกดสแกนระบบจะแจ้งเตือนอย่างปลอดภัย หรือคุณสามารถสลับใช้โหมดทดลอง (Demo) ได้ทันที';
+        'เชื่อมต่อเซิร์ฟเวอร์ได้แล้ว แต่ยังไม่ได้ตั้งค่า GEMINI_API_KEY หรือ OPENAI_API_KEY ฝั่งเซิร์ฟเวอร์ — คุณสามารถสลับใช้โหมดทดลอง (Demo) ได้ทันที';
+      els.modeNotice.hidden = false;
+    } else if (state.serverHealth.accessCodeRequired && !state.studyAccessCode) {
+      els.modeNotice.textContent =
+        'เซิร์ฟเวอร์เปิดล็อกด้วยรหัสรอบทดลอง (Study Code) — กรุณาเปิด "ตั้งค่างานวิจัย / ลิงก์ A-B-C" แล้วกรอกรหัสรอบทดลอง (ไม่ต้องสมัครสมาชิกหรือ Login)';
       els.modeNotice.hidden = false;
     } else {
       els.modeNotice.hidden = true;
@@ -938,29 +971,43 @@ function setMode(nextMode) {
 
 async function checkServerHealth() {
   try {
-    const res = await fetch('./api/health', {
+    const res = await fetch(buildApiUrl('/api/health'), {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
     });
     if (!res.ok) throw new Error('not ok');
     const data = await res.json();
     if (data && data.ok) {
+      const providerName =
+        data.provider === 'gemini'
+          ? 'Gemini AI'
+          : data.provider === 'openai'
+            ? 'OpenAI Vision'
+            : 'AI Server';
       state.serverHealth = {
         reachable: true,
         aiConfigured: Boolean(data.aiConfigured),
+        provider: data.provider || '',
         model: data.model || '',
+        accessCodeRequired: Boolean(data.accessCodeRequired),
       };
       els.serverStatusPill.dataset.state = data.aiConfigured ? 'ready' : 'static';
       els.serverStatusPill.textContent = data.aiConfigured
-        ? 'AI Server พร้อมใช้งาน'
+        ? `${providerName} พร้อมใช้งาน`
         : 'Server ทำงาน (ยังไม่มี API Key)';
       updateModeUi();
       return;
     }
   } catch {
-    // Static host
+    // Static host without configured remote Worker
   }
-  state.serverHealth = { reachable: false, aiConfigured: false, model: '' };
+  state.serverHealth = {
+    reachable: false,
+    aiConfigured: false,
+    provider: '',
+    model: '',
+    accessCodeRequired: false,
+  };
   els.serverStatusPill.dataset.state = 'static';
   els.serverStatusPill.textContent = 'โหมด Static (Demo)';
   updateModeUi();
@@ -1171,6 +1218,8 @@ function persistStudyConfig() {
         arm: state.arm,
         participantId: state.participantId,
         sessionId: state.sessionId,
+        studyAccessCode: state.studyAccessCode,
+        remoteApiBase: state.remoteApiBase,
       })
     );
   } catch {
@@ -1189,6 +1238,8 @@ function renderStudyControls() {
     : `${armMeta.titleTh} — ${armMeta.descriptionTh}`;
   els.participantIdInput.value = state.participantId;
   els.sessionIdInput.value = state.sessionId;
+  els.studyAccessCodeInput.value = state.studyAccessCode;
+  els.remoteApiUrlInput.value = state.remoteApiBase;
 }
 
 function setExperimentArm(nextArm) {
@@ -1350,9 +1401,14 @@ async function runScan() {
 
   try {
     if (state.mode === 'ai') {
-      const response = await fetch('./api/analyze', {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.studyAccessCode) {
+        headers['X-Study-Code'] = state.studyAccessCode;
+      }
+
+      const response = await fetch(buildApiUrl('/api/analyze'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ imageDataUrl: state.selectedImage.dataUrl }),
       });
 
@@ -1369,6 +1425,7 @@ async function runScan() {
 
       state.scanResult = {
         mode: 'ai',
+        provider: payload.provider || '',
         provenance: payload.provenance || PROVENANCE.AI_CLASSIFICATION_ONLY,
         ...payload.result,
       };
@@ -1387,6 +1444,10 @@ async function runScan() {
     }
 
     const initialFoodId = state.scanResult.foodId || UNKNOWN_DISH_ID;
+    const detectedOpenName =
+      initialFoodId === UNKNOWN_DISH_ID && state.scanResult.detectedNameTh
+        ? String(state.scanResult.detectedNameTh).trim().slice(0, 80)
+        : '';
     const initialPortion = clampPortionMultiplier(
       state.scanResult.suggestedPortionMultiplier || 1
     );
@@ -1395,12 +1456,12 @@ async function runScan() {
     state.dishSearchQuery = '';
     state.dishCategory = 'all';
     els.dishSearchInput.value = '';
-    els.customDishInput.value = '';
+    els.customDishInput.value = detectedOpenName;
     state.trayItems = [
       {
         uid: makeUid(),
         foodId: initialFoodId,
-        customFoodName: '',
+        customFoodName: detectedOpenName,
         portionMultiplier: initialPortion,
       },
     ];
@@ -2203,6 +2264,19 @@ function bindEvents() {
     persistStudyConfig();
   });
 
+  els.studyAccessCodeInput.addEventListener('input', () => {
+    state.studyAccessCode = els.studyAccessCodeInput.value.trim().slice(0, 40);
+    persistStudyConfig();
+    updateModeUi();
+  });
+
+  els.remoteApiUrlInput.addEventListener('change', () => {
+    state.remoteApiBase = normalizeApiBase(els.remoteApiUrlInput.value);
+    els.remoteApiUrlInput.value = state.remoteApiBase;
+    persistStudyConfig();
+    checkServerHealth();
+  });
+
   for (const btn of els.copyLinkBtns) {
     btn.addEventListener('click', async () => {
       const targetArm = btn.dataset.copyArm;
@@ -2213,6 +2287,10 @@ function bindEvents() {
       else url.searchParams.delete('pid');
       if (state.sessionId) url.searchParams.set('session', state.sessionId);
       else url.searchParams.delete('session');
+      if (state.studyAccessCode) url.searchParams.set('code', state.studyAccessCode);
+      else url.searchParams.delete('code');
+      if (state.remoteApiBase) url.searchParams.set('api', state.remoteApiBase);
+      else url.searchParams.delete('api');
 
       const linkStr = url.toString();
       try {

@@ -135,3 +135,76 @@ test('POST /api/analyze validates content-type, image signature, and returns moc
     await srv.close();
   }
 });
+
+test('server enforces Study Access Code (401), per-IP rate limit (429), and CORS preflight (204)', async () => {
+  const srv = await startTestServer({
+    studyAccessCode: 'NUTRI2026',
+    rateLimitPerMin: 2,
+    allowedOrigins: ['https://supparang.github.io'],
+    analyzeFn: async () => ({
+      ok: true,
+      mode: 'ai',
+      provider: 'gemini',
+      provenance: PROVENANCE.AI_CLASSIFICATION_ONLY,
+      result: {
+        outcome: 'matched',
+        foodId: 'unknown',
+        detectedNameTh: 'ซูชิแซลมอน',
+        confidence: 0.92,
+        suggestedPortionMultiplier: 1,
+        portionUncertainty: 'low',
+        topCandidates: ['unknown'],
+        hiddenFactors: ['sauce_amount'],
+        reasonTh: 'พบซูชิแซลมอน',
+        visibleComponentsTh: ['ข้าวปั้น', 'แซลมอน'],
+      },
+    }),
+  });
+
+  try {
+    // CORS preflight
+    const preflight = await fetch(`${srv.baseUrl}/api/analyze`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://supparang.github.io' },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://supparang.github.io');
+
+    // Health reports accessCodeRequired = true
+    const health = await (await fetch(`${srv.baseUrl}/api/health`)).json();
+    assert.equal(health.accessCodeRequired, true);
+
+    const payload = JSON.stringify({
+      imageDataUrl: `data:image/jpeg;base64,${VALID_JPEG_BUF.toString('base64')}`,
+    });
+
+    // Missing Study Access Code -> 401
+    const noCode = await fetch(`${srv.baseUrl}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    });
+    assert.equal(noCode.status, 401);
+
+    // Valid Study Access Code -> 200
+    const withCode = await fetch(`${srv.baseUrl}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Study-Code': 'NUTRI2026' },
+      body: payload,
+    });
+    assert.equal(withCode.status, 200);
+    const okJson = await withCode.json();
+    assert.equal(okJson.result.detectedNameTh, 'ซูชิแซลมอน');
+
+    // 3rd request within 1 minute exceeds rateLimitPerMin=2 -> 429
+    const limited = await fetch(`${srv.baseUrl}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Study-Code': 'NUTRI2026' },
+      body: payload,
+    });
+    assert.equal(limited.status, 429);
+    assert.ok(limited.headers.get('retry-after'));
+  } finally {
+    await srv.close();
+  }
+});

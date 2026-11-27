@@ -1,8 +1,9 @@
-const CACHE_NAME = 'nutrilens-th-static-v3';
+const CACHE_NAME = 'nutrilens-th-static-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './config.js',
   './app.js',
   './nutrition.js',
   './experiment.js',

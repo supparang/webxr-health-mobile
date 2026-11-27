@@ -202,3 +202,79 @@ test('analyzeFoodImage handles matched response, refusal, provider error, and mi
     (err) => err instanceof VisionGatewayError && err.statusCode === 502 && err.code === 'PROVIDER_HTTP_ERROR'
   );
 });
+
+test('Gemini Vision AI supports Open-Vocabulary food recognition (any dish) and handles safety refusals', async () => {
+  let capturedUrl = '';
+  let capturedHeaderKey = '';
+
+  const geminiOpenVocabFetch = async (url, opts) => {
+    capturedUrl = url;
+    capturedHeaderKey = opts.headers['x-goog-api-key'];
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        candidates: [
+          {
+            finishReason: 'STOP',
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    outcome: 'matched',
+                    food_id: 'unknown',
+                    detected_name_th: 'ข้าวหมูแดงหมูกรอบ',
+                    confidence: 0.91,
+                    suggested_portion_multiplier: 1,
+                    portion_uncertainty: 'medium',
+                    top_candidates: ['unknown'],
+                    hidden_factors: ['sauce_amount', 'skin_fat'],
+                    reason_th: 'ตรวจพบข้าวสวย หมูแดง หมูกรอบ ไข่ต้ม และน้ำราดสีแดง',
+                    visible_components_th: ['ข้าวสวย', 'หมูแดง', 'หมูกรอบ', 'น้ำราด'],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    };
+  };
+
+  const res = await analyzeFoodImage({
+    base64: VALID_JPEG_BUF.toString('base64'),
+    mimeType: 'image/jpeg',
+    provider: 'gemini',
+    apiKey: 'AIza-test-key',
+    fetchImpl: geminiOpenVocabFetch,
+  });
+
+  assert.match(capturedUrl, /gemini-2\.5-flash:generateContent$/);
+  assert.equal(capturedHeaderKey, 'AIza-test-key');
+  assert.equal(res.ok, true);
+  assert.equal(res.provider, 'gemini');
+  assert.equal(res.provenance, PROVENANCE.AI_CLASSIFICATION_ONLY);
+  assert.equal(res.result.outcome, 'matched');
+  assert.equal(res.result.foodId, UNKNOWN_DISH_ID);
+  assert.equal(res.result.detectedNameTh, 'ข้าวหมูแดงหมูกรอบ');
+  assert.deepEqual(res.result.hiddenFactors, ['sauce_amount', 'skin_fat']);
+
+  // Safety refusal
+  const safetyBlockedFetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ promptFeedback: { blockReason: 'SAFETY' } }),
+  });
+
+  await assert.rejects(
+    () =>
+      analyzeFoodImage({
+        base64: VALID_JPEG_BUF.toString('base64'),
+        mimeType: 'image/jpeg',
+        provider: 'gemini',
+        apiKey: 'AIza-test-key',
+        fetchImpl: safetyBlockedFetch,
+      }),
+    (err) => err instanceof VisionGatewayError && err.statusCode === 422 && err.code === 'MODEL_REFUSAL'
+  );
+});

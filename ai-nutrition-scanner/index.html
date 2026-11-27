@@ -181,7 +181,17 @@
               <input id="sessionIdInput" class="field-control" type="text" maxlength="40" placeholder="เช่น S1" />
             </div>
             <div>
-              <span class="field-label">ลิงก์ล็อกกลุ่มสำหรับส่งผู้เข้าร่วม</span>
+              <label for="studyAccessCodeInput" class="field-label">รหัสรอบทดลอง (Study Code — แทน Login)</label>
+              <input id="studyAccessCodeInput" class="field-control" type="password" maxlength="40" placeholder="ใส่เมื่อเซิร์ฟเวอร์เปิดล็อกรหัส" autocomplete="off" />
+            </div>
+          </div>
+          <div class="study-meta-grid">
+            <div>
+              <label for="remoteApiUrlInput" class="field-label">AI Gateway URL กลาง (Cloudflare Worker / Server)</label>
+              <input id="remoteApiUrlInput" class="field-control" type="url" placeholder="เว้นว่างเพื่อใช้เซิร์ฟเวอร์เดียวกัน หรือใส่ https://...workers.dev" />
+            </div>
+            <div>
+              <span class="field-label">ลิงก์ล็อกกลุ่มสำหรับส่งผู้เข้าร่วม (ฝังรหัสอัตโนมัติ)</span>
               <div class="category-row" style="margin-top: 6px">
                 <button id="copyLinkA" class="chip-btn" type="button" data-copy-arm="A">คัดลอกลิงก์ A</button>
                 <button id="copyLinkB" class="chip-btn" type="button" data-copy-arm="B">คัดลอกลิงก์ B</button>

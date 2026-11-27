@@ -1,19 +1,20 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {
-  DEFAULT_OPENAI_MODEL,
   MAX_IMAGE_BYTES,
   VisionGatewayError,
   analyzeFoodImage,
   parseAndValidateImageInput,
+  resolveProviderConfig,
 } from './vision.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MAX_JSON_BODY_BYTES = Math.ceil(MAX_IMAGE_BYTES * 1.45) + 65536; // Base64 overhead + JSON envelope
+const MAX_JSON_BODY_BYTES = Math.ceil(MAX_IMAGE_BYTES * 1.45) + 65536;
 
 const STATIC_MIME_TYPES = Object.freeze({
   '.html': 'text/html; charset=utf-8',
@@ -30,17 +31,60 @@ const STATIC_MIME_TYPES = Object.freeze({
   '.ico': 'image/x-icon',
 });
 
-function setSecurityHeaders(res) {
+function constantTimeEquals(a, b) {
+  const bufA = Buffer.from(String(a || ''), 'utf8');
+  const bufB = Buffer.from(String(b || ''), 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function createRateLimiter(maxPerMinute = 15) {
+  const buckets = new Map();
+  const windowMs = 60_000;
+
+  return function checkLimit(ip) {
+    if (!maxPerMinute || maxPerMinute <= 0) return { allowed: true, retryAfterSec: 0 };
+    const now = Date.now();
+    const key = String(ip || 'unknown');
+    const timestamps = (buckets.get(key) || []).filter((ts) => now - ts < windowMs);
+
+    if (timestamps.length >= maxPerMinute) {
+      const oldest = timestamps[0];
+      const retryAfterSec = Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000));
+      buckets.set(key, timestamps);
+      return { allowed: false, retryAfterSec };
+    }
+
+    timestamps.push(now);
+    buckets.set(key, timestamps);
+    return { allowed: true, retryAfterSec: 0 };
+  };
+}
+
+function setSecurityAndCorsHeaders(req, res, allowedOrigins) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
+  const origin = req.headers.origin;
+  if (!origin) return;
+
+  if (allowedOrigins === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Study-Code');
 }
 
-function sendJson(res, statusCode, payload) {
-  setSecurityHeaders(res);
+function sendJson(req, res, statusCode, payload, allowedOrigins, extraHeaders = {}) {
+  setSecurityAndCorsHeaders(req, res, allowedOrigins);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...extraHeaders,
   });
   res.end(JSON.stringify(payload));
 }
@@ -102,11 +146,11 @@ function resolveSafeStaticPath(rootDir, pathname) {
   if (decoded.includes('\0')) return null;
 
   const relativePath = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
-  // Disallow hidden dotfiles, server source files, tests, and package manifests from static serving
   const segments = relativePath.split('/').filter(Boolean);
   if (
     segments.some((seg) => seg.startsWith('.') || seg === '..') ||
     segments[0] === 'tests' ||
+    segments[0] === 'worker' ||
     relativePath.endsWith('.mjs') ||
     relativePath === 'package.json'
   ) {
@@ -121,20 +165,45 @@ function resolveSafeStaticPath(rootDir, pathname) {
   return fullPath;
 }
 
+function parseAllowedOrigins(raw) {
+  if (!raw || raw === '*') return '*';
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function createScannerServer({
   staticDir = __dirname,
-  apiKey = process.env.OPENAI_API_KEY || '',
-  model = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+  provider = process.env.AI_PROVIDER || '',
+  apiKey = '',
+  geminiApiKey = process.env.GEMINI_API_KEY || '',
+  openaiApiKey = process.env.OPENAI_API_KEY || '',
+  model = '',
+  studyAccessCode = process.env.STUDY_ACCESS_CODE || '',
+  rateLimitPerMin = Number(process.env.RATE_LIMIT_MAX_PER_MIN ?? 15),
+  allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS || '*'),
   analyzeFn = null,
 } = {}) {
+  const providerCfg = resolveProviderConfig({
+    AI_PROVIDER: provider,
+    GEMINI_API_KEY: geminiApiKey,
+    OPENAI_API_KEY: apiKey || openaiApiKey,
+    GEMINI_MODEL: model || process.env.GEMINI_MODEL || '',
+    OPENAI_MODEL: model || process.env.OPENAI_MODEL || '',
+  });
+
+  const checkRateLimit = createRateLimiter(rateLimitPerMin);
+
   const effectiveAnalyze =
     analyzeFn ||
     ((validatedImage) =>
       analyzeFoodImage({
         base64: validatedImage.base64,
         mimeType: validatedImage.mimeType,
-        apiKey,
-        model,
+        provider: providerCfg.provider,
+        apiKey: providerCfg.apiKey,
+        model: providerCfg.model,
       }));
 
   return http.createServer(async (req, res) => {
@@ -142,67 +211,161 @@ export function createScannerServer({
     const urlObj = new URL(req.url || '/', 'http://127.0.0.1');
     const pathname = urlObj.pathname;
 
+    if (method === 'OPTIONS' && pathname.startsWith('/api/')) {
+      setSecurityAndCorsHeaders(req, res, allowedOrigins);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     if (pathname === '/api/health') {
       if (method !== 'GET') {
-        sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'รองรับเฉพาะเมธอด GET' });
+        sendJson(
+          req,
+          res,
+          405,
+          { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'รองรับเฉพาะเมธอด GET' },
+          allowedOrigins
+        );
         return;
       }
-      sendJson(res, 200, {
-        ok: true,
-        service: 'ai-nutrition-scanner',
-        aiConfigured: Boolean(apiKey || analyzeFn),
-        model,
-      });
+      sendJson(
+        req,
+        res,
+        200,
+        {
+          ok: true,
+          service: 'ai-nutrition-scanner',
+          aiConfigured: Boolean(providerCfg.configured || analyzeFn),
+          provider: analyzeFn ? providerCfg.provider : providerCfg.provider,
+          model: providerCfg.model,
+          openVocabulary: true,
+          accessCodeRequired: Boolean(studyAccessCode),
+        },
+        allowedOrigins
+      );
       return;
     }
 
     if (pathname === '/api/analyze') {
       if (method !== 'POST') {
-        sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'รองรับเฉพาะเมธอด POST' });
+        sendJson(
+          req,
+          res,
+          405,
+          { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'รองรับเฉพาะเมธอด POST' },
+          allowedOrigins
+        );
         return;
       }
 
       const contentType = String(req.headers['content-type'] || '').toLowerCase();
       if (!contentType.includes('application/json')) {
-        sendJson(res, 415, {
-          ok: false,
-          code: 'UNSUPPORTED_MEDIA_TYPE',
-          messageTh: 'คำขอต้องใช้ Content-Type: application/json',
-        });
+        sendJson(
+          req,
+          res,
+          415,
+          {
+            ok: false,
+            code: 'UNSUPPORTED_MEDIA_TYPE',
+            messageTh: 'คำขอต้องใช้ Content-Type: application/json',
+          },
+          allowedOrigins
+        );
+        return;
+      }
+
+      // Per-IP Rate Limit guard
+      const clientIp =
+        String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+        req.socket?.remoteAddress ||
+        'local';
+      const limit = checkRateLimit(clientIp);
+      if (!limit.allowed) {
+        sendJson(
+          req,
+          res,
+          429,
+          {
+            ok: false,
+            code: 'RATE_LIMITED',
+            messageTh: `สแกนถี่เกินกำหนด กรุณารอ ${limit.retryAfterSec} วินาทีแล้วลองใหม่`,
+          },
+          allowedOrigins,
+          { 'Retry-After': String(limit.retryAfterSec) }
+        );
         return;
       }
 
       try {
         const body = await readJsonBody(req);
+
+        // Optional Study Access Code gate (replaces per-user login for study cohorts)
+        if (studyAccessCode) {
+          const providedCode = String(req.headers['x-study-code'] || body?.accessCode || '').trim();
+          if (!providedCode) {
+            throw new VisionGatewayError(
+              401,
+              'ACCESS_CODE_REQUIRED',
+              'กรุณากรอกรหัสรอบทดลอง (Study Access Code) ก่อนใช้งาน AI Vision'
+            );
+          }
+          if (!constantTimeEquals(providedCode, studyAccessCode)) {
+            throw new VisionGatewayError(
+              401,
+              'INVALID_ACCESS_CODE',
+              'รหัสรอบทดลอง (Study Access Code) ไม่ถูกต้อง กรุณาตรวจสอบกับผู้วิจัย'
+            );
+          }
+        }
+
         const validatedImage = parseAndValidateImageInput(body);
         const analysis = await effectiveAnalyze(validatedImage);
-        sendJson(res, 200, analysis);
+        sendJson(req, res, 200, analysis, allowedOrigins);
       } catch (err) {
         if (err instanceof VisionGatewayError) {
-          sendJson(res, err.statusCode, {
-            ok: false,
-            code: err.code,
-            messageTh: err.messageTh,
-          });
+          sendJson(
+            req,
+            res,
+            err.statusCode,
+            {
+              ok: false,
+              code: err.code,
+              messageTh: err.messageTh,
+            },
+            allowedOrigins
+          );
           return;
         }
-        sendJson(res, 500, {
-          ok: false,
-          code: 'INTERNAL_ERROR',
-          messageTh: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่ภายหลัง',
-        });
+        sendJson(
+          req,
+          res,
+          500,
+          {
+            ok: false,
+            code: 'INTERNAL_ERROR',
+            messageTh: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่ภายหลัง',
+          },
+          allowedOrigins
+        );
       }
       return;
     }
 
     if (method !== 'GET' && method !== 'HEAD') {
-      sendJson(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'ไม่อนุญาตเมธอดนี้' });
+      sendJson(
+        req,
+        res,
+        405,
+        { ok: false, code: 'METHOD_NOT_ALLOWED', messageTh: 'ไม่อนุญาตเมธอดนี้' },
+        allowedOrigins
+      );
       return;
     }
 
     const filePath = resolveSafeStaticPath(staticDir, pathname);
     if (!filePath) {
-      setSecurityHeaders(res);
+      setSecurityAndCorsHeaders(req, res, allowedOrigins);
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Not Found');
       return;
@@ -211,7 +374,7 @@ export function createScannerServer({
     try {
       const stat = await fs.stat(filePath);
       if (!stat.isFile()) {
-        setSecurityHeaders(res);
+        setSecurityAndCorsHeaders(req, res, allowedOrigins);
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         res.end('Not Found');
         return;
@@ -220,7 +383,7 @@ export function createScannerServer({
       const ext = path.extname(filePath).toLowerCase();
       const mimeType = STATIC_MIME_TYPES[ext] || 'application/octet-stream';
       const content = await fs.readFile(filePath);
-      setSecurityHeaders(res);
+      setSecurityAndCorsHeaders(req, res, allowedOrigins);
       res.writeHead(200, {
         'Content-Type': mimeType,
         'Content-Length': content.length,
@@ -228,7 +391,7 @@ export function createScannerServer({
       });
       res.end(method === 'HEAD' ? undefined : content);
     } catch {
-      setSecurityHeaders(res);
+      setSecurityAndCorsHeaders(req, res, allowedOrigins);
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Not Found');
     }
@@ -241,13 +404,13 @@ const isDirectRun =
 if (isDirectRun) {
   const port = Number(process.env.PORT || 8787);
   const host = process.env.HOST || '127.0.0.1';
+  const cfg = resolveProviderConfig(process.env);
   const server = createScannerServer();
   server.listen(port, host, () => {
-    const aiReady = Boolean(process.env.OPENAI_API_KEY);
     console.log(
-      `NutriLens TH (ai-nutrition-scanner) listening on http://${host}:${port} (AI Vision: ${
-        aiReady ? 'configured' : 'demo-only until OPENAI_API_KEY is set'
-      })`
+      `NutriLens TH (ai-nutrition-scanner) listening on http://${host}:${port} (AI: ${
+        cfg.configured ? `${cfg.provider}/${cfg.model}` : 'demo-only until GEMINI_API_KEY or OPENAI_API_KEY is set'
+      }, StudyCode: ${process.env.STUDY_ACCESS_CODE ? 'enabled' : 'open'})`
     );
   });
 }

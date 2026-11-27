@@ -14,9 +14,10 @@ Mobile-first Thai food nutrition scanner, GDA label logger, multi-dish meal plan
   - **ระบบ C (Fixed Questionnaire)**: ถามชุดคำถามมาตรฐานคงที่ **5 ข้อทุกมื้อ** เพื่อควบคุมตัวแปรเปรียบเทียบ
   - รองรับ URL ล็อกเงื่อนไขสำหรับผู้เข้าร่วมทดลอง เช่น `?arm=B&pid=P01&session=S1&lock=1`, ตารางสรุปเปรียบเทียบ A/B/C แบบเรียลไทม์, แบบประเมินสั้น 1–5 ท้ายมื้อ, และส่งออก **Research CSV (A/B/C)** พร้อมคอลัมน์ Telemetry ครบถ้วนสำหรับ SPSS/R/Python
   - **6-Case A/B/C Benchmark Suite (`benchmark.js` + แท็บ `Benchmark A/B/C (6)`)**: ชุดภาพทดสอบมาตรฐาน 6 กรณี (`BM01`–`BM06`) แบ่ง 3 กลุ่มความท้าทาย — ปัจจัยซ่อนเร้น (`BM01`–`BM04`), ภาพชัดไม่ซับซ้อน (`BM05` ไข่ต้มที่ระบบ B ถาม 0 ข้อ), และภาพเบลอแสงน้อยที่ระบบภาพเดี่ยวทายผิด (`BM06`) — พร้อมโจทย์จำลองผู้เข้าร่วมและคำนวณ Top-1 Accuracy / MAE (kcal, โซเดียม, น้ำตาล) อัตโนมัติทั้งบนหน้าจอและใน Research CSV
-- **Structured AI Vision Server Mode (`server.mjs` + `vision.mjs`)**:
-  - Pure Node.js 22 ESM HTTP server (zero external npm dependencies).
-  - Magic-byte signature verification for JPEG/PNG/WebP, 5 MB payload guard, OpenAI Responses API **strict JSON Schema** (`additionalProperties: false`), explicit `matched` / `uncertain` / `not_food` outcomes, and safe refusal/error handling.
+- **Structured AI Vision Gateway (`server.mjs` + `vision.mjs` + `worker/`)**:
+  - Supports **Gemini Vision AI (`gemini-2.5-flash`)** and **OpenAI Responses API** (`AI_PROVIDER=gemini | openai`), with **Open-Vocabulary food recognition** (`detected_name_th`) for scanning any food/drink photo beyond the 20-dish catalog.
+  - Zero external npm dependencies; magic-byte JPEG/PNG/WebP validation, 5 MB limit, optional **Study Access Code** (`STUDY_ACCESS_CODE`, no per-user login required), per-IP rate limiting (`RATE_LIMIT_MAX_PER_MIN`), CORS allowlist, and safe refusal/timeout/error handling.
+  - Includes a ready-to-deploy **Cloudflare Worker Proxy** (`worker/`) so `GEMINI_API_KEY` is configured **once** on the server and works automatically on every device opening GitHub Pages — see [`DEPLOY_GEMINI_WORKER.md`](./DEPLOY_GEMINI_WORKER.md).
   - **Scientific Safety Invariant**: AI Vision mode **never** displays or exports unverified illustrative nutrient fixtures; it saves confirmed dish names, portions, and provenance (`AI_CLASSIFICATION_ONLY_NO_UNVERIFIED_NUTRIENTS`) until verified Thai FCD records are integrated.
 
 ## Running Locally
@@ -27,14 +28,17 @@ python3 -m http.server 5500 --directory ai-nutrition-scanner
 # Open http://127.0.0.1:5500/
 ```
 
-### 2. Full Server Mode (Demo + GDA + `/api/analyze` AI Vision Gateway)
+### 2. Full Server Mode (Demo + GDA + Gemini/OpenAI AI Vision Gateway)
 ```bash
 cd ai-nutrition-scanner
-export OPENAI_API_KEY="sk-..."   # Optional
-export OPENAI_MODEL="gpt-4.1-mini"
+export GEMINI_API_KEY="AIza..."      # Recommended (or OPENAI_API_KEY="sk-...")
+export STUDY_ACCESS_CODE="NUTRI2026" # Optional cohort access code (no login needed)
 npm start
 # Open http://127.0.0.1:8787/
 ```
+
+### 3. Central Cloudflare Worker Deployment (Set API Key Once for All Devices)
+See step-by-step Thai guide in [`DEPLOY_GEMINI_WORKER.md`](./DEPLOY_GEMINI_WORKER.md).
 
 ## Automated Tests & QA
 ```bash
