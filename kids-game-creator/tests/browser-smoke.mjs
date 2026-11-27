@@ -15,12 +15,40 @@ try {
    await page.locator("#ageLevel").selectOption(age);
    assert.equal(await page.locator("body").getAttribute("data-age"),age);
    assert.equal(await page.locator("#targetInput").isDisabled(),age==="p1");
+   if(age==="p1"){
+    assert.equal(await page.locator("#learningSteps").isVisible(),true);
+    assert.equal(await page.locator("#designStep").isHidden(),true);
+    assert.equal(await page.locator("#nextToDesign").isVisible(),true);
+    await page.locator("#nextToDesign").click();
+    assert.equal(await page.locator("#designStep").isVisible(),true);
+    await page.getByRole("button",{name:"🐱 แมว"}).click();
+    const beginnerPrompt=await page.locator("#prompt").inputValue();
+    assert.equal((beginnerPrompt.match(/เก็บ \d+ คะแนน/g)||[]).length,1,"beginner prompt must not repeat target score");
+    assert.equal(await page.locator("#prompt").isEditable(),false);
+   }
    for (const [index,type] of ["adventure","maze","quiz","dodge"].entries()) {
+    if(age==="p1"){
+     if(await page.locator("#gameArea").isVisible())await page.locator("#editGame").click();
+     await page.locator("#backToChoose").click();
+    }
     await page.locator(".genre-card").nth(index).click();
     await page.locator("#generate").click();
-    const game=JSON.parse(await page.locator("#output").innerText());
+    const game=JSON.parse(await page.locator("#output").textContent());
+    if(age==="p1"){
+     assert.equal(await page.locator("#gameArea").isVisible(),true);
+     assert.equal(await page.locator("#technicalDetails").isVisible(),false);
+     await page.locator("#editGame").click();
+     assert.equal(await page.locator("#designStep").isVisible(),true);
+     await page.locator("#generate").click();
+     assert.equal(await page.locator("#gameArea").isVisible(),true);
+    }
     assert.equal(game.type,type);
     assert.equal(game.ageLevel,age);
+    if(age==="p1" && type==="adventure"){
+     assert.equal(game.player.name,"แมว");
+     assert.equal(await page.locator("#gameCanvas").getAttribute("data-character"),"แมว");
+     assert.equal(await page.locator("#gameCanvas").getAttribute("data-theme"),"forest");
+    }
     if(type==="quiz"){
      assert.equal(await page.locator("#gameCanvas").isHidden(),true);
      assert.equal(await page.locator("#quizPanel").isVisible(),true);

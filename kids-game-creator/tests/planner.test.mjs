@@ -32,3 +32,19 @@ test("quiz bank has valid answer keys and explanations",()=>{
  }
  assert.equal(detectQuizTopic("ตอบคำถามวิทยาศาสตร์"),"science");
 });
+test("freeform advanced Thai prompt parses physics, items, and custom quiz questions",()=>{
+ const adv=createGameFromThai("สร้างเกมหุ่นยนต์ผจญภัยในอวกาศ เก็บอัญมณี 25 ชิ้น มี 2 ชีวิต 4 ด่าน ศัตรู 5 ตัว เวลา 45 วินาที แรงโน้มถ่วงต่ำ กระโดดสูง วิ่งเร็ว เอาชีวิตรอด","m4");
+ assert.equal(adv.type,"adventure");
+ assert.equal(adv.theme,"space");
+ assert.equal(adv.player.name,"หุ่นยนต์");
+ assert.equal(adv.rules.itemType,"gem");
+ assert.equal(adv.rules.targetScore,25);
+ assert.equal(adv.rules.gravity,0.28);
+ assert.equal(adv.rules.winCondition,"survival");
+
+ const quiz=createGameFromThai("สร้างเกมตอบคำถาม\nถาม: 2 + 2 ได้เท่าไร? | 3 | 4* | 5 | 6 | เฉลย: บวกเลขปกติ | คำใบ้: เลขคู่","m1");
+ assert.equal(quiz.type,"quiz");
+ assert.equal(quiz.rules.customQuestions.length,1);
+ assert.equal(quiz.rules.customQuestions[0].correct,1);
+ assert.equal(quiz.rules.customQuestions[0].a[1],"4");
+});

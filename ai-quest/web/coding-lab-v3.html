@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426"><meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
-<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.23</title>
+<title>CSAI2102 ห้องฝึกเขียนโค้ด v3.3.24</title>
 <style>
 :root{--bg:#071426;--panel:#101d33;--panel2:#142640;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--blue:#0284c7;--green:#07875a;--amber:#b45309;--bad:#9f1239}*{box-sizing:border-box;min-width:0}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}main{max-width:1080px;margin:auto;padding:16px 14px 110px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:17px;margin:11px 0}.hero{border-color:#38bdf8}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#065f46;color:#d1fae5;font-weight:900}.muted{color:var(--muted);line-height:1.5}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}.box{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:5px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:#dbeafe}.stepTitle{display:flex;align-items:center;gap:9px}.stepTitle h2{margin:0}.stepNo{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#075985;font-weight:900}.textarea,input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#17263f;color:#fff;font:inherit}.code{min-height:190px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre}.btn{min-height:42px;padding:9px 13px;border:1px solid var(--line);border-radius:11px;background:#17263f;color:#fff;font-weight:850;cursor:pointer}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}.btn.amber{background:var(--amber)}.btn:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;gap:8px;flex-wrap:wrap}.notice,.check{padding:10px 11px;border-radius:10px;background:#17263f;border:1px solid var(--line);margin-top:8px;white-space:pre-wrap}.ok{background:#052e24;border-color:#15803d;color:#bbf7d0}.bad{background:#35101d;border-color:var(--bad);color:#fecdd3}.optional{background:#17263f;border-color:#64748b;color:#dbeafe}.todoList{margin:0;padding-left:20px}.todoList li{margin:6px 0;color:#dbeafe}.challengeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.challenge{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.challenge h3{margin:0 0 5px}.quiz{display:grid;gap:10px}.quizItem{padding:11px;border:1px solid var(--line);border-radius:12px;background:#12213a}.choice{display:flex!important;align-items:flex-start;gap:8px;margin:7px 0!important;padding:7px 8px;border:1px solid transparent;border-radius:9px;cursor:pointer}.choice:hover{background:#17263f}.choice input{width:auto;margin-top:3px}.feedback{font-size:13px;margin-top:6px;color:var(--muted)}details.card{padding:0;overflow:hidden}details.card>summary{list-style:none;cursor:pointer;padding:15px 17px;font-weight:900;display:flex;align-items:center;gap:9px}details.card>summary::-webkit-details-marker{display:none}details.card>summary::after{content:'＋';margin-left:auto}details.card[open]>summary::after{content:'−'}details.card>.inside{padding:0 17px 17px}.takeaways li{margin:6px 0}.sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(7,20,38,.96);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;backdrop-filter:blur(10px)}@media(max-width:720px){main{padding:9px 8px 120px}.card{padding:13px;border-radius:14px}.grid2,.challengeGrid{grid-template-columns:1fr}.code{min-height:165px}.actions{display:grid}.actions .btn{width:100%}.sticky{display:grid;grid-template-columns:1fr 1fr}.sticky .btn{width:100%}details.card>summary{padding:13px}.inside{padding:0 13px 13px!important}}
 </style>
@@ -18,7 +18,7 @@
 <details class="card"><summary><span class="stepNo">7</span> สรุปสาระสำคัญ</summary><div class="inside"><ul id="takeaways" class="takeaways"></ul></div></details>
 <section class="card"><div class="stepTitle"><span class="stepNo">8</span><h2>ตรวจหลักฐานและส่งผล</h2></div><div class="grid2"><input id="studentId" placeholder="รหัสนักศึกษา"><input id="studentName" placeholder="ชื่อ"><input id="section" value="101"><input id="runCount" type="number" min="1" value="1"></div><div class="actions" style="margin-top:10px"><button id="validate" class="btn blue">ตรวจหลักฐานทั้งหมด</button><button id="submit" class="btn green" disabled>ส่ง Coding Lab</button><button id="verifySaved" class="btn blue" style="display:none">ตรวจผลบันทึกจาก Server</button></div><div id="status" class="notice">ยังไม่ได้ตรวจ</div></section>
 </main><div class="sticky"><button id="goTop" class="btn">↑ ด้านบน</button><button id="returnBtn" class="btn green" style="display:none">กลับ Session</button></div>
-<script src="aiquest-coding-client.js?v=20261028-fallback-unverified"></script><script src="aiquest-core-client.js"></script>
+<script src="aiquest-coding-client.js?v=20261102-config-fallback-v3.2.8"></script><script src="aiquest-core-client.js"></script>
 <script>
 (function(){'use strict';
 const VERSION='20261101-CODING-LAB-V3.3.23-B5-STRUCTURED-PRIVACY';
@@ -86,7 +86,8 @@ function s4FirstPopPredictV1(prediction,reason) {
   var zero=/\bg\s*\(\s*A\s*\)\s*(?:=|:|เท่ากับ)\s*0(?:\.0+)?\b/i.test(t)||
     /(?:โหนด\s*)?\bA\b[^\r\n]{0,35}(?:cost|ต้นทุน|g)\s*(?:=|:|เท่ากับ)?\s*0(?:\.0+)?\b/i.test(t)||
     /(?:เริ่มต้น|เริ่มที่|initial|start)[^\r\n]{0,35}(?:cost|ต้นทุน|g)?\s*(?:=|:|เท่ากับ)?\s*0(?:\.0+)?\b/i.test(t);
-  if(!zero)return result(false,'START_COST_A_ZERO_NOT_EXPLAINED');
+  // The prompt already supplies initial Frontier item (0, 'A'); do not
+  // require students to repeat g(A)=0 in their explanation.
   if(!ucs||!cost||!minimum)return result(false,'UCS_LOWEST_PATH_COST_REASON_MISSING');
   return result(true,'');
 }
@@ -170,28 +171,32 @@ function renderQuiz(){$('quiz').innerHTML=act.quiz.map((x,i)=>'<div class="quizI
 const THAI_STAGE_TITLES=Object.freeze({"S1":"พื้นฐานปัญญาประดิษฐ์และระบบอัตโนมัติ","S2":"ตัวแทนอัจฉริยะและสภาพแวดล้อมของงาน","S3":"พื้นฐานการค้นหาแบบกว้าง","B1":"ด่านทบทวนที่ 1: ตัวแทนอัจฉริยะและการค้นหา","S4":"การค้นหาตามต้นทุนและการวางแผนเส้นทาง","S5":"การค้นหาแบบฮิวริสติกและเอสตาร์ (A*)","S6":"เอไอสำหรับเกม: มินิแมกซ์และการตัดกิ่ง","B2":"ด่านทบทวนที่ 2: การเลือกกลยุทธ์การค้นหา","S7":"การแทนความรู้และการอนุมาน","S8":"ความน่าจะเป็นและทฤษฎีบทเบย์","S9":"ตรรกศาสตร์และระบบผู้เชี่ยวชาญ","B3":"ด่านทบทวนที่ 3: ความรู้ ตรรกะ และความไม่แน่นอน","S10":"กระบวนการเรียนรู้ของเครื่องและการประเมินผล","S11":"การเรียนรู้แบบมีผู้สอน","S12":"การเรียนรู้แบบไม่มีผู้สอนและการลดมิติข้อมูล","B4":"ด่านทบทวนที่ 4: การเรียนรู้ของเครื่องตั้งแต่ต้นจนจบ","S13":"โครงข่ายประสาทเทียมและการเรียนรู้เชิงลึก","S14":"การเรียนรู้แบบเสริมกำลังและการตัดสินใจต่อเนื่อง","S15":"ปัญญาประดิษฐ์เชิงสร้างสรรค์และการสร้างคำตอบด้วยข้อมูลค้นคืน","B5":"ด่านสุดท้าย: ปัญญาประดิษฐ์ที่น่าเชื่อถือและรับผิดชอบ"});
 function b2StarterPredictionFeedback(prediction,reason){
  if(session!=='B2')return '';
- const p=String(prediction||''),r=String(reason||'');
- const differentScenario=/\b(?:minimax|adversarial(?:\s+search)?)\b/i.test(p);
+ const p=String(prediction||''),r=String(reason||''),combined=p+' '+r;
+ const hasAStar=/\b(?:a\s*\*|a[\s_-]*star|astar)\b/i.test(p);
+ const alternateScenario=/\bopponent\s*=\s*true\b|\b(?:minimax|adversarial(?:\s+search)?)\b/i.test(combined);
+ const starterSettings=/\b(?:weighted|heuristic|opponent)\s*=\s*(?:true|false)\b/i.test(combined);
  const copiedCode=/\b(?:def\s+\w+\s*\(|problem\s*=|if\s+.*opponent|elif\s+|return\s+strategy)\b/i.test(r);
- if(differentScenario)
-  return 'Minimax เหมาะกับกรณี opponent=True แต่ Predict ของ B2 ใช้โค้ดตั้งต้นที่ opponent=False, weighted=True และ heuristic=True กรุณาตอบจากเงื่อนไขเดิมก่อน แล้วนำกรณีคู่แข่งไปอธิบายในส่วนปรับแก้สถานการณ์';
+ if(!hasAStar&&starterSettings)
+  return 'Predict ของ B2 ต้องตอบชื่อกลยุทธ์ว่า A* (หรือ A-star) ไม่ใช่พิมพ์ค่าตั้งต้น • เพราะ heuristic=True ถูกตรวจก่อน weighted=True และ opponent=False จึงไม่เลือก Minimax';
+ if(alternateScenario)
+  return 'กรณี opponent=True ใช้ทดลองในส่วนปรับแก้สถานการณ์เท่านั้น • Predict ต้องอ้างอิง Starter Code เดิมที่ opponent=False และตอบ A* พร้อมอธิบายเหตุผล';
  if(copiedCode)
-  return 'ช่องนี้ใช้เขียนเหตุผลของผลคาดการณ์ ไม่ใช่วางโค้ด Python โปรดใช้เงื่อนไขจาก Starter Code เดิมอธิบายว่าทำไมจึงเลือกกลยุทธ์นั้น ส่วนโค้ดทดลองให้อยู่ในภารกิจปรับแก้';
+  return 'ช่องนี้ใช้เขียนเหตุผลของผลคาดการณ์ ไม่ใช่วางโค้ด Python • ตอบ A* แล้วอธิบายว่า heuristic=True และ opponent=False ทำให้ไม่เลือก Minimax; โค้ดทดลองให้อยู่ในส่วนปรับแก้';
  return '';
 }
 function render(){const c=curr.sessions[session];$('badge').textContent=session;$('title').textContent=session+' • '+(THAI_STAGE_TITLES[session]||c.title);$('concept').textContent=lab.concept;fillList('outcomes',c.outcomes);$('topics').innerHTML=(c.coreTopics||[]).map(x=>'<span class="chip">'+esc(x)+'</span>').join('');$('missionContext').textContent=c.mission||'';$('codingFocus').textContent=c.codingFocus||'';$('predictPrompt').textContent='คำถามหลักที่ใช้ตรวจคำตอบ: '+(serverRule?.predictQuestion||lab.predict||'');
  const context=$('predictContext');
  context.style.display=session==='B2'?'block':'none';
  if(session==='B2'){
-   context.textContent="ใช้โค้ดตั้งต้นเดิมเพื่อคาดการณ์ก่อนแก้ไข: weighted=True, heuristic=True, opponent=False • กรณี opponent=True เป็นการทดลองอีกสถานการณ์ จึงไม่ใช่คำตอบของ Predict นี้";
-   $('prediction').placeholder="ตอบกลยุทธ์ตามเงื่อนไขเดิม (opponent=False)";
-   $('predictionReason').placeholder="อธิบายเหตุผลจาก weighted=True, heuristic=True, opponent=False ด้วยภาษาของตนเอง ไม่วางโค้ด Python ในช่องเหตุผล";
+   context.textContent="ใช้โค้ดตั้งต้นเดิม: weighted=True, heuristic=True, opponent=False • ผลที่ต้องตอบใน Predict คือ A* เพราะ heuristic=True ถูกตรวจก่อน weighted=True และไม่มี opponent • opponent=True เป็นการทดลองในส่วนปรับแก้เท่านั้น";
+   $('prediction').placeholder="A*";
+   $('predictionReason').placeholder="อธิบายว่า heuristic=True ทำให้เลือก A* และ opponent=False จึงไม่ใช้ Minimax";
  }
  const todos=(act.todos&&act.todos.length)?act.todos:['อ่าน Starter Code','เติมส่วนที่ต้องแก้ให้รันได้','ตรวจผลลัพธ์และอธิบายเหตุผล'];const starter=String(lab.starter||'').trim();$('starter').value=makeScaffold(starter,todos);fillList('todoList',todos);if(!starter){$('starter').value='# โหลด Starter Code ไม่สำเร็จ — กรุณารีเฟรชหน้า';$('status').className='notice bad';$('status').textContent='Starter Code ของ '+session+' ไม่ถูกโหลด กรุณารีเฟรชหน้า';} $('modifyPrompt').textContent=(lab.modify||'')+' • '+(act.modify||'');$('bronze').textContent=act.bronze||'';$('silver').textContent=act.silver||'';$('gold').textContent=act.gold||'';fillList('takeaways',act.takeaways||[]);renderQuiz()}
 async function api(action,payload){const r=await fetch(ENDPOINT,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module:'AIQCODING',action:action,section:'101'},payload||{}))});if(!r.ok)throw Error('HTTP_'+r.status);return await r.json()}
 async function loadServerRule(){const result=await api('GET_LAB_CONFIG',{sessionId:session});if(!result||result.ok===false||!result.config)throw Error((result&&result.code)||'LAB_CONFIG_NOT_AVAILABLE');serverRule=result.config;serverRuleVersion=String(result.version||'UNKNOWN');return serverRule}
 function showServerRuleInfo(){
- $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.23 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
+ $('releaseInfo').textContent='ห้องฝึกเขียนโค้ด v3.3.24 • เกณฑ์เซิร์ฟเวอร์ '+serverRuleVersion;
  const e=$('ruleInfo');
  if(session==='S4'||session==='S6'){
   e.style.display='block';
@@ -698,11 +703,17 @@ function structuredOutputEvidenceV2(stage,output) {
     });
     outside.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean).forEach(function(line){
       if(/^(?:debug|trace|info|log)\s*[:=]/i.test(line))return;
+      // Supporting trace fields are not competing final decisions.
+      if(/^-?\s*(?:matched\s+rule|facts\s+triggered|reason)\s*[:=]/i.test(line))return;
       // Explicit explanatory metadata is not a second result. Keep real
       // labeled decisions and contradictory output lines authoritative.
+      if(/^explanation\s+trace\s*[:：]\s*$/i.test(line))return;
       var note=/^(?:explanation|reason|rationale|คำอธิบาย|เหตุผล)\s*[:：]\s*(.*)$/i.exec(line);
       if(note){
         var detail=note[1].trim();
+        // Completed Code prints an empty "Explanation Trace:" heading,
+        // followed by separately labeled evidence metadata.
+        if(!detail&&/^explanation\s+trace$/i.test(line.replace(/[:：]\s*$/,'')))return;
         var embeddedDecision=/(?:^|[\s;|])(?:recommendation|decision|action|result|output|answer|classification|diagnosis|strategy|choice|selected|final_decision)\s*[:=]/i.test(detail);
         if(!detail||embeddedDecision)bad.push('CONFLICTING_OR_UNRECOGNIZED_RESULT');
         return;
@@ -734,23 +745,41 @@ function structuredOutputEvidenceV2(stage,output) {
       return scores.every(function(n){return Math.abs(n-4)<1e-8;})?result(true):result(false,'B_COST_NOT_4');
     }
     case 'B2':{var strategy=b2StrategyReasonOutputV1(raw);return strategy||category(function(v){return /^(?:a\s*\*|a[\s_-]*star|astar)$/i.test(v)?'expected':'';});}
-    case 'S7':return category(function(v){return /^(?:can[_\s-]*fly|บินได้)$/i.test(v)?'expected':'';});
+    case 'S7':{
+      // S7 has an exception rule: validate the final Facts snapshot, not
+      // intermediate fly=True printed before Penguin conflict resolution.
+      var finalFacts=lines.filter(function(line){return /^Facts\s+สรุปสุดท้ายหลังจากจัดการ\s+Conflict\s*:/i.test(line);});
+      if(finalFacts.length){
+        var finalFly=finalFacts[finalFacts.length-1].match(
+  /(?:^|[,{])\s*['"]fly['"]\s*:\s*(True|False|true|false)\b/
+);
+        if(!finalFly)return result(false,'S7_FINAL_FLY_VALUE_NOT_FOUND');
+        return /^(?:False|false)$/.test(finalFly[1])?result(true):result(false,'S7_FINAL_FLY_VALUE_MISMATCH');
+      }
+      return category(function(v){return /^(?:false|บินไม่ได้|ไม่สามารถบินได้|fly\s*[:=]\s*false)$/i.test(v)?'expected':'';});
+    }
     case 'S8':return numeric(0.154,'proportion');
     case 'S9':{var batch=s9ScenarioBatchEvidenceV1(raw);return batch||category(function(v){return /^(?:recommend[_\s-]*check[_\s-]*up|แนะนำตรวจ(?:สุขภาพ)?|ตรวจสุขภาพ)$/i.test(v)?'expected':'';});}
     case 'B3':return category(function(v){return /^(?:high[_\s-]*risk[_\s-]*with[_\s-]*evidence|high\s+risk\s+(?:and|with)\s+evidence|ความเสี่ยงสูงพร้อมหลักฐาน)$/i.test(v)?'expected':'';});
     case 'S10':{
-      var pairs=[],train=[],test=[];
+      var pairs=[],train=[],validation=[],test=[];
       lines.forEach(function(line){
         var text=take(line),m=text.match(/^(\d+)\s*(?:,|\s+)\s*(\d+)$/);
         if(m)pairs.push([Number(m[1]),Number(m[2])]);
-        var tr=line.match(/\btrain(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
-        var te=line.match(/\btest(?:ing)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var tr=line.match(/\btrain(?:ing)?(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var va=line.match(/\bvalidation(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
+        var te=line.match(/\btest(?:ing)?(?:\s+set)?(?:\s*(?:size|count|items))?\s*[:=]\s*(\d+)\b/i);
         if(tr)train.push(Number(tr[1]));
+        if(va)validation.push(Number(va[1]));
         if(te)test.push(Number(te[1]));
       });
-      if(train.length||test.length){
+      if(train.length||validation.length||test.length){
         if(!train.length||!test.length)return result(false,'SPLIT_MISSING_COMPONENT');
-        if(train.some(function(x){return x!==8;})||test.some(function(x){return x!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
+        if(validation.length){
+          if(validation.some(function(x){return x!==2;})||train.some(function(x){return x!==6;})||test.some(function(x){return x!==2;}))
+            return result(false,'SPLIT_COUNT_MISMATCH');
+        }else if(train.some(function(x){return x!==8;})||test.some(function(x){return x!==2;}))
+          return result(false,'SPLIT_COUNT_MISMATCH');
       }
       if(pairs.some(function(p){return p[0]!==8||p[1]!==2;}))return result(false,'SPLIT_COUNT_MISMATCH');
       return (pairs.length||(train.length&&test.length))?result(true):result(false,'SPLIT_NOT_FOUND');
@@ -970,7 +999,7 @@ async function verifySaved(){
   $('status').textContent='ตรวจผล Server ไม่สำเร็จ: '+String(e.message||e)+' • ยังไม่ถือว่าผ่าน';
  }finally{button.disabled=false;}
 }
-async function load(){try{const stamp='content330-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.23\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
+async function load(){try{const stamp='content331-'+Date.now(),[lr,cr,ar]=await Promise.all([fetch('labs.json?v='+stamp,{cache:'no-store'}),fetch('../curriculum-v2.json?v='+stamp,{cache:'no-store'}),fetch('learning-activities-v3.json?v='+stamp,{cache:'no-store'}),loadServerRule()]);if(!lr.ok||!cr.ok||!ar.ok)throw Error('CONTENT_FETCH_FAILED');lab=(await lr.json())[session];curr=await cr.json();act=(await ar.json())[session];if(!lab||!curr.sessions[session]||!act||!serverRule)throw Error('SESSION_DATA_MISSING');render();showServerRuleInfo();$('status').className='notice';$('status').textContent='พร้อมทำห้องฝึกเขียนโค้ด v3.3.24\nระบบตรวจคำตอบคาดการณ์ตามเกณฑ์ของเซิร์ฟเวอร์\nภารกิจท้าทายเป็นคะแนนเสริม ไม่บังคับให้ผ่าน'}catch(e){$('status').className='notice bad';$('status').textContent='โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e)}}
 $('copyStarter').onclick=async()=>{try{await navigator.clipboard.writeText($('starter').value);$('status').textContent='คัดลอก Scaffold แล้ว'}catch(e){$('starter').select();document.execCommand('copy')}};$('checkQuiz').onclick=()=>validateQuiz(true);$('validate').onclick=()=>validate();$('submit').onclick=()=>submit();$('verifySaved').onclick=()=>verifySaved();$('goTop').onclick=()=>scrollTo({top:0,behavior:'smooth'});document.querySelectorAll('input,textarea').forEach(e=>e.setAttribute('autocomplete','off'));$('quiz').addEventListener('change',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;$('quizResult').textContent='คำตอบเปลี่ยนแล้ว กรุณาตรวจแบบทดสอบและหลักฐานอีกครั้ง';});['prediction','predictionReason','completedCode','output','modifiedCode','modifyReason'].forEach(id=>$(id).addEventListener('input',()=>{if(last)last.requiredPassed=false;$('submit').disabled=true;if($('status').classList.contains('ok')){$('status').className='notice';$('status').textContent='มีการแก้ไขหลักฐาน กรุณากด “ตรวจหลักฐานทั้งหมด” อีกครั้ง'}}));window.addEventListener('pageshow',e=>{if(e.persisted){document.querySelectorAll('.quizItem input').forEach(x=>x.checked=false);$('submit').disabled=true}});profile();load();
 })();
 </script></body></html>
