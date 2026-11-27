@@ -1,0 +1,41 @@
+name: AI Nutrition Scanner QA
+on:
+  push:
+    paths:
+      - 'ai-nutrition-scanner/**'
+      - '.github/workflows/ai-nutrition-scanner-qa.yml'
+  pull_request:
+    paths:
+      - 'ai-nutrition-scanner/**'
+  workflow_dispatch:
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-nutrition-scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run unit, vision gateway, and HTTP integration tests
+        run: npm test
+
+  browser-tests:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ai-nutrition-scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run desktop and mobile Chromium QA
+        run: node tests/browser-smoke.mjs
