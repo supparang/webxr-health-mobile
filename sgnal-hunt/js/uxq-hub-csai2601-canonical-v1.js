@@ -30,13 +30,33 @@
     const n = Math.max(0, Math.min(3, Number(value || 0)));
     return `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
   };
-  const launchUrl = node => `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(node.id || '').toUpperCase())}&v=${encodeURIComponent(VERSION)}`;
+  const launchUrl = node => {
+    const url = new URL('./csai2601-canonical-node-clean-v1.html', location.href);
+    url.searchParams.set('node', String(node.id || '').toUpperCase());
+    try {
+      const p = window.UXQIdentity?.get?.() || {};
+      if (p.studentId) url.searchParams.set('studentId', p.studentId);
+      if (p.studentName) url.searchParams.set('studentName', p.studentName);
+      if (p.section) url.searchParams.set('section', p.section);
+    } catch (_) {}
+    url.searchParams.set('courseId', window.UXQ_CLASSROOM_CONFIG?.courseId || 'UXQ-ACT1-2026');
+    url.searchParams.set('source', 'mission-control');
+    url.searchParams.set('v', VERSION);
+    return url.pathname + url.search;
+  };
 
   let snapshot = null;
 
   function canonicalPassedSet() {
     const list = snapshot?.diagnostics?.canonicalPassedMissionIds;
-    return new Set(Array.isArray(list) ? list.map(value => String(value || '').trim().toLowerCase()).filter(id => ORDER.includes(id)) : []);
+    if (Array.isArray(list)) {
+      return new Set(list.map(value => String(value || '').trim().toLowerCase()).filter(id => ORDER.includes(id)));
+    }
+    const completedNodes = Math.max(0, Math.min(ORDER.length, Number(snapshot?.completedNodes || 0)));
+    if (completedNodes > 0) return new Set(ORDER.slice(0, completedNodes));
+    const apiNext = String(snapshot?.nextMission || '').trim().toLowerCase();
+    const nextIdx = ORDER.indexOf(apiNext);
+    return new Set(nextIdx > 0 ? ORDER.slice(0, nextIdx) : []);
   }
 
   function normalizedMission(key) {
@@ -54,9 +74,10 @@
   function missionRecord(key) { return normalizedMission(key); }
   function passed(key) { return missionRecord(key).missionPassed; }
   function canonicalNextKey() {
+    const firstNotPassed = ORDER.find(key => !passed(key));
+    if (firstNotPassed) return firstNotPassed;
     const apiNext = String(snapshot?.nextMission || '').trim().toLowerCase();
-    if (ORDER.includes(apiNext)) return apiNext;
-    return ORDER.find(key => !passed(key)) || '';
+    return ORDER.includes(apiNext) ? apiNext : '';
   }
   function available(key) {
     if (!snapshot?.ok) return false;
@@ -86,7 +107,7 @@
     const rounds = Array.isArray(node.missionRounds) ? node.missionRounds.slice(0, 3).join(' → ') : '';
     const desc = state.isAvailable
       ? `${node.focus || ''}${rounds ? ` • ${rounds}` : ''}`
-      : 'ล็อกตามลำดับ Canonical Path โดยใช้ mission_completed จาก Google Sheet';
+      : 'ล็อกตามลำดับ Canonical Path โดยใช้ข้อมูลทางการจาก Google Sheet';
 
     return `<article class="${boss ? 'boss-preview' : 'compact-stage'} campaign-preview ${state.isAvailable ? 'is-ready' : 'is-locked'} ${state.isPassed ? 'is-cleared' : ''}" data-node="${esc(node.id)}" data-node-id="${esc(node.key)}" data-mission-passed="${state.isPassed ? '1' : '0'}">
       <div class="${boss ? 'boss-preview__top' : 'compact-stage__top'}">
@@ -98,7 +119,7 @@
       </div>
       <div class="${boss ? 'boss-preview__footer' : 'compact-stage__footer'}">
         <span>${esc(hint)}</span>
-        <a class="campaign-launch ${state.isAvailable ? '' : 'is-disabled'}" href="${esc(url)}" aria-disabled="${state.isAvailable ? 'false' : 'true'}">${state.isPassed ? 'ทำ Studio ต่อ' : state.isAvailable ? 'เริ่ม Mission' : 'ล็อกอยู่'}</a>
+        <a class="campaign-launch ${state.isAvailable ? '' : 'is-disabled'}" href="${esc(url)}" aria-disabled="${state.isAvailable ? 'false' : 'true'}">${state.isPassed ? 'กำลังตรวจ Studio…' : state.isAvailable ? 'เริ่ม Mission' : 'ล็อกอยู่'}</a>
       </div>
     </article>`;
   }
@@ -106,8 +127,8 @@
   function renderLoading(message) {
     if ($('#progress')) $('#progress').textContent = 'กำลังดึง Mission จาก Sheet…';
     if ($('#nextTitle')) $('#nextTitle').textContent = message || 'กำลังตรวจความก้าวหน้าจาก Google Sheet';
-    if ($('#nextDesc')) $('#nextDesc').textContent = 'ระบบยังไม่ปลดล็อกจนกว่าจะได้รับ canonicalPassedMissionIds จาก Sheet';
-    if ($('#nextLink')) { $('#nextLink').href = '#'; $('#nextLink').textContent = 'กำลังโหลด…'; $('#nextLink').setAttribute('aria-disabled', 'true'); }
+    if ($('#nextDesc')) $('#nextDesc').textContent = 'ระบบกำลังยืนยันสถานะ Mission, Studio Practice และ Reflection จาก Google Sheet';
+    if ($('#nextLink')) { $('#nextLink').href = '#'; $('#nextLink').textContent = 'กำลังโหลด…'; $('#nextLink').setAttribute('aria-disabled', 'true'); $('#nextLink').onclick = e => e.preventDefault(); }
     const grid = $('#grid');
     if (grid) grid.innerHTML = '<div class="campaign-separator">Google Sheet เป็นแหล่งข้อมูลหลัก • กำลังโหลดสถานะ Mission</div>';
   }
@@ -117,27 +138,29 @@
     window.UXQMissionSheetSnapshot = snapshot;
     if (!snapshot) { renderLoading('ยังไม่ได้รับสถานะจาก Google Sheet'); return; }
 
+    document.querySelectorAll('#uxqStudentRecoveryActions,[data-sheet-recovery-action],.uxq-cloud-recovery-actions').forEach(el => el.remove());
+
     const canonicalPassed = Array.from(canonicalPassedSet());
     const missionCompleted = canonicalPassed.length;
     const nextKey = canonicalNextKey();
     const next = nodes.find(node => node.key === nextKey) || null;
 
-    if ($('#progress')) $('#progress').textContent = `Mission ${missionCompleted}/${ORDER.length} • รอรวม Studio/Reflection`;
+    if ($('#progress')) $('#progress').textContent = `Mission ${missionCompleted}/${ORDER.length} • กำลังรวม Studio/Reflection…`;
     const grid = $('#grid');
     if (grid) {
-      grid.innerHTML = `<div class="campaign-separator">Mission ผ่าน ${missionCompleted}/${ORDER.length} • ยืนยันจาก canonicalPassedMissionIds • การจบ Node ต้องครบ 3/3</div>` + nodes.map(card).join('');
+      grid.innerHTML = `<div class="campaign-separator">Mission ผ่าน ${missionCompleted}/${ORDER.length} • ยืนยันจาก Google Sheet • การจบ Node ต้องครบ 3/3</div>` + nodes.map(card).join('');
       grid.querySelectorAll('a[aria-disabled="true"]').forEach(link => link.addEventListener('click', event => event.preventDefault()));
     }
 
     if (next) {
       if ($('#nextTitle')) $('#nextTitle').textContent = `${next.id} • ${next.missionTitle || next.title}`;
-      if ($('#nextDesc')) $('#nextDesc').textContent = `Mission ถัดไปตาม Sheet${next.artifact ? ` • หลังผ่านต้องส่ง ${next.artifact} และ Reflection` : ''}`;
+      if ($('#nextDesc')) $('#nextDesc').textContent = `กำลังตรวจ Studio Practice และ Reflection จาก Sheet…`;
       if ($('.current-card__icon')) $('.current-card__icon').textContent = nodeIcon(next);
-      if ($('#nextLink')) { $('#nextLink').href = launchUrl(next); $('#nextLink').textContent = 'เริ่ม Mission →'; $('#nextLink').setAttribute('aria-disabled', 'false'); }
+      if ($('#nextLink')) { $('#nextLink').href = launchUrl(next); $('#nextLink').textContent = 'เริ่ม Mission →'; $('#nextLink').setAttribute('aria-disabled', 'false'); $('#nextLink').onclick = null; }
     } else {
       if ($('#nextTitle')) $('#nextTitle').textContent = 'Mission ผ่านครบ 19/19';
-      if ($('#nextDesc')) $('#nextDesc').textContent = 'ยังต้องตรวจ Studio Practice และ Reflection ก่อนถือว่าจบหลักสูตร';
-      if ($('#nextLink')) { $('#nextLink').href = '#'; $('#nextLink').textContent = 'กำลังตรวจความครบ 3 ส่วน…'; $('#nextLink').setAttribute('aria-disabled', 'true'); }
+      if ($('#nextDesc')) $('#nextDesc').textContent = 'กำลังตรวจความครบ Studio Practice และ Weekly Reflection จาก Sheet…';
+      if ($('#nextLink')) { $('#nextLink').href = '#'; $('#nextLink').textContent = 'กำลังตรวจความครบ 3 ส่วน…'; $('#nextLink').setAttribute('aria-disabled', 'true'); $('#nextLink').onclick = e => e.preventDefault(); }
     }
 
     document.body.dataset.uxqCloudLoading = '0';
@@ -145,8 +168,15 @@
   }
 
   function boot() {
-    renderLoading();
     window.addEventListener('uxq-sheet-progress-restored', event => drawFromSheet(event.detail));
+    if (window.UXQMissionSheetSnapshot?.ok) {
+      drawFromSheet(window.UXQMissionSheetSnapshot);
+      return;
+    }
+    const idApi = window.UXQIdentity;
+    if (idApi && idApi.isComplete && idApi.isComplete(idApi.get())) {
+      renderLoading();
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });

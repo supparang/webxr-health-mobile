@@ -1,14 +1,14 @@
-/* CSAI2601 UX Quest • Mission Control Three-Part Final Authority v1.2
- * Runs after Mission Control decorators and makes badge, three-part pills,
- * CTA and next-note render from the same canonical course-progress state.
- * Only contiguous Mission + Studio + Reflection unlocks the next node.
+/* CSAI2601 UX Quest • Mission Control Three-Part Final Authority v1.4
+ * Single deterministic decorator for Mission Control cards and hero CTA.
+ * Only contiguous Mission + Studio Practice + Weekly Reflection (3/3) unlocks the next node.
+ * v1.4: removes self-triggering MutationObserver loops, forwards both view=studio & phase=studio,
+ * preserves classroom query context, and cleanly handles already-ready state on load.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260809-MISSION-CONTROL-THREE-PART-FINAL-V1.2-STATE-SYNC';
+  const VERSION = '20261127-MISSION-CONTROL-THREE-PART-FINAL-V1.4';
   const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
-  let lastDetail = null;
 
   function profile() {
     try { return window.UXQIdentity?.get?.() || {}; }
@@ -26,19 +26,27 @@
     url.searchParams.set('courseId', window.UXQ_CLASSROOM_CONFIG?.courseId || 'UXQ-ACT1-2026');
     url.searchParams.set('source', 'mission-control');
 
-    if (mode === 'studio') url.searchParams.set('view', 'studio');
-    if (mode === 'review') {
+    const q = new URLSearchParams(location.search || '');
+    ['classroom', 'device'].forEach(k => {
+      const v = q.get(k);
+      if (v) url.searchParams.set(k, v);
+    });
+
+    if (mode === 'studio') {
+      url.searchParams.set('view', 'studio');
+      url.searchParams.set('phase', 'studio');
+    } else if (mode === 'review') {
       url.searchParams.set('review', '1');
       url.searchParams.set('complete', '1');
     }
-    url.searchParams.set('v', 'mission-control-three-part-final-v1-2-20260809');
-    return url.href;
+    url.searchParams.set('v', 'mission-control-three-part-final-v1-4-20261127');
+    return url.pathname + url.search;
   }
 
   function actionFor(state) {
-    if (!state.mission) return { label:'เริ่ม Mission', href:nodeUrl(state, 'mission'), detail:'ทำ Mission ให้ผ่านก่อน' };
-    if (!state.studio) return { label:'ทำ Studio Practice', href:nodeUrl(state, 'studio'), detail:'เหลือ Studio Practice และ Weekly Reflection' };
-    if (!state.reflection) return { label:'ทำ Weekly Reflection', href:nodeUrl(state, 'studio'), detail:'เหลือ Weekly Reflection อีก 1 ส่วน' };
+    if (!state.mission) return { label:'เริ่ม Mission', href:nodeUrl(state, 'mission'), detail:'ทำ Mission ให้ผ่านอย่างน้อย 2★ ก่อน' };
+    if (!state.studio) return { label:'ทำ Studio Practice', href:nodeUrl(state, 'studio'), detail:'Mission ผ่านแล้ว • เหลือ Studio Practice และ Weekly Reflection' };
+    if (!state.reflection) return { label:'ทำ Weekly Reflection', href:nodeUrl(state, 'studio'), detail:'Mission + Studio ผ่านแล้ว • เหลือ Weekly Reflection อีก 1 ส่วน' };
     return { label:'ดู Studio & Reflection', href:nodeUrl(state, 'review'), detail:'ครบ Mission + Studio Practice + Weekly Reflection แล้ว' };
   }
 
@@ -47,9 +55,7 @@
     if (!status) {
       status = document.createElement('div');
       status.className = 'studio-node-status';
-      const launch = element.querySelector('.campaign-launch');
-      if (launch?.parentNode) launch.parentNode.insertBefore(status, launch.nextSibling);
-      else element.appendChild(status);
+      element.appendChild(status);
     }
     status.innerHTML = [
       `<span class="${state.mission ? 'done' : ''}">Mission ${state.mission ? '✓' : '○'}</span>`,
@@ -81,12 +87,20 @@
   }
 
   function applyHero(states, stop) {
+    document.querySelectorAll('#uxqStudentRecoveryActions,[data-sheet-recovery-action],.uxq-cloud-recovery-actions').forEach(el => el.remove());
     const link = document.getElementById('nextLink');
-    if (!link || stop >= states.length) return;
+    if (!link) return;
+    if (stop >= states.length) {
+      link.href = '#';
+      link.textContent = 'Portfolio พร้อมตรวจ';
+      link.setAttribute('aria-disabled', 'true');
+      link.onclick = event => event.preventDefault();
+      return;
+    }
     const current = states[stop];
     const action = actionFor(current);
     link.href = action.href;
-    link.textContent = action.label;
+    link.textContent = `${action.label} →`;
     link.setAttribute('aria-disabled', 'false');
     link.onclick = null;
     link.dataset.uxqUnifiedStudioRoute = '1';
@@ -95,7 +109,6 @@
   function apply(detail) {
     const states = Array.isArray(detail?.states) ? detail.states : [];
     if (!states.length) return;
-    lastDetail = detail;
 
     const firstIncomplete = states.findIndex(state => !state.complete);
     const stop = firstIncomplete < 0 ? states.length : firstIncomplete;
@@ -108,11 +121,18 @@
       const locked = index > stop;
       const launch = element.querySelector('.campaign-launch');
       const badge = element.querySelector('.stage-state');
+      const footerSpan = element.querySelector('.compact-stage__footer > span, .boss-preview__footer > span');
       const action = actionFor(state);
 
+      element.dataset.missionPassed = state.mission ? '1' : '0';
       element.dataset.threePartLocked = locked ? '1' : '0';
       element.dataset.nodeComplete = state.complete ? '1' : '0';
       element.dataset.uxqFinalAuthority = '1';
+      element.classList.toggle('is-locked', locked);
+      element.classList.toggle('is-ready', !locked);
+      element.classList.toggle('is-cleared', state.complete);
+      element.style.opacity = '';
+      element.style.filter = '';
 
       ensureThreePartStatus(element, state);
       ensureNextNote(element, state, locked, index);
@@ -128,7 +148,15 @@
         badge.dataset.uxqFinalAuthority = '1';
       }
 
+      if (footerSpan) {
+        footerSpan.textContent = locked
+          ? `รอ ${ORDER[index - 1].toUpperCase()} ครบ Mission + Studio + Reflection`
+          : action.detail;
+      }
+
       if (!launch) return;
+      launch.classList.toggle('uxq-primary-action', !locked);
+      launch.classList.toggle('is-disabled', locked);
       if (locked) {
         launch.href = '#';
         launch.textContent = `🔒 รอ ${ORDER[index - 1].toUpperCase()} ครบ 3/3`;
@@ -140,6 +168,7 @@
         launch.href = action.href;
         launch.textContent = action.label;
         launch.setAttribute('aria-disabled', 'false');
+        launch.setAttribute('aria-label', `${action.label} ของ ${state.id.toUpperCase()}`);
         launch.onclick = null;
         launch.style.pointerEvents = '';
         launch.style.opacity = '';
@@ -163,24 +192,15 @@
   }
 
   window.addEventListener('uxq-three-part-course-progress', event => {
-    requestAnimationFrame(() => apply(event.detail));
-    setTimeout(() => apply(event.detail), 250);
-    setTimeout(() => apply(event.detail), 1000);
-    setTimeout(() => apply(event.detail), 2500);
+    apply(event.detail);
   });
 
-  const observer = new MutationObserver(() => {
-    if (lastDetail) requestAnimationFrame(() => apply(lastDetail));
-  });
-  const start = () => observer.observe(document.getElementById('grid') || document.body, {
-    childList:true,
-    subtree:true
-  });
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
-  else start();
+  if (window.UXQCombinedCourseProgress?.states?.length) {
+    queueMicrotask(() => apply(window.UXQCombinedCourseProgress));
+  }
 
   window.UXQMissionControlThreePartFinalAuthorityV1 = Object.freeze({
-    version:VERSION,
+    version: VERSION,
     apply,
     actionFor
   });

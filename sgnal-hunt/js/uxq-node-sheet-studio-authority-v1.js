@@ -53,7 +53,7 @@
     };
   };
 
-  function jsonp(action, extra = {}, timeout = 15000) {
+  function jsonp(action, extra = {}, timeout = 60000) {
     return new Promise((resolve, reject) => {
       if (!ENDPOINT) return reject(new Error('missing_receiver_url'));
       const cb = `uxqNodeSheet_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -89,6 +89,10 @@
     return missionData?.missions?.[KEY] || missionData?.missions?.[NODE] || {};
   }
   function missionPassed() {
+    const diagList = missionData?.diagnostics?.canonicalPassedMissionIds;
+    if (Array.isArray(diagList)) {
+      return diagList.map(v => String(v || '').trim().toLowerCase()).includes(KEY);
+    }
     const r = missionRow();
     return Boolean(r.completed || r.passed || Number(r.bestStars || r.stars || 0) >= 2);
   }
@@ -107,20 +111,21 @@
     const r = missionRow();
     const sr = studioRow();
     window.UXQNodeSheetAuthority = Object.freeze({
-      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.3',
+      version: '20261127-NODE-SHEET-STUDIO-AUTHORITY-V1.5',
       nodeId: NODE,
       missionPassed: missionPassed(),
       mission: r,
       studioSubmitted: studioSubmitted(sr),
       reflectionSubmitted: reflectionSubmitted(sr),
       studio: sr,
-      refresh
+      refresh: () => refresh(true)
     });
     window.dispatchEvent(new CustomEvent('uxq-node-sheet-authority-ready', { detail: window.UXQNodeSheetAuthority }));
   }
 
   function forceStudio() {
-    if (q.get('phase') !== 'studio' || !missionPassed()) return false;
+    const wantsStudio = q.get('phase') === 'studio' || q.get('view') === 'studio';
+    if (!wantsStudio || !missionPassed()) return false;
     document.body.dataset.uxqMissionPass = '1';
     document.body.dataset.uxqRoutePhase = 'studio';
     try { sessionStorage.setItem(`csai2601.uxq.phase.${KEY}`, 'studio'); } catch (_) {}
@@ -164,18 +169,19 @@
     forceStudio();
   }
 
-  async function refresh() {
+  async function refresh(force = false) {
     if (loading) return;
+    if (!force && missionData?.ok && studioData?.ok) return;
     const learner = identity();
     if (!learner.studentId || !learner.section || !ENDPOINT) return;
     loading = true;
     try {
-      const [m, s] = await Promise.all([
+      const [mRes, sRes] = await Promise.allSettled([
         jsonp('uxq_student_progress'),
         jsonp('uxq_student_studio_progress')
       ]);
-      if (m?.ok) missionData = m;
-      if (s?.ok) studioData = s;
+      if (mRes.status === 'fulfilled' && mRes.value?.ok) missionData = mRes.value;
+      if (sRes.status === 'fulfilled' && sRes.value?.ok) studioData = sRes.value;
       expose();
       settle();
     } catch (err) {
@@ -186,14 +192,15 @@
   }
 
   const boot = () => {
-    refresh();
-    [500, 1200, 2500, 5000].forEach(ms => setTimeout(refresh, ms));
+    refresh(true);
+    [2500, 7000].forEach(ms => setTimeout(() => refresh(false), ms));
     [120, 420, 900, 1800, 3600].forEach(ms => setTimeout(settle, ms));
   };
 
-  window.addEventListener('uxq-identity-changed', refresh);
-  window.addEventListener('uxq-sheet-progress-restored', refresh);
-  window.addEventListener('online', refresh);
+  window.addEventListener('uxq-identity-changed', () => refresh(true));
+  window.addEventListener('uxq-profile-updated', () => refresh(true));
+  window.addEventListener('uxq-sheet-progress-restored', () => refresh(true));
+  window.addEventListener('online', () => refresh(false));
   ['uxq-progress-updated','uxq-studio-artifact-dispatched','uxq-studio-container-ready']
     .forEach(name => window.addEventListener(name, settle));
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });

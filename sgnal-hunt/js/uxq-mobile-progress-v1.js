@@ -137,19 +137,9 @@
     const cards = Array.from(grid.querySelectorAll('.campaign-preview'));
     if (!cards.length) return;
     let currentIndex = cards.findIndex(card => card.dataset.threePartLocked !== '1' && card.dataset.nodeComplete !== '1');
-    if (currentIndex < 0) currentIndex = 0;
+    if (currentIndex < 0) currentIndex = cards.length - 1;
     cards.forEach((card, index) => {
       card.dataset.mobileRole = index === currentIndex ? 'current' : index === currentIndex + 1 ? 'next' : 'future';
-      if (index > currentIndex) {
-        const badge = card.querySelector('.stage-state');
-        if (badge) badge.textContent = index === currentIndex + 1 ? '🔒 ด่านถัดไป' : '🔒 Locked';
-        card.querySelectorAll('.campaign-launch').forEach(link => {
-          link.href = '#';
-          link.setAttribute('aria-disabled','true');
-          link.onclick = event => event.preventDefault();
-          link.textContent = 'ยังไม่เปิด';
-        });
-      }
     });
     let button = document.getElementById('uxqMobilePathToggle');
     if (!button) {
@@ -161,29 +151,23 @@
     }
     const futureCount = cards.filter(card => card.dataset.mobileRole === 'future').length;
     button.hidden = futureCount === 0;
-    button.textContent = `ดูเส้นทางทั้งหมด ${cards.length} Nodes`;
+    const expanded = grid.classList.contains('is-expanded');
+    button.textContent = expanded ? 'ซ่อนด่านอนาคต' : `ดูเส้นทางทั้งหมด ${cards.length} Nodes`;
     button.onclick = () => {
-      const expanded = grid.classList.toggle('is-expanded');
-      button.textContent = expanded ? 'ซ่อนด่านอนาคต' : `ดูเส้นทางทั้งหมด ${cards.length} Nodes`;
+      const nextExpanded = grid.classList.toggle('is-expanded');
+      button.textContent = nextExpanded ? 'ซ่อนด่านอนาคต' : `ดูเส้นทางทั้งหมด ${cards.length} Nodes`;
     };
   }
 
   function friendlyNetworkError() {
     const box = document.getElementById('uxqStudioOverview');
-    if (!box) return;
+    if (!box || box.querySelector('.uxq-mobile-friendly-error')) return;
     const text = box.textContent || '';
-    if (!/studio_progress_network|studio_progress_timeout|ดึงสถานะ.*ไม่สำเร็จ/i.test(text)) return;
+    if (!/studio_progress_network|studio_progress_timeout|ดึงสถานะ.*ไม่สำเร็จ|ยังตรวจ Studio\/Reflection ไม่สำเร็จ/i.test(text)) return;
     box.innerHTML = `<div class="uxq-mobile-friendly-error"><strong>กำลังเชื่อมต่อสถานะ Studio/Reflection</strong><p>สัญญาณเครือข่ายยังไม่พร้อม ระบบยังไม่เปลี่ยนสถานะหรือปลดล็อกด่าน จนกว่าจะยืนยันจาก Google Sheet สำเร็จ</p><button type="button" class="uxq-mobile-retry">ลองตรวจอีกครั้ง</button></div>`;
-    box.querySelector('.uxq-mobile-retry')?.addEventListener('click', () => location.reload());
-  }
-
-  function suppressFloatingBadge() {
-    document.querySelectorAll('body > *').forEach(el => {
-      if (el.id === 'progress' || el.closest?.('.hub-shell')) return;
-      const text = String(el.textContent || '').trim();
-      if (/Mission\s*\d+\/\d+.*Studio\/Reflection|Course Complete\s*\d+\/\d+/i.test(text) && getComputedStyle(el).position === 'fixed') {
-        el.style.display = 'none';
-      }
+    box.querySelector('.uxq-mobile-retry')?.addEventListener('click', () => {
+      if (window.UXQThreePartRestoreAuthority?.boot) window.UXQThreePartRestoreAuthority.boot();
+      else location.reload();
     });
   }
 
@@ -194,20 +178,19 @@
     compactTimeline();
     compactCampaignCards();
     friendlyNetworkError();
-    suppressFloatingBadge();
   }
 
   let timer = 0;
   function schedule() {
     clearTimeout(timer);
-    timer = setTimeout(apply, 100);
+    timer = setTimeout(apply, 60);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once:true });
   else schedule();
   window.addEventListener('resize', schedule);
   window.addEventListener('uxq-three-part-course-progress', schedule);
-  new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
+  window.addEventListener('uxq-mission-control-sheet-snapshot', schedule);
 
-  window.UXQMobileCourseProgressV1 = Object.freeze({ apply, version:'20260721-MOBILE-PROGRESS-V2' });
+  window.UXQMobileCourseProgressV1 = Object.freeze({ apply, version:'20261127-MOBILE-PROGRESS-V3' });
 })();

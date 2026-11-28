@@ -59,7 +59,6 @@
       .up-next-grid.is-expanded .campaign-preview[data-mobile-role='future']{display:block!important}
       .uxq-mobile-path-toggle{position:sticky!important;bottom:10px!important;z-index:6!important;background:#102345!important;box-shadow:0 8px 24px rgba(0,0,0,.35)!important}
       #progress,.hub-menu__panel{display:none!important}
-      [style*='position: fixed'][style*='right'],[style*='position:fixed'][style*='right']{display:none!important}
     }`;
     document.head.appendChild(s);
   }
@@ -76,40 +75,17 @@
     });
   }
 
-  function hideFloating() {
-    document.querySelectorAll('body *').forEach(el => {
-      if (el.closest('.hub-shell')) return;
-      const t = String(el.textContent || '').trim();
-      if (/Mission\s*19\/19.*Studio\/Reflection|Course Complete\s*\d+\/19/i.test(t)) {
-        const pos = getComputedStyle(el).position;
-        if (pos === 'fixed' || pos === 'sticky') el.style.display = 'none';
-      }
-    });
-  }
-
-  function simplifyCurrentCard() {
-    const current = document.querySelector('.campaign-preview[data-mobile-role="current"]');
-    if (!current) return;
-    const footerText = current.querySelector('.compact-stage__footer>span,.boss-preview__footer>span');
-    if (footerText) footerText.textContent = 'Mission ผ่านแล้ว • เหลือ Studio Practice และ Reflection';
-    const link = current.querySelector('.campaign-launch');
-    if (link) link.textContent = 'ทำ Studio Practice';
-  }
-
   function apply() {
     style();
     if (!mq.matches) return;
     cleanHeadings();
-    hideFloating();
-    simplifyCurrentCard();
   }
 
   let timer;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(apply, 120); };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(apply, 80); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, {once:true});
   else schedule();
   window.addEventListener('uxq-three-part-course-progress', schedule);
   window.addEventListener('resize', schedule);
-  new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true});
-  window.UXQMobileFinalPolishV1 = Object.freeze({apply, version:'20260721-MOBILE-FINAL-POLISH-V1'});
+  window.UXQMobileFinalPolishV1 = Object.freeze({apply, version:'20261127-MOBILE-FINAL-POLISH-V2'});
 })();

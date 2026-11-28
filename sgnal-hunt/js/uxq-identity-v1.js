@@ -21,18 +21,44 @@
       || memory.get(KEY)
       || '';
   }
+  function cleanToken(value, max){
+    let text = String(value == null ? '' : value).trim();
+    if (/^\d+\.0+$/.test(text)) text = text.replace(/\.0+$/, '');
+    return text.slice(0, max);
+  }
+  function urlIdentity(){
+    try {
+      const q = new URLSearchParams(window.location.search || '');
+      const rawSec = q.get('section') || q.get('uxqSection') || '';
+      const sec = cleanToken(rawSec.replace(/^(?:section|sec)[\s_-]*/i, ''), 80);
+      return {
+        studentId: cleanToken(q.get('studentId') || q.get('sid') || '', 80),
+        studentName: String(q.get('studentName') || q.get('name') || '').trim().slice(0, 120),
+        section: sec
+      };
+    } catch (_) {
+      return { studentId: '', studentName: '', section: '' };
+    }
+  }
   function clean(input){
     const value = input && typeof input === 'object' ? input : {};
     return {
-      studentId: String(value.studentId || '').trim().slice(0, 80),
+      studentId: cleanToken(value.studentId || '', 80),
       studentName: String(value.studentName || '').trim().slice(0, 120),
-      section: String(value.section || config().defaultSection || '').trim().slice(0, 80),
+      section: cleanToken(value.section || config().defaultSection || '', 80),
       updatedAt: value.updatedAt || null
     };
   }
   function get(){
-    try { return clean(JSON.parse(readRaw())); }
-    catch (error) { return clean({}); }
+    let stored = {};
+    try { stored = JSON.parse(readRaw()) || {}; } catch (error) { stored = {}; }
+    const fromUrl = urlIdentity();
+    return clean({
+      studentId: stored.studentId || fromUrl.studentId,
+      studentName: stored.studentName || fromUrl.studentName,
+      section: stored.section || fromUrl.section,
+      updatedAt: stored.updatedAt || null
+    });
   }
   function isComplete(profile){
     const p = clean(profile);
